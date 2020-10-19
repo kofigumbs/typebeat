@@ -3,6 +3,7 @@
 #include "webview/webview.h"
 
 #include <stdio.h>
+#include <filesystem>
 
 #ifdef __EMSCRIPTEN__
 void main_loop__em()
@@ -50,6 +51,7 @@ int main() {
   w.set_title("Groovebox");
   w.set_size(480, 320, WEBVIEW_HINT_NONE);
   w.navigate("https://en.m.wikipedia.org/wiki/Main_Page");
+  w.navigate("file://" + (std::filesystem::current_path() / "web" / "index.html").string());
   w.run();
 #endif
 
