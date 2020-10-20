@@ -1,3 +1,57 @@
-h1 {
-  color: red;
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+html {
+  --light: #f5eedf;
+  --dark: #444444;
+  --black: #000000;
+  background: var(--light);
+}
+
+body {
+  font-size: 18px;
+  font-family: "Fira Code";
+}
+
+
+/*
+ * CLASSES
+ */
+
+.grid {
+  display: grid;
+  height: fit-content;
+  gap: 2rem;
+  grid-template-columns: repeat(10, 3rem);
+}
+
+.key {
+  height: 3rem;
+  text-transform: capitalize;
+  position: relative;
+  color: var(--light);
+  background: var(--dark);
+}
+
+.key::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  background: var(--black);
+}
+
+.key.down, .key:not(.down)::before {
+  top: .25rem;
+  left: .25rem;
+}
+
+.centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
