@@ -6,8 +6,10 @@ html, body {
 
 html {
   --light: #f5eedf;
-  --dark: #444444;
-  --black: #000000;
+  --gray: #999;
+  --dark: #444;
+  --black: #000;
+  --orange: darkorange;
   background: var(--light);
 }
 
@@ -18,7 +20,18 @@ body {
 
 
 /*
- * CLASSES
+ * UTILITIES
+ */
+
+.centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/*
+ * COMPONENTS
  */
 
 .grid {
@@ -29,11 +42,15 @@ body {
 }
 
 .key {
+  --accent: var(--black);
+  --background: var(--dark);
   height: 3rem;
+  font-weight: 800;
   text-transform: capitalize;
   position: relative;
   color: var(--light);
-  background: var(--dark);
+  background: var(--background);
+  border: solid 1px var(--accent);
 }
 
 .key::before {
@@ -42,7 +59,7 @@ body {
   z-index: -1;
   width: 100%;
   height: 100%;
-  background: var(--black);
+  background: var(--accent);
 }
 
 .key.down, .key:not(.down)::before {
@@ -50,8 +67,10 @@ body {
   left: .25rem;
 }
 
-.centered {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.key.beat {
+  --accent: var(--orange);
+}
+
+.key.extra, .key.extra::before {
+  --background: var(--medium);
 }
