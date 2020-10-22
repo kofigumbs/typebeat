@@ -80,7 +80,7 @@ int main() {
    *
    * So instead we're stuck copying the color:
    */
-  auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithCalibratedRed:green:blue:alpha:"), 245/255.0, 238/255.0, 223/255.0, 1.0);
+  auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithCalibratedRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0);
   auto window = (id) view.window();
   objc_msgSend(window, sel_registerName("setBackgroundColor:"), light);
   objc_msgSend(window, sel_registerName("setTitlebarAppearsTransparent:"), 1);
