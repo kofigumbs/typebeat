@@ -27,8 +27,7 @@ const keys = {
   },
   role: {
     sequence: Array.from("qwertyuiasdfghjk"),
-    control1: Array.from(".lo"),
-    control2: Array.from("/;p"),
+    control: Array.from("opl;./"),
     navigation: Array.from("zxcvbnm,"),
   },
 };
@@ -39,10 +38,8 @@ const newKey = key => {
     role = "sequence";
   if (keys.role.navigation.includes(key))
     role = "navigation";
-  if (keys.role.control1.includes(key))
-    role = "control one";
-  if (keys.role.control2.includes(key))
-    role = "control two";
+  if (keys.role.control.includes(key))
+    role = "control";
   return div({ class: "key centered " + role, "data-key": key }, [ text(key) ]);
 };
 
