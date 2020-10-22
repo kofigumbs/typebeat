@@ -60,7 +60,6 @@ document.addEventListener("keydown", event => updateKeyDown(event.key, "add"));
 document.addEventListener("keyup", event => updateKeyDown(event.key, "remove"));
 
 const updateState = ({ beat }) => {
-  const cursor = keys.role.sequence[beat % 16];
   keys.role.sequence.forEach((key, index) => {
     getKeyElement(key).classList.toggle("lit", index === beat % keys.role.sequence.length);
   });
