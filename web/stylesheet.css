@@ -13,6 +13,7 @@ html {
   --green: green;
   --orange: darkorange;
   background: var(--light);
+  overflow: hidden;
 }
 
 body {
