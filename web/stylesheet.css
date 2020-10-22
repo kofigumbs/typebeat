@@ -24,6 +24,7 @@ body {
   font-family: "Fira Code", "Menlo";
   cursor: none;
   user-select: none;
+  -webkit-user-select: none;
 }
 
 
@@ -41,18 +42,18 @@ body {
   justify-content: center;
 }
 
-.row {
-  flex-direction: row;
-}
+
+/*
+ * COMPONENTS
+ */
 
 .column {
   flex-direction: column;
 }
 
-
-/*
- * COMPONENTS
- */
+.row {
+  flex-direction: row;
+}
 
 .row:first-of-type {
   margin-left: -1rem;
@@ -60,6 +61,7 @@ body {
 
 .row:last-of-type {
   margin-left: 1rem;
+  margin-bottom: 22px; /* see notes/frameless.md */
 }
 
 .key {

@@ -55,8 +55,8 @@ int main() {
 #else
   webview::webview view(true, nullptr);
   view.set_title("Groovebox");
-  view.set_size(780, 310, WEBVIEW_HINT_MIN);
-  view.set_size(780, 310, WEBVIEW_HINT_NONE);
+  view.set_size(780, 300, WEBVIEW_HINT_MIN);
+  view.set_size(780, 300, WEBVIEW_HINT_NONE);
   view.navigate("file://" + (std::filesystem::current_path() / "web" / "index.html").string());
   view.bind("groovebox", [device](std::string s) -> std::string {
     return std::string("{") +
@@ -66,21 +66,7 @@ int main() {
   device.pUserData = &view;
   ma_device_start(&device);
 #ifdef WEBVIEW_COCOA
-  /* Blend the titlebar into the window... this seems like it should work but doesn't:
-   *
-   *    auto contentView = (id) objc_msgSend(window, sel_registerName("contentView"));
-   *    objc_msgSend(contentView, sel_registerName("setMouseDownCanMoveWindow:"), 1); // DOES NOT EXIST, requires WKWebView subclass
-   *    objc_msgSend(window, sel_registerName("setStyleMask:"),
-   *        1 |       // titled
-   *        2 |       // closable
-   *        4 |       // miniaturizable
-   *        8 |       // resizable
-   *        1 << 15); // fullsize (ask webview to cover space beneath titlebar)
-   *    objc_msgSend(window, sel_registerName("setMovableByWindowBackground:"), 1);
-   *
-   * So instead we're stuck copying the color:
-   */
-  auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithCalibratedRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0);
+  auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see notes/frameless.md
   auto window = (id) view.window();
   objc_msgSend(window, sel_registerName("setBackgroundColor:"), light);
   objc_msgSend(window, sel_registerName("setTitlebarAppearsTransparent:"), 1);
