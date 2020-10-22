@@ -19,9 +19,8 @@ html {
 body {
   font-size: 18px;
   font-family: "Fira Code", "Menlo";
-  pointer-events: none;
+  cursor: none;
   user-select: none;
-  -webkit-user-select: none;
 }
 
 
