@@ -1,0 +1,14 @@
+{
+  "soulPatchV1": {
+    "ID":               "sexy.kofi.groovebox",
+    "version":          "1.0",
+    "name":             "groovebox",
+    "description":      "groovebox",
+    "category":         "synth",
+    "manufacturer":     "kofi.sexy",
+    "isInstrument":     true,
+    "source":           "groovebox.soul",
+    "externals": { 
+    }
+  }
+}

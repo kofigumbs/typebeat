@@ -1,32 +1,53 @@
+#include <cassert>
+#include <filesystem>
+
 #define MINIAUDIO_IMPLEMENTATION
+#define MA_NO_ENCODING
+#define MA_NO_DECODING
+#define MA_NO_GENERATION
 #include "miniaudio/miniaudio.h"
 #include "webview/webview.h"
+#include "SOUL/include/soul/soul_patch.h"
 
-#include <stdio.h>
-#include <filesystem>
-#include <iostream>
+struct GROOVEBOX {
+  int beat;
+  soul::patch::PatchPlayer::Ptr player;
+};
 
-#ifdef __EMSCRIPTEN__
-void main_loop__em()
-{
-}
-#endif
+void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
+  auto groovebox = (GROOVEBOX (*)) device->pUserData;
+  float deinterleavedInput[device->capture.channels][frameCount],
+        deinterleavedOutput[device->playback.channels][frameCount],
+        *inputChannels[device->capture.channels],
+        *outputChannels[device->playback.channels];
 
-volatile int beat = 0;
-const static float bpm = 120;
-
-void audioCallback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
-  static int beatDuration = (int) 60/bpm * pDevice->sampleRate / 2; /* EIGTH NOTES */
-  static int beatProgress;
-  beatProgress += frameCount;
-  while (beatProgress >= beatDuration) {
-    beat++;
-    beatProgress -= beatDuration;
+  for (int channel = 0; channel < device->capture.channels; channel++) {
+    for (int frame = 0; frame < frameCount; frame++)
+      deinterleavedInput[channel][frame] = ((float*) input)[channel + frame*device->capture.channels];
+    inputChannels[channel] = ((float*) deinterleavedInput) + channel*frameCount;
   }
 
-  MA_ASSERT(pDevice->capture.format == pDevice->playback.format);
-  MA_ASSERT(pDevice->capture.channels == pDevice->playback.channels);
-  MA_COPY_MEMORY(pOutput, pInput, frameCount * ma_get_bytes_per_frame(pDevice->capture.format, pDevice->capture.channels));
+  for (int channel = 0; channel < device->playback.channels; channel++)
+    outputChannels[channel] = ((float*) deinterleavedOutput) + channel*frameCount;
+
+  const int maxMidi = 64;
+  soul::MIDIEvent incomingMIDI[maxMidi], outgoingMIDI[maxMidi];
+  soul::patch::PatchPlayer::RenderContext context;
+  context.incomingMIDI = incomingMIDI;
+  context.outgoingMIDI = outgoingMIDI;
+  context.numMIDIMessagesIn = 0;
+  context.numMIDIMessagesOut = 0;
+  context.maximumMIDIMessagesOut = maxMidi;
+  context.numFrames = frameCount;
+  context.numInputChannels = device->capture.channels;
+  context.numOutputChannels = device->playback.channels;
+  context.inputChannels = (const float* const*) inputChannels;
+  context.outputChannels = (float* const*) outputChannels;
+  assert(groovebox->player->render(context) == soul::patch::PatchPlayer::RenderResult::ok);
+
+  for (int channel = 0; channel < device->playback.channels; channel++)
+    for (int frame = 0; frame < frameCount; frame++)
+      ((float*) output)[channel + frame*device->playback.channels] = deinterleavedOutput[channel][frame];
 }
 
 #ifdef WIN32
@@ -34,37 +55,41 @@ int WINAPI WinMain(HINSTANCE hInt, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCm
 #else
 int main() {
 #endif
-  ma_result result;
-  ma_device_config deviceConfig;
-  ma_device device;
-
-  deviceConfig = ma_device_config_init(ma_device_type_duplex);
+  ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
+  deviceConfig.periodSizeInFrames = 64;
   deviceConfig.capture.channels = 2;
+  deviceConfig.capture.format = ma_format_f32;
   deviceConfig.playback.channels = 2;
-  deviceConfig.dataCallback = audioCallback;
-  result = ma_device_init(NULL, &deviceConfig, &device);
-  if (result != MA_SUCCESS) {
-    printf("Error opening audio device");
-    return result;
-  }
+  deviceConfig.playback.format = ma_format_f32;
+  deviceConfig.dataCallback = callback;
 
-#ifdef __EMSCRIPTEN__
-  getchar();
-  ma_device_start(&device);
-  emscripten_set_main_loop(main_loop__em, 0, 1);
-#else
+  ma_device device;
+  assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
+
+  auto cwd = std::filesystem::current_path();
+  soul::patch::SOULPatchLibrary library((cwd / soul::patch::SOULPatchLibrary::getLibraryFileName()).c_str());
+  soul::patch::PatchInstance::Ptr patch = library.createPatchFromFileBundle("dsp/groovebox.soulpatch");
+  soul::patch::PatchPlayerConfiguration playerConfig;
+  playerConfig.sampleRate = device.sampleRate;
+  playerConfig.maxFramesPerBlock = deviceConfig.periodSizeInFrames;
+  auto player = soul::patch::PatchPlayer::Ptr(
+    patch->compileNewPlayer(playerConfig, NULL, NULL, NULL, NULL)
+  );
+
+  GROOVEBOX groovebox;
+  groovebox.player = player;
+  device.pUserData = &groovebox;
+
   webview::webview view(true, nullptr);
-  view.set_title("Groovebox");
   view.set_size(780, 300, WEBVIEW_HINT_MIN);
   view.set_size(780, 300, WEBVIEW_HINT_NONE);
-  view.navigate("file://" + (std::filesystem::current_path() / "web" / "index.html").string());
-  view.bind("groovebox", [device](std::string s) -> std::string {
+  view.navigate("file://" + (cwd / "web" / "index.html").string());
+  view.bind("groovebox", [groovebox](std::string s) -> std::string {
     return std::string("{") +
-      "\"beat\":" + std::to_string(beat) +
+      "\"beat\":" + std::to_string(groovebox.beat) +
     "}";
   });
-  device.pUserData = &view;
-  ma_device_start(&device);
+
 #ifdef WEBVIEW_COCOA
   auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see notes/frameless.md
   auto window = (id) view.window();
@@ -73,9 +98,9 @@ int main() {
   objc_msgSend(window, sel_registerName("setHasShadow:"), 1);
   objc_msgSend(window, sel_registerName("center"));
 #endif
-  view.run();
-#endif
 
+  ma_device_start(&device);
+  view.run();
   ma_device_uninit(&device);
   return 0;
 }

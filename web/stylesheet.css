@@ -22,7 +22,7 @@ html {
 body {
   font-size: 18px;
   font-family: "Fira Code", "Menlo";
-  cursor: none;
+  cursor: default;
   user-select: none;
   -webkit-user-select: none;
 }
