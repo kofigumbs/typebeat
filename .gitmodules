@@ -1,6 +1,9 @@
 [submodule "desktop/webview"]
-	path = desktop/webview
+	path = native/webview
 	url = https://github.com/webview/webview
 [submodule "desktop/miniaudio"]
-	path = desktop/miniaudio
+	path = native/miniaudio
 	url = https://github.com/dr-soft/miniaudio
+[submodule "native/SOUL"]
+	path = native/SOUL
+	url = https://github.com/soul-lang/SOUL

@@ -1,2 +1,2 @@
-groovebox: desktop
-	g++ desktop/main.cpp -std=c++17 -ldl -lm -lpthread -framework WebKit -o groovebox
+groovebox: native
+	g++ native/desktop.cpp -std=c++17 -ldl -lm -lpthread -framework WebKit -o groovebox
