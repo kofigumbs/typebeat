@@ -17,8 +17,9 @@ const div = (attributes, children) => {
 
 
 /*
- * groovebox
+ * setup keys
  */
+
 const keys = {
   layout: {
     row1: Array.from("qwertyuiop"),
@@ -57,17 +58,25 @@ document.body.appendChild(div({ class: "row centered" }, keys.layout.row1.map(ne
 document.body.appendChild(div({ class: "row centered" }, keys.layout.row2.map(newKey)));
 document.body.appendChild(div({ class: "row centered" }, keys.layout.row3.map(newKey)));
 
+
+/*
+ * keyboard midi events
+ */
+
 const getKeyElement = key => {
   return document.querySelector(`[data-key="${key}"]`);
 };
 
 const onMidiIn = midi => {
   for (const message of midi) {
-    if (message >> 16 === 242 /* song position pointer */) {
-      let beat = ((message & 127) << 7) | ((message >> 8) & 127);
-      keys.role.sequence.forEach((key, index) => {
-        getKeyElement(key).classList.toggle("current", index === (beat / 4) % keys.role.sequence.length);
-      });
+    switch (message >> 16 /* status byte */) {
+      case 242: /* song position pointer */
+        const beat = ((message & 127) << 7) | ((message >> 8) & 127);
+        const sequencePosition = (beat / 4) % keys.role.sequence.length;
+        keys.role.sequence.forEach((key, index) => {
+          getKeyElement(key).classList.toggle("current", index === sequencePosition);
+        });
+        break;
     }
   }
 };

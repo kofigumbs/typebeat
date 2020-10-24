@@ -23,18 +23,18 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
         *inputChannels[device->capture.channels],
         *outputChannels[device->playback.channels];
 
-  // De-interleave input audio frames and setup input wrapping array
+  // de-interleave input audio frames and setup input wrapping array
   for (int channel = 0; channel < device->capture.channels; channel++) {
     for (int frame = 0; frame < frameCount; frame++)
       deinterleavedInput[channel][frame] = ((float*) input)[channel + frame*device->capture.channels];
     inputChannels[channel] = ((float*) deinterleavedInput) + channel*frameCount;
   }
 
-  // Setup output wrapping array
+  // setup output wrapping array
   for (int channel = 0; channel < device->playback.channels; channel++)
     outputChannels[channel] = ((float*) deinterleavedOutput) + channel*frameCount;
 
-  // Queue incoming MIDI
+  // queue incoming MIDI
   const int maxMidi = 64;
   soul::MIDIEvent incomingMIDI[maxMidi], outgoingMIDI[maxMidi];
   soul::MIDIEvent event;
@@ -42,7 +42,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
   while (groovebox->midiIn.pop(event))
     incomingMIDI[numMIDIMessagesIn++] = event;
 
-  // Render audio context
+  // render audio context
   soul::patch::PatchPlayer::RenderContext context;
   context.incomingMIDI = incomingMIDI;
   context.outgoingMIDI = outgoingMIDI;
@@ -55,11 +55,11 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
   context.outputChannels = (float* const*) outputChannels;
   assert(groovebox->player->render(context) == soul::patch::PatchPlayer::RenderResult::ok);
 
-  // De-queue outgoing MIDI
+  // de-queue outgoing MIDI
   for (int i = 0; i < context.numMIDIMessagesOut; i++)
     groovebox->midiOut.push(outgoingMIDI[i]);
 
-  // Interleave output audio frames
+  // interleave output audio frames
   for (int channel = 0; channel < device->playback.channels; channel++)
     for (int frame = 0; frame < frameCount; frame++)
       ((float*) output)[channel + frame*device->playback.channels] = deinterleavedOutput[channel][frame];
@@ -70,7 +70,7 @@ int WINAPI WinMain(HINSTANCE hInt, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCm
 #else
 int main() {
 #endif
-  // Setup miniaudio configuration to match that of the SOUL patch
+  // setup miniaudio configuration to match that of the SOUL patch
   ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
   deviceConfig.periodSizeInFrames = 64;
   deviceConfig.capture.channels = 2;
@@ -79,11 +79,11 @@ int main() {
   deviceConfig.playback.format = ma_format_f32;
   deviceConfig.dataCallback = callback;
 
-  // Initialize audio devive
+  // initialize audio devive
   ma_device device;
   assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
-  // Compile SOUL patch
+  // compile SOUL patch
   auto cwd = std::filesystem::current_path();
   soul::patch::SOULPatchLibrary library((cwd / "build" / soul::patch::SOULPatchLibrary::getLibraryFileName()).c_str());
   soul::patch::PatchInstance::Ptr patch = library.createPatchFromFileBundle("dsp/groovebox.soulpatch");
@@ -94,18 +94,18 @@ int main() {
     patch->compileNewPlayer(playerConfig, NULL, NULL, NULL, NULL)
   );
 
-  // Setup shared user data
+  // setup shared user data
   GROOVEBOX groovebox;
   groovebox.player = player;
   device.pUserData = &groovebox;
 
-  // Setup webview
+  // setup webview
   webview::webview view(true, nullptr);
   view.set_size(780, 300, WEBVIEW_HINT_MIN);
   view.set_size(780, 300, WEBVIEW_HINT_NONE);
   view.navigate("file://" + (cwd / "web" / "index.html").string());
 
-  // Bind JSON-encoded MIDI I/O to webview
+  // bind JSON-encoded MIDI I/O to webview
   view.bind("pushMidi", [&groovebox](std::string midiIn) -> std::string {
     size_t parseOffset1, parseOffset2;
     groovebox.midiIn.push({ 0, {
@@ -120,7 +120,7 @@ int main() {
     return "[" + (midiOut.empty() ? "" : midiOut.substr(1)) + "]";
   });
 
-  // Customize webview further for macOS
+  // customize webview further for macOS
 #ifdef WEBVIEW_COCOA
   auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see notes/frameless.md
   auto window = (id) view.window();
@@ -130,7 +130,7 @@ int main() {
   objc_msgSend(window, sel_registerName("center"));
 #endif
 
-  // Main run loop
+  // main run loop
   ma_device_start(&device);
   view.run();
   ma_device_uninit(&device);

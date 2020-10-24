@@ -5,19 +5,9 @@ graph Groovebox  [[ main ]] {
     input event soul::midi::Message midiIn;
     output event soul::midi::Message midiOut;
 
-    let clock = Clock;
-
-    let {
-        midiParser = soul::midi::MPEParser;
-        sineOsc = SineOsc;
-    }
-
     connection {
-        midiIn -> midiParser.parseMIDI;
-        midiParser.eventOut -> sineOsc.noteOn,
-                               sineOsc.noteOff;
-        sineOsc.audioOut -> audioOut;
-        clock.midiOut -> midiOut;
+        midiIn -> soul::midi::MPEParser -> SineOsc -> audioOut;
+        Clock -> midiOut;
     }
 }
 
@@ -30,22 +20,22 @@ processor Clock {
     soul::timeline::TransportState transport;
 
     void init () {
-      tempo = soul::timeline::Tempo(120.0);
-      signature = soul::timeline::TimeSignature(4, 4);
-      transport = soul::timeline::TransportState(1 /* playing */);
+        tempo = soul::timeline::Tempo(120.0);
+        signature = soul::timeline::TimeSignature(4, 4);
+        transport = soul::timeline::TransportState(1 /* playing */);
     }
 
     void run() {
         loop {
-          loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency))) {
-            advance();
-          }
-          currentQuarterNote++;
-          midiOut << soul::midi::Message(
-            242 << 16 /* song position pointer */
-            | ((currentQuarterNote * 4) & 127) << 8 /* least significant 7 bits in 16th notes */
-            | ((currentQuarterNote * 4) >> 7) & 127 /* most significant 7 bits in 16th notes */
-          );
+            loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency))) {
+                advance();
+            }
+            currentQuarterNote++;
+            midiOut << soul::midi::Message(
+                242 << 16 /* song position pointer */
+                    | ((currentQuarterNote * 4) & 127) << 8 /* least significant 7 bits in 16th notes */
+                    | ((currentQuarterNote * 4) >> 7) & 127 /* most significant 7 bits in 16th notes */
+            );
         }
     }
 }
@@ -53,21 +43,22 @@ processor Clock {
 processor SineOsc {
     output stream float<2> audioOut;
 
-    input event soul::note_events::NoteOn noteOn;
-    input event soul::note_events::NoteOff noteOff;
+    input event (soul::note_events::NoteOn,
+                 soul::note_events::NoteOff) midiIn;
 
     bool playing;
     float notePitch, bendSemitones, phase, phaseIncrement;
 
-    event noteOn(soul::note_events::NoteOn e) {
+    event midiIn(soul::note_events::NoteOn e) {
         playing = true;
         notePitch = e.note;
         bendSemitones = 0.0f;
         calculatePhaseIncrement();
     }
 
-    event noteOff(soul::note_events::NoteOff e) {
-      if (e.note == notePitch) playing = false;
+    event midiIn(soul::note_events::NoteOff e) {
+        if (e.note == notePitch)
+            playing = false;
     }
 
     void calculatePhaseIncrement() {
@@ -78,8 +69,8 @@ processor SineOsc {
     void run() {
         loop {
             if (playing) {
-              phase = addModulo2Pi(phase, phaseIncrement);
-              audioOut << sin(phase);
+                phase = addModulo2Pi(phase, phaseIncrement);
+                audioOut << sin(phase);
             }
             advance();
         }
