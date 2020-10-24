@@ -67,7 +67,7 @@ int main() {
   assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
   auto cwd = std::filesystem::current_path();
-  soul::patch::SOULPatchLibrary library((cwd / soul::patch::SOULPatchLibrary::getLibraryFileName()).c_str());
+  soul::patch::SOULPatchLibrary library((cwd / "build" / soul::patch::SOULPatchLibrary::getLibraryFileName()).c_str());
   soul::patch::PatchInstance::Ptr patch = library.createPatchFromFileBundle("dsp/groovebox.soulpatch");
   soul::patch::PatchPlayerConfiguration playerConfig;
   playerConfig.sampleRate = device.sampleRate;
