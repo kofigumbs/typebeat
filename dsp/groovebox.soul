@@ -1,17 +1,19 @@
 graph Groovebox  [[ main ]] {
     input stream float<2> audioIn;
-    output stream float<2> audioOut;
-
     input event soul::midi::Message midiIn;
+
+    output stream float<2> audioOut;
     output event soul::midi::Message midiOut;
 
+    let monoToStereo = OneToMany(float, 2);
+
     connection {
-        midiIn -> soul::midi::MPEParser -> SineOsc -> audioOut;
-        Clock -> midiOut;
+        midiIn -> soul::midi::MPEParser -> SineOsc -> monoToStereo -> audioOut;
+        Timeline -> midiOut;
     }
 }
 
-processor Clock {
+processor Timeline {
     output event soul::midi::Message midiOut;
 
     int currentQuarterNote = 0;
@@ -41,7 +43,7 @@ processor Clock {
 }
 
 processor SineOsc {
-    output stream float<2> audioOut;
+    output stream float audioOut;
 
     input event (soul::note_events::NoteOn,
                  soul::note_events::NoteOff) midiIn;
@@ -72,6 +74,21 @@ processor SineOsc {
                 phase = addModulo2Pi(phase, phaseIncrement);
                 audioOut << sin(phase);
             }
+            advance();
+        }
+    }
+}
+
+processor OneToMany(using T, int n) {
+    input stream T audioIn;
+    output stream T<n> audioOut;
+
+    void run() {
+        loop {
+            T<n> sample;
+            for (wrap<n> i)
+                sample[i] = audioIn;
+            audioOut << sample;
             advance();
         }
     }
