@@ -1,38 +1,59 @@
-/*
-    == SOUL example code ==
-
-    Plays the first few notes of Gran Vals by Francisco Tarrega, using a
-    sequence of sine-wave tones.
-*/
-
-processor groovebox
-{
+graph Groovebox  [[ main ]] {
     input stream float<2> audioIn;
     output stream float<2> audioOut;
 
-    void run()
-    {
-        int[] pitches    = (76, 74, 66, 68, 73, 71, 62, 64, 71, 69, 61, 64, 69);
-        int[] durations  = ( 1,  1,  2,  2,  1,  1,  2,  2,  1,  1,  2,  2,  4);
+    input event soul::midi::Message midiIn;
+    output event soul::midi::Message midiOut;
 
-        for (int i = 0; i < pitches.size; ++i)
-            playNote (pitches.at (i), durations.at (i));
+    // input event soul::timeline::TimeSignature timeSignature;
+    // input event soul::timeline::Tempo tempo;
+    // input event soul::timeline::TransportState transport;
+    // input event soul::timeline::Position position;
+
+    let {
+        midiParser = soul::midi::MPEParser;
+        sineOsc = SineOsc;
     }
 
-    float sinewavePhase;
+    connection {
+        midiIn -> midiParser.parseMIDI;
+        midiParser.eventOut -> sineOsc.noteOn,
+                               sineOsc.noteOff;
+        sineOsc.audioOut -> audioOut;
+    }
+}
 
-    void playNote (int pitch, int lengthInQuarterNotes)
-    {
-        let samplesPerQuarterNote = int (processor.frequency / 7);
+processor SineOsc {
+    output stream float<2> audioOut;
 
-        let noteFrequency  = soul::noteNumberToFrequency (pitch);
-        let noteLength     = samplesPerQuarterNote * lengthInQuarterNotes;
-        let phaseIncrement = float (noteFrequency * twoPi * processor.period);
+    input event soul::note_events::NoteOn noteOn;
+    input event soul::note_events::NoteOff noteOff;
 
-        loop (noteLength)
-        {
-            audioOut << 0.1f * sin (sinewavePhase);
-            sinewavePhase = addModulo2Pi (sinewavePhase, phaseIncrement);
+    bool playing;
+    float notePitch, bendSemitones, phase, phaseIncrement;
+
+    event noteOn(soul::note_events::NoteOn e) {
+        playing = true;
+        notePitch = e.note;
+        bendSemitones = 0.0f;
+        calculatePhaseIncrement();
+    }
+
+    event noteOff(soul::note_events::NoteOff e) {
+      if (e.note == notePitch) playing = false;
+    }
+
+    void calculatePhaseIncrement() {
+        let noteFrequency = soul::noteNumberToFrequency(notePitch + bendSemitones);
+        phaseIncrement = float(noteFrequency * twoPi * processor.period);
+    }
+
+    void run() {
+        loop {
+            if (playing) {
+              phase = addModulo2Pi(phase, phaseIncrement);
+              audioOut << sin(phase);
+            }
             advance();
         }
     }

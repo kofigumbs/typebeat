@@ -30,6 +30,16 @@ const keys = {
     control: Array.from("opl;./"),
     navigation: Array.from("zxcvbnm,"),
   },
+  midi: {
+    // left hand, ends at middle c
+    "q": 58, "w": 60, "e": 62, "r": 64, "t": 65,
+    "a": 50, "s": 52, "d": 53, "f": 55, "g": 57,
+    "z": 41, "x": 43, "c": 45, "v": 46, "b": 48,
+    // right hand, starts at middle c
+    "y": 82, "u": 84, "i": 86, "o": 88, "p": 89,
+    "h": 74, "j": 76, "k": 77, "l": 79, ";": 81,
+    "n": 65, "m": 67, ",": 69, ".": 70, "/": 72,
+  },
 };
 
 const newKey = key => {
@@ -51,22 +61,29 @@ const getKeyElement = key => {
   return document.querySelector(`[data-key="${key}"]`);
 };
 
-const updateKeyDown = (key, method) => {
-  const element = getKeyElement(key);
-  element && element.classList[method]("down");
+const syncMidi = (byte1, byte2, byte3) => {
+  if (window.pushMidi)
+    pushMidi(byte1, byte2, byte3).then(onMidiIn);
 };
 
-document.addEventListener("keydown", event => updateKeyDown(event.key, "add"));
-document.addEventListener("keyup", event => updateKeyDown(event.key, "remove"));
-
-const updateState = ({ beat }) => {
-  keys.role.sequence.forEach((key, index) => {
-    getKeyElement(key).classList.toggle("lit", index === beat % keys.role.sequence.length);
-  });
+const onKey = (event, status, velocity) => {
+  if (!event.ctrlKey && !event.altKey && !event.metaKey && keys.midi[event.key]) {
+    syncMidi(status, keys.midi[event.key], velocity);
+    getKeyElement(event.key).classList.toggle("down", velocity !== 0);
+    event.preventDefault();
+  }
 };
 
-if (window.groovebox)
-  (function mainLoop() {
-    requestAnimationFrame(mainLoop);
-    groovebox().then(updateState);
-  })();
+document.addEventListener("keydown", event => onKey(event, 144, 100));
+document.addEventListener("keyup", event => onKey(event, 128, 0));
+
+const onMidiIn = midi => {
+  // keys.role.sequence.forEach((key, index) => {
+  //   getKeyElement(key).classList.toggle("lit", index === beat % keys.role.sequence.length);
+  // });
+};
+
+(function mainLoop() {
+  requestAnimationFrame(mainLoop);
+  syncMidi(0, 0, 0);
+})();
