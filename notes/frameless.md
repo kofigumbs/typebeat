@@ -18,4 +18,4 @@ objc_msgSend(window, sel_registerName("setMovableByWindowBackground:"), 1);
 ```
 
 So if you're constrained to C++, the best you can do is copy the background color in your HTML and set it on your NSWindow's.
-And to keep things symmetrical, add a `body { margin-bottom: 22px }` style.
+And to keep things symmetrical, add a `body>:last-child { margin-bottom: 22px }` style.
