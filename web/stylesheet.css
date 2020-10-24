@@ -70,9 +70,9 @@ body {
   height: 3rem;
   text-transform: capitalize;
   position: relative;
-  color: var(--text, var(--light));
+  color: var(--text);
   background: var(--background);
-  border: solid 1px var(--accent, var(--dark));
+  border: solid 1px var(--accent);
 }
 
 .key::before {
@@ -81,7 +81,7 @@ body {
   z-index: -1;
   width: 100%;
   height: 100%;
-  background: var(--accent, var(--dark));
+  background: var(--accent);
 }
 
 .key.down, .key:not(.down)::before {
@@ -90,18 +90,23 @@ body {
 }
 
 .key.sequence {
+  --text: var(--light);
   --background: var(--gray);
+  --accent: var(--dark);
 }
 
-.key.sequence.lit {
+.key.sequence.current {
   --accent: var(--orange);
 }
 
 .key.navigation {
+  --text: var(--light);
   --background: var(--orange);
+  --accent: var(--dark);
 }
 
 .key.control {
   --text: var(--dark);
   --background: var(--light);
+  --accent: var(--dark);
 }

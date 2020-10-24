@@ -113,10 +113,11 @@ int main() {
       static_cast<uint8_t>(std::stoi(midiIn.substr(2 + parseOffset1), &parseOffset2)),
       static_cast<uint8_t>(std::stoi(midiIn.substr(3 + parseOffset1 + parseOffset2)))
     }});
-    // soul::MIDIEvent event;
-    // while (groovebox.midiOut.pop(event))
-    //   midiOut.append((const char*) event.message.data, 3);
-    return "\"\"";
+    std::string midiOut;
+    soul::MIDIEvent event;
+    while (groovebox.midiOut.pop(event))
+      midiOut += "," + std::to_string(event.getPackedMIDIData());
+    return "[" + (midiOut.empty() ? "" : midiOut.substr(1)) + "]";
   });
 
   // Customize webview further for macOS

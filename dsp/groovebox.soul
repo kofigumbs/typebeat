@@ -5,10 +5,7 @@ graph Groovebox  [[ main ]] {
     input event soul::midi::Message midiIn;
     output event soul::midi::Message midiOut;
 
-    // input event soul::timeline::TimeSignature timeSignature;
-    // input event soul::timeline::Tempo tempo;
-    // input event soul::timeline::TransportState transport;
-    // input event soul::timeline::Position position;
+    let clock = Clock;
 
     let {
         midiParser = soul::midi::MPEParser;
@@ -20,6 +17,36 @@ graph Groovebox  [[ main ]] {
         midiParser.eventOut -> sineOsc.noteOn,
                                sineOsc.noteOff;
         sineOsc.audioOut -> audioOut;
+        clock.midiOut -> midiOut;
+    }
+}
+
+processor Clock {
+    output event soul::midi::Message midiOut;
+
+    int currentQuarterNote = 0;
+    soul::timeline::Tempo tempo;
+    soul::timeline::TimeSignature signature;
+    soul::timeline::TransportState transport;
+
+    void init () {
+      tempo = soul::timeline::Tempo(120.0);
+      signature = soul::timeline::TimeSignature(4, 4);
+      transport = soul::timeline::TransportState(1 /* playing */);
+    }
+
+    void run() {
+        loop {
+          loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency))) {
+            advance();
+          }
+          currentQuarterNote++;
+          midiOut << soul::midi::Message(
+            242 << 16 /* song position pointer */
+            | ((currentQuarterNote * 4) & 127) << 8 /* least significant 7 bits in 16th notes */
+            | ((currentQuarterNote * 4) >> 7) & 127 /* most significant 7 bits in 16th notes */
+          );
+        }
     }
 }
 

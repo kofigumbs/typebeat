@@ -61,6 +61,17 @@ const getKeyElement = key => {
   return document.querySelector(`[data-key="${key}"]`);
 };
 
+const onMidiIn = midi => {
+  for (const message of midi) {
+    if (message >> 16 === 242 /* song position pointer */) {
+      let beat = ((message & 127) << 7) | ((message >> 8) & 127);
+      keys.role.sequence.forEach((key, index) => {
+        getKeyElement(key).classList.toggle("current", index === (beat / 4) % keys.role.sequence.length);
+      });
+    }
+  }
+};
+
 const syncMidi = (byte1, byte2, byte3) => {
   if (window.pushMidi)
     pushMidi(byte1, byte2, byte3).then(onMidiIn);
@@ -77,13 +88,7 @@ const onKey = (event, status, velocity) => {
 document.addEventListener("keydown", event => onKey(event, 144, 100));
 document.addEventListener("keyup", event => onKey(event, 128, 0));
 
-const onMidiIn = midi => {
-  // keys.role.sequence.forEach((key, index) => {
-  //   getKeyElement(key).classList.toggle("lit", index === beat % keys.role.sequence.length);
-  // });
-};
-
 (function mainLoop() {
   requestAnimationFrame(mainLoop);
-  syncMidi(0, 0, 0);
+  syncMidi(238, 0, 0); // active sensing
 })();
