@@ -36,8 +36,19 @@ body {
   height: 100%;
 }
 
-.centered {
+.flex {
   display: flex;
+}
+
+.row {
+  flex-direction: row;
+}
+
+.column {
+  flex-direction: column;
+}
+
+.centered {
   align-items: center;
   justify-content: center;
 }
@@ -47,32 +58,28 @@ body {
  * components
  */
 
-.column {
-  flex-direction: column;
-}
-
-.row {
-  flex-direction: row;
-}
-
-.row:first-of-type {
+.staggered:first-of-type {
   margin-left: -1rem;
 }
 
-.row:last-of-type {
+.staggered:last-of-type {
   margin-left: 1rem;
   margin-bottom: 22px; /* see notes/frameless.md */
 }
 
 .key {
-  margin: .5rem;
   width: 3rem;
   height: 3rem;
+  margin: .5rem;
   text-transform: capitalize;
   position: relative;
   color: var(--text);
   background: var(--background);
   border: solid 1px var(--accent);
+}
+
+.key:nth-child(5) {
+  margin-right: 2.5rem;
 }
 
 .key::before {

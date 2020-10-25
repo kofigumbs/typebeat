@@ -27,9 +27,9 @@ const keys = {
     row3: Array.from("zxcvbnm,./"),
   },
   role: {
-    sequence: Array.from("qwertyuiasdfghjk"),
-    control: Array.from("opl;./"),
-    navigation: Array.from("zxcvbnm,"),
+    sequence: Array.from("wertyuiosdfghjkl"),
+    control: Array.from("qpa;z/"),
+    navigation: Array.from("xcvbnm,."),
   },
   midi: {
     // left hand, ends at middle c
@@ -51,12 +51,16 @@ const newKey = key => {
     role = "navigation";
   if (keys.role.control.includes(key))
     role = "control";
-  return div({ class: "key centered " + role, "data-key": key }, [ text(key) ]);
+  return div({ class: "key flex centered " + role, "data-key": key }, [ text(key) ]);
 };
 
-document.body.appendChild(div({ class: "row centered" }, keys.layout.row1.map(newKey)));
-document.body.appendChild(div({ class: "row centered" }, keys.layout.row2.map(newKey)));
-document.body.appendChild(div({ class: "row centered" }, keys.layout.row3.map(newKey)));
+const newRow = row => {
+  return div({ class: "flex row centered staggered" }, row.map(newKey));
+};
+
+document.body.appendChild(newRow(keys.layout.row1));
+document.body.appendChild(newRow(keys.layout.row2));
+document.body.appendChild(newRow(keys.layout.row3));
 
 
 /*

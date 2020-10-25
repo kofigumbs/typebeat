@@ -111,8 +111,8 @@ int main(int argc, char* argv[]) {
 
     // setup webview
     webview::webview view(true, nullptr);
-    view.set_size(780, 300, WEBVIEW_HINT_MIN);
-    view.set_size(780, 300, WEBVIEW_HINT_NONE);
+    view.set_size(800, 290, WEBVIEW_HINT_MIN);
+    view.set_size(800, 290, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (path / "web" / "index.html").string());
 
     // midi from webview to SOUL
