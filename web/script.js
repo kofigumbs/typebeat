@@ -60,12 +60,29 @@ document.body.appendChild(div({ class: "row centered" }, keys.layout.row3.map(ne
 
 
 /*
- * keyboard midi events
+ * midi to native
  */
 
 const getKeyElement = key => {
   return document.querySelector(`[data-key="${key}"]`);
 };
+
+const onKey = (event, status, velocity) => {
+  if (!event.ctrlKey && !event.altKey && !event.metaKey && keys.midi[event.key]) {
+    event.preventDefault();
+    getKeyElement(event.key).classList.toggle("down", velocity !== 0);
+    if (window.putMidi)
+      putMidi(status, keys.midi[event.key], velocity);
+  }
+};
+
+document.addEventListener("keydown", event => onKey(event, 144, 100));
+document.addEventListener("keyup", event => onKey(event, 128, 0));
+
+
+/*
+ * midi from native
+ */
 
 const onMidiIn = midi => {
   for (const message of midi) {
@@ -81,23 +98,5 @@ const onMidiIn = midi => {
   }
 };
 
-const syncMidi = (byte1, byte2, byte3) => {
-  if (window.pushMidi)
-    pushMidi(byte1, byte2, byte3).then(onMidiIn);
-};
-
-const onKey = (event, status, velocity) => {
-  if (!event.ctrlKey && !event.altKey && !event.metaKey && keys.midi[event.key]) {
-    syncMidi(status, keys.midi[event.key], velocity);
-    getKeyElement(event.key).classList.toggle("down", velocity !== 0);
-    event.preventDefault();
-  }
-};
-
-document.addEventListener("keydown", event => onKey(event, 144, 100));
-document.addEventListener("keyup", event => onKey(event, 128, 0));
-
-(function mainLoop() {
-  requestAnimationFrame(mainLoop);
-  syncMidi(238, 0, 0); // active sensing
-})();
+if (window.getMidi)
+  setInterval(() => getMidi().then(onMidiIn), 40 /* just over 24 fps */);

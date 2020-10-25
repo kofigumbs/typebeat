@@ -105,14 +105,19 @@ int main() {
     view.set_size(780, 300, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (cwd / "web" / "index.html").string());
 
-    // bind JSON-encoded MIDI I/O to webview
-    view.bind("pushMidi", [&groovebox](std::string midiIn) -> std::string {
+    // midi from webview to SOUL
+    view.bind("putMidi", [&groovebox](std::string midiIn) -> std::string {
         size_t parseOffset1, parseOffset2;
         groovebox.midiIn.push({ 0, {
             static_cast<uint8_t>(std::stoi(midiIn.substr(1), &parseOffset1)),
             static_cast<uint8_t>(std::stoi(midiIn.substr(2 + parseOffset1), &parseOffset2)),
             static_cast<uint8_t>(std::stoi(midiIn.substr(3 + parseOffset1 + parseOffset2)))
         }});
+        return "";
+    });
+
+    // midi from SOUL to webview
+    view.bind("getMidi", [&groovebox](std::string midiIn) -> std::string {
         std::string midiOut;
         soul::MIDIEvent event;
         while (groovebox.midiOut.pop(event))
