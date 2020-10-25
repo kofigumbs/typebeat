@@ -133,6 +133,7 @@ int main() {
     objc_msgSend(window, sel_registerName("setTitlebarAppearsTransparent:"), 1);
     objc_msgSend(window, sel_registerName("setHasShadow:"), 1);
     objc_msgSend(window, sel_registerName("center"));
+    objc_msgSend(window, sel_registerName("makeFirstResponder:"), objc_msgSend(window, sel_registerName("contentView")));
 #endif
 
     // main run loop
