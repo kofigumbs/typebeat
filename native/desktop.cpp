@@ -10,6 +10,13 @@
 #include "SOUL/include/soul/soul_patch.h"
 #include "SOUL/include/soul/3rdParty/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
+const int maxMidi = 64;
+
+void warnIfDropped(std::string context, bool ok) {
+    if (!ok)
+        printf("WARN: Dropped a MIDI %s event!\n", context.c_str());
+}
+
 struct GROOVEBOX {
     soul::patch::PatchPlayer::Ptr player;
     choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiIn;
@@ -35,7 +42,6 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
         outputChannels[channel] = ((float*) deinterleavedOutput) + channel*frameCount;
 
     // queue incoming MIDI
-    const int maxMidi = 64;
     soul::MIDIEvent incomingMIDI[maxMidi], outgoingMIDI[maxMidi];
     soul::MIDIEvent event;
     int numMIDIMessagesIn = 0;
@@ -57,7 +63,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
 
     // de-queue outgoing MIDI
     for (int i = 0; i < context.numMIDIMessagesOut; i++)
-        groovebox->midiOut.push(outgoingMIDI[i]);
+        warnIfDropped("output", groovebox->midiOut.push(outgoingMIDI[i]));
 
     // interleave output audio frames
     for (int channel = 0; channel < device->playback.channels; channel++)
@@ -97,6 +103,8 @@ int main() {
     // setup shared user data
     GROOVEBOX groovebox;
     groovebox.player = player;
+    groovebox.midiIn.reset(maxMidi);
+    groovebox.midiOut.reset(maxMidi);
     device.pUserData = &groovebox;
 
     // setup webview
@@ -108,11 +116,11 @@ int main() {
     // midi from webview to SOUL
     view.bind("putMidi", [&groovebox](std::string midiIn) -> std::string {
         size_t parseOffset1, parseOffset2;
-        groovebox.midiIn.push({ 0, {
+        warnIfDropped("input", groovebox.midiIn.push({ 0, {
             static_cast<uint8_t>(std::stoi(midiIn.substr(1), &parseOffset1)),
             static_cast<uint8_t>(std::stoi(midiIn.substr(2 + parseOffset1), &parseOffset2)),
             static_cast<uint8_t>(std::stoi(midiIn.substr(3 + parseOffset1 + parseOffset2)))
-        }});
+        }}));
         return "";
     });
 
