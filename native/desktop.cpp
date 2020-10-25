@@ -74,7 +74,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
 #ifdef WIN32
 int WINAPI WinMain(HINSTANCE hInt, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
 #else
-int main() {
+int main(int argc, char* argv[]) {
 #endif
     // setup miniaudio configuration to match that of the SOUL patch
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
@@ -90,9 +90,11 @@ int main() {
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
     // compile SOUL patch
-    auto cwd = std::filesystem::current_path();
-    soul::patch::SOULPatchLibrary library((cwd / "build" / soul::patch::SOULPatchLibrary::getLibraryFileName()).c_str());
-    soul::patch::PatchInstance::Ptr patch = library.createPatchFromFileBundle("dsp/groovebox.soulpatch");
+    auto path = std::filesystem::absolute(std::filesystem::path(std::string(argv[0])))
+        .parent_path() // build directory
+        .parent_path(); // project directory
+    soul::patch::SOULPatchLibrary library((path / "build" / soul::patch::SOULPatchLibrary::getLibraryFileName()).c_str());
+    soul::patch::PatchInstance::Ptr patch = library.createPatchFromFileBundle((path / "dsp" / "groovebox.soulpatch").c_str());
     soul::patch::PatchPlayerConfiguration playerConfig;
     playerConfig.sampleRate = device.sampleRate;
     playerConfig.maxFramesPerBlock = deviceConfig.periodSizeInFrames;
@@ -111,7 +113,7 @@ int main() {
     webview::webview view(true, nullptr);
     view.set_size(780, 300, WEBVIEW_HINT_MIN);
     view.set_size(780, 300, WEBVIEW_HINT_NONE);
-    view.navigate("file://" + (cwd / "web" / "index.html").string());
+    view.navigate("file://" + (path / "web" / "index.html").string());
 
     // midi from webview to SOUL
     view.bind("putMidi", [&groovebox](std::string midiIn) -> std::string {
