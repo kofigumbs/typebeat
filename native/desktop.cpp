@@ -17,14 +17,14 @@ void warnIfDropped(std::string context, bool ok) {
         printf("WARN: Dropped a MIDI %s event!\n", context.c_str());
 }
 
-struct GROOVEBOX {
+struct UserData {
     soul::patch::PatchPlayer::Ptr player;
     choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiIn;
     choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiOut;
 };
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
-    auto groovebox = (GROOVEBOX (*)) device->pUserData;
+    auto userData = (UserData (*)) device->pUserData;
     float deinterleavedInput[device->capture.channels][frameCount],
     deinterleavedOutput[device->playback.channels][frameCount],
     *inputChannels[device->capture.channels],
@@ -45,7 +45,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     soul::MIDIEvent incomingMIDI[maxMidi], outgoingMIDI[maxMidi];
     soul::MIDIEvent event;
     int numMIDIMessagesIn = 0;
-    while (groovebox->midiIn.pop(event))
+    while (userData->midiIn.pop(event))
         incomingMIDI[numMIDIMessagesIn++] = event;
 
     // render audio context
@@ -59,11 +59,11 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     context.numOutputChannels = device->playback.channels;
     context.inputChannels = (const float* const*) inputChannels;
     context.outputChannels = (float* const*) outputChannels;
-    assert(groovebox->player->render(context) == soul::patch::PatchPlayer::RenderResult::ok);
+    assert(userData->player->render(context) == soul::patch::PatchPlayer::RenderResult::ok);
 
     // de-queue outgoing MIDI
     for (int i = 0; i < context.numMIDIMessagesOut; i++)
-        warnIfDropped("output", groovebox->midiOut.push(outgoingMIDI[i]));
+        warnIfDropped("output", userData->midiOut.push(outgoingMIDI[i]));
 
     // interleave output audio frames
     for (int channel = 0; channel < device->playback.channels; channel++)
@@ -102,12 +102,12 @@ int main(int argc, char* argv[]) {
         patch->compileNewPlayer(playerConfig, NULL, NULL, NULL, NULL)
     );
 
-    // setup shared user data
-    GROOVEBOX groovebox;
-    groovebox.player = player;
-    groovebox.midiIn.reset(maxMidi);
-    groovebox.midiOut.reset(maxMidi);
-    device.pUserData = &groovebox;
+    // setup user data
+    UserData userData;
+    userData.player = player;
+    userData.midiIn.reset(maxMidi);
+    userData.midiOut.reset(maxMidi);
+    device.pUserData = &userData;
 
     // setup webview
     webview::webview view(true, nullptr);
@@ -116,9 +116,9 @@ int main(int argc, char* argv[]) {
     view.navigate("file://" + (path / "web" / "index.html").string());
 
     // midi from webview to SOUL
-    view.bind("putMidi", [&groovebox](std::string midiIn) -> std::string {
+    view.bind("putMidi", [&userData](std::string midiIn) -> std::string {
         size_t parseOffset1, parseOffset2;
-        warnIfDropped("input", groovebox.midiIn.push({ 0, {
+        warnIfDropped("input", userData.midiIn.push({ 0, {
             static_cast<uint8_t>(std::stoi(midiIn.substr(1), &parseOffset1)),
             static_cast<uint8_t>(std::stoi(midiIn.substr(2 + parseOffset1), &parseOffset2)),
             static_cast<uint8_t>(std::stoi(midiIn.substr(3 + parseOffset1 + parseOffset2)))
@@ -127,10 +127,10 @@ int main(int argc, char* argv[]) {
     });
 
     // midi from SOUL to webview
-    view.bind("getMidi", [&groovebox](std::string midiIn) -> std::string {
+    view.bind("getMidi", [&userData](std::string midiIn) -> std::string {
         std::string midiOut;
         soul::MIDIEvent event;
-        while (groovebox.midiOut.pop(event))
+        while (userData.midiOut.pop(event))
         midiOut += "," + std::to_string(event.getPackedMIDIData());
         return "[" + (midiOut.empty() ? "" : midiOut.substr(1)) + "]";
     });
