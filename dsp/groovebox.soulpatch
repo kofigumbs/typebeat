@@ -1,14 +1,15 @@
 {
-  "soulPatchV1": {
-    "ID":               "sexy.kofi.groovebox",
-    "version":          "1.0",
-    "name":             "groovebox",
-    "description":      "groovebox",
-    "category":         "synth",
-    "manufacturer":     "kofi.sexy",
-    "isInstrument":     true,
-    "source":           "groovebox.soul",
-    "externals": { 
-    }
-  }
+    "soulPatchV1": {
+        "ID":               "sexy.kofi.groovebox",
+        "version":          "1.0",
+        "name":             "groovebox",
+        "description":      "groovebox",
+        "category":         "synth",
+        "manufacturer":     "kofi.sexy",
+        "isInstrument":     true,
+        "source":           "groovebox.soul",
+        "externals": {
+        }
+    },
+    "vim: set ft=json:": "see https://stackoverflow.com/a/52651285/4250752"
 }
