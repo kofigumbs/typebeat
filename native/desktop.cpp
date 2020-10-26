@@ -116,18 +116,13 @@ int main(int argc, char* argv[]) {
     view.navigate("file://" + (path / "web" / "index.html").string());
 
     // midi from webview to SOUL
-    view.bind("putMidi", [&userData](std::string midiIn) -> std::string {
-        size_t parseOffset1, parseOffset2;
-        warnIfDropped("input", userData.midiIn.push({ 0, {
-            static_cast<uint8_t>(std::stoi(midiIn.substr(1), &parseOffset1)),
-            static_cast<uint8_t>(std::stoi(midiIn.substr(2 + parseOffset1), &parseOffset2)),
-            static_cast<uint8_t>(std::stoi(midiIn.substr(3 + parseOffset1 + parseOffset2)))
-        }}));
+    view.bind("midiIn", [&userData](std::string midiIn) -> std::string {
+        warnIfDropped("input", userData.midiIn.push(soul::MIDIEvent::fromPackedMIDIData(0, std::stoi(midiIn.substr(1)))));
         return "";
     });
 
     // midi from SOUL to webview
-    view.bind("getMidi", [&userData](std::string midiIn) -> std::string {
+    view.bind("midiOut", [&userData](std::string midiIn) -> std::string {
         std::string midiOut;
         soul::MIDIEvent event;
         while (userData.midiOut.pop(event))
