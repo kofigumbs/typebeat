@@ -1,4 +1,4 @@
-SOUL_VERSION = 0.9.58
+SOUL_VERSION = 0.9.58 # see notes/soul-version.md
 
 ifeq ($(shell uname), Darwin)
 	PLATFORM_LIBRARIES = -framework WebKit
@@ -10,8 +10,11 @@ endif
 # TODO Windows
 # TODO WebAudio/WASM/Emscriptem ?
 
-build/groovebox: native build/${SOUL_PATCH_LOADER}
+build/groovebox: native/webview native/miniaudio native/SOUL native/desktop.cpp build/${SOUL_PATCH_LOADER}
 	g++ native/desktop.cpp -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o build/groovebox
+
+native/webview native/miniaudio native/SOUL:
+	git submodule update --init
 
 build/soul build/${SOUL_PATCH_LOADER}:
 	mkdir -p build
