@@ -32,14 +32,8 @@ const keys = {
     navigation: Array.from("xcvbnm,."),
   },
   midi: {
-    // left hand, ends at middle c
-    "q": 58, "w": 60, "e": 62, "r": 64, "t": 65,
-    "a": 50, "s": 52, "d": 53, "f": 55, "g": 57,
-    "z": 41, "x": 43, "c": 45, "v": 46, "b": 48,
-    // right hand, starts at middle c
-    "y": 82, "u": 84, "i": 86, "o": 88, "p": 89,
-    "h": 74, "j": 76, "k": 77, "l": 79, ";": 81,
-    "n": 65, "m": 67, ",": 69, ".": 70, "/": 72,
+    left: Array.from("zxcvbasdfgqwert"),
+    right: Array.from("nm,./hjkl;yuiop"),
   },
 };
 
@@ -67,21 +61,50 @@ document.body.appendChild(newRow(keys.layout.row3));
  * midi to native
  */
 
+let key = "c";
+let scale = "major";
+let octave = 4;
+
+const scales = {
+  major: [ 0, 2, 4, 5, 7, 9, 11 ],
+  ionian: [ 0, 2, 4, 5, 7, 9, 11 ],
+  dorian: [ 0, 2, 3, 5, 7, 9, 10 ],
+  phrygian: [ 0, 1, 3, 5, 7, 8, 10 ],
+  lydian: [ 0, 2, 4, 6, 7, 9, 11 ],
+  mixolydian: [ 0, 2, 4, 5, 7, 9, 10 ],
+  aeolian: [ 0, 2, 3, 5, 7, 8, 10 ],
+  minor: [ 0, 2, 3, 5, 7, 8, 10 ],
+  locrian: [ 0, 1, 3, 5, 6, 8, 10 ],
+  harmonicMinor: [ 0, 2, 3, 5, 7, 8, 11 ],
+  harmonicMajor: [ 0, 2, 4, 5, 7, 8, 11 ],
+  melodicMinor: [ 0, 2, 3, 5, 7, 9, 11 ],
+  melodicMinorDesc: [ 0, 2, 3, 5, 7, 8, 10 ],
+  melodicMajor: [ 0, 2, 4, 5, 7, 8, 10 ],
+  bartok: [ 0, 2, 4, 5, 7, 8, 10 ],
+  hindu: [ 0, 2, 4, 5, 7, 8, 10 ],
+};
+
+const note = index => {
+  return scales[scale][index % 7] + 12 * (octave + Math.floor(index / 7));
+};
+
 const getKeyElement = key => {
   return document.querySelector(`[data-key="${key}"]`);
 };
 
-const onKey = (event, status, velocity) => {
-  if (!event.ctrlKey && !event.altKey && !event.metaKey && keys.midi[event.key]) {
-    event.preventDefault();
-    getKeyElement(event.key).classList.toggle("down", velocity !== 0);
+const onKey = (event, { down, noteStatus, noteVelocity }) => {
+  if (event.ctrlKey || event.altKey || event.metaKey)
+    return true;
+  if (keys.midi.right.includes(event.key)) {
+    getKeyElement(event.key).classList.toggle("down", down);
     if (window.putMidi)
-      putMidi(status, keys.midi[event.key], velocity);
+      putMidi(noteStatus, note(keys.midi.right.indexOf(event.key)), noteVelocity);
+    return false;
   }
 };
 
-document.addEventListener("keydown", event => onKey(event, 144, 100));
-document.addEventListener("keyup", event => onKey(event, 128, 0));
+document.addEventListener("keydown", event => onKey(event, { down: true, noteStatus: 144, noteVelocity: 100 }));
+document.addEventListener("keyup", event => onKey(event, { down: false, noteStatus: 128, noteVelocity: 0 }));
 
 
 /*
