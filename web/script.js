@@ -18,6 +18,14 @@ const config = {
       left: Array.from("zxcvbasdfgqwert"),
       right: Array.from("nm,./hjkl;yuiop"),
     },
+    shift: {
+      "q": "", "w": "", "e": "", "r": "", "t": "",
+      "y": "", "u": "", "i": "", "o": "", "p": "\uf169",
+      "a": "", "s": "", "d": "", "f": "", "g": "",
+      "h": "", "j": "", "k": "", "l": "", ";": "",
+      "z": "", "x": "", "c": "", "v": "", "b": "",
+      "n": "", "m": "", ",": "", ".": "", "/": "",
+    },
   },
   scales: {
     major: [ 0, 2, 4, 5, 7, 9, 11 ],
@@ -70,11 +78,20 @@ const getKeyElement = key => {
 };
 
 const onKeyChange = (event, { down, noteStatus, noteVelocity }) => {
-  if (event.ctrlKey || event.altKey || event.metaKey)
+  if (event.ctrlKey || event.altKey || event.metaKey) {
     return true;
+  }
   if (config.keys.midi.right.includes(event.key)) {
     getKeyElement(event.key).classList.toggle("down", down);
     packMidiIn(noteStatus, midiNote(event.key), noteVelocity);
+    return false;
+  }
+  if (event.key === "P") {
+    packMidiIn(250); // play/pause
+    return false;
+  }
+  if (event.key === "Shift") {
+    document.body.classList.toggle("shift", down);
     return false;
   }
 };
@@ -128,7 +145,13 @@ const newKey = key => {
     role = "navigation";
   if (config.keys.role.control.includes(key))
     role = "control";
-  return div({ class: `key ${role}`, "data-key": key, "data-name": name }, [ div({ class: "shadow" }, []) ]);
+  const attributes = {
+    class: `key ${role}`,
+    "data-key": key,
+    "data-name": name,
+    "data-shift": config.keys.shift[key],
+  };
+  return div(attributes, [ div({ class: "shadow" }, []) ]);
 };
 
 const newRow = row => {

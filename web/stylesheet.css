@@ -21,7 +21,7 @@ html {
 
 body {
   font-size: 18px;
-  font-family: "Fira Code";
+  font-family: fontaudio, SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
   cursor: default;
 }
 
@@ -97,6 +97,10 @@ body > *:last-child {
   right: .5rem;
   bottom: .25rem;
   opacity: .5;
+}
+
+.shift .key::before {
+  content: attr(data-shift);
 }
 
 .key .shadow {
