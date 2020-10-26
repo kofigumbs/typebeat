@@ -45,7 +45,7 @@ const newKey = key => {
     role = "navigation";
   if (keys.role.control.includes(key))
     role = "control";
-  return div({ class: "key flex centered " + role, "data-key": key }, [ text(key) ]);
+  return div({ class: `key ${role}`, "data-key": key }, [ div({ class: "shadow" }, []) ]);
 };
 
 const newRow = row => {
@@ -61,9 +61,11 @@ document.body.appendChild(newRow(keys.layout.row3));
  * midi to native
  */
 
-let key = "c";
-let scale = "major";
-let octave = 4;
+const tuning = {
+  key: "c",
+  scale: "major",
+  octave: 4,
+};
 
 const scales = {
   major: [ 0, 2, 4, 5, 7, 9, 11 ],
@@ -82,10 +84,12 @@ const scales = {
   melodicMajor: [ 0, 2, 4, 5, 7, 8, 10 ],
   bartok: [ 0, 2, 4, 5, 7, 8, 10 ],
   hindu: [ 0, 2, 4, 5, 7, 8, 10 ],
+  none: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
 };
 
 const note = index => {
-  return scales[scale][index % 7] + 12 * (octave + Math.floor(index / 7));
+  const scale = scales[tuning.scale];
+  return scale[index % scale.length] + 12 * (octave + Math.floor(index / scale.length));
 };
 
 const getKeyElement = key => {

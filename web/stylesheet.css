@@ -23,8 +23,10 @@ body {
   font-size: 18px;
   font-family: "Fira Code", "Menlo";
   cursor: default;
-  user-select: none;
-  -webkit-user-select: none;
+}
+
+body > *:last-child {
+  margin-bottom: 22px; /* see notes/frameless.md */
 }
 
 
@@ -64,14 +66,12 @@ body {
 
 .staggered:last-of-type {
   margin-left: 1rem;
-  margin-bottom: 22px; /* see notes/frameless.md */
 }
 
 .key {
   width: 3rem;
   height: 3rem;
   margin: .5rem;
-  text-transform: capitalize;
   position: relative;
   color: var(--text);
   background: var(--background);
@@ -82,8 +82,15 @@ body {
   margin-right: 2.5rem;
 }
 
-.key::before {
-  content: "";
+.key::after {
+  content: attr(data-key);
+  position: absolute;
+  right: .5rem;
+  bottom: .25rem;
+  text-transform: capitalize;
+}
+
+.key .shadow {
   position: absolute;
   z-index: -1;
   width: 100%;
@@ -91,7 +98,7 @@ body {
   background: var(--accent);
 }
 
-.key.down, .key:not(.down)::before {
+.key.down, .key:not(.down) .shadow {
   top: .25rem;
   left: .25rem;
 }
