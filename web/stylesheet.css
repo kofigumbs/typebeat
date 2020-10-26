@@ -21,7 +21,7 @@ html {
 
 body {
   font-size: 18px;
-  font-family: "Fira Code", "Menlo";
+  font-family: "Fira Code";
   cursor: default;
 }
 
@@ -69,17 +69,26 @@ body > *:last-child {
 }
 
 .key {
-  width: 3rem;
-  height: 3rem;
+  width: 3.5rem;
+  height: 3.5rem;
   margin: .5rem;
   position: relative;
   color: var(--text);
   background: var(--background);
   border: solid 1px var(--accent);
+  text-transform: capitalize;
 }
 
 .key:nth-child(5) {
-  margin-right: 2.5rem;
+  margin-right: 2rem;
+}
+
+.key::before {
+  content: attr(data-name);
+  position: absolute;
+  top: .25rem;
+  left: .5rem;
+  font-weight: 800;
 }
 
 .key::after {
@@ -87,7 +96,7 @@ body > *:last-child {
   position: absolute;
   right: .5rem;
   bottom: .25rem;
-  text-transform: capitalize;
+  opacity: .5;
 }
 
 .key .shadow {

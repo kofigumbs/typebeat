@@ -38,6 +38,7 @@ const config = {
     hindu: [ 0, 2, 4, 5, 7, 8, 10 ],
     none: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
   },
+  notes: [ "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" ],
 };
 
 const state = {
@@ -58,7 +59,8 @@ const packMidiIn = (byte1, byte2 = 0, byte3 = 0) => {
     midiIn((byte1 << 16) | (byte2 << 8) | byte3);
 };
 
-const midiNote = index => {
+const midiNote = key => {
+  const index = config.keys.midi.right.indexOf(key);
   const scale = config.scales[state.tuning.scale];
   return scale[index % scale.length] + 12 * (state.tuning.octave + Math.floor(index / scale.length));
 };
@@ -72,7 +74,7 @@ const onKeyChange = (event, { down, noteStatus, noteVelocity }) => {
     return true;
   if (config.keys.midi.right.includes(event.key)) {
     getKeyElement(event.key).classList.toggle("down", down);
-    packMidiIn(noteStatus, midiNote(config.keys.midi.right.indexOf(event.key)), noteVelocity);
+    packMidiIn(noteStatus, midiNote(event.key), noteVelocity);
     return false;
   }
 };
@@ -117,14 +119,16 @@ const div = (attributes, children) => {
 };
 
 const newKey = key => {
-  let role;
+  let role, name = "";
+  if (config.keys.midi.right.includes(key))
+    name = config.notes[midiNote(key) % config.notes.length];
   if (config.keys.role.sequence.includes(key))
     role = "sequence";
   if (config.keys.role.navigation.includes(key))
     role = "navigation";
   if (config.keys.role.control.includes(key))
     role = "control";
-  return div({ class: `key ${role}`, "data-key": key }, [ div({ class: "shadow" }, []) ]);
+  return div({ class: `key ${role}`, "data-key": key, "data-name": name }, [ div({ class: "shadow" }, []) ]);
 };
 
 const newRow = row => {

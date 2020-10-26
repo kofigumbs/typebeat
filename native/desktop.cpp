@@ -10,18 +10,18 @@
 #include "SOUL/include/soul/soul_patch.h"
 #include "SOUL/include/soul/3rdParty/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
-const int maxMidi = 64;
-
-void warnIfDropped(std::string context, bool ok) {
-    if (!ok)
-        printf("WARN: Dropped a MIDI %s event!\n", context.c_str());
-}
+#define GROOVEBOX_MAX_MIDI 64
 
 struct UserData {
     soul::patch::PatchPlayer::Ptr player;
     choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiIn;
     choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiOut;
 };
+
+void warnIfDropped(std::string context, bool ok) {
+    if (!ok)
+        printf("WARN: Dropped a MIDI %s event!\n", context.c_str());
+}
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
     auto userData = (UserData (*)) device->pUserData;
@@ -42,7 +42,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
         outputChannels[channel] = ((float*) deinterleavedOutput) + channel*frameCount;
 
     // queue incoming MIDI
-    soul::MIDIEvent incomingMIDI[maxMidi], outgoingMIDI[maxMidi];
+    soul::MIDIEvent incomingMIDI[GROOVEBOX_MAX_MIDI], outgoingMIDI[GROOVEBOX_MAX_MIDI];
     soul::MIDIEvent event;
     int numMIDIMessagesIn = 0;
     while (userData->midiIn.pop(event))
@@ -53,7 +53,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     context.incomingMIDI = incomingMIDI;
     context.outgoingMIDI = outgoingMIDI;
     context.numMIDIMessagesIn = numMIDIMessagesIn;
-    context.maximumMIDIMessagesOut = maxMidi;
+    context.maximumMIDIMessagesOut = GROOVEBOX_MAX_MIDI;
     context.numFrames = frameCount;
     context.numInputChannels = device->capture.channels;
     context.numOutputChannels = device->playback.channels;
@@ -105,14 +105,14 @@ int main(int argc, char* argv[]) {
     // setup user data
     UserData userData;
     userData.player = player;
-    userData.midiIn.reset(maxMidi);
-    userData.midiOut.reset(maxMidi);
+    userData.midiIn.reset(GROOVEBOX_MAX_MIDI);
+    userData.midiOut.reset(GROOVEBOX_MAX_MIDI);
     device.pUserData = &userData;
 
     // setup webview
     webview::webview view(true, nullptr);
-    view.set_size(800, 290, WEBVIEW_HINT_MIN);
-    view.set_size(800, 290, WEBVIEW_HINT_NONE);
+    view.set_size(900, 340, WEBVIEW_HINT_MIN);
+    view.set_size(900, 340, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (path / "web" / "index.html").string());
 
     // midi from webview to SOUL
