@@ -69,13 +69,12 @@ body > *:last-child {
 }
 
 .key {
-  width: 3.5rem;
-  height: 3.5rem;
+  width: 3.25rem;
+  height: 3.25rem;
   margin: .5rem;
   position: relative;
   color: var(--text);
   background: var(--background);
-  border: solid 1px var(--accent);
   text-transform: capitalize;
 }
 
@@ -97,23 +96,36 @@ body > *:last-child {
   right: .5rem;
   bottom: .25rem;
   opacity: .5;
+  font-style: italic;
 }
 
 .shift .key::before {
   content: attr(data-shift);
 }
 
-.key .shadow {
+.shadow {
   position: absolute;
   z-index: -1;
+  top: 3px;
+  left: 3px;
   width: 100%;
   height: 100%;
   background: var(--accent);
 }
 
-.key.down, .key:not(.down) .shadow {
-  top: .25rem;
-  left: .25rem;
+.key, .shadow {
+  border-radius: 3px;
+  border: solid 3px var(--accent);
+}
+
+.key.down {
+  top: 6px;
+  left: 6px;
+}
+
+.key.down .shadow {
+  top: -3px;
+  left: -3px;
 }
 
 .key.sequence {

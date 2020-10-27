@@ -50,11 +50,9 @@ const config = {
 };
 
 const state = {
-  tuning: {
-    key: "c",
-    scale: "major",
-    octave: 4,
-  },
+  key: "c",
+  scale: "major",
+  octave: 4,
 };
 
 
@@ -69,8 +67,10 @@ const packMidiIn = (byte1, byte2 = 0, byte3 = 0) => {
 
 const midiNote = key => {
   const index = config.keys.midi.right.indexOf(key);
-  const scale = config.scales[state.tuning.scale];
-  return scale[index % scale.length] + 12 * (state.tuning.octave + Math.floor(index / scale.length));
+  const scale = config.scales[state.scale];
+  return scale[index % scale.length]
+    + 12 * (state.octave + Math.floor(index / scale.length))
+    + config.notes.indexOf(state.key);
 };
 
 const getKeyElement = key => {

@@ -19,3 +19,4 @@ objc_msgSend(window, sel_registerName("setMovableByWindowBackground:"), 1);
 
 So if you're constrained to C++, the best you can do is copy the background color in your HTML and set it on your NSWindow's.
 And to keep things symmetrical, add a `body>:last-child { margin-bottom: 22px }` style.
+And to top it all off, either webview or NSWindow does't calculate minimum height in the same way as it does setting the height, so I explicitly add `+ 22`.
