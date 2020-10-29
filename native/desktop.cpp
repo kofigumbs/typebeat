@@ -8,6 +8,7 @@
 #include "miniaudio/miniaudio.h"
 #include "webview/webview.h"
 #include "SOUL/include/soul/soul_patch.h"
+#include "SOUL/include/soul/patch/helper_classes/soul_patch_Utilities.h"
 #include "SOUL/include/soul/3rdParty/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
 #define GROOVEBOX_MAX_MIDI 64
@@ -16,6 +17,12 @@ struct UserData {
     soul::patch::PatchPlayer::Ptr player;
     choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiIn;
     choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiOut;
+};
+
+struct ConsoleMessageHandler: soul::patch::RefCountHelper<soul::patch::ConsoleMessageHandler, ConsoleMessageHandler> {
+    void handleConsoleMessage (uint64_t sampleCount, const char* endpointName, const char* message) {
+        printf("%llu %s: %s\n", sampleCount, endpointName, message);
+    }
 };
 
 void warnIfDropped(std::string context, bool ok) {
@@ -89,17 +96,24 @@ int main(int argc, char* argv[]) {
     ma_device device;
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
-    // compile SOUL patch
-    auto path = std::filesystem::absolute(std::filesystem::path(std::string(argv[0])))
+    // initialize webview
+    auto path = std::filesystem::absolute(std::filesystem::path(argv[0]))
         .parent_path() // build directory
         .parent_path(); // project directory
+    webview::webview view(true, nullptr);
+    view.set_size(900, 320, WEBVIEW_HINT_MIN);
+    view.set_size(900, 320 + 22 /* see notes/frameless.md */, WEBVIEW_HINT_NONE);
+    view.navigate("file://" + (path / "web" / "index.html").string());
+
+    // compile SOUL patch
     soul::patch::SOULPatchLibrary library((path / "build" / soul::patch::SOULPatchLibrary::getLibraryFileName()).c_str());
     soul::patch::PatchInstance::Ptr patch = library.createPatchFromFileBundle((path / "dsp" / "groovebox.soulpatch").c_str());
     soul::patch::PatchPlayerConfiguration playerConfig;
     playerConfig.sampleRate = device.sampleRate;
     playerConfig.maxFramesPerBlock = deviceConfig.periodSizeInFrames;
+    ConsoleMessageHandler consoleMessageHandler;
     auto player = soul::patch::PatchPlayer::Ptr(
-        patch->compileNewPlayer(playerConfig, NULL, NULL, NULL, NULL)
+        patch->compileNewPlayer(playerConfig, NULL, NULL, NULL, &consoleMessageHandler)
     );
 
     // setup user data
@@ -108,12 +122,6 @@ int main(int argc, char* argv[]) {
     userData.midiIn.reset(GROOVEBOX_MAX_MIDI);
     userData.midiOut.reset(GROOVEBOX_MAX_MIDI);
     device.pUserData = &userData;
-
-    // setup webview
-    webview::webview view(true, nullptr);
-    view.set_size(900, 320, WEBVIEW_HINT_MIN);
-    view.set_size(900, 320 + 22 /* see notes/frameless.md */, WEBVIEW_HINT_NONE);
-    view.navigate("file://" + (path / "web" / "index.html").string());
 
     // midi from webview to SOUL
     view.bind("midiIn", [&userData](std::string midiIn) -> std::string {
