@@ -14,10 +14,12 @@
 #define GROOVEBOX_MAX_MIDI 64
 
 struct UserData {
+    webview::webview* view;
     soul::patch::PatchPlayer::Ptr player;
     choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiIn;
     choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiOut;
 };
+
 
 struct ConsoleMessageHandler: soul::patch::RefCountHelper<soul::patch::ConsoleMessageHandler, ConsoleMessageHandler> {
     void handleConsoleMessage (uint64_t sampleCount, const char* endpointName, const char* message) {
@@ -25,9 +27,9 @@ struct ConsoleMessageHandler: soul::patch::RefCountHelper<soul::patch::ConsoleMe
     }
 };
 
-void warnIfDropped(std::string context, bool ok) {
-    if (!ok)
-        printf("WARN: Dropped a MIDI %s event!\n", context.c_str());
+void pushMidi(std::string context, choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent>* queue, soul::MIDIEvent event) {
+    if (!queue->push(event))
+        printf("dropped MIDI %s [%hhu, %hhu, %hhu]\n", context.c_str(), event.message.data[0], event.message.data[1], event.message.data[2]);
 }
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
@@ -70,7 +72,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
 
     // de-queue outgoing MIDI
     for (int i = 0; i < context.numMIDIMessagesOut; i++)
-        warnIfDropped("output", userData->midiOut.push(outgoingMIDI[i]));
+        pushMidi("output", &userData->midiOut, outgoingMIDI[i]);
 
     // interleave output audio frames
     for (int channel = 0; channel < device->playback.channels; channel++)
@@ -111,13 +113,16 @@ int main(int argc, char* argv[]) {
     soul::patch::PatchPlayerConfiguration playerConfig;
     playerConfig.sampleRate = device.sampleRate;
     playerConfig.maxFramesPerBlock = deviceConfig.periodSizeInFrames;
-    ConsoleMessageHandler consoleMessageHandler;
     auto player = soul::patch::PatchPlayer::Ptr(
-        patch->compileNewPlayer(playerConfig, NULL, NULL, NULL, &consoleMessageHandler)
+        patch->compileNewPlayer(playerConfig, NULL, NULL, NULL, new ConsoleMessageHandler())
     );
+    for (auto message: player->getCompileMessages())
+        printf("%s\n", message.fullMessage->getCharPointer());
+    assert(player->isPlayable());
 
     // setup user data
     UserData userData;
+    userData.view = &view;
     userData.player = player;
     userData.midiIn.reset(GROOVEBOX_MAX_MIDI);
     userData.midiOut.reset(GROOVEBOX_MAX_MIDI);
@@ -125,7 +130,7 @@ int main(int argc, char* argv[]) {
 
     // midi from webview to SOUL
     view.bind("midiIn", [&userData](std::string midiIn) -> std::string {
-        warnIfDropped("input", userData.midiIn.push(soul::MIDIEvent::fromPackedMIDIData(0, std::stoi(midiIn.substr(1)))));
+        pushMidi("input", &userData.midiIn, soul::MIDIEvent::fromPackedMIDIData(0, std::stoi(midiIn.substr(1))));
         return "";
     });
 
