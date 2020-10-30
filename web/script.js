@@ -52,7 +52,7 @@ const config = {
 const state = {
   key: "c",
   scale: "major",
-  octave: 4,
+  octave: 3,
 };
 
 
@@ -78,24 +78,21 @@ const getKeyElement = key => {
 };
 
 const onKeyChange = (event, { down, noteStatus, noteVelocity }) => {
-  if (event.ctrlKey || event.altKey || event.metaKey) {
-    return true;
+  if (event.ctrlKey || event.altKey || event.metaKey || event.repeat) {
+    return;
   }
   if (config.keys.midi.right.includes(event.key)) {
+    event.preventDefault();
     getKeyElement(event.key).classList.toggle("down", down);
     packMidiIn(noteStatus, midiNote(event.key), noteVelocity);
-    return false;
-  }
-  if (event.key === "P") {
-    packMidiIn(250); // play/pause
-    return false;
   }
   if (event.key === "Shift") {
+    event.preventDefault();
     document.body.classList.toggle("shift", down);
-    return false;
   }
 };
 
+document.addEventListener("keypress", event => event.preventDefault());
 document.addEventListener("keydown", event => onKeyChange(event, { down: true, noteStatus: 144, noteVelocity: 100 }));
 document.addEventListener("keyup", event => onKeyChange(event, { down: false, noteStatus: 128, noteVelocity: 0 }));
 
