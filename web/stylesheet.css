@@ -21,7 +21,7 @@ html {
 
 body {
   font-size: 18px;
-  font-family: fontaudio, SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+  font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
   cursor: default;
 }
 
@@ -114,6 +114,10 @@ body > *:last-child {
 
 .shift .key::before {
   content: attr(data-shift);
+}
+
+.alt .key::before {
+  content: attr(data-alt);
 }
 
 .key.down {

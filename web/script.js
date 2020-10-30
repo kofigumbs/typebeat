@@ -14,17 +14,29 @@ const config = {
       control: Array.from("qpa;z/"),
       navigation: Array.from("xcvbnm,."),
     },
-    midi: {
-      left: Array.from("zxcvbasdfgqwert"),
-      right: Array.from("nm,./hjkl;yuiop"),
+    play: {
+      effects: {
+        "q": "", "w": "", "e": "", "r": "", "t": "",
+        "a": "", "s": "", "d": "", "f": "", "g": "",
+        "z": "", "x": "", "c": "", "v": "", "b": "",
+      },
+      keyboard: Array.from("nm,./hjkl;yuiop"),
     },
     shift: {
       "q": "", "w": "", "e": "", "r": "", "t": "",
-      "y": "", "u": "", "i": "", "o": "", "p": "\uf169",
+      "y": "", "u": "", "i": "", "o": "", "p": "\u25B6",
       "a": "", "s": "", "d": "", "f": "", "g": "",
-      "h": "", "j": "", "k": "", "l": "", ";": "",
+      "h": "", "j": "", "k": "", "l": "", ";": "\u25CF",
       "z": "", "x": "", "c": "", "v": "", "b": "",
-      "n": "", "m": "", ",": "", ".": "", "/": "",
+      "n": "", "m": "", ",": "", ".": "", "/": "S",
+    },
+    alt: {
+      "q": "", "w": "+", "e": "+", "r": "+", "t": "+",
+      "y": "+", "u": "+", "i": "+", "o": "+", "p": "",
+      "a": "", "s": "-", "d": "-", "f": "-", "g": "-",
+      "h": "-", "j": "-", "k": "-", "l": "-", ";": "",
+      "z": "", "x": "M", "c": "M", "v": "M", "b": "M",
+      "n": "M", "m": "M", ",": "M", ".": "M", "/": "",
     },
   },
   scales: {
@@ -66,7 +78,7 @@ const packMidiIn = (byte1, byte2 = 0, byte3 = 0) => {
 };
 
 const midiNote = key => {
-  const index = config.keys.midi.right.indexOf(key);
+  const index = config.keys.play.keyboard.indexOf(key);
   const scale = config.scales[state.scale];
   return scale[index % scale.length]
     + 12 * (state.octave + Math.floor(index / scale.length))
@@ -78,10 +90,10 @@ const getKeyElement = key => {
 };
 
 const onKeyChange = (event, { down, noteStatus, noteVelocity }) => {
-  if (event.ctrlKey || event.altKey || event.metaKey || event.repeat) {
+  if (event.ctrlKey || event.metaKey || event.repeat) {
     return;
   }
-  if (config.keys.midi.right.includes(event.key)) {
+  if (config.keys.play.keyboard.includes(event.key)) {
     event.preventDefault();
     getKeyElement(event.key).classList.toggle("down", down);
     packMidiIn(noteStatus, midiNote(event.key), noteVelocity);
@@ -89,6 +101,10 @@ const onKeyChange = (event, { down, noteStatus, noteVelocity }) => {
   if (event.key === "Shift") {
     event.preventDefault();
     document.body.classList.toggle("shift", down);
+  }
+  if (event.key === "Alt") {
+    event.preventDefault();
+    document.body.classList.toggle("alt", down);
   }
 };
 
@@ -134,7 +150,9 @@ const div = (attributes, children) => {
 
 const newKey = key => {
   let role, name = "";
-  if (config.keys.midi.right.includes(key))
+  if (config.keys.play.effects[key])
+    name = config.keys.play.effects[key];
+  if (config.keys.play.keyboard.includes(key))
     name = config.notes[midiNote(key) % config.notes.length];
   if (config.keys.role.sequence.includes(key))
     role = "sequence";
@@ -147,6 +165,7 @@ const newKey = key => {
     "data-key": key,
     "data-name": name,
     "data-shift": config.keys.shift[key],
+    "data-alt": config.keys.alt[key] || "",
   };
   return div(attributes, [ div({ class: "shadow" }, []) ]);
 };
