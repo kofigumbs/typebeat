@@ -10,7 +10,7 @@ graph Groovebox  [[ main ]] {
     let monoToStereo = OneToMany(float, 2);
 
     connection {
-        midiIn -> soul::midi::MPEParser -> TR808 -> monoToStereo -> audioOut;
+        midiIn -> soul::midi::MPEParser -> Kit -> audioOut;
         Timeline -> midiOut;
     }
 }
@@ -44,17 +44,17 @@ processor Timeline {
     }
 }
 
-processor TR808 {
-    output stream float audioOut;
+processor Kit {
+    output stream float<2> audioOut;
 
     input event soul::note_events::NoteOn midiIn;
 
-    float[] sample;
+    float<2>[] sample;
     int samplePlayback;
 
     event midiIn(soul::note_events::NoteOn e) {
         samplePlayback = 0;
-        sample = tr808::midiNoteToSample(int(e.note));
+        sample = enfer::sample(e);
     }
 
     void run() {

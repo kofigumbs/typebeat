@@ -61,7 +61,7 @@ const config = {
 
 const state = {
   key: "c",
-  octave: 1,
+  octave: 0,
   scale: null,
   track: 0,
 };

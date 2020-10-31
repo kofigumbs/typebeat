@@ -20,9 +20,3 @@ build/soul build/${SOUL_PATCH_LOADER}:
 	mkdir -p build
 	curl -sSLo build/${SOUL_PATCH_LOADER}.zip https://github.com/soul-lang/SOUL/releases/download/${SOUL_VERSION}/binaries-${SOUL_PLATFORM_NAME}.zip
 	unzip -j -d build build/${SOUL_PATCH_LOADER}.zip
-
-dsp/tr808:
-	mkdir -p dsp/tr808
-	curl -sSLo build/Roland-TR-808.zip https://usercontent.one/wp/www.drumkito.com/wp-content/uploads/2018/12/Roland-TR-808.zip
-	unzip -q -j -d dsp/tr808 build/Roland-TR-808.zip
-	find . -type f -name '._*' -delete # delete macOS phantom files
