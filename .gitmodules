@@ -7,3 +7,6 @@
 [submodule "native/SOUL"]
 	path = native/SOUL
 	url = https://github.com/soul-lang/SOUL
+[submodule "dsp/Enfer"]
+	path = dsp/Enfer
+	url = https://github.com/neauoire/Enfer
