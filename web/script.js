@@ -56,15 +56,14 @@ const config = {
     melodicMajor: [ 0, 2, 4, 5, 7, 8, 10 ],
     bartok: [ 0, 2, 4, 5, 7, 8, 10 ],
     hindu: [ 0, 2, 4, 5, 7, 8, 10 ],
-    none: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ],
   },
   notes: [ "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" ],
 };
 
 const state = {
   key: "c",
-  scale: "major",
-  octave: 3,
+  octave: 1,
+  scale: null,
 };
 
 
@@ -79,10 +78,14 @@ const packMidiIn = (byte1, byte2 = 0, byte3 = 0) => {
 
 const midiNote = key => {
   const index = config.keys.play.keyboard.indexOf(key);
-  const scale = config.scales[state.scale];
-  return scale[index % scale.length]
-    + 12 * (state.octave + Math.floor(index / scale.length))
-    + config.notes.indexOf(state.key);
+  if (!state.scale) {
+    return index + state.octave * config.keys.play.keyboard.length;
+  } else {
+    const scale = config.scales[state.scale];
+    return scale[index % scale.length]
+      + 12 * (state.octave + Math.floor(index / scale.length))
+      + config.notes.indexOf(state.key);
+  }
 };
 
 const getKeyElement = key => {

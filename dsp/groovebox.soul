@@ -1,3 +1,5 @@
+// vim: set ft=cpp:
+
 graph Groovebox  [[ main ]] {
     input stream float<2> audioIn;
     input event soul::midi::Message midiIn;
@@ -8,7 +10,7 @@ graph Groovebox  [[ main ]] {
     let monoToStereo = OneToMany(float, 2);
 
     connection {
-        midiIn -> soul::midi::MPEParser -> SineOsc -> monoToStereo -> audioOut;
+        midiIn -> soul::midi::MPEParser -> TR808 -> monoToStereo -> audioOut;
         Timeline -> midiOut;
     }
 }
@@ -38,6 +40,30 @@ processor Timeline {
                     | ((currentQuarterNote * 4) & 127) << 8 /* least significant 7 bits in 16th notes */
                     | ((currentQuarterNote * 4) >> 7) & 127 /* most significant 7 bits in 16th notes */
             );
+        }
+    }
+}
+
+processor TR808 {
+    output stream float audioOut;
+
+    input event soul::note_events::NoteOn midiIn;
+
+    float[] sample;
+    int samplePlayback;
+
+    event midiIn(soul::note_events::NoteOn e) {
+        samplePlayback = 0;
+        sample = tr808::midiNoteToSample(int(e.note));
+    }
+
+    void run() {
+        loop {
+            if (samplePlayback < sample.size) {
+                audioOut << sample.at(samplePlayback);
+                samplePlayback++;
+            }
+            advance();
         }
     }
 }
