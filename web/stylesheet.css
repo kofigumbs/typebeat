@@ -145,6 +145,10 @@ body > *:last-child {
   --accent: var(--dark);
 }
 
+.key.navigation.current {
+  --background: var(--yellow);
+}
+
 .key.control {
   --text: var(--dark);
   --background: var(--light);

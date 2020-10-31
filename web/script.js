@@ -4,24 +4,23 @@
 
 const config = {
   keys: {
-    layout: {
-      row1: Array.from("qwertyuiop"),
-      row2: Array.from("asdfghjkl;"),
-      row3: Array.from("zxcvbnm,./"),
+    // layout
+    row1: Array.from("qwertyuiop"),
+    row2: Array.from("asdfghjkl;"),
+    row3: Array.from("zxcvbnm,./"),
+    // role
+    sequence: Array.from("wertyuiosdfghjkl"),
+    control: Array.from("qpa;z/"),
+    navigation: Array.from("xcvbnm,."),
+    // left hand
+    effects: {
+      "q": "", "w": "", "e": "", "r": "", "t": "",
+      "a": "", "s": "", "d": "", "f": "", "g": "",
+      "z": "", "x": "", "c": "", "v": "", "b": "",
     },
-    role: {
-      sequence: Array.from("wertyuiosdfghjkl"),
-      control: Array.from("qpa;z/"),
-      navigation: Array.from("xcvbnm,."),
-    },
-    play: {
-      effects: {
-        "q": "", "w": "", "e": "", "r": "", "t": "",
-        "a": "", "s": "", "d": "", "f": "", "g": "",
-        "z": "", "x": "", "c": "", "v": "", "b": "",
-      },
-      keyboard: Array.from("nm,./hjkl;yuiop"),
-    },
+    // right hand
+    keyboard: Array.from("nm,./hjkl;yuiop"),
+    // modifier layers
     shift: {
       "q": "", "w": "1", "e": "2", "r": "3", "t": "4",
       "y": "5", "u": "6", "i": "7", "o": "8", "p": "\u25B6",
@@ -64,6 +63,7 @@ const state = {
   key: "c",
   octave: 1,
   scale: null,
+  track: 0,
 };
 
 
@@ -77,15 +77,13 @@ const packMidiIn = (byte1, byte2 = 0, byte3 = 0) => {
 };
 
 const midiNote = key => {
-  const index = config.keys.play.keyboard.indexOf(key);
-  if (!state.scale) {
-    return index + state.octave * config.keys.play.keyboard.length;
-  } else {
-    const scale = config.scales[state.scale];
-    return scale[index % scale.length]
-      + 12 * (state.octave + Math.floor(index / scale.length))
-      + config.notes.indexOf(state.key);
-  }
+  const index = config.keys.keyboard.indexOf(key);
+  if (state.scale === null)
+    return index + state.octave * config.keys.keyboard.length;
+  const scale = config.scales[state.scale];
+  return scale[index % scale.length]
+    + 12 * (state.octave + Math.floor(index / scale.length))
+    + config.notes.indexOf(state.key);
 };
 
 const getKeyElement = key => {
@@ -96,7 +94,7 @@ const onKeyChange = (event, { down, noteStatus, noteVelocity }) => {
   if (event.ctrlKey || event.metaKey || event.repeat) {
     return;
   }
-  if (config.keys.play.keyboard.includes(event.key)) {
+  if (config.keys.keyboard.includes(event.key)) {
     event.preventDefault();
     getKeyElement(event.key).classList.toggle("down", down);
     packMidiIn(noteStatus, midiNote(event.key), noteVelocity);
@@ -125,8 +123,8 @@ const onMidiOut = midi => {
     switch (message >> 16 /* status byte */) {
       case 242: /* song position pointer */
         const beat = ((message & 127) << 7) | ((message >> 8) & 127);
-        const sequencePosition = (beat / 4) % config.keys.role.sequence.length;
-        config.keys.role.sequence.forEach((key, index) => {
+        const sequencePosition = (beat / 4) % config.keys.sequence.length;
+        config.keys.sequence.forEach((key, index) => {
           getKeyElement(key).classList.toggle("current", index === sequencePosition);
         });
         break;
@@ -152,24 +150,24 @@ const div = (attributes, children) => {
 };
 
 const newKey = key => {
-  let role, name = "";
-  if (config.keys.play.effects[key])
-    name = config.keys.play.effects[key];
-  if (config.keys.play.keyboard.includes(key))
-    name = config.notes[midiNote(key) % config.notes.length];
-  if (config.keys.role.sequence.includes(key))
-    role = "sequence";
-  if (config.keys.role.navigation.includes(key))
-    role = "navigation";
-  if (config.keys.role.control.includes(key))
-    role = "control";
   const attributes = {
-    class: `key ${role}`,
+    "class": "key",
     "data-key": key,
-    "data-name": name,
     "data-shift": config.keys.shift[key],
-    "data-alt": config.keys.alt[key] || "",
+    "data-alt": config.keys.alt[key],
   };
+  if (config.keys.effects[key])
+    attributes["data-name"] = config.keys.effects[key];
+  if (config.keys.keyboard.includes(key))
+    attributes["data-name"] = config.notes[midiNote(key) % config.notes.length];
+  if (config.keys.sequence.includes(key))
+    attributes.class += " sequence";
+  if (config.keys.navigation.includes(key))
+    attributes.class += " navigation";
+  if (config.keys.control.includes(key))
+    attributes.class += " control";
+  if (config.keys.navigation.indexOf(key) === state.track)
+    attributes.class += " current";
   return div(attributes, [ div({ class: "shadow" }, []) ]);
 };
 
@@ -177,6 +175,6 @@ const newRow = row => {
   return div({ class: "flex row centered staggered" }, row.map(newKey));
 };
 
-document.body.appendChild(newRow(config.keys.layout.row1));
-document.body.appendChild(newRow(config.keys.layout.row2));
-document.body.appendChild(newRow(config.keys.layout.row3));
+document.body.appendChild(newRow(config.keys.row1));
+document.body.appendChild(newRow(config.keys.row2));
+document.body.appendChild(newRow(config.keys.row3));
