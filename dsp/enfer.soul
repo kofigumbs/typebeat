@@ -265,7 +265,6 @@ namespace enfer {
             if (e.note == 12) return enfer::bergh::fx1;
             if (e.note == 13) return enfer::bergh::fx2;
             if (e.note == 14) return enfer::bergh::fx3;
-            if (e.note == 15) return enfer::bergh::fx4;
         }
         if (e.channel == 1) {
             if (e.note ==  0) return enfer::commodore::kick;
@@ -283,7 +282,6 @@ namespace enfer {
             if (e.note == 12) return enfer::commodore::fx1;
             if (e.note == 13) return enfer::commodore::fx2;
             if (e.note == 14) return enfer::commodore::fx3;
-            if (e.note == 15) return enfer::commodore::fx4;
         }
         if (e.channel == 2) {
             if (e.note ==  0) return enfer::dark::kick;
@@ -301,7 +299,6 @@ namespace enfer {
             if (e.note == 12) return enfer::dark::fx1;
             if (e.note == 13) return enfer::dark::fx2;
             if (e.note == 14) return enfer::dark::fx3;
-            if (e.note == 15) return enfer::dark::fx4;
         }
         if (e.channel == 3) {
             if (e.note ==  0) return enfer::deep::kick;
@@ -319,7 +316,6 @@ namespace enfer {
             if (e.note == 12) return enfer::deep::fx1;
             if (e.note == 13) return enfer::deep::fx2;
             if (e.note == 14) return enfer::deep::fx3;
-            if (e.note == 15) return enfer::deep::fx4;
         }
         if (e.channel == 4) {
             if (e.note ==  0) return enfer::dmg::kick;
@@ -337,7 +333,6 @@ namespace enfer {
             if (e.note == 12) return enfer::dmg::fx1;
             if (e.note == 13) return enfer::dmg::fx2;
             if (e.note == 14) return enfer::dmg::fx3;
-            if (e.note == 15) return enfer::dmg::fx4;
         }
         if (e.channel == 5) {
             if (e.note ==  0) return enfer::dmx::kick;
@@ -355,7 +350,6 @@ namespace enfer {
             if (e.note == 12) return enfer::dmx::fx1;
             if (e.note == 13) return enfer::dmx::fx2;
             if (e.note == 14) return enfer::dmx::fx3;
-            if (e.note == 15) return enfer::dmx::fx4;
         }
         if (e.channel == 6) {
             if (e.note ==  0) return enfer::dnb::kick;
@@ -373,7 +367,6 @@ namespace enfer {
             if (e.note == 12) return enfer::dnb::fx1;
             if (e.note == 13) return enfer::dnb::fx2;
             if (e.note == 14) return enfer::dnb::fx3;
-            if (e.note == 15) return enfer::dnb::fx4;
         }
         if (e.channel == 7) {
             if (e.note ==  0) return enfer::gabber::kick;
@@ -391,7 +384,6 @@ namespace enfer {
             if (e.note == 12) return enfer::gabber::fx1;
             if (e.note == 13) return enfer::gabber::fx2;
             if (e.note == 14) return enfer::gabber::fx3;
-            if (e.note == 15) return enfer::gabber::fx4;
         }
         if (e.channel == 8) {
             if (e.note ==  0) return enfer::modular::kick;
@@ -409,7 +401,6 @@ namespace enfer {
             if (e.note == 12) return enfer::modular::fx1;
             if (e.note == 13) return enfer::modular::fx2;
             if (e.note == 14) return enfer::modular::fx3;
-            if (e.note == 15) return enfer::modular::fx4;
         }
         if (e.channel == 9) {
             if (e.note ==  0) return enfer::tech::kick;
@@ -427,7 +418,6 @@ namespace enfer {
             if (e.note == 12) return enfer::tech::fx1;
             if (e.note == 13) return enfer::tech::fx2;
             if (e.note == 14) return enfer::tech::fx3;
-            if (e.note == 15) return enfer::tech::fx4;
         }
         if (e.channel == 10) {
             if (e.note ==  0) return enfer::tr808::kick;
@@ -445,7 +435,6 @@ namespace enfer {
             if (e.note == 12) return enfer::tr808::fx1;
             if (e.note == 13) return enfer::tr808::fx2;
             if (e.note == 14) return enfer::tr808::fx3;
-            if (e.note == 15) return enfer::tr808::fx4;
         }
         if (e.channel == 11) {
             if (e.note ==  0) return enfer::tr909::kick;
@@ -463,7 +452,6 @@ namespace enfer {
             if (e.note == 12) return enfer::tr909::fx1;
             if (e.note == 13) return enfer::tr909::fx2;
             if (e.note == 14) return enfer::tr909::fx3;
-            if (e.note == 15) return enfer::tr909::fx4;
         }
         if (e.channel == 12) {
             if (e.note ==  0) return enfer::vermona::kick;
@@ -481,7 +469,21 @@ namespace enfer {
             if (e.note == 12) return enfer::vermona::fx1;
             if (e.note == 13) return enfer::vermona::fx2;
             if (e.note == 14) return enfer::vermona::fx3;
-            if (e.note == 15) return enfer::vermona::fx4;
+        }
+        if (e.channel == 13) {
+            if (e.note ==  0) return enfer::bergh::fx4;
+            if (e.note ==  1) return enfer::commodore::fx4;
+            if (e.note ==  2) return enfer::dark::fx4;
+            if (e.note ==  3) return enfer::deep::fx4;
+            if (e.note ==  4) return enfer::dmg::fx4;
+            if (e.note ==  5) return enfer::dmx::fx4;
+            if (e.note ==  6) return enfer::dnb::fx4;
+            if (e.note ==  7) return enfer::gabber::fx4;
+            if (e.note ==  8) return enfer::modular::fx4;
+            if (e.note ==  9) return enfer::tech::fx4;
+            if (e.note == 10) return enfer::tr808::fx4;
+            if (e.note == 11) return enfer::tr909::fx4;
+            if (e.note == 12) return enfer::vermona::fx4;
         }
         float<2>[] noSample;
         return noSample;
