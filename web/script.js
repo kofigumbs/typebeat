@@ -16,7 +16,7 @@ const config = {
     effects: {
       "q": "", "w": "", "e": "", "r": "", "t": "",
       "a": "", "s": "", "d": "", "f": "", "g": "",
-      "z": "", "x": "", "c": "", "v": "", "b": "",
+      "z": "", "x": "", "c": "", "v": "\u276E", "b": "\u276F",
     },
     // right hand
     keyboard: Array.from("nm,./hjkl;yuiop"),
@@ -56,6 +56,7 @@ const config = {
     bartok: [ 0, 2, 4, 5, 7, 8, 10 ],
     hindu: [ 0, 2, 4, 5, 7, 8, 10 ],
   },
+  kitMax: 13,
   notes: [ "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b" ],
 };
 
@@ -64,6 +65,7 @@ const state = {
   octave: 0,
   scale: null,
   track: 0,
+  channel: 0,
 };
 
 
@@ -86,32 +88,50 @@ const midiNote = key => {
     + config.notes.indexOf(state.key);
 };
 
+const keyName = key => {
+  return config.notes[midiNote(key) % config.notes.length];
+};
+
 const getKeyElement = key => {
   return document.querySelector(`[data-key="${key}"]`);
 };
 
-const onKeyChange = (event, { down, noteStatus, noteVelocity }) => {
+const onKeyChange = event => {
   if (event.ctrlKey || event.metaKey || event.repeat) {
     return;
   }
   if (config.keys.keyboard.includes(event.key)) {
     event.preventDefault();
-    getKeyElement(event.key).classList.toggle("down", down);
-    packMidiIn(noteStatus, midiNote(event.key), noteVelocity);
+    getKeyElement(event.key).classList.toggle("down", event.type === "keydown");
+    packMidiIn(
+      state.channel | (event.type === "keydown" ? 144 : 128),
+      midiNote(event.key),
+      event.type === "keydown" ? 100 : 0
+    );
+  }
+  if (event.key === "v") {
+    event.preventDefault();
+    getKeyElement(event.key).classList.toggle("down", event.type === "keydown");
+    state.channel = Math.max(state.channel - 1, 0);
+  }
+  if (event.key === "b") {
+    event.preventDefault();
+    getKeyElement(event.key).classList.toggle("down", event.type === "keydown");
+    state.channel = Math.min(state.channel + 1, config.kitMax);
   }
   if (event.key === "Shift") {
     event.preventDefault();
-    document.body.classList.toggle("shift", down);
+    document.body.classList.toggle("shift", event.type === "keydown");
   }
   if (event.key === "Alt") {
     event.preventDefault();
-    document.body.classList.toggle("alt", down);
+    document.body.classList.toggle("alt", event.type === "keydown");
   }
 };
 
+document.addEventListener("keydown", onKeyChange);
+document.addEventListener("keyup", onKeyChange);
 document.addEventListener("keypress", event => event.preventDefault());
-document.addEventListener("keydown", event => onKeyChange(event, { down: true, noteStatus: 144, noteVelocity: 100 }));
-document.addEventListener("keyup", event => onKeyChange(event, { down: false, noteStatus: 128, noteVelocity: 0 }));
 
 
 /*
@@ -159,7 +179,7 @@ const newKey = key => {
   if (config.keys.effects[key])
     attributes["data-name"] = config.keys.effects[key];
   if (config.keys.keyboard.includes(key))
-    attributes["data-name"] = config.notes[midiNote(key) % config.notes.length];
+    attributes["data-name"] = keyName(key);
   if (config.keys.sequence.includes(key))
     attributes.class += " sequence";
   if (config.keys.navigation.includes(key))
