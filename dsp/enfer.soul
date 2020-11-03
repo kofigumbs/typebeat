@@ -3,19 +3,19 @@
 namespace enfer {
     Kit[13] kits() {
         return Kit[13](
-            tr808::kit(),
-            tr909::kit(),
-            dmx::kit(),
-            dnb::kit(),
-            dark::kit(),
-            deep::kit(),
-            tech::kit(),
-            modular::kit(),
-            gabber::kit(),
-            bergh::kit(),
-            vermona::kit(),
-            commodore::kit(),
-            dmg::kit()
+            tr808::kit,
+            tr909::kit,
+            dmx::kit,
+            dnb::kit,
+            dark::kit,
+            deep::kit,
+            tech::kit,
+            modular::kit,
+            gabber::kit,
+            bergh::kit,
+            vermona::kit,
+            commodore::kit,
+            dmg::kit
         );
     }
 
@@ -55,9 +55,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace tr909 {
@@ -77,9 +75,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace dmx {
@@ -99,9 +95,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace dnb {
@@ -121,9 +115,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace dark {
@@ -143,9 +135,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace deep {
@@ -165,9 +155,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace tech {
@@ -187,9 +175,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace modular {
@@ -209,9 +195,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace gabber {
@@ -231,9 +215,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace bergh {
@@ -253,9 +235,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace vermona {
@@ -275,9 +255,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace commodore {
@@ -297,9 +275,7 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace dmg {
@@ -319,8 +295,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        Kit kit() {
-            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
-        }
+        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 }
