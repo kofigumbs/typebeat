@@ -1,194 +1,41 @@
 // vim: set ft=cpp:
 
 namespace enfer {
-    namespace bergh {
-        external float<2>[] kick;
-        external float<2>[] kickUp;
-        external float<2>[] kickDown;
-        external float<2>[] tom;
-        external float<2>[] snare;
-        external float<2>[] snareUp;
-        external float<2>[] snareDown;
-        external float<2>[] clap;
-        external float<2>[] hat;
-        external float<2>[] hatOpen;
-        external float<2>[] hatShut;
-        external float<2>[] cymb;
-        external float<2>[] fx1;
-        external float<2>[] fx2;
-        external float<2>[] fx3;
-        external float<2>[] fx4;
+    Kit[13] kits() {
+        return Kit[13](
+            tr808::kit(),
+            tr909::kit(),
+            dmx::kit(),
+            dnb::kit(),
+            dark::kit(),
+            deep::kit(),
+            tech::kit(),
+            modular::kit(),
+            gabber::kit(),
+            bergh::kit(),
+            vermona::kit(),
+            commodore::kit(),
+            dmg::kit()
+        );
     }
 
-    namespace commodore {
-        external float<2>[] kick;
-        external float<2>[] kickUp;
-        external float<2>[] kickDown;
-        external float<2>[] tom;
-        external float<2>[] snare;
-        external float<2>[] snareUp;
-        external float<2>[] snareDown;
-        external float<2>[] clap;
-        external float<2>[] hat;
-        external float<2>[] hatOpen;
-        external float<2>[] hatShut;
-        external float<2>[] cymb;
-        external float<2>[] fx1;
-        external float<2>[] fx2;
-        external float<2>[] fx3;
-        external float<2>[] fx4;
-    }
-
-    namespace dark {
-        external float<2>[] kick;
-        external float<2>[] kickUp;
-        external float<2>[] kickDown;
-        external float<2>[] tom;
-        external float<2>[] snare;
-        external float<2>[] snareUp;
-        external float<2>[] snareDown;
-        external float<2>[] clap;
-        external float<2>[] hat;
-        external float<2>[] hatOpen;
-        external float<2>[] hatShut;
-        external float<2>[] cymb;
-        external float<2>[] fx1;
-        external float<2>[] fx2;
-        external float<2>[] fx3;
-        external float<2>[] fx4;
-    }
-
-    namespace deep {
-        external float<2>[] kick;
-        external float<2>[] kickUp;
-        external float<2>[] kickDown;
-        external float<2>[] tom;
-        external float<2>[] snare;
-        external float<2>[] snareUp;
-        external float<2>[] snareDown;
-        external float<2>[] clap;
-        external float<2>[] hat;
-        external float<2>[] hatOpen;
-        external float<2>[] hatShut;
-        external float<2>[] cymb;
-        external float<2>[] fx1;
-        external float<2>[] fx2;
-        external float<2>[] fx3;
-        external float<2>[] fx4;
-    }
-
-    namespace dmg {
-        external float<2>[] kick;
-        external float<2>[] kickUp;
-        external float<2>[] kickDown;
-        external float<2>[] tom;
-        external float<2>[] snare;
-        external float<2>[] snareUp;
-        external float<2>[] snareDown;
-        external float<2>[] clap;
-        external float<2>[] hat;
-        external float<2>[] hatOpen;
-        external float<2>[] hatShut;
-        external float<2>[] cymb;
-        external float<2>[] fx1;
-        external float<2>[] fx2;
-        external float<2>[] fx3;
-        external float<2>[] fx4;
-    }
-
-    namespace dmx {
-        external float<2>[] kick;
-        external float<2>[] kickUp;
-        external float<2>[] kickDown;
-        external float<2>[] tom;
-        external float<2>[] snare;
-        external float<2>[] snareUp;
-        external float<2>[] snareDown;
-        external float<2>[] clap;
-        external float<2>[] hat;
-        external float<2>[] hatOpen;
-        external float<2>[] hatShut;
-        external float<2>[] cymb;
-        external float<2>[] fx1;
-        external float<2>[] fx2;
-        external float<2>[] fx3;
-        external float<2>[] fx4;
-    }
-
-    namespace dnb {
-        external float<2>[] kick;
-        external float<2>[] kickUp;
-        external float<2>[] kickDown;
-        external float<2>[] tom;
-        external float<2>[] snare;
-        external float<2>[] snareUp;
-        external float<2>[] snareDown;
-        external float<2>[] clap;
-        external float<2>[] hat;
-        external float<2>[] hatOpen;
-        external float<2>[] hatShut;
-        external float<2>[] cymb;
-        external float<2>[] fx1;
-        external float<2>[] fx2;
-        external float<2>[] fx3;
-        external float<2>[] fx4;
-    }
-
-    namespace gabber {
-        external float<2>[] kick;
-        external float<2>[] kickUp;
-        external float<2>[] kickDown;
-        external float<2>[] tom;
-        external float<2>[] snare;
-        external float<2>[] snareUp;
-        external float<2>[] snareDown;
-        external float<2>[] clap;
-        external float<2>[] hat;
-        external float<2>[] hatOpen;
-        external float<2>[] hatShut;
-        external float<2>[] cymb;
-        external float<2>[] fx1;
-        external float<2>[] fx2;
-        external float<2>[] fx3;
-        external float<2>[] fx4;
-    }
-
-    namespace modular {
-        external float<2>[] kick;
-        external float<2>[] kickUp;
-        external float<2>[] kickDown;
-        external float<2>[] tom;
-        external float<2>[] snare;
-        external float<2>[] snareUp;
-        external float<2>[] snareDown;
-        external float<2>[] clap;
-        external float<2>[] hat;
-        external float<2>[] hatOpen;
-        external float<2>[] hatShut;
-        external float<2>[] cymb;
-        external float<2>[] fx1;
-        external float<2>[] fx2;
-        external float<2>[] fx3;
-        external float<2>[] fx4;
-    }
-
-    namespace tech {
-        external float<2>[] kick;
-        external float<2>[] kickUp;
-        external float<2>[] kickDown;
-        external float<2>[] tom;
-        external float<2>[] snare;
-        external float<2>[] snareUp;
-        external float<2>[] snareDown;
-        external float<2>[] clap;
-        external float<2>[] hat;
-        external float<2>[] hatOpen;
-        external float<2>[] hatShut;
-        external float<2>[] cymb;
-        external float<2>[] fx1;
-        external float<2>[] fx2;
-        external float<2>[] fx3;
-        external float<2>[] fx4;
+    struct Kit {
+        float<2>[] kick;
+        float<2>[] kickUp;
+        float<2>[] kickDown;
+        float<2>[] tom;
+        float<2>[] snare;
+        float<2>[] snareUp;
+        float<2>[] snareDown;
+        float<2>[] clap;
+        float<2>[] hat;
+        float<2>[] hatOpen;
+        float<2>[] hatShut;
+        float<2>[] cymb;
+        float<2>[] fx1;
+        float<2>[] fx2;
+        float<2>[] fx3;
+        float<2>[] fx4;
     }
 
     namespace tr808 {
@@ -208,6 +55,9 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
     }
 
     namespace tr909 {
@@ -227,6 +77,185 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
+    }
+
+    namespace dmx {
+        external float<2>[] kick;
+        external float<2>[] kickUp;
+        external float<2>[] kickDown;
+        external float<2>[] tom;
+        external float<2>[] snare;
+        external float<2>[] snareUp;
+        external float<2>[] snareDown;
+        external float<2>[] clap;
+        external float<2>[] hat;
+        external float<2>[] hatOpen;
+        external float<2>[] hatShut;
+        external float<2>[] cymb;
+        external float<2>[] fx1;
+        external float<2>[] fx2;
+        external float<2>[] fx3;
+        external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
+    }
+
+    namespace dnb {
+        external float<2>[] kick;
+        external float<2>[] kickUp;
+        external float<2>[] kickDown;
+        external float<2>[] tom;
+        external float<2>[] snare;
+        external float<2>[] snareUp;
+        external float<2>[] snareDown;
+        external float<2>[] clap;
+        external float<2>[] hat;
+        external float<2>[] hatOpen;
+        external float<2>[] hatShut;
+        external float<2>[] cymb;
+        external float<2>[] fx1;
+        external float<2>[] fx2;
+        external float<2>[] fx3;
+        external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
+    }
+
+    namespace dark {
+        external float<2>[] kick;
+        external float<2>[] kickUp;
+        external float<2>[] kickDown;
+        external float<2>[] tom;
+        external float<2>[] snare;
+        external float<2>[] snareUp;
+        external float<2>[] snareDown;
+        external float<2>[] clap;
+        external float<2>[] hat;
+        external float<2>[] hatOpen;
+        external float<2>[] hatShut;
+        external float<2>[] cymb;
+        external float<2>[] fx1;
+        external float<2>[] fx2;
+        external float<2>[] fx3;
+        external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
+    }
+
+    namespace deep {
+        external float<2>[] kick;
+        external float<2>[] kickUp;
+        external float<2>[] kickDown;
+        external float<2>[] tom;
+        external float<2>[] snare;
+        external float<2>[] snareUp;
+        external float<2>[] snareDown;
+        external float<2>[] clap;
+        external float<2>[] hat;
+        external float<2>[] hatOpen;
+        external float<2>[] hatShut;
+        external float<2>[] cymb;
+        external float<2>[] fx1;
+        external float<2>[] fx2;
+        external float<2>[] fx3;
+        external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
+    }
+
+    namespace tech {
+        external float<2>[] kick;
+        external float<2>[] kickUp;
+        external float<2>[] kickDown;
+        external float<2>[] tom;
+        external float<2>[] snare;
+        external float<2>[] snareUp;
+        external float<2>[] snareDown;
+        external float<2>[] clap;
+        external float<2>[] hat;
+        external float<2>[] hatOpen;
+        external float<2>[] hatShut;
+        external float<2>[] cymb;
+        external float<2>[] fx1;
+        external float<2>[] fx2;
+        external float<2>[] fx3;
+        external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
+    }
+
+    namespace modular {
+        external float<2>[] kick;
+        external float<2>[] kickUp;
+        external float<2>[] kickDown;
+        external float<2>[] tom;
+        external float<2>[] snare;
+        external float<2>[] snareUp;
+        external float<2>[] snareDown;
+        external float<2>[] clap;
+        external float<2>[] hat;
+        external float<2>[] hatOpen;
+        external float<2>[] hatShut;
+        external float<2>[] cymb;
+        external float<2>[] fx1;
+        external float<2>[] fx2;
+        external float<2>[] fx3;
+        external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
+    }
+
+    namespace gabber {
+        external float<2>[] kick;
+        external float<2>[] kickUp;
+        external float<2>[] kickDown;
+        external float<2>[] tom;
+        external float<2>[] snare;
+        external float<2>[] snareUp;
+        external float<2>[] snareDown;
+        external float<2>[] clap;
+        external float<2>[] hat;
+        external float<2>[] hatOpen;
+        external float<2>[] hatShut;
+        external float<2>[] cymb;
+        external float<2>[] fx1;
+        external float<2>[] fx2;
+        external float<2>[] fx3;
+        external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
+    }
+
+    namespace bergh {
+        external float<2>[] kick;
+        external float<2>[] kickUp;
+        external float<2>[] kickDown;
+        external float<2>[] tom;
+        external float<2>[] snare;
+        external float<2>[] snareUp;
+        external float<2>[] snareDown;
+        external float<2>[] clap;
+        external float<2>[] hat;
+        external float<2>[] hatOpen;
+        external float<2>[] hatShut;
+        external float<2>[] cymb;
+        external float<2>[] fx1;
+        external float<2>[] fx2;
+        external float<2>[] fx3;
+        external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
     }
 
     namespace vermona {
@@ -246,246 +275,52 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+        }
     }
 
-    float<2>[] sample(soul::note_events::NoteOn e) {
-        if (e.channel == 0) {
-            if (e.note ==  0) return enfer::bergh::kick;
-            if (e.note ==  1) return enfer::bergh::kickUp;
-            if (e.note ==  2) return enfer::bergh::kickDown;
-            if (e.note ==  3) return enfer::bergh::tom;
-            if (e.note ==  4) return enfer::bergh::snare;
-            if (e.note ==  5) return enfer::bergh::snareUp;
-            if (e.note ==  6) return enfer::bergh::snareDown;
-            if (e.note ==  7) return enfer::bergh::clap;
-            if (e.note ==  8) return enfer::bergh::hat;
-            if (e.note ==  9) return enfer::bergh::hatOpen;
-            if (e.note == 10) return enfer::bergh::hatShut;
-            if (e.note == 11) return enfer::bergh::cymb;
-            if (e.note == 12) return enfer::bergh::fx1;
-            if (e.note == 13) return enfer::bergh::fx2;
-            if (e.note == 14) return enfer::bergh::fx3;
+    namespace commodore {
+        external float<2>[] kick;
+        external float<2>[] kickUp;
+        external float<2>[] kickDown;
+        external float<2>[] tom;
+        external float<2>[] snare;
+        external float<2>[] snareUp;
+        external float<2>[] snareDown;
+        external float<2>[] clap;
+        external float<2>[] hat;
+        external float<2>[] hatOpen;
+        external float<2>[] hatShut;
+        external float<2>[] cymb;
+        external float<2>[] fx1;
+        external float<2>[] fx2;
+        external float<2>[] fx3;
+        external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
         }
-        if (e.channel == 1) {
-            if (e.note ==  0) return enfer::commodore::kick;
-            if (e.note ==  1) return enfer::commodore::kickUp;
-            if (e.note ==  2) return enfer::commodore::kickDown;
-            if (e.note ==  3) return enfer::commodore::tom;
-            if (e.note ==  4) return enfer::commodore::snare;
-            if (e.note ==  5) return enfer::commodore::snareUp;
-            if (e.note ==  6) return enfer::commodore::snareDown;
-            if (e.note ==  7) return enfer::commodore::clap;
-            if (e.note ==  8) return enfer::commodore::hat;
-            if (e.note ==  9) return enfer::commodore::hatOpen;
-            if (e.note == 10) return enfer::commodore::hatShut;
-            if (e.note == 11) return enfer::commodore::cymb;
-            if (e.note == 12) return enfer::commodore::fx1;
-            if (e.note == 13) return enfer::commodore::fx2;
-            if (e.note == 14) return enfer::commodore::fx3;
+    }
+
+    namespace dmg {
+        external float<2>[] kick;
+        external float<2>[] kickUp;
+        external float<2>[] kickDown;
+        external float<2>[] tom;
+        external float<2>[] snare;
+        external float<2>[] snareUp;
+        external float<2>[] snareDown;
+        external float<2>[] clap;
+        external float<2>[] hat;
+        external float<2>[] hatOpen;
+        external float<2>[] hatShut;
+        external float<2>[] cymb;
+        external float<2>[] fx1;
+        external float<2>[] fx2;
+        external float<2>[] fx3;
+        external float<2>[] fx4;
+        Kit kit() {
+            return Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
         }
-        if (e.channel == 2) {
-            if (e.note ==  0) return enfer::dark::kick;
-            if (e.note ==  1) return enfer::dark::kickUp;
-            if (e.note ==  2) return enfer::dark::kickDown;
-            if (e.note ==  3) return enfer::dark::tom;
-            if (e.note ==  4) return enfer::dark::snare;
-            if (e.note ==  5) return enfer::dark::snareUp;
-            if (e.note ==  6) return enfer::dark::snareDown;
-            if (e.note ==  7) return enfer::dark::clap;
-            if (e.note ==  8) return enfer::dark::hat;
-            if (e.note ==  9) return enfer::dark::hatOpen;
-            if (e.note == 10) return enfer::dark::hatShut;
-            if (e.note == 11) return enfer::dark::cymb;
-            if (e.note == 12) return enfer::dark::fx1;
-            if (e.note == 13) return enfer::dark::fx2;
-            if (e.note == 14) return enfer::dark::fx3;
-        }
-        if (e.channel == 3) {
-            if (e.note ==  0) return enfer::deep::kick;
-            if (e.note ==  1) return enfer::deep::kickUp;
-            if (e.note ==  2) return enfer::deep::kickDown;
-            if (e.note ==  3) return enfer::deep::tom;
-            if (e.note ==  4) return enfer::deep::snare;
-            if (e.note ==  5) return enfer::deep::snareUp;
-            if (e.note ==  6) return enfer::deep::snareDown;
-            if (e.note ==  7) return enfer::deep::clap;
-            if (e.note ==  8) return enfer::deep::hat;
-            if (e.note ==  9) return enfer::deep::hatOpen;
-            if (e.note == 10) return enfer::deep::hatShut;
-            if (e.note == 11) return enfer::deep::cymb;
-            if (e.note == 12) return enfer::deep::fx1;
-            if (e.note == 13) return enfer::deep::fx2;
-            if (e.note == 14) return enfer::deep::fx3;
-        }
-        if (e.channel == 4) {
-            if (e.note ==  0) return enfer::dmg::kick;
-            if (e.note ==  1) return enfer::dmg::kickUp;
-            if (e.note ==  2) return enfer::dmg::kickDown;
-            if (e.note ==  3) return enfer::dmg::tom;
-            if (e.note ==  4) return enfer::dmg::snare;
-            if (e.note ==  5) return enfer::dmg::snareUp;
-            if (e.note ==  6) return enfer::dmg::snareDown;
-            if (e.note ==  7) return enfer::dmg::clap;
-            if (e.note ==  8) return enfer::dmg::hat;
-            if (e.note ==  9) return enfer::dmg::hatOpen;
-            if (e.note == 10) return enfer::dmg::hatShut;
-            if (e.note == 11) return enfer::dmg::cymb;
-            if (e.note == 12) return enfer::dmg::fx1;
-            if (e.note == 13) return enfer::dmg::fx2;
-            if (e.note == 14) return enfer::dmg::fx3;
-        }
-        if (e.channel == 5) {
-            if (e.note ==  0) return enfer::dmx::kick;
-            if (e.note ==  1) return enfer::dmx::kickUp;
-            if (e.note ==  2) return enfer::dmx::kickDown;
-            if (e.note ==  3) return enfer::dmx::tom;
-            if (e.note ==  4) return enfer::dmx::snare;
-            if (e.note ==  5) return enfer::dmx::snareUp;
-            if (e.note ==  6) return enfer::dmx::snareDown;
-            if (e.note ==  7) return enfer::dmx::clap;
-            if (e.note ==  8) return enfer::dmx::hat;
-            if (e.note ==  9) return enfer::dmx::hatOpen;
-            if (e.note == 10) return enfer::dmx::hatShut;
-            if (e.note == 11) return enfer::dmx::cymb;
-            if (e.note == 12) return enfer::dmx::fx1;
-            if (e.note == 13) return enfer::dmx::fx2;
-            if (e.note == 14) return enfer::dmx::fx3;
-        }
-        if (e.channel == 6) {
-            if (e.note ==  0) return enfer::dnb::kick;
-            if (e.note ==  1) return enfer::dnb::kickUp;
-            if (e.note ==  2) return enfer::dnb::kickDown;
-            if (e.note ==  3) return enfer::dnb::tom;
-            if (e.note ==  4) return enfer::dnb::snare;
-            if (e.note ==  5) return enfer::dnb::snareUp;
-            if (e.note ==  6) return enfer::dnb::snareDown;
-            if (e.note ==  7) return enfer::dnb::clap;
-            if (e.note ==  8) return enfer::dnb::hat;
-            if (e.note ==  9) return enfer::dnb::hatOpen;
-            if (e.note == 10) return enfer::dnb::hatShut;
-            if (e.note == 11) return enfer::dnb::cymb;
-            if (e.note == 12) return enfer::dnb::fx1;
-            if (e.note == 13) return enfer::dnb::fx2;
-            if (e.note == 14) return enfer::dnb::fx3;
-        }
-        if (e.channel == 7) {
-            if (e.note ==  0) return enfer::gabber::kick;
-            if (e.note ==  1) return enfer::gabber::kickUp;
-            if (e.note ==  2) return enfer::gabber::kickDown;
-            if (e.note ==  3) return enfer::gabber::tom;
-            if (e.note ==  4) return enfer::gabber::snare;
-            if (e.note ==  5) return enfer::gabber::snareUp;
-            if (e.note ==  6) return enfer::gabber::snareDown;
-            if (e.note ==  7) return enfer::gabber::clap;
-            if (e.note ==  8) return enfer::gabber::hat;
-            if (e.note ==  9) return enfer::gabber::hatOpen;
-            if (e.note == 10) return enfer::gabber::hatShut;
-            if (e.note == 11) return enfer::gabber::cymb;
-            if (e.note == 12) return enfer::gabber::fx1;
-            if (e.note == 13) return enfer::gabber::fx2;
-            if (e.note == 14) return enfer::gabber::fx3;
-        }
-        if (e.channel == 8) {
-            if (e.note ==  0) return enfer::modular::kick;
-            if (e.note ==  1) return enfer::modular::kickUp;
-            if (e.note ==  2) return enfer::modular::kickDown;
-            if (e.note ==  3) return enfer::modular::tom;
-            if (e.note ==  4) return enfer::modular::snare;
-            if (e.note ==  5) return enfer::modular::snareUp;
-            if (e.note ==  6) return enfer::modular::snareDown;
-            if (e.note ==  7) return enfer::modular::clap;
-            if (e.note ==  8) return enfer::modular::hat;
-            if (e.note ==  9) return enfer::modular::hatOpen;
-            if (e.note == 10) return enfer::modular::hatShut;
-            if (e.note == 11) return enfer::modular::cymb;
-            if (e.note == 12) return enfer::modular::fx1;
-            if (e.note == 13) return enfer::modular::fx2;
-            if (e.note == 14) return enfer::modular::fx3;
-        }
-        if (e.channel == 9) {
-            if (e.note ==  0) return enfer::tech::kick;
-            if (e.note ==  1) return enfer::tech::kickUp;
-            if (e.note ==  2) return enfer::tech::kickDown;
-            if (e.note ==  3) return enfer::tech::tom;
-            if (e.note ==  4) return enfer::tech::snare;
-            if (e.note ==  5) return enfer::tech::snareUp;
-            if (e.note ==  6) return enfer::tech::snareDown;
-            if (e.note ==  7) return enfer::tech::clap;
-            if (e.note ==  8) return enfer::tech::hat;
-            if (e.note ==  9) return enfer::tech::hatOpen;
-            if (e.note == 10) return enfer::tech::hatShut;
-            if (e.note == 11) return enfer::tech::cymb;
-            if (e.note == 12) return enfer::tech::fx1;
-            if (e.note == 13) return enfer::tech::fx2;
-            if (e.note == 14) return enfer::tech::fx3;
-        }
-        if (e.channel == 10) {
-            if (e.note ==  0) return enfer::tr808::kick;
-            if (e.note ==  1) return enfer::tr808::kickUp;
-            if (e.note ==  2) return enfer::tr808::kickDown;
-            if (e.note ==  3) return enfer::tr808::tom;
-            if (e.note ==  4) return enfer::tr808::snare;
-            if (e.note ==  5) return enfer::tr808::snareUp;
-            if (e.note ==  6) return enfer::tr808::snareDown;
-            if (e.note ==  7) return enfer::tr808::clap;
-            if (e.note ==  8) return enfer::tr808::hat;
-            if (e.note ==  9) return enfer::tr808::hatOpen;
-            if (e.note == 10) return enfer::tr808::hatShut;
-            if (e.note == 11) return enfer::tr808::cymb;
-            if (e.note == 12) return enfer::tr808::fx1;
-            if (e.note == 13) return enfer::tr808::fx2;
-            if (e.note == 14) return enfer::tr808::fx3;
-        }
-        if (e.channel == 11) {
-            if (e.note ==  0) return enfer::tr909::kick;
-            if (e.note ==  1) return enfer::tr909::kickUp;
-            if (e.note ==  2) return enfer::tr909::kickDown;
-            if (e.note ==  3) return enfer::tr909::tom;
-            if (e.note ==  4) return enfer::tr909::snare;
-            if (e.note ==  5) return enfer::tr909::snareUp;
-            if (e.note ==  6) return enfer::tr909::snareDown;
-            if (e.note ==  7) return enfer::tr909::clap;
-            if (e.note ==  8) return enfer::tr909::hat;
-            if (e.note ==  9) return enfer::tr909::hatOpen;
-            if (e.note == 10) return enfer::tr909::hatShut;
-            if (e.note == 11) return enfer::tr909::cymb;
-            if (e.note == 12) return enfer::tr909::fx1;
-            if (e.note == 13) return enfer::tr909::fx2;
-            if (e.note == 14) return enfer::tr909::fx3;
-        }
-        if (e.channel == 12) {
-            if (e.note ==  0) return enfer::vermona::kick;
-            if (e.note ==  1) return enfer::vermona::kickUp;
-            if (e.note ==  2) return enfer::vermona::kickDown;
-            if (e.note ==  3) return enfer::vermona::tom;
-            if (e.note ==  4) return enfer::vermona::snare;
-            if (e.note ==  5) return enfer::vermona::snareUp;
-            if (e.note ==  6) return enfer::vermona::snareDown;
-            if (e.note ==  7) return enfer::vermona::clap;
-            if (e.note ==  8) return enfer::vermona::hat;
-            if (e.note ==  9) return enfer::vermona::hatOpen;
-            if (e.note == 10) return enfer::vermona::hatShut;
-            if (e.note == 11) return enfer::vermona::cymb;
-            if (e.note == 12) return enfer::vermona::fx1;
-            if (e.note == 13) return enfer::vermona::fx2;
-            if (e.note == 14) return enfer::vermona::fx3;
-        }
-        if (e.channel == 13) {
-            if (e.note ==  0) return enfer::bergh::fx4;
-            if (e.note ==  1) return enfer::commodore::fx4;
-            if (e.note ==  2) return enfer::dark::fx4;
-            if (e.note ==  3) return enfer::deep::fx4;
-            if (e.note ==  4) return enfer::dmg::fx4;
-            if (e.note ==  5) return enfer::dmx::fx4;
-            if (e.note ==  6) return enfer::dnb::fx4;
-            if (e.note ==  7) return enfer::gabber::fx4;
-            if (e.note ==  8) return enfer::modular::fx4;
-            if (e.note ==  9) return enfer::tech::fx4;
-            if (e.note == 10) return enfer::tr808::fx4;
-            if (e.note == 11) return enfer::tr909::fx4;
-            if (e.note == 12) return enfer::vermona::fx4;
-        }
-        float<2>[] noSample;
-        return noSample;
     }
 }
