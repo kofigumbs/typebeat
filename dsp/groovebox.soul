@@ -49,36 +49,20 @@ processor Kit {
 
     input event soul::note_events::NoteOn midiIn;
 
-    float<2>[] sample;
-    int samplePlayback;
+    int kit = -1;
+    int sample = -1;
+    int playbackPosition;
 
     event midiIn(soul::note_events::NoteOn e) {
-        samplePlayback = 0;
-        let kit = enfer::kits().at(e.channel);
-        if (e.note ==  0) sample = kit.kick;
-        if (e.note ==  1) sample = kit.kickUp;
-        if (e.note ==  2) sample = kit.kickDown;
-        if (e.note ==  3) sample = kit.tom;
-        if (e.note ==  4) sample = kit.snare;
-        if (e.note ==  5) sample = kit.snareUp;
-        if (e.note ==  6) sample = kit.snareDown;
-        if (e.note ==  7) sample = kit.clap;
-        if (e.note ==  8) sample = kit.hat;
-        if (e.note ==  9) sample = kit.hatOpen;
-        if (e.note == 10) sample = kit.hatShut;
-        if (e.note == 11) sample = kit.cymb;
-        if (e.note == 12) sample = kit.fx1;
-        if (e.note == 13) sample = kit.fx2;
-        if (e.note == 14) sample = kit.fx3;
-        if (e.note == 15) sample = kit.fx4;
+        kit = int(e.channel);
+        sample = int(e.note);
+        playbackPosition = 0;
     }
 
     void run() {
         loop {
-            if (samplePlayback < sample.size) {
-                audioOut << sample.at(samplePlayback);
-                samplePlayback++;
-            }
+            audioOut << enfer::play(kit, sample, playbackPosition);
+            playbackPosition++;
             advance();
         }
     }

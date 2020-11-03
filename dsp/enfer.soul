@@ -1,43 +1,6 @@
 // vim: set ft=cpp:
 
 namespace enfer {
-    Kit[13] kits() {
-        return Kit[13](
-            tr808::kit,
-            tr909::kit,
-            dmx::kit,
-            dnb::kit,
-            dark::kit,
-            deep::kit,
-            tech::kit,
-            modular::kit,
-            gabber::kit,
-            bergh::kit,
-            vermona::kit,
-            commodore::kit,
-            dmg::kit
-        );
-    }
-
-    struct Kit {
-        float<2>[] kick;
-        float<2>[] kickUp;
-        float<2>[] kickDown;
-        float<2>[] tom;
-        float<2>[] snare;
-        float<2>[] snareUp;
-        float<2>[] snareDown;
-        float<2>[] clap;
-        float<2>[] hat;
-        float<2>[] hatOpen;
-        float<2>[] hatShut;
-        float<2>[] cymb;
-        float<2>[] fx1;
-        float<2>[] fx2;
-        float<2>[] fx3;
-        float<2>[] fx4;
-    }
-
     namespace tr808 {
         external float<2>[] kick;
         external float<2>[] kickUp;
@@ -55,7 +18,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace tr909 {
@@ -75,7 +37,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace dmx {
@@ -95,7 +56,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace dnb {
@@ -115,7 +75,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace dark {
@@ -135,7 +94,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace deep {
@@ -155,7 +113,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace tech {
@@ -175,7 +132,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace modular {
@@ -195,7 +151,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace gabber {
@@ -215,7 +170,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace bergh {
@@ -235,7 +189,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace vermona {
@@ -255,7 +208,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace commodore {
@@ -275,7 +227,6 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
     }
 
     namespace dmg {
@@ -295,6 +246,247 @@ namespace enfer {
         external float<2>[] fx2;
         external float<2>[] fx3;
         external float<2>[] fx4;
-        const Kit kit = Kit(kick, kickUp, kickDown, tom, snare, snareUp, snareDown, clap, hat, hatOpen, hatShut, cymb, fx1, fx2, fx3, fx4);
+    }
+
+    float<2> play(int kit, int sample, int playbackPosition) {
+        if (kit == 0) {
+            if (sample ==  0) return playAt(playbackPosition, tr808::kick);
+            if (sample ==  1) return playAt(playbackPosition, tr808::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, tr808::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, tr808::tom);
+            if (sample ==  4) return playAt(playbackPosition, tr808::snare);
+            if (sample ==  5) return playAt(playbackPosition, tr808::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, tr808::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, tr808::clap);
+            if (sample ==  8) return playAt(playbackPosition, tr808::hat);
+            if (sample ==  9) return playAt(playbackPosition, tr808::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, tr808::hatShut);
+            if (sample == 11) return playAt(playbackPosition, tr808::cymb);
+            if (sample == 12) return playAt(playbackPosition, tr808::fx1);
+            if (sample == 13) return playAt(playbackPosition, tr808::fx2);
+            if (sample == 14) return playAt(playbackPosition, tr808::fx3);
+            if (sample == 15) return playAt(playbackPosition, tr808::fx4);
+        }
+        else if (kit == 1) {
+            if (sample ==  0) return playAt(playbackPosition, tr909::kick);
+            if (sample ==  1) return playAt(playbackPosition, tr909::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, tr909::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, tr909::tom);
+            if (sample ==  4) return playAt(playbackPosition, tr909::snare);
+            if (sample ==  5) return playAt(playbackPosition, tr909::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, tr909::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, tr909::clap);
+            if (sample ==  8) return playAt(playbackPosition, tr909::hat);
+            if (sample ==  9) return playAt(playbackPosition, tr909::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, tr909::hatShut);
+            if (sample == 11) return playAt(playbackPosition, tr909::cymb);
+            if (sample == 12) return playAt(playbackPosition, tr909::fx1);
+            if (sample == 13) return playAt(playbackPosition, tr909::fx2);
+            if (sample == 14) return playAt(playbackPosition, tr909::fx3);
+            if (sample == 15) return playAt(playbackPosition, tr909::fx4);
+        }
+        else if (kit == 2) {
+            if (sample ==  0) return playAt(playbackPosition, dmx::kick);
+            if (sample ==  1) return playAt(playbackPosition, dmx::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, dmx::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, dmx::tom);
+            if (sample ==  4) return playAt(playbackPosition, dmx::snare);
+            if (sample ==  5) return playAt(playbackPosition, dmx::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, dmx::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, dmx::clap);
+            if (sample ==  8) return playAt(playbackPosition, dmx::hat);
+            if (sample ==  9) return playAt(playbackPosition, dmx::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, dmx::hatShut);
+            if (sample == 11) return playAt(playbackPosition, dmx::cymb);
+            if (sample == 12) return playAt(playbackPosition, dmx::fx1);
+            if (sample == 13) return playAt(playbackPosition, dmx::fx2);
+            if (sample == 14) return playAt(playbackPosition, dmx::fx3);
+            if (sample == 15) return playAt(playbackPosition, dmx::fx4);
+        }
+        else if (kit == 3) {
+            if (sample ==  0) return playAt(playbackPosition, dnb::kick);
+            if (sample ==  1) return playAt(playbackPosition, dnb::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, dnb::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, dnb::tom);
+            if (sample ==  4) return playAt(playbackPosition, dnb::snare);
+            if (sample ==  5) return playAt(playbackPosition, dnb::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, dnb::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, dnb::clap);
+            if (sample ==  8) return playAt(playbackPosition, dnb::hat);
+            if (sample ==  9) return playAt(playbackPosition, dnb::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, dnb::hatShut);
+            if (sample == 11) return playAt(playbackPosition, dnb::cymb);
+            if (sample == 12) return playAt(playbackPosition, dnb::fx1);
+            if (sample == 13) return playAt(playbackPosition, dnb::fx2);
+            if (sample == 14) return playAt(playbackPosition, dnb::fx3);
+            if (sample == 15) return playAt(playbackPosition, dnb::fx4);
+        }
+        else if (kit == 4) {
+            if (sample ==  0) return playAt(playbackPosition, dark::kick);
+            if (sample ==  1) return playAt(playbackPosition, dark::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, dark::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, dark::tom);
+            if (sample ==  4) return playAt(playbackPosition, dark::snare);
+            if (sample ==  5) return playAt(playbackPosition, dark::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, dark::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, dark::clap);
+            if (sample ==  8) return playAt(playbackPosition, dark::hat);
+            if (sample ==  9) return playAt(playbackPosition, dark::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, dark::hatShut);
+            if (sample == 11) return playAt(playbackPosition, dark::cymb);
+            if (sample == 12) return playAt(playbackPosition, dark::fx1);
+            if (sample == 13) return playAt(playbackPosition, dark::fx2);
+            if (sample == 14) return playAt(playbackPosition, dark::fx3);
+            if (sample == 15) return playAt(playbackPosition, dark::fx4);
+        }
+        else if (kit == 5) {
+            if (sample ==  0) return playAt(playbackPosition, deep::kick);
+            if (sample ==  1) return playAt(playbackPosition, deep::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, deep::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, deep::tom);
+            if (sample ==  4) return playAt(playbackPosition, deep::snare);
+            if (sample ==  5) return playAt(playbackPosition, deep::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, deep::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, deep::clap);
+            if (sample ==  8) return playAt(playbackPosition, deep::hat);
+            if (sample ==  9) return playAt(playbackPosition, deep::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, deep::hatShut);
+            if (sample == 11) return playAt(playbackPosition, deep::cymb);
+            if (sample == 12) return playAt(playbackPosition, deep::fx1);
+            if (sample == 13) return playAt(playbackPosition, deep::fx2);
+            if (sample == 14) return playAt(playbackPosition, deep::fx3);
+            if (sample == 15) return playAt(playbackPosition, deep::fx4);
+        }
+        else if (kit == 6) {
+            if (sample ==  0) return playAt(playbackPosition, tech::kick);
+            if (sample ==  1) return playAt(playbackPosition, tech::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, tech::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, tech::tom);
+            if (sample ==  4) return playAt(playbackPosition, tech::snare);
+            if (sample ==  5) return playAt(playbackPosition, tech::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, tech::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, tech::clap);
+            if (sample ==  8) return playAt(playbackPosition, tech::hat);
+            if (sample ==  9) return playAt(playbackPosition, tech::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, tech::hatShut);
+            if (sample == 11) return playAt(playbackPosition, tech::cymb);
+            if (sample == 12) return playAt(playbackPosition, tech::fx1);
+            if (sample == 13) return playAt(playbackPosition, tech::fx2);
+            if (sample == 14) return playAt(playbackPosition, tech::fx3);
+            if (sample == 15) return playAt(playbackPosition, tech::fx4);
+        }
+        else if (kit == 7) {
+            if (sample ==  0) return playAt(playbackPosition, modular::kick);
+            if (sample ==  1) return playAt(playbackPosition, modular::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, modular::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, modular::tom);
+            if (sample ==  4) return playAt(playbackPosition, modular::snare);
+            if (sample ==  5) return playAt(playbackPosition, modular::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, modular::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, modular::clap);
+            if (sample ==  8) return playAt(playbackPosition, modular::hat);
+            if (sample ==  9) return playAt(playbackPosition, modular::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, modular::hatShut);
+            if (sample == 11) return playAt(playbackPosition, modular::cymb);
+            if (sample == 12) return playAt(playbackPosition, modular::fx1);
+            if (sample == 13) return playAt(playbackPosition, modular::fx2);
+            if (sample == 14) return playAt(playbackPosition, modular::fx3);
+            if (sample == 15) return playAt(playbackPosition, modular::fx4);
+        }
+        else if (kit == 8) {
+            if (sample ==  0) return playAt(playbackPosition, gabber::kick);
+            if (sample ==  1) return playAt(playbackPosition, gabber::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, gabber::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, gabber::tom);
+            if (sample ==  4) return playAt(playbackPosition, gabber::snare);
+            if (sample ==  5) return playAt(playbackPosition, gabber::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, gabber::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, gabber::clap);
+            if (sample ==  8) return playAt(playbackPosition, gabber::hat);
+            if (sample ==  9) return playAt(playbackPosition, gabber::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, gabber::hatShut);
+            if (sample == 11) return playAt(playbackPosition, gabber::cymb);
+            if (sample == 12) return playAt(playbackPosition, gabber::fx1);
+            if (sample == 13) return playAt(playbackPosition, gabber::fx2);
+            if (sample == 14) return playAt(playbackPosition, gabber::fx3);
+            if (sample == 15) return playAt(playbackPosition, gabber::fx4);
+        }
+        else if (kit == 9) {
+            if (sample ==  0) return playAt(playbackPosition, bergh::kick);
+            if (sample ==  1) return playAt(playbackPosition, bergh::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, bergh::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, bergh::tom);
+            if (sample ==  4) return playAt(playbackPosition, bergh::snare);
+            if (sample ==  5) return playAt(playbackPosition, bergh::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, bergh::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, bergh::clap);
+            if (sample ==  8) return playAt(playbackPosition, bergh::hat);
+            if (sample ==  9) return playAt(playbackPosition, bergh::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, bergh::hatShut);
+            if (sample == 11) return playAt(playbackPosition, bergh::cymb);
+            if (sample == 12) return playAt(playbackPosition, bergh::fx1);
+            if (sample == 13) return playAt(playbackPosition, bergh::fx2);
+            if (sample == 14) return playAt(playbackPosition, bergh::fx3);
+            if (sample == 15) return playAt(playbackPosition, bergh::fx4);
+        }
+        else if (kit == 10) {
+            if (sample ==  0) return playAt(playbackPosition, vermona::kick);
+            if (sample ==  1) return playAt(playbackPosition, vermona::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, vermona::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, vermona::tom);
+            if (sample ==  4) return playAt(playbackPosition, vermona::snare);
+            if (sample ==  5) return playAt(playbackPosition, vermona::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, vermona::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, vermona::clap);
+            if (sample ==  8) return playAt(playbackPosition, vermona::hat);
+            if (sample ==  9) return playAt(playbackPosition, vermona::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, vermona::hatShut);
+            if (sample == 11) return playAt(playbackPosition, vermona::cymb);
+            if (sample == 12) return playAt(playbackPosition, vermona::fx1);
+            if (sample == 13) return playAt(playbackPosition, vermona::fx2);
+            if (sample == 14) return playAt(playbackPosition, vermona::fx3);
+            if (sample == 15) return playAt(playbackPosition, vermona::fx4);
+        }
+        else if (kit == 11) {
+            if (sample ==  0) return playAt(playbackPosition, commodore::kick);
+            if (sample ==  1) return playAt(playbackPosition, commodore::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, commodore::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, commodore::tom);
+            if (sample ==  4) return playAt(playbackPosition, commodore::snare);
+            if (sample ==  5) return playAt(playbackPosition, commodore::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, commodore::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, commodore::clap);
+            if (sample ==  8) return playAt(playbackPosition, commodore::hat);
+            if (sample ==  9) return playAt(playbackPosition, commodore::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, commodore::hatShut);
+            if (sample == 11) return playAt(playbackPosition, commodore::cymb);
+            if (sample == 12) return playAt(playbackPosition, commodore::fx1);
+            if (sample == 13) return playAt(playbackPosition, commodore::fx2);
+            if (sample == 14) return playAt(playbackPosition, commodore::fx3);
+            if (sample == 15) return playAt(playbackPosition, commodore::fx4);
+        }
+        else if (kit == 12) {
+            if (sample ==  0) return playAt(playbackPosition, dmg::kick);
+            if (sample ==  1) return playAt(playbackPosition, dmg::kickUp);
+            if (sample ==  2) return playAt(playbackPosition, dmg::kickDown);
+            if (sample ==  3) return playAt(playbackPosition, dmg::tom);
+            if (sample ==  4) return playAt(playbackPosition, dmg::snare);
+            if (sample ==  5) return playAt(playbackPosition, dmg::snareUp);
+            if (sample ==  6) return playAt(playbackPosition, dmg::snareDown);
+            if (sample ==  7) return playAt(playbackPosition, dmg::clap);
+            if (sample ==  8) return playAt(playbackPosition, dmg::hat);
+            if (sample ==  9) return playAt(playbackPosition, dmg::hatOpen);
+            if (sample == 10) return playAt(playbackPosition, dmg::hatShut);
+            if (sample == 11) return playAt(playbackPosition, dmg::cymb);
+            if (sample == 12) return playAt(playbackPosition, dmg::fx1);
+            if (sample == 13) return playAt(playbackPosition, dmg::fx2);
+            if (sample == 14) return playAt(playbackPosition, dmg::fx3);
+            if (sample == 15) return playAt(playbackPosition, dmg::fx4);
+        }
+        return float<2>(0, 0);
+    }
+
+    float<2> playAt(int playbackPosition, const float<2>[]& audio) {
+        return playbackPosition < audio.size ? audio.at(playbackPosition) : float<2>(0, 0);
     }
 }
