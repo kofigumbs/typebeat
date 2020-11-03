@@ -1,3 +1,7 @@
+/*
+ * gruvbox
+ */
+
 :root {
   --light: #fbf1c7;
   --dark: #3c3836;
@@ -39,10 +43,6 @@ body > *:last-child {
  * utilities
  */
 
-.tall {
-  height: 100%;
-}
-
 .flex {
   display: flex;
 }
@@ -62,16 +62,8 @@ body > *:last-child {
 
 
 /*
- * components
+ * keyboard
  */
-
-.stagger-left {
-  margin-left: -2rem;
-}
-
-.stagger-right {
-  margin-left: 2rem;
-}
 
 .key {
   position: relative;
@@ -95,34 +87,6 @@ body > *:last-child {
   top: .25rem;
   left: .25rem;
   background: var(--accent);
-}
-
-.key:nth-child(5) {
-  margin-right: 2rem;
-}
-
-.key::before {
-  content: attr(data-name);
-  position: absolute;
-  top: .25rem;
-  left: .5rem;
-}
-
-.key::after {
-  content: attr(data-key);
-  position: absolute;
-  right: .5rem;
-  bottom: .25rem;
-  opacity: .6;
-  font-style: italic;
-}
-
-.shift .key::before {
-  content: attr(data-shift);
-}
-
-.alt .key::before {
-  content: attr(data-alt);
 }
 
 .key.down {
@@ -158,4 +122,52 @@ body > *:last-child {
   --text: var(--dark);
   --background: var(--light);
   --accent: var(--dark);
+}
+
+.key::before {
+  position: absolute;
+  top: .25rem;
+  left: .5rem;
+}
+
+.key::after {
+  position: absolute;
+  right: .5rem;
+  bottom: .25rem;
+  opacity: .6;
+  font-style: italic;
+}
+
+
+/*
+ * pseudo content
+ */
+
+.key::after  {
+  content: attr(data-key);
+}
+
+.key::before {
+  content: attr(data-name)
+}
+
+.shift .key::before {
+  content: attr(data-shift);
+}
+
+.alt .key::before {
+  content: attr(data-alt);
+}
+
+
+/*
+ * horizontal spacing
+ */
+
+.stagger-left {
+  margin-left: -2rem;
+}
+
+.stagger-right {
+  margin-left: 2rem;
 }

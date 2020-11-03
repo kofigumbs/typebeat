@@ -169,7 +169,7 @@ const div = (attributes, children) => {
   return element;
 };
 
-const newKey = key => {
+const newKey = (key, index) => {
   const attributes = {
     "class": "key",
     "data-key": key,
@@ -188,6 +188,8 @@ const newKey = key => {
     attributes.class += " control";
   if (config.keys.navigation.indexOf(key) === state.track)
     attributes.class += " current";
+  if (index === 5)
+    attributes.class += " stagger-right";
   return div(attributes, [ div({ class: "shadow" }, []) ]);
 };
 
