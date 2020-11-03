@@ -191,10 +191,10 @@ const newKey = key => {
   return div(attributes, [ div({ class: "shadow" }, []) ]);
 };
 
-const newRow = row => {
-  return div({ class: "flex row centered staggered" }, row.map(newKey));
+const newRow = (row, stagger) => {
+  return div({ class: `flex row centered ${stagger}` }, row.map(newKey));
 };
 
-document.body.appendChild(newRow(config.keys.row1));
-document.body.appendChild(newRow(config.keys.row2));
-document.body.appendChild(newRow(config.keys.row3));
+document.body.appendChild(newRow(config.keys.row1, "stagger-left"));
+document.body.appendChild(newRow(config.keys.row2, ""));
+document.body.appendChild(newRow(config.keys.row3, "stagger-right"));

@@ -1,10 +1,4 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
-
-html {
+:root {
   --light: #fbf1c7;
   --dark: #3c3836;
   --gray: #7c6f64;
@@ -15,14 +9,25 @@ html {
   --purple: #b16286;
   --aqua: #689d61;
   --orange: #d65d0e;
-  background: var(--light);
-  overflow: hidden;
 }
 
-body {
-  font-size: 18px;
+
+/*
+ * built-ins
+ */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+html {
+  font-size: 16px;
   font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
   cursor: default;
+  overflow: hidden;
+  background: var(--light);
 }
 
 body > *:last-child {
@@ -60,12 +65,12 @@ body > *:last-child {
  * components
  */
 
-.staggered:first-of-type {
-  margin-left: -1rem;
+.stagger-left {
+  margin-left: -2rem;
 }
 
-.staggered:last-of-type {
-  margin-left: 1rem;
+.stagger-right {
+  margin-left: 2rem;
 }
 
 .key {
@@ -77,17 +82,18 @@ body > *:last-child {
 }
 
 .key, .shadow {
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 3px;
-  border: solid 3px var(--accent);
+  width: 3rem;
+  height: 3rem;
+  border-radius: .25rem;
+  border: solid .25rem var(--accent);
+  font-weight: 800;
 }
 
 .shadow {
   position: absolute;
   z-index: -1;
-  top: 3px;
-  left: 3px;
+  top: .25rem;
+  left: .25rem;
   background: var(--accent);
 }
 
@@ -100,7 +106,6 @@ body > *:last-child {
   position: absolute;
   top: .25rem;
   left: .5rem;
-  font-weight: 800;
 }
 
 .key::after {
@@ -108,7 +113,7 @@ body > *:last-child {
   position: absolute;
   right: .5rem;
   bottom: .25rem;
-  opacity: .5;
+  opacity: .6;
   font-style: italic;
 }
 
@@ -121,8 +126,8 @@ body > *:last-child {
 }
 
 .key.down {
-  top: 6px;
-  left: 6px;
+  top: .5rem;
+  left: .5rem;
 }
 
 .key.down .shadow {
