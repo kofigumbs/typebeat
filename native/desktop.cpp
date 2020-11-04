@@ -87,11 +87,11 @@ int main(int argc, char* argv[]) {
 #endif
     // setup miniaudio configuration to match that of the SOUL patch
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
-    deviceConfig.periodSizeInFrames = 64;
     deviceConfig.capture.channels = 2;
     deviceConfig.capture.format = ma_format_f32;
     deviceConfig.playback.channels = 2;
     deviceConfig.playback.format = ma_format_f32;
+    deviceConfig.periodSizeInFrames = 256;
     deviceConfig.dataCallback = callback;
 
     // initialize audio devive
