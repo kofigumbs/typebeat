@@ -49,7 +49,7 @@ const befores = {
     "z": "",  "x": "M", "c": "M", "v": "M", "b": "M",
     "n": "M", "m": "M", ",": "M", ".": "M", "/": "",
   },
-  [noModifier]: {},
+  [noModifier]: {}, // this is mutated with setKey and setKit
 };
 
 const getModifier = () => {

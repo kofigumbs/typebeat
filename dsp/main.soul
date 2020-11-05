@@ -24,15 +24,17 @@ processor Sequencer {
     output event soul::note_events::NoteOn playKit;
     output event soul::midi::Message exportMidi;
 
-    int track = 0;
+    int currentTrack = 0;
+    soul::note_events::NoteOn[64] steps;
+
     bool kit = true;
-    int keyRoot = key::c;
-    bool[12] keyScale = key::major;
+    int keyboardRoot = 60;
+    bool[12] keyboardScale = scale::major;
 
     bool playing = false;
     bool armed = false;
 
-    int currentSixteenthNote = 0;
+    int currentNote16 = 0;
     soul::timeline::Tempo tempo;
     soul::timeline::TimeSignature signature;
 
@@ -44,11 +46,13 @@ processor Sequencer {
     void run() {
         loop {
             dump();
-            loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency)) / 4) {
+            let step = steps[wrap<steps.size>(currentNote16)];
+            if (playing && step.velocity > 0)
+                playKit << step;
+            loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency)) / 4)
                 advance();
-            }
             if (playing)
-                currentSixteenthNote++;
+                currentNote16++;
         }
     }
 
@@ -58,6 +62,10 @@ processor Sequencer {
         setArmed();
         if (kit) setKit();
         else setKey();
+    }
+
+    int currentNote4() {
+        return currentNote16 / 4;
     }
 
     /*
@@ -77,7 +85,7 @@ processor Sequencer {
         if (right && modifier == shift && keyIndex == 14) {
             playing = !playing;
             if (!playing)
-                currentSixteenthNote = 0;
+                currentNote16 = 0;
         }
 
         if (right && modifier == shift && keyIndex == 9) {
@@ -86,7 +94,10 @@ processor Sequencer {
         }
 
         else if (right && modifier == noModifier) {
-            playKit << soul::note_events::NoteOn(0, float(keyIndex), 1.0);
+            let note = soul::note_events::NoteOn(0, float(keyIndex), 1.0);
+            playKit << note;
+            if (armed && playing)
+                steps[wrap<steps.size>(currentNote16)] = note;
         }
     }
 
@@ -94,11 +105,11 @@ processor Sequencer {
     }
 
     void setBeat() {
-        exportMidi << soul::midi::Message(playing ? (currentSixteenthNote / 4) % 16 : 16);
+        exportMidi << soul::midi::Message(playing ? currentNote4() % 16 : 16);
     }
 
     void setTrack() {
-        exportMidi << soul::midi::Message(1 << 16 | track);
+        exportMidi << soul::midi::Message(1 << 16 | currentTrack);
     }
 
     void setKit() {
@@ -107,10 +118,10 @@ processor Sequencer {
 
     void setKey() {
         int scaleBits = 0;
-        for (wrap<keyScale.size> i)
-            if (keyScale[i])
+        for (wrap<keyboardScale.size> i)
+            if (keyboardScale[i])
                 scaleBits |= 2 ^ i;
-        exportMidi << soul::midi::Message(3 << 16 | keyRoot << 12 | scaleBits);
+        exportMidi << soul::midi::Message(3 << 16 | keyboardRoot << 12 | scaleBits);
     }
 
     void setArmed() {
