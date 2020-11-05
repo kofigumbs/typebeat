@@ -8,28 +8,28 @@ let modifiers = [];
 
 const keys = document.querySelectorAll(".key");
 
-const dataBefore = {
-  1: /* z */ {},
-  2: /* x */ {},
-  3: /* c */ {},
-  4: /* v */ {},
-  5: /* b */ {},
-  6: /* a */ {},
-  7: /* s */ {},
-  8: /* d */ {},
-  9: /* f */ {},
-  10: /* g */ {},
-  11: /* q */ {},
-  12: /* w */ {},
-  13: /* e */ {},
-  14: /* r */ {},
-  15: /* t */ {},
+const befores = {
+  0:  /* z */ {},
+  1:  /* x */ {},
+  2:  /* c */ {},
+  3:  /* v */ {},
+  4:  /* b */ {},
+  5:  /* a */ {},
+  6:  /* s */ {},
+  7:  /* d */ {},
+  8:  /* f */ {},
+  9:  /* g */ {},
+  10: /* q */ {},
+  11: /* w */ {},
+  12: /* e */ {},
+  13: /* r */ {},
+  14: /* t */ {},
   60: /* no modifier */ {},
   61: /* shift */ {
-    "q": "",   "w": "1",  "e": "2",  "r": "3",  "t": "4",
-    "y": "5",  "u": "6",  "i": "7",  "o": "8",  "p": "\u25B6",
-    "a": "",   "s": "9",  "d": "10", "f": "11", "g": "12",
-    "h": "13", "j": "14", "k": "15", "l": "16", ";": "\u25CF",
+    "q": "",   "w": "1",  "e": "",   "r": "",   "t": "",
+    "y": "5",  "u": "",   "i": "",   "o": "",   "p": "\u25B6",
+    "a": "",   "s": "9",  "d": "",   "f": "",   "g": "",
+    "h": "13", "j": "",   "k": "",   "l": "",   ";": "\u25CF",
     "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
     "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "S",
   },
@@ -41,17 +41,26 @@ const dataBefore = {
     "z": "",  "x": "M", "c": "M", "v": "M", "b": "M",
     "n": "M", "m": "M", ",": "M", ".": "M", "/": "",
   },
+  kit: {
+    "y": "CH", "u": "CY", "i": "FX", "o": "FX", "p": "FX",
+    "h": "SD", "j": "SD", "k": "CP", "l": "OH", ";": "OH",
+    "n": "BD", "m": "BD", ",": "BD", ".": "LT", "/": "SD",
+  }
 };
 
 const getModifier = () => {
   return modifiers.length === 0 ? 60 : modifiers[0];
 };
 
+const updateBefores = () => {
+  for(const key of keys)
+    key.dataset.before = befores[getModifier()][key.dataset.after] || "";
+};
+
 const onModify = (event, value) => {
   event.preventDefault();
   modifiers = event.type === "keydown" ? [ value, ...modifiers ] : modifiers.filter(x => x !== value);
-  for(const key of keys)
-    key.dataset.before = dataBefore[getModifier()][key.dataset.after] || "";
+  updateBefores();
 };
 
 const onSend = (event, channel, value) => {
@@ -96,11 +105,24 @@ document.addEventListener("keypress", event => event.preventDefault());
  */
 
 const sequence = document.querySelectorAll(".sequence");
+const navigation = document.querySelectorAll(".navigation");
+const right = document.querySelectorAll(".right");
 
 const setBeat = value => {
   sequence.forEach((key, index) => {
     key.classList.toggle("current", index === value);
   });
+};
+
+const setTrack = value => {
+  navigation.forEach((key, index) => {
+    key.classList.toggle("current", index === value);
+  });
+};
+
+const setKit = value => {
+  befores[60] = befores.kit;
+  updateBefores();
 };
 
 const update = (context, value) => {

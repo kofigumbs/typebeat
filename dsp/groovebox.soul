@@ -24,6 +24,11 @@ processor Sequencer {
     output event soul::note_events::NoteOn playKit;
     output event soul::midi::Message exportMidi;
 
+    int track = 0;
+    bool kit = true;
+    int keyRoot = key::c;
+    bool[12] keyScale = key::major;
+
     int currentSixteenthNote = 0;
     soul::timeline::Tempo tempo;
     soul::timeline::TimeSignature signature;
@@ -35,15 +40,22 @@ processor Sequencer {
     }
 
     void run() {
+        dump();
         loop {
             loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency)) / 4) {
                 advance();
             }
             if (!transport.isStopped()) {
                 currentSixteenthNote++;
-                exportMidi << setBeat((currentSixteenthNote / 4) % 16);
+                setBeat((currentSixteenthNote / 4) % 16);
             }
         }
+    }
+
+    void dump() {
+        setTrack();
+        if (kit) setKit();
+        else setKey();
     }
 
     /*
@@ -55,47 +67,47 @@ processor Sequencer {
     const int alt        = 62;
 
     event midiIn(soul::note_events::NoteOn message) {
-        let key = int(message.note);
+        let keyIndex = int(message.note);
         let left = bool(message.channel);
         let right = !left;
         let modifier = roundToInt(message.velocity * 127) >> 1;
 
-        if (right && modifier == shift && key == 14) {
+        if (right && modifier == shift && keyIndex == 14) {
             if (transport.soul::timeline::isStopped()) {
                 transport = soul::timeline::TransportState(1);
             } else {
                 currentSixteenthNote = 0;
-                exportMidi << setBeat(16); /* anything out of 0-index range */
+                setBeat(16); /* anything out of 0-index range */
                 transport = soul::timeline::TransportState(0);
             }
         }
 
         else if (right && modifier == noModifier) {
-            playKit << soul::note_events::NoteOn(0, float(key), 1.0);
+            playKit << soul::note_events::NoteOn(0, float(keyIndex), 1.0);
         }
     }
 
     event midiIn(soul::note_events::NoteOff message) {
     }
 
-    soul::midi::Message setBeat(int beat) {
-        return soul::midi::Message(beat);
+    void setBeat(int beat) {
+        exportMidi << soul::midi::Message(beat);
     }
 
-    soul::midi::Message setTrack(int track) {
-        return soul::midi::Message(1 << 16 | track);
+    void setTrack() {
+        exportMidi << soul::midi::Message(1 << 16 | track);
     }
 
-    soul::midi::Message setKit() {
-        return soul::midi::Message(2 << 16);
+    void setKit() {
+        exportMidi << soul::midi::Message(2 << 16);
     }
 
-    soul::midi::Message setKey(int root, const bool[12]& scale) {
+    void setKey() {
         int scaleBits = 0;
-        for (wrap<scale.size> i)
-            if (scale[i])
+        for (wrap<keyScale.size> i)
+            if (keyScale[i])
                 scaleBits |= 2 ^ i;
-        return soul::midi::Message(3 << 16 | root << 12 | scaleBits);
+        exportMidi << soul::midi::Message(3 << 16 | keyRoot << 12 | scaleBits);
     }
 }
 

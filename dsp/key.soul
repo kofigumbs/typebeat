@@ -1,0 +1,29 @@
+// vim: set ft=cpp:
+
+namespace key {
+    const int c  = 0;
+    const int cs = 1;
+    const int d  = 2;
+    const int ds = 3;
+    const int e  = 4;
+    const int f  = 5;
+    const int fs = 6;
+    const int g  = 7;
+    const int gs = 8;
+    const int a  = 9;
+    const int as = 10;
+    const int b  = 11;
+
+    const bool[12] major            = bool[12](true, false, true, false, true, true, false, true, false, true, false, true);
+    const bool[12] minor            = bool[12](true, false, true, true, false, true, false, true, true, false, true, false);
+    const bool[12] dorian           = bool[12](true, false, true, true, false, true, false, true, false, true, true, false);
+    const bool[12] phrygian         = bool[12](true, true, false, true, false, true, false, true, true, false, true, false);
+    const bool[12] lydian           = bool[12](true, false, true, false, true, false, true, true, false, true, false, true);
+    const bool[12] mixolydian       = bool[12](true, false, true, false, true, true, false, true, false, true, true, false);
+    const bool[12] locrian          = bool[12](true, true, false, true, false, true, true, false, true, false, true, false);
+    const bool[12] harmonicMinor    = bool[12](true, false, true, true, false, true, false, true, true, false, false, true);
+    const bool[12] harmonicMajor    = bool[12](true, false, true, false, true, true, false, true, true, false, false, true);
+    const bool[12] melodicMinor     = bool[12](true, false, true, true, false, true, false, true, false, true, false, true);
+    const bool[12] melodicMinorDesc = bool[12](true, false, true, true, false, true, false, true, true, false, true, false);
+    const bool[12] melodicMajor     = bool[12](true, false, true, false, true, true, false, true, true, false, true, false);
+}
