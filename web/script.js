@@ -9,7 +9,6 @@ let modifiers = [];
 const keys = document.querySelectorAll(".key");
 
 const beforeByModiferSend = {
-  0: /* default */ {},
   1: /* z */ {},
   2: /* x */ {},
   3: /* c */ {},
@@ -25,7 +24,7 @@ const beforeByModiferSend = {
   13: /* e */ {},
   14: /* r */ {},
   15: /* t */ {},
-  100: /* shift */ {
+  101: /* shift */ {
     "q": "",   "w": "1",  "e": "2",  "r": "3",  "t": "4",
     "y": "5",  "u": "6",  "i": "7",  "o": "8",  "p": "\u25B6",
     "a": "",   "s": "9",  "d": "10", "f": "11", "g": "12",
@@ -33,7 +32,7 @@ const beforeByModiferSend = {
     "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
     "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "S",
   },
-  101: /* alt */ {
+  102: /* alt */ {
     "q": "", "w": "+", "e": "+", "r": "+", "t": "+",
     "y": "+", "u": "+", "i": "+", "o": "+", "p": "",
     "a": "", "s": "-", "d": "-", "f": "-", "g": "-",
@@ -41,13 +40,14 @@ const beforeByModiferSend = {
     "z": "", "x": "M", "c": "M", "v": "M", "b": "M",
     "n": "M", "m": "M", ",": "M", ".": "M", "/": "",
   },
+  default: {},
 };
 
 const onModify = (event, value) => {
   event.preventDefault();
   modifiers = event.type === "keydown" ? [ value, ...modifiers ] : modifiers.filter(x => x !== value);
   for(const key of keys)
-    key.dataset.before = beforeByModiferSend[modifiers[0] || 0][key.dataset.after] || "";
+    key.dataset.before = beforeByModiferSend[modifiers[0] || "default"][key.dataset.after] || "";
 };
 
 const onNote = (event, channel, value) => {
@@ -55,7 +55,7 @@ const onNote = (event, channel, value) => {
       ((event.type === "keyup" ? 8 : 9) << 20)
         | (channel << 16)
         | (value << 8)
-        | (modifiers[0] || 0);
+        | (modifiers[0] || 100);
   window.midiIn ? midiIn(message) : console.log(message);
 };
 
@@ -74,9 +74,9 @@ const onDocumentKey = event => {
   if (event.ctrlKey || event.metaKey || event.repeat)
     return;
   if (event.key === "Shift")
-    onModify(event, 100);
-  if (event.key === "Alt")
     onModify(event, 101);
+  if (event.key === "Alt")
+    onModify(event, 102);
   for (const key of keys)
     if (event.keyCode == key.dataset.code)
       return onKeyboardKey(event, key);

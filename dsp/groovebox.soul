@@ -4,13 +4,16 @@ graph Groovebox [[ main ]] {
     input event soul::midi::Message midiIn;
     input stream float<2> audioIn;
 
-    output sequencer.midiOut;
+    output sequencer.exportMidi midiOut;
     output stream float<2> audioOut;
 
     let sequencer = Sequencer();
+    let enferVoices = EnferVoice[8];
+    let voiceAllocator = soul::voice_allocators::Basic(8);
 
     connection {
         midiIn -> soul::midi::MPEParser -> sequencer;
+        sequencer.playKit -> voiceAllocator -> enferVoices -> audioOut;
     }
 }
 
@@ -18,7 +21,8 @@ processor Sequencer {
     input event (soul::note_events::NoteOn,
                  soul::note_events::NoteOff) midiIn;
 
-    output event soul::midi::Message midiOut;
+    output event soul::note_events::NoteOn playKit;
+    output event soul::midi::Message exportMidi;
 
     int currentSixteenthNote = 0;
     soul::timeline::Tempo tempo;
@@ -37,7 +41,7 @@ processor Sequencer {
             }
             if (!transport.isStopped()) {
                 currentSixteenthNote++;
-                midiOut << setBeat((currentSixteenthNote / 4) % 16);
+                exportMidi << setBeat((currentSixteenthNote / 4) % 16);
             }
         }
     }
@@ -46,9 +50,9 @@ processor Sequencer {
      * (ab)use midi for i/o with the web ui
      */
 
-    const int noModifier = 0;
-    const int shift      = 100;
-    const int alt        = 101;
+    const int noModifier = 100;
+    const int shift      = 101;
+    const int alt        = 102;
 
     event midiIn(soul::note_events::NoteOn message) {
         let key = int(message.note);
@@ -61,11 +65,14 @@ processor Sequencer {
                 transport = soul::timeline::TransportState(1);
             } else {
                 currentSixteenthNote = 0;
-                midiOut << setBeat(99); /* out of range */
+                exportMidi << setBeat(16); /* anything out of 0-index range */
                 transport = soul::timeline::TransportState(0);
             }
         }
 
+        else if (right && modifier == noModifier) {
+            playKit << soul::note_events::NoteOn(0, float(key - 1), 1.0);
+        }
     }
 
     event midiIn(soul::note_events::NoteOff message) {
@@ -89,5 +96,29 @@ processor Sequencer {
             if (scale[i])
                 scaleBits |= 2 ^ i;
         return soul::midi::Message(3 << 16 | root << 12 | scaleBits);
+    }
+}
+
+processor EnferVoice {
+    output stream float<2> audioOut;
+
+    input event soul::note_events::NoteOn midiIn;
+
+    int kit = -1;
+    int sample = -1;
+    int playbackPosition;
+
+    event midiIn(soul::note_events::NoteOn e) {
+        kit = int(e.channel);
+        sample = int(e.note);
+        playbackPosition = 0;
+    }
+
+    void run() {
+        loop {
+            audioOut << enfer::play(kit, sample, playbackPosition);
+            playbackPosition++;
+            advance();
+        }
     }
 }
