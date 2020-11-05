@@ -7,7 +7,7 @@
         "category":         "synth",
         "manufacturer":     "kofi.sexy",
         "isInstrument":     true,
-        "source":           ["groovebox.soul", "key.soul", "enfer.soul"],
+        "source":           ["main.soul", "key.soul", "enfer.soul"],
         "externals": {
           "enfer::tr808::kick":          "Enfer/media/tr808/kick.wav",
           "enfer::tr808::kickUp":        "Enfer/media/tr808/kick-up.wav",
