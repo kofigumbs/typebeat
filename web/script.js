@@ -8,7 +8,7 @@ let modifiers = [];
 
 const keys = document.querySelectorAll(".key");
 
-const beforeByModiferSend = {
+const dataBefore = {
   1: /* z */ {},
   2: /* x */ {},
   3: /* c */ {},
@@ -24,7 +24,8 @@ const beforeByModiferSend = {
   13: /* e */ {},
   14: /* r */ {},
   15: /* t */ {},
-  101: /* shift */ {
+  60: /* no modifier */ {},
+  61: /* shift */ {
     "q": "",   "w": "1",  "e": "2",  "r": "3",  "t": "4",
     "y": "5",  "u": "6",  "i": "7",  "o": "8",  "p": "\u25B6",
     "a": "",   "s": "9",  "d": "10", "f": "11", "g": "12",
@@ -32,30 +33,33 @@ const beforeByModiferSend = {
     "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
     "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "S",
   },
-  102: /* alt */ {
-    "q": "", "w": "+", "e": "+", "r": "+", "t": "+",
+  62: /* alt */ {
+    "q": "",  "w": "+", "e": "+", "r": "+", "t": "+",
     "y": "+", "u": "+", "i": "+", "o": "+", "p": "",
-    "a": "", "s": "-", "d": "-", "f": "-", "g": "-",
+    "a": "",  "s": "-", "d": "-", "f": "-", "g": "-",
     "h": "-", "j": "-", "k": "-", "l": "-", ";": "",
-    "z": "", "x": "M", "c": "M", "v": "M", "b": "M",
+    "z": "",  "x": "M", "c": "M", "v": "M", "b": "M",
     "n": "M", "m": "M", ",": "M", ".": "M", "/": "",
   },
-  default: {},
+};
+
+const getModifier = () => {
+  return modifiers.length === 0 ? 60 : modifiers[0];
 };
 
 const onModify = (event, value) => {
   event.preventDefault();
   modifiers = event.type === "keydown" ? [ value, ...modifiers ] : modifiers.filter(x => x !== value);
   for(const key of keys)
-    key.dataset.before = beforeByModiferSend[modifiers[0] || "default"][key.dataset.after] || "";
+    key.dataset.before = dataBefore[getModifier()][key.dataset.after] || "";
 };
 
-const onNote = (event, channel, value) => {
+const onSend = (event, channel, value) => {
   const message =
       ((event.type === "keyup" ? 8 : 9) << 20)
         | (channel << 16)
         | (value << 8)
-        | (modifiers[0] || 100);
+        | (getModifier() * 2 + 1);
   window.midiIn ? midiIn(message) : console.log(message);
 };
 
@@ -63,9 +67,9 @@ const onKeyboardKey = (event, key) => {
   event.preventDefault();
   key.classList.toggle("down", event.type === "keydown");
   if (key.dataset.control === "play")
-    onNote(event, 0, key.dataset.send);
+    onSend(event, 0, key.dataset.send);
   if (key.dataset.control === "modify" && (event.shiftKey || event.altKey))
-    onNote(event, 1, key.dataset.send);
+    onSend(event, 1, key.dataset.send);
   if (key.dataset.control === "modify")
     onModify(event, key.dataset.send);
 };
@@ -74,9 +78,9 @@ const onDocumentKey = event => {
   if (event.ctrlKey || event.metaKey || event.repeat)
     return;
   if (event.key === "Shift")
-    onModify(event, 101);
+    onModify(event, 61);
   if (event.key === "Alt")
-    onModify(event, 102);
+    onModify(event, 62);
   for (const key of keys)
     if (event.keyCode == key.dataset.code)
       return onKeyboardKey(event, key);

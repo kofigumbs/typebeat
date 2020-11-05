@@ -50,17 +50,17 @@ processor Sequencer {
      * (ab)use midi for i/o with the web ui
      */
 
-    const int noModifier = 100;
-    const int shift      = 101;
-    const int alt        = 102;
+    const int noModifier = 60;
+    const int shift      = 61;
+    const int alt        = 62;
 
     event midiIn(soul::note_events::NoteOn message) {
         let key = int(message.note);
         let left = bool(message.channel);
         let right = !left;
-        let modifier = roundToInt(message.velocity * 127);
+        let modifier = roundToInt(message.velocity * 127) >> 1;
 
-        if (right && modifier == shift && key == 15) {
+        if (right && modifier == shift && key == 14) {
             if (transport.soul::timeline::isStopped()) {
                 transport = soul::timeline::TransportState(1);
             } else {
@@ -71,7 +71,7 @@ processor Sequencer {
         }
 
         else if (right && modifier == noModifier) {
-            playKit << soul::note_events::NoteOn(0, float(key - 1), 1.0);
+            playKit << soul::note_events::NoteOn(0, float(key), 1.0);
         }
     }
 
