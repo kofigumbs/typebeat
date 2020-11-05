@@ -29,10 +29,12 @@ processor Sequencer {
     int keyRoot = key::c;
     bool[12] keyScale = key::major;
 
+    bool playing = false;
+    bool armed = false;
+
     int currentSixteenthNote = 0;
     soul::timeline::Tempo tempo;
     soul::timeline::TimeSignature signature;
-    soul::timeline::TransportState transport;
 
     void init () {
         tempo = soul::timeline::Tempo(120.0);
@@ -40,20 +42,20 @@ processor Sequencer {
     }
 
     void run() {
-        dump();
         loop {
+            dump();
             loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency)) / 4) {
                 advance();
             }
-            if (!transport.isStopped()) {
+            if (playing)
                 currentSixteenthNote++;
-                setBeat((currentSixteenthNote / 4) % 16);
-            }
         }
     }
 
     void dump() {
+        setBeat();
         setTrack();
+        setArmed();
         if (kit) setKit();
         else setKey();
     }
@@ -73,13 +75,14 @@ processor Sequencer {
         let modifier = roundToInt(message.velocity * 127) >> 1;
 
         if (right && modifier == shift && keyIndex == 14) {
-            if (transport.soul::timeline::isStopped()) {
-                transport = soul::timeline::TransportState(1);
-            } else {
+            playing = !playing;
+            if (!playing)
                 currentSixteenthNote = 0;
-                setBeat(16); /* anything out of 0-index range */
-                transport = soul::timeline::TransportState(0);
-            }
+        }
+
+        if (right && modifier == shift && keyIndex == 9) {
+            armed = !armed;
+            setArmed();
         }
 
         else if (right && modifier == noModifier) {
@@ -90,8 +93,8 @@ processor Sequencer {
     event midiIn(soul::note_events::NoteOff message) {
     }
 
-    void setBeat(int beat) {
-        exportMidi << soul::midi::Message(beat);
+    void setBeat() {
+        exportMidi << soul::midi::Message(playing ? (currentSixteenthNote / 4) % 16 : 16);
     }
 
     void setTrack() {
@@ -108,6 +111,10 @@ processor Sequencer {
             if (keyScale[i])
                 scaleBits |= 2 ^ i;
         exportMidi << soul::midi::Message(3 << 16 | keyRoot << 12 | scaleBits);
+    }
+
+    void setArmed() {
+        exportMidi << soul::midi::Message(4 << 16 | int(armed));
     }
 }
 

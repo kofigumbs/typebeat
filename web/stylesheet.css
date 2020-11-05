@@ -83,7 +83,8 @@ body > *:last-child {
 .key::after {
   content: attr(data-after);
   position: absolute;
-  right: .5rem;
+  right: 0;
+  padding-right: .5rem;
   bottom: .25rem;
   opacity: .6;
   font-style: italic;
@@ -122,6 +123,10 @@ body > *:last-child {
 
 .key.sequence.current {
   --accent: var(--orange);
+}
+
+.armed .key.sequence.current {
+  --accent: var(--yellow);
 }
 
 .key.navigation {

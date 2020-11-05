@@ -120,17 +120,22 @@ const setTrack = value => {
   });
 };
 
-const setKit = value => {
+const setKit = () => {
   befores[60] = befores.kit;
   updateBefores();
+};
+
+const setArmed = value => {
+  document.body.classList.toggle("armed", !!value);
 };
 
 const update = (context, value) => {
   switch (context) {
     case 0: return setBeat(value);
     case 1: return setTrack(value);
-    case 2: return setKit(value);
+    case 2: return setKit();
     case 3: return setKey(value);
+    case 4: return setArmed(value);
   }
 };
 
