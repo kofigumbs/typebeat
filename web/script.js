@@ -53,6 +53,8 @@ const befores = {
 };
 
 const getModifier = () => {
+  if (modifiers.includes(shift)) return shift;
+  if (modifiers.includes(alt)) return alt;
   return modifiers.length === 0 ? noModifier : modifiers[0];
 };
 

@@ -26,6 +26,7 @@ processor Sequencer {
 
     int currentTrack = 0;
     soul::note_events::NoteOn[64] steps;
+    soul::note_events::NoteOn lastNote;
 
     bool kit = true;
     int keyboardRoot = 60;
@@ -34,25 +35,27 @@ processor Sequencer {
     bool playing = false;
     bool armed = false;
 
-    int currentNote16 = 0;
+    int currentNote64 = 0;
     soul::timeline::Tempo tempo;
     soul::timeline::TimeSignature signature;
 
     void init () {
-        tempo = soul::timeline::Tempo(120.0);
+        tempo = soul::timeline::Tempo(180.0);
         signature = soul::timeline::TimeSignature(4, 4);
     }
 
     void run() {
         loop {
             dump();
-            let step = steps[wrap<steps.size>(currentNote16)];
-            if (playing && step.velocity > 0)
+            while (!playing)
+                advance();
+            let step = steps[wrap<steps.size>(currentNote16())];
+            if (playing && currentNote64 % 4 == 0 && step.velocity > 0)
                 playKit << step;
-            loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency)) / 4)
+            loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency)) / 16)
                 advance();
             if (playing)
-                currentNote16++;
+                currentNote64++;
         }
     }
 
@@ -65,7 +68,15 @@ processor Sequencer {
     }
 
     int currentNote4() {
-        return currentNote16 / 4;
+        return currentNote64 / 16;
+    }
+
+    int currentNote16() {
+        return currentNote64 / 4;
+    }
+
+    int currentNote32() {
+        return currentNote64 / 2;
     }
 
     /*
@@ -85,19 +96,42 @@ processor Sequencer {
         if (right && modifier == shift && keyIndex == 14) {
             playing = !playing;
             if (!playing)
-                currentNote16 = 0;
+                currentNote64 = 0;
         }
 
-        if (right && modifier == shift && keyIndex == 9) {
+        else if (right && modifier == shift && keyIndex == 9) {
             armed = !armed;
             setArmed();
         }
 
+        else if (modifier == shift) {
+            int step16;
+            if (left  && keyIndex == 11) step16 =  0;
+            if (left  && keyIndex == 12) step16 =  1;
+            if (left  && keyIndex == 13) step16 =  2;
+            if (left  && keyIndex == 14) step16 =  3;
+            if (right && keyIndex == 10) step16 =  4;
+            if (right && keyIndex == 11) step16 =  5;
+            if (right && keyIndex == 12) step16 =  6;
+            if (right && keyIndex == 13) step16 =  7;
+            if (left  && keyIndex ==  6) step16 =  8;
+            if (left  && keyIndex ==  7) step16 =  9;
+            if (left  && keyIndex ==  8) step16 = 10;
+            if (left  && keyIndex ==  9) step16 = 11;
+            if (right && keyIndex ==  5) step16 = 12;
+            if (right && keyIndex ==  6) step16 = 13;
+            if (right && keyIndex ==  7) step16 = 14;
+            if (right && keyIndex ==  8) step16 = 15;
+            steps[wrap<steps.size>(step16 * 4)] = lastNote;
+        }
+
         else if (right && modifier == noModifier) {
-            let note = soul::note_events::NoteOn(0, float(keyIndex), 1.0);
-            playKit << note;
-            if (armed && playing)
-                steps[wrap<steps.size>(currentNote16)] = note;
+            lastNote = soul::note_events::NoteOn(0, float(keyIndex), 1.0);
+            playKit << lastNote;
+            if (armed && playing) {
+                let offset64 = currentNote32() % 2 == 1 ? -1 : 0;
+                steps[wrap<steps.size>(currentNote16() + offset64)] = lastNote;
+            }
         }
     }
 
