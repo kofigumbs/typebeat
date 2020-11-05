@@ -13,7 +13,7 @@ graph Groovebox [[ main ]] {
 
     connection {
         midiIn -> soul::midi::MPEParser -> controller;
-        controller.playKit -> voiceAllocator -> enferVoices -> audioOut;
+        controller.kitOut -> voiceAllocator -> enferVoices -> audioOut;
     }
 }
 
@@ -48,19 +48,27 @@ namespace sequence {
         return (p.value + stepLength/2)/ stepLength;
     }
 
-    struct Track {
-        soul::note_events::NoteOn[resolution] steps;
+    struct Step {
+        bool[15] hits;
     }
 
-    void record(Track& track, int step, soul::note_events::NoteOn note) {
-        track.steps[wrap<track.steps.size>(step)] = note;
+    struct Track {
+        Step[resolution] steps;
+    }
+
+    void hit(Step& step, int note, bool toggle) {
+        step.hits[wrap<step.hits.size>(note)] = !toggle || !step.hits[wrap<step.hits.size>(note)];
+    }
+
+    void record(Track& track, int step, int note, bool toggle) {
+        hit(track.steps[wrap<track.steps.size>(step)], note, toggle);
     }
 
     processor Controller {
         input event (soul::note_events::NoteOn,
                      soul::note_events::NoteOff) midiIn;
 
-        output event soul::note_events::NoteOn playKit;
+        output event soul::note_events::NoteOn kitOut;
         output event soul::midi::Message globalMidiOut;
 
         Track track;
@@ -72,7 +80,7 @@ namespace sequence {
         int keyboardRoot = 60;
         bool[12] keyboardScale = scale::major;
 
-        soul::note_events::NoteOn lastNote;
+        int lastHit;
         soul::timeline::Tempo tempo;
 
         void init () {
@@ -92,8 +100,12 @@ namespace sequence {
                     advance();
 
                 // play any sounds on this step
-                if ((quantizeSubdivision).subdivides(position))
-                    playKit << track.steps[wrap<track.steps.size>(position.toNthNote(quantizeSubdivision))];
+                if ((quantizeSubdivision).subdivides(position)) {
+                    let step = track.steps[wrap<track.steps.size>(position.toNthNote(quantizeSubdivision))];
+                    for (wrap<step.hits.size> i)
+                        if (step.hits[i])
+                            playKit(i);
+                }
 
                 // move sequence position with resolution rate
                 loop (resolutionInFrames(tempo, processor.frequency))
@@ -101,6 +113,11 @@ namespace sequence {
                 if (playing)
                     position.next();
             }
+        }
+
+        void playKit(int sample) {
+            // TODO earmark sample index-15 for fx4 since they don't otherwise fit
+            kitOut << soul::note_events::NoteOn(0, float(sample), 1.0);
         }
 
         /*
@@ -167,16 +184,16 @@ namespace sequence {
             }
 
             if (key.trigger()) {
-                lastNote = soul::note_events::NoteOn(0, float(key.index), 1.0);
-                playKit << lastNote;
-                if (armed && playing) track.record(position.quantize(quantizeSubdivision), lastNote);
+                lastHit = key.index;
+                playKit(lastHit);
+                if (armed && playing) track.record(position.quantize(quantizeSubdivision), lastHit, false);
                 return;
             }
 
             let step = key.sequenceStep();
             if (step != undefined) {
-                track.record(step.toPosition(16).value, lastNote);
-                if (!playing) playKit << lastNote;
+                track.record(step.toPosition(16).value, lastHit, true);
+                if (!playing) playKit(lastHit);
                 return;
             }
         }
