@@ -1,24 +1,26 @@
 // vim: set ft=cpp:
 
-graph Groovebox  [[ main ]] {
-    input stream float<2> audioIn;
+graph Groovebox [[ main ]] {
     input event soul::midi::Message midiIn;
+    input stream float<2> audioIn;
 
+    output sequencer.midiOut;
     output stream float<2> audioOut;
-    output event soul::midi::Message midiOut;
 
-    let monoToStereo = OneToMany(float, 2);
+    let sequencer = Sequencer();
 
     connection {
-        midiIn -> soul::midi::MPEParser -> Kit -> audioOut;
-        Timeline -> midiOut;
+        midiIn -> soul::midi::MPEParser -> sequencer;
     }
 }
 
-processor Timeline {
+processor Sequencer {
+    input event (soul::note_events::NoteOn,
+                 soul::note_events::NoteOff) midiIn;
+
     output event soul::midi::Message midiOut;
 
-    int currentQuarterNote = 0;
+    int currentSixteenthNote = 0;
     soul::timeline::Tempo tempo;
     soul::timeline::TimeSignature signature;
     soul::timeline::TransportState transport;
@@ -26,99 +28,66 @@ processor Timeline {
     void init () {
         tempo = soul::timeline::Tempo(120.0);
         signature = soul::timeline::TimeSignature(4, 4);
-        transport = soul::timeline::TransportState(1 /* playing */);
     }
 
     void run() {
         loop {
-            loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency))) {
+            loop(int(soul::timeline::framesPerQuarterNote(tempo, signature, processor.frequency)) / 4) {
                 advance();
             }
-            currentQuarterNote++;
-            midiOut << soul::midi::Message(
-                242 << 16 /* song position pointer */
-                    | ((currentQuarterNote * 4) & 127) << 8 /* least significant 7 bits in 16th notes */
-                    | ((currentQuarterNote * 4) >> 7) & 127 /* most significant 7 bits in 16th notes */
-            );
+            if (!transport.isStopped()) {
+                currentSixteenthNote++;
+                midiOut << setBeat((currentSixteenthNote / 4) % 16);
+            }
         }
     }
-}
 
-processor Kit {
-    output stream float<2> audioOut;
+    /*
+     * (ab)use midi for i/o with the web ui
+     */
 
-    input event soul::note_events::NoteOn midiIn;
+    const int noModifier = 0;
+    const int shift      = 100;
+    const int alt        = 101;
 
-    int kit = -1;
-    int sample = -1;
-    int playbackPosition;
+    event midiIn(soul::note_events::NoteOn message) {
+        let key = int(message.note);
+        let left = bool(message.channel);
+        let right = !left;
+        let modifier = roundToInt(message.velocity * 127);
 
-    event midiIn(soul::note_events::NoteOn e) {
-        kit = int(e.channel);
-        sample = int(e.note);
-        playbackPosition = 0;
-    }
-
-    void run() {
-        loop {
-            audioOut << enfer::play(kit, sample, playbackPosition);
-            playbackPosition++;
-            advance();
+        if (right && modifier == shift && key == 15) {
+            if (transport.soul::timeline::isStopped()) {
+                transport = soul::timeline::TransportState(1);
+            } else {
+                currentSixteenthNote = 0;
+                midiOut << setBeat(99); /* out of range */
+                transport = soul::timeline::TransportState(0);
+            }
         }
-    }
-}
 
-processor SineOsc {
-    output stream float audioOut;
-
-    input event (soul::note_events::NoteOn,
-                 soul::note_events::NoteOff,
-                 soul::note_events::PitchBend) midiIn;
-
-    float notePitch, bendSemitones, phase, phaseIncrement;
-
-    event midiIn(soul::note_events::NoteOn e) {
-        notePitch = e.note;
-        bendSemitones = 0.0f;
-        calculatePhaseIncrement();
     }
 
-    event midiIn(soul::note_events::NoteOff e) {
-        if (e.note == notePitch)
-            notePitch = 0;
+    event midiIn(soul::note_events::NoteOff message) {
     }
 
-    event midiIn(soul::note_events::PitchBend e) {
-        bendSemitones = e.bendSemitones;
-        calculatePhaseIncrement();
+    soul::midi::Message setBeat(int beat) {
+        return soul::midi::Message(beat);
     }
 
-
-    void calculatePhaseIncrement() {
-        let noteFrequency = soul::noteNumberToFrequency(notePitch + bendSemitones);
-        phaseIncrement = float(noteFrequency * twoPi * processor.period);
+    soul::midi::Message setTrack(int track) {
+        return soul::midi::Message(1 << 16 | track);
     }
 
-    void run() {
-        loop {
-            phase = addModulo2Pi(phase, phaseIncrement);
-            audioOut << (notePitch > 0 ? sin(phase) : float(0));
-            advance();
-        }
+    soul::midi::Message setKit() {
+        return soul::midi::Message(2 << 16);
     }
-}
 
-processor OneToMany(using T, int n) {
-    input stream T audioIn;
-    output stream T<n> audioOut;
-
-    void run() {
-        loop {
-            T<n> sample;
-            for (wrap<n> i)
-                sample[i] = audioIn;
-            audioOut << sample;
-            advance();
-        }
+    soul::midi::Message setKey(int root, const bool[12]& scale) {
+        int scaleBits = 0;
+        for (wrap<scale.size> i)
+            if (scale[i])
+                scaleBits |= 2 ^ i;
+        return soul::midi::Message(3 << 16 | root << 12 | scaleBits);
     }
 }

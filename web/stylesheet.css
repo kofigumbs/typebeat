@@ -73,6 +73,22 @@ body > *:last-child {
   text-transform: capitalize;
 }
 
+.key::before {
+  content: attr(data-before);
+  position: absolute;
+  top: .25rem;
+  left: .5rem;
+}
+
+.key::after {
+  content: attr(data-after);
+  position: absolute;
+  right: .5rem;
+  bottom: .25rem;
+  opacity: .6;
+  font-style: italic;
+}
+
 .key, .shadow {
   width: 3rem;
   height: 3rem;
@@ -118,45 +134,10 @@ body > *:last-child {
   --background: var(--yellow);
 }
 
-.key.control {
+.key.macro {
   --text: var(--dark);
   --background: var(--light);
   --accent: var(--dark);
-}
-
-.key::before {
-  position: absolute;
-  top: .25rem;
-  left: .5rem;
-}
-
-.key::after {
-  position: absolute;
-  right: .5rem;
-  bottom: .25rem;
-  opacity: .6;
-  font-style: italic;
-}
-
-
-/*
- * pseudo content
- */
-
-.key::after  {
-  content: attr(data-key);
-}
-
-.key::before {
-  content: attr(data-name)
-}
-
-.shift .key::before {
-  content: attr(data-shift);
-}
-
-.alt .key::before {
-  content: attr(data-alt);
 }
 
 
