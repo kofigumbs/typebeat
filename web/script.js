@@ -8,6 +8,10 @@ let modifiers = [];
 
 const keys = document.querySelectorAll(".key");
 
+const noModifier = 60;
+const shift      = 61;
+const alt        = 62;
+
 const befores = {
   0:  /* z */ {},
   1:  /* x */ {},
@@ -24,8 +28,12 @@ const befores = {
   12: /* e */ {},
   13: /* r */ {},
   14: /* t */ {},
-  60: /* no modifier */ {},
-  61: /* shift */ {
+  kit: {
+    "y": "CH", "u": "CY", "i": "FX", "o": "FX", "p": "FX",
+    "h": "SD", "j": "SD", "k": "CP", "l": "OH", ";": "OH",
+    "n": "BD", "m": "BD", ",": "BD", ".": "LT", "/": "SD",
+  },
+  [shift]: {
     "q": "",   "w": "1",  "e": "",   "r": "",   "t": "",
     "y": "5",  "u": "",   "i": "",   "o": "",   "p": "\u25B6",
     "a": "",   "s": "9",  "d": "",   "f": "",   "g": "",
@@ -33,7 +41,7 @@ const befores = {
     "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
     "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "S",
   },
-  62: /* alt */ {
+  [alt]: {
     "q": "",  "w": "+", "e": "+", "r": "+", "t": "+",
     "y": "+", "u": "+", "i": "+", "o": "+", "p": "",
     "a": "",  "s": "-", "d": "-", "f": "-", "g": "-",
@@ -41,15 +49,11 @@ const befores = {
     "z": "",  "x": "M", "c": "M", "v": "M", "b": "M",
     "n": "M", "m": "M", ",": "M", ".": "M", "/": "",
   },
-  kit: {
-    "y": "CH", "u": "CY", "i": "FX", "o": "FX", "p": "FX",
-    "h": "SD", "j": "SD", "k": "CP", "l": "OH", ";": "OH",
-    "n": "BD", "m": "BD", ",": "BD", ".": "LT", "/": "SD",
-  }
+  [noModifier]: {},
 };
 
 const getModifier = () => {
-  return modifiers.length === 0 ? 60 : modifiers[0];
+  return modifiers.length === 0 ? noModifier : modifiers[0];
 };
 
 const updateBefores = () => {
@@ -87,9 +91,9 @@ const onDocumentKey = event => {
   if (event.ctrlKey || event.metaKey || event.repeat)
     return;
   if (event.key === "Shift")
-    onModify(event, 61);
+    return onModify(event, shift);
   if (event.key === "Alt")
-    onModify(event, 62);
+    return onModify(event, alt);
   for (const key of keys)
     if (event.keyCode == key.dataset.code)
       return onKeyboardKey(event, key);
@@ -121,7 +125,7 @@ const setTrack = value => {
 };
 
 const setKit = () => {
-  befores[60] = befores.kit;
+  befores[noModifier] = befores.kit;
   updateBefores();
 };
 
