@@ -13,7 +13,7 @@ const shift      = 61;
 const alt        = 62;
 const noModifier = 60;
 
-const befores = {
+const befores = { // global mutable state 🙈
   0:  /* z */ {},
   1:  /* x */ {},
   2:  /* c */ {},
@@ -40,7 +40,7 @@ const befores = {
   },
   [shift]: {
     "q": "",   "w": "1",  "e": "",   "r": "",   "t": "",
-    "y": "5",  "u": "",   "i": "",   "o": "",   "p": "\u25B6",
+    "y": "5",  "u": "",   "i": "",   "o": "",   "p": "",
     "a": "",   "s": "9",  "d": "",   "f": "",   "g": "",
     "h": "13", "j": "",   "k": "",   "l": "",   ";": "\u25CF",
     "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
@@ -54,7 +54,7 @@ const befores = {
     "z": "",  "x": "M", "c": "M", "v": "M", "b": "M",
     "n": "M", "m": "M", ",": "M", ".": "M", "/": "",
   },
-  [noModifier]: /* mutated with setKey and setKit */ {
+  [noModifier]: {
     "q": "",  "w": "", "e": "", "r": "", "t": "",
     "a": "",  "s": "", "d": "", "f": "", "g": "",
     "z": "",  "x": "", "c": "", "v": "", "b": "",
@@ -124,6 +124,7 @@ const navigation = document.querySelectorAll(".navigation");
 const right = document.querySelectorAll(".right");
 
 const setBeat = value => {
+  befores[shift]["p"] = value < 16 ? "\u25A0" : "\u25B6";
   sequence.forEach((key, index) => {
     key.classList.toggle("current", index === value);
   });
@@ -144,7 +145,7 @@ const setKit = () => {
 
 const setKey = value => {
   befores[octave]["t"] = "Oct"
-  // TODO set scale
+  // TODO
 }
 
 const setArmed = value => {
