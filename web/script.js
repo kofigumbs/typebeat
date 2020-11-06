@@ -8,9 +8,10 @@ let modifiers = [];
 
 const keys = document.querySelectorAll(".key");
 
-const noModifier = 60;
+const octave     = 14;
 const shift      = 61;
 const alt        = 62;
+const noModifier = 60;
 
 const befores = {
   0:  /* z */ {},
@@ -27,7 +28,11 @@ const befores = {
   11: /* w */ {},
   12: /* e */ {},
   13: /* r */ {},
-  14: /* t */ {},
+  [octave]: {
+    "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4", "p": "",
+    "h": "Dp",  "j": "Tch", "k": "Mod", "l": "Gab", ";": "Brg",
+    "n": "808", "m": "909", ",": "DMX", ".": "DNB", "/": "Drk",
+  },
   kit: {
     "y": "CH", "u": "CY", "i": "FX", "o": "FX", "p": "FX",
     "h": "SD", "j": "SD", "k": "CP", "l": "OH", ";": "OH",
@@ -49,7 +54,11 @@ const befores = {
     "z": "",  "x": "M", "c": "M", "v": "M", "b": "M",
     "n": "M", "m": "M", ",": "M", ".": "M", "/": "",
   },
-  [noModifier]: {}, // this is mutated with setKey and setKit
+  [noModifier]: /* mutated with setKey and setKit */ {
+    "q": "",  "w": "", "e": "", "r": "", "t": "",
+    "a": "",  "s": "", "d": "", "f": "", "g": "",
+    "z": "",  "x": "", "c": "", "v": "", "b": "",
+  },
 };
 
 const getModifier = () => {
@@ -82,9 +91,9 @@ const onKeyboardKey = (event, key) => {
   event.preventDefault();
   key.classList.toggle("down", event.type === "keydown");
   if (key.dataset.control === "play")
-    onSend(event, 0, key.dataset.send);
-  if (key.dataset.control === "modify" && (event.shiftKey || event.altKey))
     onSend(event, 1, key.dataset.send);
+  if (key.dataset.control === "modify" && (event.shiftKey || event.altKey))
+    onSend(event, 0, key.dataset.send);
   if (key.dataset.control === "modify")
     onModify(event, key.dataset.send);
 };
@@ -127,9 +136,16 @@ const setTrack = value => {
 };
 
 const setKit = () => {
-  befores[noModifier] = befores.kit;
+  befores[octave]["t"] = "Kit"
+  befores[noModifier]["t"] = "Kit"
+  Object.assign(befores[noModifier], befores.kit);
   updateBefores();
 };
+
+const setKey = value => {
+  befores[octave]["t"] = "Oct"
+  // TODO set scale
+}
 
 const setArmed = value => {
   document.body.classList.toggle("armed", !!value);

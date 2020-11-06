@@ -1,0 +1,50 @@
+// vim: set ft=cpp:
+
+namespace keyboard {
+    const int unused = -1;
+
+    const int noModifier = 60;
+    const int shift      = 61;
+    const int alt        = 62;
+
+    struct Key {
+        bool right;
+        int index;
+        int modifier;
+    }
+
+    struct Layout {
+        int[15] left;
+        int[15] right;
+    }
+
+    int valueOf(Layout l, Key k) {
+        return k.right ? l.right.at(k.index) : l.left.at(k.index);
+    }
+
+    bool uses(Layout l, Key k) {
+        return l.valueOf(k) != unused;
+    }
+
+    namespace sequence {
+        const Layout steps = Layout(
+            int[15](unused, unused, unused, unused, unused, unused, 8, 9, 10, 11, unused, 0, 1, 2, 3),
+            int[15](unused, unused, unused, unused, unused, 12, 13, 14, 15, unused, 4, 5, 6, 7, unused)
+        );
+    }
+
+    namespace scale {
+        const bool[12] major            = bool[12](true, false, true, false, true, true, false, true, false, true, false, true);
+        const bool[12] minor            = bool[12](true, false, true, true, false, true, false, true, true, false, true, false);
+        const bool[12] dorian           = bool[12](true, false, true, true, false, true, false, true, false, true, true, false);
+        const bool[12] phrygian         = bool[12](true, true, false, true, false, true, false, true, true, false, true, false);
+        const bool[12] lydian           = bool[12](true, false, true, false, true, false, true, true, false, true, false, true);
+        const bool[12] mixolydian       = bool[12](true, false, true, false, true, true, false, true, false, true, true, false);
+        const bool[12] locrian          = bool[12](true, true, false, true, false, true, true, false, true, false, true, false);
+        const bool[12] harmonicMinor    = bool[12](true, false, true, true, false, true, false, true, true, false, false, true);
+        const bool[12] harmonicMajor    = bool[12](true, false, true, false, true, true, false, true, true, false, false, true);
+        const bool[12] melodicMinor     = bool[12](true, false, true, true, false, true, false, true, false, true, false, true);
+        const bool[12] melodicMinorDesc = bool[12](true, false, true, true, false, true, false, true, true, false, true, false);
+        const bool[12] melodicMajor     = bool[12](true, false, true, false, true, true, false, true, true, false, true, false);
+    }
+}

@@ -73,12 +73,14 @@ namespace sequence {
 
         Track track;
         int currentTrack = 0;
+        bool kit = true;
+        int currentKit = 0;
         int quantizeSubdivision = 32;
         Position position;
         bool playing;
         bool armed;
         int keyboardRoot = 60;
-        bool[12] keyboardScale = scale::major;
+        bool[12] keyboardScale = keyboard::scale::major;
 
         int lastHit;
         soul::timeline::Tempo tempo;
@@ -93,7 +95,8 @@ namespace sequence {
                 setBeat();
                 setTrack();
                 setArmed();
-                setKit();
+                if (kit) setKit();
+                else setKey();
 
                 // busy wait if sequence is stopped
                 while(!playing)
@@ -116,83 +119,59 @@ namespace sequence {
         }
 
         void playKit(int sample) {
-            // TODO earmark sample index-15 for fx4 since they don't otherwise fit
-            kitOut << soul::note_events::NoteOn(0, float(sample), 1.0);
+            if (currentKit == 13)
+                // kit #14 is specialized for fx4 since it's otherwise unplayable
+                kitOut << soul::note_events::NoteOn(sample, 15.0, 1.0);
+            else
+                kitOut << soul::note_events::NoteOn(currentKit, float(sample), 1.0);
         }
 
         /*
          * (ab)use midi for internal control protocol
          */
 
-        struct Key {
-            bool left;
-            int index;
-            int modifier;
-        }
-
-        Key parse(int channel, float note, float velocity) {
-            return Key(
+        keyboard::Key parse(int channel, float note, float velocity) {
+            return keyboard::Key(
                 bool(channel),
                 int(note),
                 roundToInt(velocity * 127) >> 1
             );
         }
 
-        const int noModifier = 60;
-        const int shift      = 61;
-        const int alt        = 62;
-
-        const int undefined = -1;
-
-        bool trigger(Key k) { return k.modifier == noModifier && !k.left; }
-        bool togglePlay(Key k) { return k.modifier == shift && !k.left && k.index == 14; }
-        bool toggleArm(Key k) { return k.modifier == shift && !k.left && k.index == 9; }
-
-        int sequenceStep(Key k) {
-            if (k.modifier != shift)      return undefined;
-            if (k.left  && k.index == 11) return  0;
-            if (k.left  && k.index == 12) return  1;
-            if (k.left  && k.index == 13) return  2;
-            if (k.left  && k.index == 14) return  3;
-            if (!k.left && k.index == 10) return  4;
-            if (!k.left && k.index == 11) return  5;
-            if (!k.left && k.index == 12) return  6;
-            if (!k.left && k.index == 13) return  7;
-            if (k.left  && k.index ==  6) return  8;
-            if (k.left  && k.index ==  7) return  9;
-            if (k.left  && k.index ==  8) return 10;
-            if (k.left  && k.index ==  9) return 11;
-            if (!k.left && k.index ==  5) return 12;
-            if (!k.left && k.index ==  6) return 13;
-            if (!k.left && k.index ==  7) return 14;
-            if (!k.left && k.index ==  8) return 15;
-                                          return undefined;
-        }
+        bool isTrigger(keyboard::Key k)      { return k.modifier == keyboard::noModifier && k.right; }
+        bool isTogglePlay(keyboard::Key k)   { return k.modifier == keyboard::shift && k.right && k.index == 14; }
+        bool isToggleArm(keyboard::Key k)    { return k.modifier == keyboard::shift && k.right && k.index == 9; }
+        bool isSetOctave(keyboard::Key k)    { return k.modifier == 14 /* p */; }
+        bool isSequenceStep(keyboard::Key k) { return k.modifier == keyboard::shift && keyboard::sequence::steps.uses(k); }
 
         event midiIn(soul::note_events::NoteOn message) {
             let key = parse(message.channel, message.note, message.velocity);
 
-            if (key.togglePlay()) {
+            if (key.isTogglePlay()) {
                 playing = !playing;
                 if (!playing) position.reset();
                 return;
             }
 
-            if (key.toggleArm()) {
+            if (key.isToggleArm()) {
                 armed = !armed;
                 return;
             }
 
-            if (key.trigger()) {
+            if (key.isTrigger()) {
                 lastHit = key.index;
                 playKit(lastHit);
                 if (armed && playing) track.record(position.quantize(quantizeSubdivision), lastHit, false);
                 return;
             }
 
-            let step = key.sequenceStep();
-            if (step != undefined) {
-                track.record(step.toPosition(16).value, lastHit, true);
+            if (key.isSetOctave()) {
+                if (kit) currentKit = key.index;
+                else keyboardRoot = key.index;
+            }
+
+            if (key.isSequenceStep()) {
+                track.record(keyboard::sequence::steps.valueOf(key).toPosition(16).value, lastHit, true);
                 if (!playing) playKit(lastHit);
                 return;
             }
