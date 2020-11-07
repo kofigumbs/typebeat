@@ -115,18 +115,20 @@ body > *:last-child {
   display: none;
 }
 
+.key {
+  --text: var(--dark);
+  --background: var(--light);
+  --accent: var(--dark);
+}
+
 .key.sequence {
   --text: var(--light);
   --background: var(--gray);
   --accent: var(--dark);
 }
 
-.key.sequence.current {
+.key.sequence.selected {
   --accent: var(--orange);
-}
-
-.armed .key.sequence.current {
-  --accent: var(--yellow);
 }
 
 .key.navigation {
@@ -135,14 +137,14 @@ body > *:last-child {
   --accent: var(--dark);
 }
 
-.key.navigation.current {
-  --background: var(--yellow);
+.key.navigation.selected,
+.armed .key.sequence.selected {
+  --accent: var(--yellow);
 }
 
-.key.macro {
-  --text: var(--dark);
-  --background: var(--light);
-  --accent: var(--dark);
+.key.currentValue {
+  --text: var(--light);
+  --background: var(--dark);
 }
 
 

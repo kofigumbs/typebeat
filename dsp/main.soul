@@ -186,7 +186,7 @@ namespace sequence {
         }
 
         void setKit() {
-            globalMidiOut << soul::midi::Message(2 << 16);
+            globalMidiOut << soul::midi::Message(2 << 16 | currentKit);
         }
 
         void setKey() {

@@ -1,19 +1,19 @@
 "use strict";
 
 /*
- * to native
+ * global mutable state 🙈
  */
 
 let modifiers = [];
 
-const keys = document.querySelectorAll(".key");
+let currentValue = {};
 
-const octave     = 14;
+const octave     = 14; // t
 const shift      = 61;
 const alt        = 62;
 const noModifier = 60;
 
-const befores = { // global mutable state 🙈
+const before = {
   0:  /* z */ {},
   1:  /* x */ {},
   2:  /* c */ {},
@@ -28,16 +28,7 @@ const befores = { // global mutable state 🙈
   11: /* w */ {},
   12: /* e */ {},
   13: /* r */ {},
-  [octave]: {
-    "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4", "p": "",
-    "h": "Dp",  "j": "Tch", "k": "Mod", "l": "Gab", ";": "Brg",
-    "n": "808", "m": "909", ",": "DMX", ".": "DNB", "/": "Drk",
-  },
-  kit: {
-    "y": "CH", "u": "CY", "i": "FX", "o": "FX", "p": "FX",
-    "h": "SD", "j": "SD", "k": "CP", "l": "OH", ";": "OH",
-    "n": "BD", "m": "BD", ",": "BD", ".": "LT", "/": "SD",
-  },
+  [octave]: {},
   [shift]: {
     "q": "",   "w": "1",  "e": "",   "r": "",   "t": "",
     "y": "5",  "u": "",   "i": "",   "o": "",   "p": "",
@@ -61,21 +52,45 @@ const befores = { // global mutable state 🙈
   },
 };
 
+const reference = {
+  kits: {
+    "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4", "p": "",
+    "h": "Dp",  "j": "Tch", "k": "Mod", "l": "Gab", ";": "Brg",
+    "n": "808", "m": "909", ",": "DMX", ".": "DNB", "/": "Drk",
+  },
+  hits: {
+    "y": "CH", "u": "CY", "i": "FX", "o": "FX", "p": "FX",
+    "h": "SD", "j": "SD", "k": "CP", "l": "OH", ";": "OH",
+    "n": "BD", "m": "BD", ",": "BD", ".": "LT", "/": "SD",
+  },
+};
+
+
+/*
+ * to native
+ */
+
+const keys = document.querySelectorAll(".key");
+
 const getModifier = () => {
   if (modifiers.includes(shift)) return shift;
   if (modifiers.includes(alt)) return alt;
   return modifiers.length === 0 ? noModifier : modifiers[0];
 };
 
-const updateBefores = () => {
-  for(const key of keys)
-    key.dataset.before = befores[getModifier()][key.dataset.after] || "";
+const redraw = () => {
+  const modifier = getModifier();
+  for (const key of keys) {
+    key.dataset.before = before[modifier][key.dataset.after] || "";
+    if (key.dataset.control === "play")
+      key.classList.toggle("currentValue", key.dataset.send == currentValue[modifier]);
+  }
 };
 
 const onModify = (event, value) => {
   event.preventDefault();
   modifiers = event.type === "keydown" ? [ value, ...modifiers ] : modifiers.filter(x => x !== value);
-  updateBefores();
+  redraw();
 };
 
 const onSend = (event, channel, value) => {
@@ -121,30 +136,33 @@ document.addEventListener("keypress", event => event.preventDefault());
 
 const sequence = document.querySelectorAll(".sequence");
 const navigation = document.querySelectorAll(".navigation");
-const right = document.querySelectorAll(".right");
 
 const setBeat = value => {
-  befores[shift]["p"] = value < 16 ? "\u25A0" : "\u25B6";
+  before[shift]["p"] = value < 16 ? "\u25A0" : "\u25B6";
   sequence.forEach((key, index) => {
-    key.classList.toggle("current", index === value);
+    key.classList.toggle("selected", index === value);
   });
 };
 
 const setTrack = value => {
   navigation.forEach((key, index) => {
-    key.classList.toggle("current", index === value);
+    key.classList.toggle("selected", index === value);
   });
 };
 
-const setKit = () => {
-  befores[octave]["t"] = "Kit"
-  befores[noModifier]["t"] = "Kit"
-  Object.assign(befores[noModifier], befores.kit);
-  updateBefores();
+const setKit = value => {
+  currentValue[octave] = value;
+  before[octave] = reference.kits;
+  before[octave]["t"] = "Kit"
+  before[noModifier]["t"] = "Kit"
+  Object.assign(before[noModifier], reference.hits);
+  redraw();
 };
 
 const setKey = value => {
-  befores[octave]["t"] = "Oct"
+  currentValue[octave] = value;
+  before[octave]["t"] = "Oct"
+  before[noModifier]["t"] = "Oct"
   // TODO
 }
 
@@ -156,7 +174,7 @@ const update = (context, value) => {
   switch (context) {
     case 0: return setBeat(value);
     case 1: return setTrack(value);
-    case 2: return setKit();
+    case 2: return setKit(value);
     case 3: return setKey(value);
     case 4: return setArmed(value);
   }
