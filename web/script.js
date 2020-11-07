@@ -4,13 +4,12 @@
  * global mutable state 🙈
  */
 
-let modifier;
-
-let currentValue = {};
-
 const transport  = 10; // q
 const octave     = 14; // t
 const noModifier = 60;
+
+let modifier = noModifier;
+let currentValue = {};
 
 const before = {
   0:  /* z */ {},
@@ -65,9 +64,9 @@ const keys = document.querySelectorAll(".key");
 
 const redraw = () => {
   for (const key of keys) {
-    key.dataset.before = before[modifier ?? noModifier][key.dataset.after] || "";
+    key.dataset.before = before[modifier][key.dataset.after] || "";
     if (key.dataset.control === "play")
-      key.classList.toggle("currentValue", key.dataset.send == currentValue[modifier ?? noModifier]);
+      key.classList.toggle("currentValue", key.dataset.send == currentValue[modifier]);
   }
 };
 
@@ -76,15 +75,15 @@ const handleSend = (event, channel, value) => {
       ((event.type === "keyup" ? 8 : 9) << 20)
         | (channel << 16)
         | (value << 8)
-        | ((modifier ?? noModifier) * 2 + 1);
+        | (modifier * 2 + 1);
   window.midiIn ? midiIn(message) : console.log(message);
 };
 
 const handleModify = (event, value) => {
-  if (modifier === undefined && event.type === "keydown")
+  if (modifier === noModifier && event.type === "keydown")
     modifier = value;
   else if (modifier === value && event.type === "keyup")
-    modifier = undefined;
+    modifier = noModifier;
   else
     handleSend(event, 0, value);
   redraw();
@@ -117,7 +116,7 @@ document.addEventListener("keypress", event => event.preventDefault());
  */
 
 const sequence = document.querySelectorAll(".sequence");
-const navigation = document.querySelectorAll(".navigation");
+const tracklist = document.querySelectorAll(".tracklist");
 
 const setBeat = value => {
   before[transport]["p"] = value < 16 ? "■" : "▶";
@@ -127,7 +126,7 @@ const setBeat = value => {
 };
 
 const setTrack = value => {
-  navigation.forEach((key, index) => {
+  tracklist.forEach((key, index) => {
     key.classList.toggle("selected", index === value);
   });
 };
@@ -138,7 +137,6 @@ const setKit = value => {
   before[octave]["t"] = "Kit"
   before[noModifier]["t"] = "Kit"
   Object.assign(before[noModifier], reference.hits);
-  redraw();
 };
 
 const setKey = value => {
@@ -152,7 +150,7 @@ const setArmed = value => {
   document.body.classList.toggle("armed", !!value);
 };
 
-const update = (context, value) => {
+const set = (context, value) => {
   switch (context) {
     case 0: return setBeat(value);
     case 1: return setTrack(value);
@@ -162,10 +160,11 @@ const update = (context, value) => {
   }
 };
 
-const onMidiOut = midi => {
+const handleMidi = midi => {
   for (const message of midi)
-    update(message >> 16, message & 0x00ffff);
+    set(message >> 16, message & 0x00ffff);
+  redraw();
 };
 
 if (window.midiOut)
-  setInterval(() => midiOut().then(onMidiOut), 40 /* just over 24 fps */);
+  setInterval(() => midiOut().then(handleMidi), 40 /* just over 24 fps */);

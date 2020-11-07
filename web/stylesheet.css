@@ -149,12 +149,12 @@ html {
   background: var(--yellow);
 }
 
-.key.navigation {
+.key.tracklist {
   color: var(--light);
   background: var(--orange);
 }
 
-.key.navigation.selected + .shadow {
+.key.tracklist.selected + .shadow {
   background: var(--yellow);
 }
 
