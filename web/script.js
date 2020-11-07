@@ -4,13 +4,12 @@
  * global mutable state 🙈
  */
 
-let modifiers = [];
+let modifier;
 
 let currentValue = {};
 
+const transport  = 10; // q
 const octave     = 14; // t
-const shift      = 61;
-const alt        = 62;
 const noModifier = 60;
 
 const before = {
@@ -24,29 +23,21 @@ const before = {
   7:  /* d */ {},
   8:  /* f */ {},
   9:  /* g */ {},
-  10: /* q */ {},
+  [transport]: {
+    "q": "I",  "w": "1",  "e": "",   "r": "",   "t": "",
+    "y": "5",  "u": "",   "i": "",   "o": "",   "p": "",
+    "a": "",   "s": "9",  "d": "",   "f": "",   "g": "",
+    "h": "13", "j": "",   "k": "",   "l": "",   ";": "●",
+    "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
+    "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "",
+  },
   11: /* w */ {},
   12: /* e */ {},
   13: /* r */ {},
-  [octave]: {},
-  [shift]: {
-    "q": "",   "w": "1",  "e": "",   "r": "",   "t": "",
-    "y": "5",  "u": "",   "i": "",   "o": "",   "p": "",
-    "a": "",   "s": "9",  "d": "",   "f": "",   "g": "",
-    "h": "13", "j": "",   "k": "",   "l": "",   ";": "\u25CF",
-    "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
-    "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "S",
-  },
-  [alt]: {
-    "q": "",  "w": "+", "e": "+", "r": "+", "t": "+",
-    "y": "+", "u": "+", "i": "+", "o": "+", "p": "",
-    "a": "",  "s": "-", "d": "-", "f": "-", "g": "-",
-    "h": "-", "j": "-", "k": "-", "l": "-", ";": "",
-    "z": "",  "x": "M", "c": "M", "v": "M", "b": "M",
-    "n": "M", "m": "M", ",": "M", ".": "M", "/": "",
+  [octave]: {
   },
   [noModifier]: {
-    "q": "",  "w": "", "e": "", "r": "", "t": "",
+    "q": "I", "w": "", "e": "", "r": "", "t": "",
     "a": "",  "s": "", "d": "", "f": "", "g": "",
     "z": "",  "x": "", "c": "", "v": "", "b": "",
   },
@@ -72,61 +63,52 @@ const reference = {
 
 const keys = document.querySelectorAll(".key");
 
-const getModifier = () => {
-  if (modifiers.includes(shift)) return shift;
-  if (modifiers.includes(alt)) return alt;
-  return modifiers.length === 0 ? noModifier : modifiers[0];
-};
-
 const redraw = () => {
-  const modifier = getModifier();
   for (const key of keys) {
-    key.dataset.before = before[modifier][key.dataset.after] || "";
+    key.dataset.before = before[modifier ?? noModifier][key.dataset.after] || "";
     if (key.dataset.control === "play")
-      key.classList.toggle("currentValue", key.dataset.send == currentValue[modifier]);
+      key.classList.toggle("currentValue", key.dataset.send == currentValue[modifier ?? noModifier]);
   }
 };
 
-const onModify = (event, value) => {
-  event.preventDefault();
-  modifiers = event.type === "keydown" ? [ value, ...modifiers ] : modifiers.filter(x => x !== value);
-  redraw();
-};
-
-const onSend = (event, channel, value) => {
+const handleSend = (event, channel, value) => {
   const message =
       ((event.type === "keyup" ? 8 : 9) << 20)
         | (channel << 16)
         | (value << 8)
-        | (getModifier() * 2 + 1);
+        | ((modifier ?? noModifier) * 2 + 1);
   window.midiIn ? midiIn(message) : console.log(message);
 };
 
-const onKeyboardKey = (event, key) => {
+const handleModify = (event, value) => {
+  if (modifier === undefined && event.type === "keydown")
+    modifier = value;
+  else if (modifier === value && event.type === "keyup")
+    modifier = undefined;
+  else
+    handleSend(event, 0, value);
+  redraw();
+};
+
+const handleKeyboardKey = (event, key) => {
   event.preventDefault();
   key.classList.toggle("down", event.type === "keydown");
-  if (key.dataset.control === "play")
-    onSend(event, 1, key.dataset.send);
-  if (key.dataset.control === "modify" && (event.shiftKey || event.altKey))
-    onSend(event, 0, key.dataset.send);
   if (key.dataset.control === "modify")
-    onModify(event, key.dataset.send);
+    handleModify(event, key.dataset.send);
+  else if (key.dataset.control === "play")
+    handleSend(event, 1, key.dataset.send);
 };
 
-const onDocumentKey = event => {
-  if (event.ctrlKey || event.metaKey || event.repeat)
+const handleDocumentKey = event => {
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.repeat)
     return;
-  if (event.key === "Shift")
-    return onModify(event, shift);
-  if (event.key === "Alt")
-    return onModify(event, alt);
   for (const key of keys)
     if (event.keyCode == key.dataset.code)
-      return onKeyboardKey(event, key);
+      return handleKeyboardKey(event, key);
 };
 
-document.addEventListener("keydown", onDocumentKey);
-document.addEventListener("keyup", onDocumentKey);
+document.addEventListener("keydown", handleDocumentKey);
+document.addEventListener("keyup", handleDocumentKey);
 document.addEventListener("keypress", event => event.preventDefault());
 
 
@@ -138,7 +120,7 @@ const sequence = document.querySelectorAll(".sequence");
 const navigation = document.querySelectorAll(".navigation");
 
 const setBeat = value => {
-  before[shift]["p"] = value < 16 ? "\u25A0" : "\u25B6";
+  before[transport]["p"] = value < 16 ? "■" : "▶";
   sequence.forEach((key, index) => {
     key.classList.toggle("selected", index === value);
   });

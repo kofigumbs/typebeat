@@ -2,10 +2,7 @@
 
 namespace keyboard {
     const int unused = -1;
-
     const int noModifier = 60;
-    const int shift      = 61;
-    const int alt        = 62;
 
     struct Key {
         bool right;

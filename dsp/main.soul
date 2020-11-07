@@ -152,10 +152,10 @@ namespace sequence {
         }
 
         bool isTrigger(keyboard::Key k)      { return k.modifier == keyboard::noModifier && k.right; }
-        bool isTogglePlay(keyboard::Key k)   { return k.modifier == keyboard::shift && k.right && k.index == 14; }
-        bool isToggleArm(keyboard::Key k)    { return k.modifier == keyboard::shift && k.right && k.index == 9; }
-        bool isSetOctave(keyboard::Key k)    { return k.modifier == 14 /* t */; }
-        bool isSequenceStep(keyboard::Key k) { return k.modifier == keyboard::shift && keyboard::sequence::steps.uses(k); }
+        bool isTogglePlay(keyboard::Key k)   { return k.modifier == 10 /* q */ && k.right && k.index == 14 /* p */; }
+        bool isToggleArm(keyboard::Key k)    { return k.modifier == 10 /* q */ && k.right && k.index == 9 /* ; */; }
+        bool isSetOctave(keyboard::Key k)    { return k.modifier == 14 /* t */ && k.right; }
+        bool isSequenceStep(keyboard::Key k) { return k.modifier == 10 /* q */ && keyboard::sequence::steps.uses(k); }
 
         event midiIn(soul::note_events::NoteOn message) {
             let key = parse(message.channel, message.note, message.velocity);
