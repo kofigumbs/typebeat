@@ -77,8 +77,8 @@ body > *:last-child {
 .key, .shadow {
   width: 3rem;
   height: 3rem;
-  border-radius: .25rem;
   border: solid .25rem;
+  border-radius: .25rem;
   font-weight: 800;
 }
 

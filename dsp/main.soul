@@ -48,20 +48,25 @@ namespace sequence {
         return (p.value + stepLength/2)/ stepLength;
     }
 
+    struct Hit {
+        bool delay;
+        bool trigger;
+    }
+
     struct Step {
-        bool[15] hits;
+        Hit[15] hits;
     }
 
     struct Track {
         Step[resolution] steps;
     }
 
-    void hit(Step& step, int note, bool toggle) {
-        step.hits[wrap<step.hits.size>(note)] = !toggle || !step.hits[wrap<step.hits.size>(note)];
+    void recordHit(Step& step, int note, Hit hit) {
+        step.hits[wrap<step.hits.size>(note)] = hit;
     }
 
-    void record(Track& track, int step, int note, bool toggle) {
-        hit(track.steps[wrap<track.steps.size>(step)], note, toggle);
+    void record(Track& track, int step, int note, Hit hit) {
+        recordHit(track.steps[wrap<track.steps.size>(step)], note, hit);
     }
 
     processor Controller {
@@ -82,7 +87,7 @@ namespace sequence {
         int keyboardRoot = 60;
         bool[12] keyboardScale = keyboard::scale::major;
 
-        int lastHit;
+        int lastSample;
         soul::timeline::Tempo tempo;
 
         void init () {
@@ -105,19 +110,24 @@ namespace sequence {
                     continue;
                 }
 
-                // play any sounds on this step
-                if ((quantizeSubdivision).subdivides(position)) {
-                    let step = track.steps[wrap<track.steps.size>(position.toNthNote(quantizeSubdivision))];
-                    for (wrap<step.hits.size> i)
-                        if (step.hits[i])
-                            playKit(i);
-                }
+                // trigger notes on this step
+                if ((quantizeSubdivision).subdivides(position))
+                    playStep(track.steps[wrap<track.steps.size>(position.toNthNote(quantizeSubdivision))]);
 
                 // move sequence position with resolution rate
                 loop (resolutionInFrames(tempo, processor.frequency))
                     advance();
                 if (playing)
                     position.next();
+            }
+        }
+
+        void playStep(Step& step) {
+            for (wrap<step.hits.size> i) {
+                if (step.hits[i].delay)
+                    step.hits[i] = Hit(false, step.hits[i].trigger);
+                else if (step.hits[i].trigger)
+                    playKit(i);
             }
         }
 
@@ -153,30 +163,30 @@ namespace sequence {
             if (key.isTogglePlay()) {
                 playing = !playing;
                 if (!playing) position.reset();
-                return;
             }
 
-            if (key.isToggleArm()) {
+            else if (key.isToggleArm()) {
                 armed = !armed;
-                return;
             }
 
-            if (key.isTrigger()) {
-                lastHit = key.index;
-                playKit(lastHit);
-                if (armed && playing) track.record(position.quantize(quantizeSubdivision), lastHit, false);
-                return;
+            else if (key.isTrigger()) {
+                lastSample = key.index;
+                playKit(lastSample);
+                if (armed && playing) {
+                    let step = position.quantize(quantizeSubdivision);
+                    track.record(step, lastSample, Hit(step > position.value, true));
+                }
             }
 
-            if (key.isSetOctave()) {
+            else if (key.isSetOctave()) {
                 if (kit) currentKit = key.index;
                 else keyboardRoot = key.index;
             }
 
-            if (key.isSequenceStep()) {
-                track.record(keyboard::sequence::steps.valueOf(key).toPosition(16).value, lastHit, true);
-                if (!playing) playKit(lastHit);
-                return;
+            else if (key.isSequenceStep()) {
+                let step = keyboard::sequence::steps.valueOf(key).toPosition(16).value;
+                track.record(step, lastSample, Hit(false, !track.steps.at(step).hits.at(lastSample).trigger));
+                if (!playing) playKit(lastSample);
             }
         }
 
