@@ -23,7 +23,7 @@ const before = {
   8:  /* f */ {},
   9:  /* g */ {},
   [transport]: {
-    "q": "I",  "w": "1",  "e": "",   "r": "",   "t": "",
+    "q": "",  "w": "1",  "e": "",   "r": "",   "t": "",
     "y": "5",  "u": "",   "i": "",   "o": "",   "p": "",
     "a": "",   "s": "9",  "d": "",   "f": "",   "g": "",
     "h": "13", "j": "",   "k": "",   "l": "",   ";": "●",
@@ -44,7 +44,6 @@ const before = {
 
 const reference = {
   kits: {
-    "t": "Ins",
     "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4", "p": "",
     "h": "Dp",  "j": "Tch", "k": "Mod", "l": "Gab", ";": "Brg",
     "n": "808", "m": "909", ",": "DMX", ".": "DNB", "/": "Drk",
@@ -65,7 +64,8 @@ const keys = document.querySelectorAll(".key");
 
 const redraw = () => {
   for (const key of keys) {
-    key.dataset.before = before[modifier][key.dataset.after] || "";
+    if (key.dataset.control === "play" || key.dataset.send !== modifier)
+      key.dataset.before = before[modifier][key.dataset.after] || "";
     if (key.dataset.control === "play")
       key.classList.toggle("currentValue", key.dataset.send == currentValue[modifier]);
   }

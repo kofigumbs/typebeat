@@ -78,7 +78,7 @@ namespace sequence {
         output event soul::midi::Message globalMidiOut;
 
         Track track;
-        bool kit = false;
+        bool kit = true;
         int currentTrack = 0;
         int currentKit = 0;
         int currentSynth = 0;
