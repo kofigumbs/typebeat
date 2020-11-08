@@ -5,7 +5,7 @@
  */
 
 const transport  = 10; // q
-const octave     = 14; // t
+const instrument = 14; // t
 const noModifier = 60;
 
 let modifier = noModifier;
@@ -33,10 +33,10 @@ const before = {
   11: /* w */ {},
   12: /* e */ {},
   13: /* r */ {},
-  [octave]: {
+  [instrument]: {
   },
   [noModifier]: {
-    "q": "I", "w": "", "e": "", "r": "", "t": "",
+    "q": "I", "w": "", "e": "", "r": "", "t": "Ins",
     "a": "",  "s": "", "d": "", "f": "", "g": "",
     "z": "",  "x": "", "c": "", "v": "", "b": "",
   },
@@ -44,6 +44,7 @@ const before = {
 
 const reference = {
   kits: {
+    "t": "Ins",
     "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4", "p": "",
     "h": "Dp",  "j": "Tch", "k": "Mod", "l": "Gab", ";": "Brg",
     "n": "808", "m": "909", ",": "DMX", ".": "DNB", "/": "Drk",
@@ -132,17 +133,13 @@ const setTrack = value => {
 };
 
 const setKit = value => {
-  currentValue[octave] = value;
-  before[octave] = reference.kits;
-  before[octave]["t"] = "Kit"
-  before[noModifier]["t"] = "Kit"
+  currentValue[instrument] = value;
+  before[instrument] = reference.kits;
   Object.assign(before[noModifier], reference.hits);
 };
 
 const setKey = value => {
-  currentValue[octave] = value;
-  before[octave]["t"] = "Oct"
-  before[noModifier]["t"] = "Oct"
+  currentValue[instrument] = value;
   // TODO
 }
 

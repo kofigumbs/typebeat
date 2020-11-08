@@ -13,7 +13,7 @@ graph Groovebox [[ main ]] {
 
     connection {
         midiIn -> soul::midi::MPEParser -> controller;
-        controller.kitOut -> voiceAllocator -> enferVoices -> audioOut;
+        controller.noteOut -> voiceAllocator -> enferVoices -> audioOut;
     }
 }
 
@@ -66,28 +66,30 @@ namespace sequence {
     }
 
     void record(Track& track, int step, int note, Hit hit) {
-        recordHit(track.steps[wrap<track.steps.size>(step)], note, hit);
+        recordHit(track.steps.at(step), note, hit);
     }
 
     processor Controller {
         input event (soul::note_events::NoteOn,
                      soul::note_events::NoteOff) midiIn;
 
-        output event soul::note_events::NoteOn kitOut;
+        output event (soul::note_events::NoteOn,
+                      soul::note_events::NoteOff) noteOut;
         output event soul::midi::Message globalMidiOut;
 
         Track track;
+        bool kit = false;
         int currentTrack = 0;
-        bool kit = true;
         int currentKit = 0;
-        int quantizeSubdivision = 32;
+        int currentSynth = 0;
+        int currentRoot = 60;
+        keyboard::Layout currentScale = keyboard::scale::major;
+
         Position position;
         bool playing;
         bool armed;
-        int keyboardRoot = 60;
-        bool[12] keyboardScale = keyboard::scale::major;
-
         int lastSample;
+        int quantizeSubdivision = 32;
         soul::timeline::Tempo tempo;
 
         void init () {
@@ -127,16 +129,18 @@ namespace sequence {
                 if (step.hits[i].delay)
                     step.hits[i] = Hit(false, step.hits[i].trigger);
                 else if (step.hits[i].trigger)
-                    playKit(i);
+                    play(i);
             }
         }
 
-        void playKit(int sample) {
-            if (currentKit == 13)
-                // kit #14 is specialized for fx4 since it's otherwise unplayable
-                kitOut << soul::note_events::NoteOn(sample, 15.0, 1.0);
+        void play(int i) {
+            if (!kit)
+                noteOut << soul::note_events::NoteOn(currentSynth, float(currentRoot + currentScale.valueOf(keyboard::Key(true, i, keyboard::unused))), 2);
+            else if (currentKit == 13)
+                // last kit is specialized for fx4 since it's otherwise unplayable
+                noteOut << soul::note_events::NoteOn(i, 15, 1);
             else
-                kitOut << soul::note_events::NoteOn(currentKit, float(sample), 1.0);
+                noteOut << soul::note_events::NoteOn(currentKit, float(i), 1);
         }
 
         /*
@@ -151,7 +155,7 @@ namespace sequence {
             );
         }
 
-        bool isTrigger(keyboard::Key k)      { return k.modifier == keyboard::noModifier && k.right; }
+        bool isTrigger(keyboard::Key k)      { return k.modifier == keyboard::unused && k.right; }
         bool isTogglePlay(keyboard::Key k)   { return k.modifier == 10 /* q */ && k.right && k.index == 14 /* p */; }
         bool isToggleArm(keyboard::Key k)    { return k.modifier == 10 /* q */ && k.right && k.index == 9 /* ; */; }
         bool isSetOctave(keyboard::Key k)    { return k.modifier == 14 /* t */ && k.right; }
@@ -171,7 +175,7 @@ namespace sequence {
 
             else if (key.isTrigger()) {
                 lastSample = key.index;
-                playKit(lastSample);
+                play(lastSample);
                 if (armed && playing) {
                     let step = position.quantize(quantizeSubdivision);
                     track.record(step, lastSample, Hit(step > position.value, true));
@@ -180,13 +184,13 @@ namespace sequence {
 
             else if (key.isSetOctave()) {
                 if (kit) currentKit = key.index;
-                else keyboardRoot = key.index;
+                else currentRoot = key.index;
             }
 
             else if (key.isSequenceStep()) {
                 let step = keyboard::sequence::steps.valueOf(key).toPosition(16).value;
                 track.record(step, lastSample, Hit(false, !track.steps.at(step).hits.at(lastSample).trigger));
-                if (!playing) playKit(lastSample);
+                if (!playing) play(lastSample);
             }
         }
 
@@ -204,16 +208,15 @@ namespace sequence {
 
         void setKey() {
             int scaleBits = 0;
-            for (wrap<keyboardScale.size> i)
-                if (keyboardScale[i])
-                    scaleBits |= 2 ^ i;
-            globalMidiOut << soul::midi::Message(3 << 16 | keyboardRoot << 12 | scaleBits);
+            // for (wrap<keyboardScale.size> i)
+            //     if (keyboardScale[i])
+            //         scaleBits |= 2 ^ i;
+            globalMidiOut << soul::midi::Message(3 << 16 | currentRoot << 12 | scaleBits);
         }
 
         void setArmed() {
             globalMidiOut << soul::midi::Message(4 << 16 | int(armed));
         }
-
     }
 }
 
@@ -222,21 +225,30 @@ processor EnferVoice {
 
     input event soul::note_events::NoteOn midiIn;
 
-    int kit = -1;
-    int sample = -1;
-    int playbackPosition;
+    int instrument = -1;
+    int note = -1;
+    float64 playbackPosition;
+    bool kit;
 
     event midiIn(soul::note_events::NoteOn e) {
-        if (e.velocity <= 0) return;
-        kit = int(e.channel);
-        sample = int(e.note);
+        instrument = int(e.channel);
+        note = int(e.note);
         playbackPosition = 0;
+        kit = e.velocity == 1;
     }
 
     void run() {
         loop {
-            audioOut << enfer::playKit(kit, sample, float(playbackPosition));
-            playbackPosition++;
+            if (kit) {
+                audioOut << enfer::playKit(instrument, note, playbackPosition);
+                playbackPosition++;
+            } else if (note <= 38) {
+                audioOut << enfer::playSynth(instrument, 0, playbackPosition);
+                playbackPosition += soul::getSpeedRatioForPitchedSample(enfer::sampleRate, 32, processor.frequency, float(note));
+            } else {
+                audioOut << enfer::playSynth(instrument, 1, playbackPosition);
+                playbackPosition += soul::getSpeedRatioForPitchedSample(enfer::sampleRate, 48, processor.frequency, float(note));
+            }
             advance();
         }
     }

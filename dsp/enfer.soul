@@ -315,7 +315,7 @@ namespace enfer {
         external float<2>[] c3;
     }
 
-    float<2> playKit(int kit, int sample, float playbackPosition) {
+    float<2> playKit(int kit, int sample, float64 playbackPosition) {
         if (kit == 0) {
             if (sample ==  0) return playSample(playbackPosition, tr808::kick);
             if (sample ==  1) return playSample(playbackPosition, tr808::kickUp);
@@ -553,7 +553,7 @@ namespace enfer {
         return float<2>(0, 0);
     }
 
-    float<2> playSynth(int synth, int sample, float playbackPosition) {
+    float<2> playSynth(int synth, int sample, float64 playbackPosition) {
         if (synth == 0) {
             if (sample == 0) return playSample(playbackPosition, sawAcid::c2);
             if (sample == 1) return playSample(playbackPosition, sawAcid::c3);
@@ -597,7 +597,7 @@ namespace enfer {
         return float<2>(0, 0);
     }
 
-    float<2> playSample(float playbackPosition, const float<2>[]& audio) {
+    float<2> playSample(float64 playbackPosition, const float<2>[]& audio) {
         return playbackPosition < audio.size ? audio.readLinearInterpolated(playbackPosition) : float<2>(0, 0);
     }
 }
