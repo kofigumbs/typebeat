@@ -235,7 +235,7 @@ processor EnferVoice {
 
     void run() {
         loop {
-            audioOut << enfer::play(kit, sample, playbackPosition);
+            audioOut << enfer::playKit(kit, sample, float(playbackPosition));
             playbackPosition++;
             advance();
         }
