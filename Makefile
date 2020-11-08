@@ -1,4 +1,4 @@
-SOUL_VERSION = 0.9.58 # see notes/soul-version.md
+SOUL_VERSION = 0.9.59 # see notes/soul-version.md
 
 ifeq ($(shell uname), Darwin)
 	PLATFORM_LIBRARIES = -framework WebKit
@@ -18,5 +18,5 @@ native/webview native/miniaudio native/SOUL:
 
 build/soul build/${SOUL_PATCH_LOADER}:
 	mkdir -p build
-	curl -sSLo build/${SOUL_PATCH_LOADER}.zip https://github.com/soul-lang/SOUL/releases/download/${SOUL_VERSION}/binaries-${SOUL_PLATFORM_NAME}.zip
+	curl -sSLo build/${SOUL_PATCH_LOADER}.zip https://github.com/soul-lang/SOUL/releases/download/$(strip ${SOUL_VERSION})/binaries-${SOUL_PLATFORM_NAME}.zip
 	unzip -j -d build build/${SOUL_PATCH_LOADER}.zip
