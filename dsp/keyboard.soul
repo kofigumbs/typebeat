@@ -3,12 +3,6 @@
 namespace keyboard {
     const int unused = 60;
 
-    const int[15] allUnused = int[15](
-        unused, unused, unused, unused, unused,
-        unused, unused, unused, unused, unused,
-        unused, unused, unused, unused, unused
-    );
-
     struct Key {
         bool right;
         int index;
@@ -36,17 +30,23 @@ namespace keyboard {
     }
 
     namespace scale {
-        const Layout major            = Layout(allUnused, int[15](-12, -10, -8, -7, -5, -3, -1, 0, 2, 4, 5, 7, 9, 11, 12));
-        const Layout minor            = Layout(allUnused, int[15](-12, -10, -9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10, 12));
-        const Layout dorian           = Layout(allUnused, int[15](-12, -10, -9, -7, -5, -3, -2, 0, 2, 3, 5, 7, 9, 10, 12));
-        const Layout phrygian         = Layout(allUnused, int[15](-12, -11, -9, -7, -5, -4, -2, 0, 1, 3, 5, 7, 8, 10, 12));
-        const Layout lydian           = Layout(allUnused, int[15](-12, -10, -8, -6, -5, -3, -1, 0, 2, 4, 6, 7, 9, 11, 12));
-        const Layout mixolydian       = Layout(allUnused, int[15](-12, -10, -8, -7, -5, -3, -2, 0, 2, 4, 5, 7, 9, 10, 12));
-        const Layout locrian          = Layout(allUnused, int[15](-12, -11, -9, -7, -6, -4, -2, 0, 1, 3, 5, 6, 8, 10, 12));
-        const Layout harmonicMinor    = Layout(allUnused, int[15](-12, -10, -9, -7, -5, -4, -1, 0, 2, 3, 5, 7, 8, 11, 12));
-        const Layout harmonicMajor    = Layout(allUnused, int[15](-12, -10, -8, -7, -5, -4, -1, 0, 2, 4, 5, 7, 8, 11, 12));
-        const Layout melodicMinor     = Layout(allUnused, int[15](-12, -10, -9, -7, -5, -3, -1, 0, 2, 3, 5, 7, 9, 11, 12));
-        const Layout melodicMinorDesc = Layout(allUnused, int[15](-12, -10, -9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10, 12));
-        const Layout melodicMajor     = Layout(allUnused, int[15](-12, -10, -8, -7, -5, -4, -2, 0, 2, 4, 5, 7, 8, 10, 12));
+        struct Offset {
+            int[15] forIndex;
+        }
+
+        const Offset[12] offsets = Offset[12](
+            Offset(int[15](-12, -10, -8, -7, -5, -3, -1, 0, 2, 4, 5, 7, 9, 11, 12)),
+            Offset(int[15](-12, -10, -9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10, 12)),
+            Offset(int[15](-12, -10, -9, -7, -5, -3, -2, 0, 2, 3, 5, 7, 9, 10, 12)),
+            Offset(int[15](-12, -11, -9, -7, -5, -4, -2, 0, 1, 3, 5, 7, 8, 10, 12)),
+            Offset(int[15](-12, -10, -8, -6, -5, -3, -1, 0, 2, 4, 6, 7, 9, 11, 12)),
+            Offset(int[15](-12, -10, -8, -7, -5, -3, -2, 0, 2, 4, 5, 7, 9, 10, 12)),
+            Offset(int[15](-12, -11, -9, -7, -6, -4, -2, 0, 1, 3, 5, 6, 8, 10, 12)),
+            Offset(int[15](-12, -10, -9, -7, -5, -4, -1, 0, 2, 3, 5, 7, 8, 11, 12)),
+            Offset(int[15](-12, -10, -8, -7, -5, -4, -1, 0, 2, 4, 5, 7, 8, 11, 12)),
+            Offset(int[15](-12, -10, -9, -7, -5, -3, -1, 0, 2, 3, 5, 7, 9, 11, 12)),
+            Offset(int[15](-12, -10, -9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10, 12)),
+            Offset(int[15](-12, -10, -8, -7, -5, -4, -2, 0, 2, 4, 5, 7, 8, 10, 12))
+        );
     }
 }

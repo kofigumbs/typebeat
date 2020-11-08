@@ -4,11 +4,13 @@
  * global mutable state 🙈
  */
 
-const transport  = 10; // q
-const instrument = 14; // t
-const noModifier = 60;
+const modify = {
+  transport: 10,  // q
+  instrument: 14, // t
+  none: 60,
+};
 
-let modifier = noModifier;
+let currentModify = modify.none;
 let currentValue = {};
 
 const before = {
@@ -22,7 +24,7 @@ const before = {
   7:  /* d */ {},
   8:  /* f */ {},
   9:  /* g */ {},
-  [transport]: {
+  [modify.transport]: {
     "q": "",  "w": "1",  "e": "",   "r": "",   "t": "",
     "y": "5",  "u": "",   "i": "",   "o": "",   "p": "",
     "a": "",   "s": "9",  "d": "",   "f": "",   "g": "",
@@ -33,16 +35,13 @@ const before = {
   11: /* w */ {},
   12: /* e */ {},
   13: /* r */ {},
-  [instrument]: {
+  [modify.instrument]: {
   },
-  [noModifier]: {
+  [modify.none]: {
     "q": "I", "w": "", "e": "", "r": "", "t": "Ins",
     "a": "",  "s": "", "d": "", "f": "", "g": "",
     "z": "",  "x": "", "c": "", "v": "", "b": "",
   },
-};
-
-const reference = {
   kits: {
     "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4", "p": "",
     "h": "Dp",  "j": "Tch", "k": "Mod", "l": "Gab", ";": "Brg",
@@ -53,6 +52,25 @@ const reference = {
     "h": "SD", "j": "SD", "k": "CP", "l": "OH", ";": "OH",
     "n": "BD", "m": "BD", ",": "BD", ".": "LT", "/": "SD",
   },
+  synths: {
+  },
+};
+
+const beforeScale = (index, rootNote) => {
+  // TODO
+  // major
+  // minor
+  // dorian
+  // phrygian
+  // lydian
+  // mixolydian
+  // locrian
+  // harmonicMinor
+  // harmonicMajor
+  // melodicMinor
+  // melodicMinorDesc
+  // melodicMajor
+  return {};
 };
 
 
@@ -64,10 +82,10 @@ const keys = document.querySelectorAll(".key");
 
 const redraw = () => {
   for (const key of keys) {
-    if (key.dataset.control === "play" || key.dataset.send !== modifier)
-      key.dataset.before = before[modifier][key.dataset.after] || "";
+    if (key.dataset.control === "play" || key.dataset.send !== currentModify)
+      key.dataset.before = before[currentModify][key.dataset.after] || "";
     if (key.dataset.control === "play")
-      key.classList.toggle("currentValue", key.dataset.send == currentValue[modifier]);
+      key.classList.toggle("currentValue", key.dataset.send == currentValue[currentModify]);
   }
 };
 
@@ -76,15 +94,15 @@ const handleSend = (event, channel, value) => {
       ((event.type === "keyup" ? 8 : 9) << 20)
         | (channel << 16)
         | (value << 8)
-        | (modifier * 2 + 1);
+        | (currentModify * 2 + 1);
   window.midiIn ? midiIn(message) : console.log(message);
 };
 
 const handleModify = (event, value) => {
-  if (modifier === noModifier && event.type === "keydown")
-    modifier = value;
-  else if (modifier === value && event.type === "keyup")
-    modifier = noModifier;
+  if (currentModify === modify.none && event.type === "keydown")
+    currentModify = value;
+  else if (currentModify === value && event.type === "keyup")
+    currentModify = modify.none;
   else
     handleSend(event, 0, value);
   redraw();
@@ -119,49 +137,44 @@ document.addEventListener("keypress", event => event.preventDefault());
 const sequence = document.querySelectorAll(".sequence");
 const tracklist = document.querySelectorAll(".tracklist");
 
-const setBeat = value => {
-  before[transport]["p"] = value < 16 ? "■" : "▶";
-  sequence.forEach((key, index) => {
-    key.classList.toggle("selected", index === value);
-  });
+const readBits = (n, message) => {
+  const value = message.data >> (message.length - n);
+  message.data &= Math.pow(2, message.length - n) - 1;
+  message.length -= n;
+  return value;
 };
 
-const setTrack = value => {
-  tracklist.forEach((key, index) => {
-    key.classList.toggle("selected", index === value);
-  });
-};
-
-const setKit = value => {
-  currentValue[instrument] = value;
-  before[instrument] = reference.kits;
-  Object.assign(before[noModifier], reference.hits);
-};
-
-const setKey = value => {
-  currentValue[instrument] = value;
-  // TODO
-}
-
-const setArmed = value => {
-  document.body.classList.toggle("armed", !!value);
-};
-
-const set = (context, value) => {
-  switch (context) {
-    case 0: return setBeat(value);
-    case 1: return setTrack(value);
-    case 2: return setKit(value);
-    case 3: return setKey(value);
-    case 4: return setArmed(value);
+const parseBits = message => {
+  switch(readBits(4, message)) {
+    case 1:
+      const playing  = readBits(1, message);
+      const armed    = readBits(1, message);
+      const position = readBits(4, message);
+      const track    = readBits(3, message);
+      before[modify.transport]["p"] = playing ? "■" : "▶";
+      document.body.classList.toggle("armed", armed);
+      sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === position));
+      tracklist.forEach((key, i) => key.classList.toggle("selected", i === track));
+      break;
+    case 2:
+      const scale      = readBits(4, message);
+      const kit        = readBits(1, message);
+      const instrument = readBits(4, message);
+      const rootNote   = readBits(7, message);
+      currentValue[modify.instrument] = instrument;
+      before[modify.instrument] = kit ? before.kits : before.synths;
+      Object.assign(before[modify.none], kit ? before.hits : beforeScale(scale, rootNote));
+      break;
   }
 };
 
 const handleMidi = midi => {
-  for (const message of midi)
-    set(message >> 16, message & 0x00ffff);
+  for (const data of midi)
+    parseBits({ data, length: 24 });
   redraw();
 };
 
 if (window.midiOut)
   setInterval(() => midiOut().then(handleMidi), 40 /* just over 24 fps */);
+
+// TODO request sync

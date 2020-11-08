@@ -4,7 +4,7 @@ graph Groovebox [[ main ]] {
     input event soul::midi::Message midiIn;
     input stream float<2> audioIn;
 
-    output controller.globalMidiOut midiOut;
+    output controller.syncOut midiOut;
     output stream float<2> audioOut;
 
     let controller = sequence::Controller();
@@ -75,7 +75,7 @@ namespace sequence {
 
         output event (soul::note_events::NoteOn,
                       soul::note_events::NoteOff) noteOut;
-        output event soul::midi::Message globalMidiOut;
+        output event soul::midi::Message syncOut;
 
         Track track;
         bool kit = true;
@@ -83,7 +83,7 @@ namespace sequence {
         int currentKit = 0;
         int currentSynth = 0;
         int currentRoot = 60;
-        keyboard::Layout currentScale = keyboard::scale::major;
+        int currentScale = 0;
 
         Position position;
         bool playing;
@@ -92,32 +92,34 @@ namespace sequence {
         int quantizeSubdivision = 32;
         soul::timeline::Tempo tempo;
 
+        bool needsSync = true;
+
         void init () {
             tempo = soul::timeline::Tempo(180.0);
         }
 
         void run() {
             loop {
-                // sync ui
-                setBeat();
-                setTrack();
-                setArmed();
-                if (kit) setKit();
-                else setKey();
+                if (needsSync) {
+                    sync();
+                    needsSync = false;
+                }
 
                 // busy wait if sequence is stopped
                 if (!playing) {
-                    loop (resolutionInFrames(tempo, processor.frequency))
-                        advance();
+                    advance();
                     continue;
                 }
 
                 // trigger notes on this step
-                if ((quantizeSubdivision).subdivides(position))
+                if (quantizeSubdivision.subdivides(position)) {
                     playStep(track.steps[wrap<track.steps.size>(position.toNthNote(quantizeSubdivision))]);
+                    needsSync = true;
+                }
 
                 // move sequence position with resolution rate
                 loop (resolutionInFrames(tempo, processor.frequency))
+                    // TODO only loop once here, and put position.next inside `if x.isNthNote(subdivision)`
                     advance();
                 if (playing)
                     position.next();
@@ -135,7 +137,7 @@ namespace sequence {
 
         void play(int i) {
             if (!kit)
-                noteOut << soul::note_events::NoteOn(currentSynth, float(currentRoot + currentScale.valueOf(keyboard::Key(true, i, keyboard::unused))), 2);
+                noteOut << soul::note_events::NoteOn(currentSynth, float(currentRoot + keyboard::scale::offsets.at(currentScale).forIndex.at(i)), 2);
             else if (currentKit == 13)
                 // last kit is specialized for fx4 since it's otherwise unplayable
                 noteOut << soul::note_events::NoteOn(i, 15, 1);
@@ -184,7 +186,7 @@ namespace sequence {
 
             else if (key.isSetOctave()) {
                 if (kit) currentKit = key.index;
-                else currentRoot = key.index;
+                else currentSynth = key.index;
             }
 
             else if (key.isSequenceStep()) {
@@ -192,30 +194,25 @@ namespace sequence {
                 track.record(step, lastSample, Hit(false, !track.steps.at(step).hits.at(lastSample).trigger));
                 if (!playing) play(lastSample);
             }
+
+            needsSync = true;
         }
 
-        void setBeat() {
-            globalMidiOut << soul::midi::Message(playing ? position.toNthNote(4) % 16 : 16);
-        }
-
-        void setTrack() {
-            globalMidiOut << soul::midi::Message(1 << 16 | currentTrack);
-        }
-
-        void setKit() {
-            globalMidiOut << soul::midi::Message(2 << 16 | currentKit);
-        }
-
-        void setKey() {
-            int scaleBits = 0;
-            // for (wrap<keyboardScale.size> i)
-            //     if (keyboardScale[i])
-            //         scaleBits |= 2 ^ i;
-            globalMidiOut << soul::midi::Message(3 << 16 | currentRoot << 12 | scaleBits);
-        }
-
-        void setArmed() {
-            globalMidiOut << soul::midi::Message(4 << 16 | int(armed));
+        void sync() {
+            syncOut << soul::midi::Message(
+                1                                   << 20
+                | int(playing)                      << 19
+                | int(armed)                        << 18
+                | position.toNthNote(4) % 16        << 14
+                | currentTrack                      << 11
+            );
+            syncOut << soul::midi::Message(
+                2                                   << 20
+                | currentScale                      << 16
+                | int(kit)                          << 15
+                | (kit ? currentKit : currentSynth) << 11
+                | currentRoot                       <<  4
+            );
         }
     }
 }
