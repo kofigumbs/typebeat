@@ -7,6 +7,7 @@
 const modify = {
   transport: 10,  // q
   instrument: 14, // t
+  trackType: 13,  // r
   none: 60,
 };
 
@@ -34,13 +35,15 @@ const before = {
   },
   11: /* w */ {},
   12: /* e */ {},
-  13: /* r */ {},
+  [modify.trackType]: {
+    "n": "EKt", "m": "ESy",
+  },
   [modify.instrument]: {
   },
   [modify.none]: {
-    "q": "I", "w": "", "e": "", "r": "", "t": "Ins",
-    "a": "",  "s": "", "d": "", "f": "", "g": "",
-    "z": "",  "x": "", "c": "", "v": "", "b": "",
+    "q": "I", "w": "", "e": "", "r": "Typ", "t": "Ins",
+    "a": "",  "s": "", "d": "", "f": "",    "g": "",
+    "z": "",  "x": "", "c": "", "v": "",    "b": "",
   },
   kits: {
     "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4", "p": "",
@@ -56,21 +59,33 @@ const before = {
   },
 };
 
+const scale = {
+  keys: [ "n", "m", ",", ".", "/", "h", "j", "k", "l", ";", "y", "u", "i", "o", "p" ],
+  notes: [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ],
+  names: [ "Maj", "Min", "Dor", "Phr", "Lyd", "Mix", "Loc", "HMi", "HMa", "MMi", "MMD", "MMa" ],
+  offsets: [
+    [ 0, 2, 4, 5, 7, 9, 11 ],
+    [ 0, 2, 3, 5, 7, 8, 10 ],
+    [ 0, 2, 3, 5, 7, 9, 10 ],
+    [ 0, 1, 3, 5, 7, 8, 10 ],
+    [ 0, 2, 4, 6, 7, 9, 11 ],
+    [ 0, 2, 4, 5, 7, 9, 10 ],
+    [ 0, 1, 3, 5, 6, 8, 10 ],
+    [ 0, 2, 3, 5, 7, 8, 11 ],
+    [ 0, 2, 4, 5, 7, 8, 11 ],
+    [ 0, 2, 3, 5, 7, 9, 11 ],
+    [ 0, 2, 3, 5, 7, 8, 10 ],
+    [ 0, 2, 4, 5, 7, 8, 10 ],
+  ],
+};
+
 const beforeScale = (index, rootNote) => {
-  // TODO
-  // major
-  // minor
-  // dorian
-  // phrygian
-  // lydian
-  // mixolydian
-  // locrian
-  // harmonicMinor
-  // harmonicMajor
-  // melodicMinor
-  // melodicMinorDesc
-  // melodicMajor
-  return {};
+  const legend = {};
+  scale.keys.forEach((key, i) => {
+    const offsets = scale.offsets[index];
+    legend[key] = scale.notes[(rootNote + offsets[i % offsets.length]) % scale.notes.length];
+  });
+  return legend;
 };
 
 
@@ -158,12 +173,13 @@ const parseBits = message => {
       break;
     case 2:
       const scale      = readBits(4, message);
-      const kit        = readBits(1, message);
+      const trackType  = readBits(2, message);
       const instrument = readBits(4, message);
       const rootNote   = readBits(7, message);
+      currentValue[modify.trackType] = trackType;
       currentValue[modify.instrument] = instrument;
-      before[modify.instrument] = kit ? before.kits : before.synths;
-      Object.assign(before[modify.none], kit ? before.hits : beforeScale(scale, rootNote));
+      before[modify.instrument] = trackType == 0 ? before.kits : before.synths;
+      Object.assign(before[modify.none], trackType == 0 ? before.hits : beforeScale(scale, rootNote));
       break;
   }
 };
