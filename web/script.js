@@ -95,6 +95,16 @@ const beforeScale = (index, rootNote) => {
 
 const keys = document.querySelectorAll(".key");
 
+const toCode = after => {
+  switch (after) {
+    case ";": return "Semicolon";
+    case ",": return "Comma";
+    case ".": return "Period";
+    case "/": return "Slash";
+    default:  return "Key" + after.toUpperCase();
+  }
+};
+
 const redraw = () => {
   for (const key of keys) {
     if (key.dataset.control === "play" || key.dataset.send !== currentModify)
@@ -136,7 +146,7 @@ const handleDocumentKey = event => {
   if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.repeat)
     return;
   for (const key of keys)
-    if (event.keyCode == key.dataset.code)
+    if (event.code === toCode(key.dataset.after))
       return handleKeyboardKey(event, key);
 };
 
@@ -178,8 +188,8 @@ const parseBits = message => {
       const rootNote   = readBits(7, message);
       currentValue[modify.trackType] = trackType;
       currentValue[modify.instrument] = instrument;
-      before[modify.instrument] = trackType == 0 ? before.kits : before.synths;
-      Object.assign(before[modify.none], trackType == 0 ? before.hits : beforeScale(scale, rootNote));
+      before[modify.instrument] = trackType === 0 ? before.kits : before.synths;
+      Object.assign(before[modify.none], trackType === 0 ? before.hits : beforeScale(scale, rootNote));
       break;
   }
 };
