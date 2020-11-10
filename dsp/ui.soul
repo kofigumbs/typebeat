@@ -1,0 +1,99 @@
+// vim: set ft=cpp:
+
+/*
+ * (ab)use midi to send/receive ui messages
+ */
+namespace ui {
+    processor Decode {
+        input event soul::midi::Message in;
+        output event (RequestSync,
+                      Modify,
+                      soul::note_events::NoteOff,
+                      soul::note_events::NoteOn) out;
+
+        struct RequestSync {
+            int i;
+        }
+
+        struct Modify {
+            bool q; bool w; bool e; bool r; bool t;
+            bool a; bool s; bool d; bool f; bool g;
+            bool z; bool x; bool c; bool v; bool b;
+            clamp<30> value;
+        }
+
+        struct Message {
+            int data;
+            int length;
+        }
+
+        int read(Message& message, int n) {
+          let value = message.data >> (message.length - n);
+          message.data &= int(pow(float(2), float(message.length - n))) - 1;
+          message.length -= n;
+          return value;
+        }
+
+        event in(soul::midi::Message message) {
+            if (message.midiBytes == 1) {
+                out << RequestSync(0);
+                return;
+            }
+            var message = Message(message.midiBytes, 24);
+            let up = bool(message.read(1));
+            let modifier = message.read(4);
+            let value = message.read(5);
+            if (up && modifier == 15) out << soul::note_events::NoteOff(0, float(value), 0.0);
+            else if  (modifier == 15) out << soul::note_events::NoteOn(0, float(value), 1.0);
+            else if  (!up)            out << Modify(
+                modifier == 10, modifier == 11, modifier == 12, modifier == 13, modifier == 14,
+                modifier ==  5, modifier ==  6, modifier ==  7, modifier == 8,  modifier ==  9,
+                modifier ==  0, modifier ==  1, modifier ==  2, modifier == 3,  modifier ==  4,
+                clamp<30>(value)
+            );
+        }
+
+        void run() {
+            loop {
+                advance();
+            }
+        }
+    }
+
+    processor Encode {
+        input event State in;
+        output event soul::midi::Message out;
+
+        struct State {
+            bool playing;
+            bool armed;
+            int position16;
+            int track;
+            int scale;
+            int voiceType;
+            int instrument;
+            int root;
+        }
+
+        event in(State state) {
+            out << soul::midi::Message(1 << 20
+                | int(state.playing)     << 19
+                | int(state.armed)       << 18
+                | state.position16       << 14
+                | state.track            << 11
+            );
+            out << soul::midi::Message(2 << 20
+                | state.scale            << 16
+                | state.voiceType        << 14
+                | state.instrument       << 10
+                | state.root             <<  3
+            );
+        }
+
+        void run() {
+            loop {
+                advance();
+            }
+        }
+    }
+}

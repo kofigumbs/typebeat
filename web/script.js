@@ -5,14 +5,15 @@
  */
 
 const modify = {
-  transport: 10,  // q
-  instrument: 14, // t
-  trackType: 13,  // r
-  none: 60,
+  transport:  10,  // q
+  voiceType:  13,  // r
+  instrument: 14,  // t
+  none:       15,
+  current:    15,
 };
 
-let currentModify = modify.none;
-let currentValue = {};
+const currentValue = {
+};
 
 const before = {
   0:  /* z */ {},
@@ -35,7 +36,7 @@ const before = {
   },
   11: /* w */ {},
   12: /* e */ {},
-  [modify.trackType]: {
+  [modify.voiceType]: {
     "n": "EKt", "m": "ESy",
   },
   [modify.instrument]: {
@@ -107,29 +108,28 @@ const toCode = after => {
 
 const redraw = () => {
   for (const key of keys) {
-    if (key.dataset.control === "play" || key.dataset.send !== currentModify)
-      key.dataset.before = before[currentModify][key.dataset.after] || "";
+    if (key.dataset.control === "play" || +key.dataset.send !== modify.current)
+      key.dataset.before = before[modify.current][key.dataset.after] || "";
     if (key.dataset.control === "play")
-      key.classList.toggle("currentValue", key.dataset.send == currentValue[currentModify]);
+      key.classList.toggle("currentValue", +key.dataset.send === currentValue[modify.current]);
   }
 };
 
-const handleSend = (event, channel, value) => {
+const handleSend = (event, value) => {
   const message =
-      ((event.type === "keyup" ? 8 : 9) << 20)
-        | (channel << 16)
-        | (value << 8)
-        | (currentModify * 2 + 1);
+    (event.type === "keyup") << 23
+      | modify.current       << 19
+      | value                << 14;
   window.midiIn ? midiIn(message) : console.log(message);
 };
 
 const handleModify = (event, value) => {
-  if (currentModify === modify.none && event.type === "keydown")
-    currentModify = value;
-  else if (currentModify === value && event.type === "keyup")
-    currentModify = modify.none;
+  if (modify.current === modify.none && event.type === "keydown")
+    modify.current = value;
+  else if (modify.current === value && event.type === "keyup")
+    modify.current = modify.none;
   else
-    handleSend(event, 0, value);
+    handleSend(event, value + 15);
   redraw();
 };
 
@@ -137,9 +137,9 @@ const handleKeyboardKey = (event, key) => {
   event.preventDefault();
   key.classList.toggle("down", event.type === "keydown");
   if (key.dataset.control === "modify")
-    handleModify(event, key.dataset.send);
+    handleModify(event, +key.dataset.send);
   else if (key.dataset.control === "play")
-    handleSend(event, 1, key.dataset.send);
+    handleSend(event, +key.dataset.send);
 };
 
 const handleDocumentKey = event => {
@@ -162,7 +162,7 @@ document.addEventListener("keypress", event => event.preventDefault());
 const sequence = document.querySelectorAll(".sequence");
 const tracklist = document.querySelectorAll(".tracklist");
 
-const readBits = (n, message) => {
+const read = (n, message) => {
   const value = message.data >> (message.length - n);
   message.data &= Math.pow(2, message.length - n) - 1;
   message.length -= n;
@@ -170,26 +170,26 @@ const readBits = (n, message) => {
 };
 
 const parseBits = message => {
-  switch(readBits(4, message)) {
+  switch(read(4, message)) {
     case 1:
-      const playing  = readBits(1, message);
-      const armed    = readBits(1, message);
-      const position = readBits(4, message);
-      const track    = readBits(3, message);
+      const playing  = read(1, message);
+      const armed    = read(1, message);
+      const position = read(4, message);
+      const track    = read(3, message);
       before[modify.transport]["p"] = playing ? "■" : "▶";
       document.body.classList.toggle("armed", armed);
       sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === position));
       tracklist.forEach((key, i) => key.classList.toggle("selected", i === track));
       break;
     case 2:
-      const scale      = readBits(4, message);
-      const trackType  = readBits(2, message);
-      const instrument = readBits(4, message);
-      const rootNote   = readBits(7, message);
-      currentValue[modify.trackType] = trackType;
+      const scale      = read(4, message);
+      const voiceType  = read(2, message);
+      const instrument = read(4, message);
+      const rootNote   = read(7, message);
+      currentValue[modify.voiceType] = voiceType;
       currentValue[modify.instrument] = instrument;
-      before[modify.instrument] = trackType === 0 ? before.kits : before.synths;
-      Object.assign(before[modify.none], trackType === 0 ? before.hits : beforeScale(scale, rootNote));
+      before[modify.instrument] = voiceType === 0 ? before.kits : before.synths;
+      Object.assign(before[modify.none], voiceType === 0 ? before.hits : beforeScale(scale, rootNote));
       break;
   }
 };
@@ -203,4 +203,5 @@ const handleMidi = midi => {
 if (window.midiOut)
   setInterval(() => midiOut().then(handleMidi), 40 /* just over 24 fps */);
 
-// TODO request sync
+if (window.midiIn)
+  midiIn(1); // request latest state

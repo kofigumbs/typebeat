@@ -1,7 +1,7 @@
 // vim: set ft=cpp:
 
 namespace enfer {
-    const int sampleRate = 44100;
+    const float64 sampleRate = float64(44100);
 
     namespace tr808 {
         external float<2>[] kick;
