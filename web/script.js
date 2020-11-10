@@ -162,7 +162,8 @@ document.addEventListener("keypress", event => event.preventDefault());
 const sequence = document.querySelectorAll(".sequence");
 const tracklist = document.querySelectorAll(".tracklist");
 
-const read = (n, message) => {
+// see notes/read-bits.md
+const readBits = (n, message) => {
   const value = message.data >> (message.length - n);
   message.data &= Math.pow(2, message.length - n) - 1;
   message.length -= n;
@@ -170,22 +171,22 @@ const read = (n, message) => {
 };
 
 const parseBits = message => {
-  switch(read(4, message)) {
+  switch(readBits(4, message)) {
     case 1:
-      const playing  = read(1, message);
-      const armed    = read(1, message);
-      const position = read(4, message);
-      const track    = read(3, message);
+      const playing  = readBits(1, message);
+      const armed    = readBits(1, message);
+      const position = readBits(4, message);
+      const track    = readBits(3, message);
       before[modify.transport]["p"] = playing ? "■" : "▶";
       document.body.classList.toggle("armed", armed);
       sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === position));
       tracklist.forEach((key, i) => key.classList.toggle("selected", i === track));
       break;
     case 2:
-      const scale      = read(4, message);
-      const voiceType  = read(2, message);
-      const instrument = read(4, message);
-      const rootNote   = read(7, message);
+      const scale      = readBits(4, message);
+      const voiceType  = readBits(2, message);
+      const instrument = readBits(4, message);
+      const rootNote   = readBits(7, message);
       currentValue[modify.voiceType] = voiceType;
       currentValue[modify.instrument] = instrument;
       before[modify.instrument] = voiceType === 0 ? before.kits : before.synths;

@@ -27,7 +27,8 @@ namespace ui {
             int length;
         }
 
-        int read(Message& message, int n) {
+        // see notes/read-bits.md
+        int readBits(Message& message, int n) {
           let value = message.data >> (message.length - n);
           message.data &= int(pow(float(2), float(message.length - n))) - 1;
           message.length -= n;
@@ -40,9 +41,9 @@ namespace ui {
                 return;
             }
             var message = Message(message.midiBytes, 24);
-            let up = bool(message.read(1));
-            let modifier = message.read(4);
-            let value = message.read(5);
+            let up = bool(message.readBits(1));
+            let modifier = message.readBits(4);
+            let value = message.readBits(5);
             if (up && modifier == 15) out << soul::note_events::NoteOff(0, float(value), 0.0);
             else if  (modifier == 15) out << soul::note_events::NoteOn(0, float(value), 1.0);
             else if  (!up)            out << Modify(
