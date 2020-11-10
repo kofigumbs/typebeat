@@ -1,4 +1,4 @@
-SOUL_VERSION = 0.9.59 # see notes/soul-version.md
+SOUL_VERSION = 0.9.55 # see notes/soul-version.md
 
 ifeq ($(shell uname), Darwin)
 	PLATFORM_LIBRARIES = -framework WebKit

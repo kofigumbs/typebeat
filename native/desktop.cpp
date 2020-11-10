@@ -20,9 +20,22 @@ struct UserData {
     choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiOut;
 };
 
+struct ConsoleMessageHandler: soul::patch::RefCountHelper<soul::patch::ConsoleMessageHandler, ConsoleMessageHandler> {
+    void handleConsoleMessage (uint64_t sampleCount, const char* endpointName, const char* message) {
+        printf("%llu %s: %s\n", sampleCount, endpointName, message);
+    }
+};
+
 void pushMidi(std::string context, choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent>* queue, soul::MIDIEvent event) {
     if (!queue->push(event))
         printf("dropped MIDI %s [%hhu, %hhu, %hhu]\n", context.c_str(), event.message.data[0], event.message.data[1], event.message.data[2]);
+}
+
+void handleEvent (void* context, uint64_t frameIndex, const char* endpointName, const choc::value::ValueView& eventData) {
+}
+
+void handleConsole (void* context, uint64_t frameIndex, const char* message) {
+    printf("%llu: %s\n", frameIndex, message);
 }
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
@@ -62,8 +75,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     context.inputChannels = (const float* const*) inputChannels;
     context.outputChannels = (float* const*) outputChannels;
     assert(userData->player->render(context) == soul::patch::PatchPlayer::RenderResult::ok);
-
-    // TODO userData->player->handleOutgoingEvents
+    // userData->player->handleOutgoingEvents(NULL, handleEvent, handleConsole);
 
     // de-queue outgoing MIDI
     for (int i = 0; i < context.numMIDIMessagesOut; i++)
@@ -109,7 +121,7 @@ int main(int argc, char* argv[]) {
     playerConfig.sampleRate = device.sampleRate;
     playerConfig.maxFramesPerBlock = deviceConfig.periodSizeInFrames;
     auto player = soul::patch::PatchPlayer::Ptr(
-        patch->compileNewPlayer(playerConfig, NULL, NULL, NULL)
+        patch->compileNewPlayer(playerConfig, NULL, NULL, NULL, new ConsoleMessageHandler())
     );
     for (auto message: player->getCompileMessages())
         printf("%s\n", message.fullMessage->getCharPointer());
