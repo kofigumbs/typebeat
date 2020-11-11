@@ -1,22 +1,21 @@
-SOUL_VERSION = 0.9.55 # see notes/soul-version.md
+BUILD_DIR = ${PWD}/build
 
 ifeq ($(shell uname), Darwin)
 	PLATFORM_LIBRARIES = -framework WebKit
-	SOUL_PLATFORM_NAME = osx-x64
-	SOUL_PATCH_LOADER = SOUL_PatchLoader.dylib
 endif
 
 # TODO Linux
 # TODO Windows
 # TODO WebAudio/WASM/Emscriptem ?
 
-build/groovebox: native/webview native/miniaudio native/SOUL native/desktop.cpp build/${SOUL_PATCH_LOADER}
-	g++ native/desktop.cpp -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o build/groovebox
+build/groovebox: build/mydsp.cpp native/desktop.cpp native/webview native/miniaudio
+	g++ build/mydsp.cpp native/desktop.cpp -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -I native/faust/architecture -o $@
 
-native/webview native/miniaudio native/SOUL:
-	git submodule update --init
+build/mydsp.cpp: build/bin/faust dsp/*.dsp
+	build/bin/faust -a minimal-effect.cpp -o $@ dsp/main.dsp
 
-build/soul build/${SOUL_PATCH_LOADER}:
-	mkdir -p build
-	curl -sSLo build/${SOUL_PATCH_LOADER}.zip https://github.com/soul-lang/SOUL/releases/download/$(strip ${SOUL_VERSION})/binaries-${SOUL_PLATFORM_NAME}.zip
-	unzip -j -d build build/${SOUL_PATCH_LOADER}.zip
+build/bin/faust: native/faust
+	cd native/faust && make PREFIX=${BUILD_DIR} && make install PREFIX=${BUILD_DIR}
+
+native/webview native/miniaudio native/faust:
+	git submodule update --init --recursive

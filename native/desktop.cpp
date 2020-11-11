@@ -5,38 +5,24 @@
 #define MA_NO_ENCODING
 #define MA_NO_DECODING
 #define MA_NO_GENERATION
+
+#include "faust/dsp/dsp.h"
+#include "faust/dsp/cpp-dsp-adapter.h"
 #include "miniaudio/miniaudio.h"
 #include "webview/webview.h"
-#include "SOUL/include/soul/soul_patch.h"
-#include "SOUL/include/soul/patch/helper_classes/soul_patch_Utilities.h"
-#include "SOUL/include/soul/3rdParty/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
 #define GROOVEBOX_MAX_MIDI 64
 
 struct UserData {
-    webview::webview* view;
-    soul::patch::PatchPlayer::Ptr player;
-    choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiIn;
-    choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiOut;
+    dsp* mydsp;
+    // choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiIn;
+    // choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiOut;
 };
 
-struct ConsoleMessageHandler: soul::patch::RefCountHelper<soul::patch::ConsoleMessageHandler, ConsoleMessageHandler> {
-    void handleConsoleMessage (uint64_t sampleCount, const char* endpointName, const char* message) {
-        printf("%llu %s: %s\n", sampleCount, endpointName, message);
-    }
-};
-
-void pushMidi(std::string context, choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent>* queue, soul::MIDIEvent event) {
-    if (!queue->push(event))
-        printf("dropped MIDI %s [%hhu, %hhu, %hhu]\n", context.c_str(), event.message.data[0], event.message.data[1], event.message.data[2]);
-}
-
-void handleEvent (void* context, uint64_t frameIndex, const char* endpointName, const choc::value::ValueView& eventData) {
-}
-
-void handleConsole (void* context, uint64_t frameIndex, const char* message) {
-    printf("%llu: %s\n", frameIndex, message);
-}
+// void pushMidi(std::string context, choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent>* queue, soul::MIDIEvent event) {
+//     if (!queue->push(event))
+//         printf("dropped MIDI %s [%hhu, %hhu, %hhu]\n", context.c_str(), event.message.data[0], event.message.data[1], event.message.data[2]);
+// }
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
     auto userData = (UserData (*)) device->pUserData;
@@ -57,29 +43,18 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
         outputChannels[channel] = ((float*) deinterleavedOutput) + channel*frameCount;
 
     // queue incoming MIDI
-    soul::MIDIEvent incomingMIDI[GROOVEBOX_MAX_MIDI], outgoingMIDI[GROOVEBOX_MAX_MIDI];
-    soul::MIDIEvent event;
-    int numMIDIMessagesIn = 0;
-    while (userData->midiIn.pop(event))
-        incomingMIDI[numMIDIMessagesIn++] = event;
+    // soul::MIDIEvent incomingMIDI[GROOVEBOX_MAX_MIDI], outgoingMIDI[GROOVEBOX_MAX_MIDI];
+    // soul::MIDIEvent event;
+    // int numMIDIMessagesIn = 0;
+    // while (userData->midiIn.pop(event))
+    //     incomingMIDI[numMIDIMessagesIn++] = event;
 
     // render audio context
-    soul::patch::PatchPlayer::RenderContext context;
-    context.incomingMIDI = incomingMIDI;
-    context.outgoingMIDI = outgoingMIDI;
-    context.numMIDIMessagesIn = numMIDIMessagesIn;
-    context.maximumMIDIMessagesOut = GROOVEBOX_MAX_MIDI;
-    context.numFrames = frameCount;
-    context.numInputChannels = device->capture.channels;
-    context.numOutputChannels = device->playback.channels;
-    context.inputChannels = (const float* const*) inputChannels;
-    context.outputChannels = (float* const*) outputChannels;
-    assert(userData->player->render(context) == soul::patch::PatchPlayer::RenderResult::ok);
-    // userData->player->handleOutgoingEvents(NULL, handleEvent, handleConsole);
+    userData->mydsp->compute(frameCount, inputChannels, outputChannels);
 
     // de-queue outgoing MIDI
-    for (int i = 0; i < context.numMIDIMessagesOut; i++)
-        pushMidi("output", &userData->midiOut, outgoingMIDI[i]);
+    // for (int i = 0; i < context.numMIDIMessagesOut; i++)
+    //     pushMidi("output", &userData->midiOut, outgoingMIDI[i]);
 
     // interleave output audio frames
     for (int channel = 0; channel < device->playback.channels; channel++)
@@ -92,20 +67,19 @@ int WINAPI WinMain(HINSTANCE hInt, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCm
 #else
 int main(int argc, char* argv[]) {
 #endif
-    // setup miniaudio configuration to match that of the SOUL patch
+    dsp* mydsp = createmydsp();
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
-    deviceConfig.capture.channels = 2;
+    deviceConfig.capture.channels = mydsp->getNumInputs();
     deviceConfig.capture.format = ma_format_f32;
-    deviceConfig.playback.channels = 2;
+    deviceConfig.playback.channels = mydsp->getNumOutputs();
     deviceConfig.playback.format = ma_format_f32;
     deviceConfig.periodSizeInFrames = 256;
     deviceConfig.dataCallback = callback;
 
-    // initialize audio devive
     ma_device device;
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
+    mydsp->init(device.sampleRate);
 
-    // initialize webview
     auto path = std::filesystem::absolute(std::filesystem::path(argv[0]))
         .parent_path() // build directory
         .parent_path(); // project directory
@@ -114,43 +88,25 @@ int main(int argc, char* argv[]) {
     view.set_size(900, 320 + 22 /* see notes/frameless.md */, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (path / "web" / "index.html").string());
 
-    // compile SOUL patch
-    soul::patch::SOULPatchLibrary library((path / "build" / soul::patch::SOULPatchLibrary::getLibraryFileName()).c_str());
-    soul::patch::PatchInstance::Ptr patch = library.createPatchFromFileBundle((path / "dsp" / "groovebox.soulpatch").c_str());
-    soul::patch::PatchPlayerConfiguration playerConfig;
-    playerConfig.sampleRate = device.sampleRate;
-    playerConfig.maxFramesPerBlock = deviceConfig.periodSizeInFrames;
-    auto player = soul::patch::PatchPlayer::Ptr(
-        patch->compileNewPlayer(playerConfig, NULL, NULL, NULL, new ConsoleMessageHandler())
-    );
-    for (auto message: player->getCompileMessages())
-        printf("%s\n", message.fullMessage->getCharPointer());
-    assert(player->isPlayable());
-
-    // setup user data
     UserData userData;
-    userData.view = &view;
-    userData.player = player;
-    userData.midiIn.reset(GROOVEBOX_MAX_MIDI);
-    userData.midiOut.reset(GROOVEBOX_MAX_MIDI);
+    userData.mydsp = mydsp;
+    // userData.midiIn.reset(GROOVEBOX_MAX_MIDI);
+    // userData.midiOut.reset(GROOVEBOX_MAX_MIDI);
     device.pUserData = &userData;
 
-    // midi from webview to SOUL
-    view.bind("midiIn", [&userData](std::string midiIn) -> std::string {
-        pushMidi("input", &userData.midiIn, soul::MIDIEvent::fromPackedMIDIData(0, std::stoi(midiIn.substr(1))));
-        return "";
-    });
+    // view.bind("midiIn", [&userData](std::string midiIn) -> std::string {
+    //     pushMidi("input", &userData.midiIn, soul::MIDIEvent::fromPackedMIDIData(0, std::stoi(midiIn.substr(1))));
+    //     return "";
+    // });
 
-    // midi from SOUL to webview
-    view.bind("midiOut", [&userData](std::string midiIn) -> std::string {
-        std::string midiOut;
-        soul::MIDIEvent event;
-        while (userData.midiOut.pop(event))
-        midiOut += "," + std::to_string(event.getPackedMIDIData());
-        return "[" + (midiOut.empty() ? "" : midiOut.substr(1)) + "]";
-    });
+    // view.bind("midiOut", [&userData](std::string midiIn) -> std::string {
+    //     std::string midiOut;
+    //     soul::MIDIEvent event;
+    //     while (userData.midiOut.pop(event))
+    //     midiOut += "," + std::to_string(event.getPackedMIDIData());
+    //     return "[" + (midiOut.empty() ? "" : midiOut.substr(1)) + "]";
+    // });
 
-    // customize webview further for macOS
 #ifdef WEBVIEW_COCOA
     auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see notes/frameless.md
     auto window = (id) view.window();
@@ -161,7 +117,6 @@ int main(int argc, char* argv[]) {
     objc_msgSend(window, sel_registerName("makeFirstResponder:"), objc_msgSend(window, sel_registerName("contentView")));
 #endif
 
-    // main run loop
     ma_device_start(&device);
     view.run();
     ma_device_uninit(&device);
