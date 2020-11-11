@@ -1,4 +1,3 @@
-#include <cassert>
 #include <filesystem>
 
 #define MINIAUDIO_IMPLEMENTATION
@@ -77,7 +76,7 @@ int main(int argc, char* argv[]) {
     deviceConfig.dataCallback = callback;
 
     ma_device device;
-    assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
+    MA_ASSERT(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
     mydsp->init(device.sampleRate);
 
     auto path = std::filesystem::absolute(std::filesystem::path(argv[0]))
