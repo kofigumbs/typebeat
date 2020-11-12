@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
     webview::webview view(true, nullptr);
     view.set_size(900, 320, WEBVIEW_HINT_MIN);
     view.set_size(900, 320 + 22 /* see notes/frameless.md */, WEBVIEW_HINT_NONE);
-    view.navigate("file://" + (path / "web" / "index.html").string());
+    view.navigate("file://" + (path / "ui" / "index.html").string());
     mydsp->buildUserInterface(new WebviewUI(&view));
 
 #ifdef WEBVIEW_COCOA
