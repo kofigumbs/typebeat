@@ -6,25 +6,48 @@
 #define MA_NO_GENERATION
 
 #include "faust/dsp/dsp.h"
+#include "faust/gui/UI.h"
 #include "faust/dsp/cpp-dsp-adapter.h"
 #include "miniaudio/miniaudio.h"
 #include "webview/webview.h"
 
-#define GROOVEBOX_MAX_MIDI 64
+struct WebviewUI: UI {
+    webview::webview* view;
+    WebviewUI(webview::webview* view): view(view) {}
 
-struct UserData {
-    dsp* mydsp;
-    // choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiIn;
-    // choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent> midiOut;
+    void openTabBox(const char* label) override {}
+    void openHorizontalBox(const char* label) override {}
+    void openVerticalBox(const char* label) override {}
+    void closeBox() override {}
+    void declare(float* zone, const char* key, const char* val) override {}
+
+    void addSoundfile(const char* label, const char* filename, Soundfile** sf_zone) override {
+        // TODO
+    }
+
+    void toUi(const char* label, float* zone) {
+        view->bind(label, [this, zone](std::string data) -> std::string {
+            return std::to_string(*zone);
+        });
+    }
+    void addHorizontalBargraph(const char* label, float* zone, float min, float max) override { toUi(label, zone); }
+    void addVerticalBargraph(const char* label, float* zone, float min, float max) override { toUi(label, zone); }
+
+    void toDsp(const char* label, float* zone) {
+        view->bind(label, [this, zone](std::string data) -> std::string {
+            *zone = std::stof(data);
+            return "";
+        });
+    }
+    void addCheckButton(const char* label, float* zone) override { toDsp(label, zone); }
+    void addVerticalSlider(const char* label, float* zone, float init, float min, float max, float step) override { toDsp(label, zone); }
+    void addHorizontalSlider(const char* label, float* zone, float init, float min, float max, float step) override { toDsp(label, zone); }
+    void addNumEntry(const char* label, float* zone, float init, float min, float max, float step) override { toDsp(label, zone); }
+    void addButton(const char* label, float* zone) override { toDsp(label, zone); }
 };
 
-// void pushMidi(std::string context, choc::fifo::SingleReaderSingleWriterFIFO<soul::MIDIEvent>* queue, soul::MIDIEvent event) {
-//     if (!queue->push(event))
-//         printf("dropped MIDI %s [%hhu, %hhu, %hhu]\n", context.c_str(), event.message.data[0], event.message.data[1], event.message.data[2]);
-// }
-
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
-    auto userData = (UserData (*)) device->pUserData;
+    auto mydsp = (dsp*) device->pUserData;
     float deinterleavedInput[device->capture.channels][frameCount],
     deinterleavedOutput[device->playback.channels][frameCount],
     *inputChannels[device->capture.channels],
@@ -41,19 +64,8 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     for (int channel = 0; channel < device->playback.channels; channel++)
         outputChannels[channel] = ((float*) deinterleavedOutput) + channel*frameCount;
 
-    // queue incoming MIDI
-    // soul::MIDIEvent incomingMIDI[GROOVEBOX_MAX_MIDI], outgoingMIDI[GROOVEBOX_MAX_MIDI];
-    // soul::MIDIEvent event;
-    // int numMIDIMessagesIn = 0;
-    // while (userData->midiIn.pop(event))
-    //     incomingMIDI[numMIDIMessagesIn++] = event;
-
     // render audio context
-    userData->mydsp->compute(frameCount, inputChannels, outputChannels);
-
-    // de-queue outgoing MIDI
-    // for (int i = 0; i < context.numMIDIMessagesOut; i++)
-    //     pushMidi("output", &userData->midiOut, outgoingMIDI[i]);
+    mydsp->compute(frameCount, inputChannels, outputChannels);
 
     // interleave output audio frames
     for (int channel = 0; channel < device->playback.channels; channel++)
@@ -78,6 +90,7 @@ int main(int argc, char* argv[]) {
     ma_device device;
     MA_ASSERT(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
     mydsp->init(device.sampleRate);
+    device.pUserData = mydsp;
 
     auto path = std::filesystem::absolute(std::filesystem::path(argv[0]))
         .parent_path() // build directory
@@ -86,25 +99,7 @@ int main(int argc, char* argv[]) {
     view.set_size(900, 320, WEBVIEW_HINT_MIN);
     view.set_size(900, 320 + 22 /* see notes/frameless.md */, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (path / "web" / "index.html").string());
-
-    UserData userData;
-    userData.mydsp = mydsp;
-    // userData.midiIn.reset(GROOVEBOX_MAX_MIDI);
-    // userData.midiOut.reset(GROOVEBOX_MAX_MIDI);
-    device.pUserData = &userData;
-
-    // view.bind("midiIn", [&userData](std::string midiIn) -> std::string {
-    //     pushMidi("input", &userData.midiIn, soul::MIDIEvent::fromPackedMIDIData(0, std::stoi(midiIn.substr(1))));
-    //     return "";
-    // });
-
-    // view.bind("midiOut", [&userData](std::string midiIn) -> std::string {
-    //     std::string midiOut;
-    //     soul::MIDIEvent event;
-    //     while (userData.midiOut.pop(event))
-    //     midiOut += "," + std::to_string(event.getPackedMIDIData());
-    //     return "[" + (midiOut.empty() ? "" : midiOut.substr(1)) + "]";
-    // });
+    mydsp->buildUserInterface(new WebviewUI(&view));
 
 #ifdef WEBVIEW_COCOA
     auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see notes/frameless.md
