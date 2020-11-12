@@ -111,7 +111,7 @@ const redraw = () => {
 };
 
 const handleSend = (event, value) => {
-  const label = modify + value;
+  const label = modifier + value;
   const float = event.type === "keyup" ? 0 : 1;
   window[label] ? window[label](float) : console.log(label, float);
 };
@@ -155,10 +155,17 @@ document.addEventListener("keypress", event => event.preventDefault());
 const sequence = document.querySelectorAll(".sequence");
 const tracklist = document.querySelectorAll(".tracklist");
 
-(function loop() {
-  requestAnimationFrame(loop);
-  window.beat && window.beat().then(position => {
-    sequence.forEach((key, i) => key.classList.toggle("selected", i === position));
-  });
-  redraw();
+(async function loop() {
+  try {
+    const playing = await window.playing();
+    const beat = await window.beat();
+    console.log(playing);
+    before["q"]["p"] = playing ? "■" : "▶";
+    sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === beat));
+  } catch(e) {
+    console.error(e);
+  } finally {
+    redraw();
+    requestAnimationFrame(loop);
+  }
 })();

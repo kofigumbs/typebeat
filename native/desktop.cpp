@@ -35,7 +35,7 @@ struct WebviewUI: UI {
 
     void toDsp(const char* label, float* zone) {
         view->bind(label, [this, zone](std::string data) -> std::string {
-            *zone = std::stof(data);
+            *zone = std::stof(data.substr(1, data.length() - 2));
             return "";
         });
     }

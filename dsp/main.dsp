@@ -1,3 +1,4 @@
 import("stdfaust.lib");
 
-process = ba.beat(180) : ba.pulse_countup_loop(15, 1) : hbargraph("beat", 0, 15);
+playing = button("qp") : ba.toggle : hbargraph("playing", 0, 1);
+process = ba.beat(180) : ba.pulse_countup_loop(15, playing) : hbargraph("beat", 0, 15);
