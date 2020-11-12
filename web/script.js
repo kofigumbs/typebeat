@@ -84,6 +84,16 @@ const beforeScale = (index, rootNote) => {
   return legend;
 };
 
+const nativeCall = (label, float) => {
+  if (window[label]) {
+    return window[label](float);
+  } else {
+    if (float !== undefined)
+      console.log(label, float);
+    return Promise.resolve(0);
+  }
+}
+
 
 /*
  * to native
@@ -111,9 +121,7 @@ const redraw = () => {
 };
 
 const handleSend = (event, value) => {
-  const label = modifier + value;
-  const float = event.type === "keyup" ? 0 : 1;
-  window[label] ? window[label](float) : console.log(label, float);
+  nativeCall(modifier + value, event.type === "keyup" ? 0 : 1);
 };
 
 const handleModify = (event, value) => {
@@ -155,13 +163,16 @@ document.addEventListener("keypress", event => event.preventDefault());
 const sequence = document.querySelectorAll(".sequence");
 const tracklist = document.querySelectorAll(".tracklist");
 
+const update = async () => {
+  const playing = await nativeCall("playing");
+  const beat = await nativeCall("beat");
+  before["q"]["p"] = playing ? "■" : "▶";
+  sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === beat));
+}
+
 (async function loop() {
   try {
-    const playing = await window.playing();
-    const beat = await window.beat();
-    console.log(playing);
-    before["q"]["p"] = playing ? "■" : "▶";
-    sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === beat));
+    await update();
   } catch(e) {
     console.error(e);
   } finally {
