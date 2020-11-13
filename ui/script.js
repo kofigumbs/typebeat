@@ -166,17 +166,25 @@ const tracklist = document.querySelectorAll(".tracklist");
 const update = async () => {
   const playing = await nativeCall("playing");
   const beat = await nativeCall("beat");
+  const armed = await nativeCall("armed");
+  // const track = await nativeCall("track");
+  // const scale = await nativeCall("scale");
+  // const voiceType = await nativeCall("voiceType");
+  // const instrument = await nativeCall("instrument");
+  // const rootNote = await nativeCall("rootNote");
   before["q"]["p"] = playing ? "■" : "▶";
+  document.body.classList.toggle("armed", armed);
   sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === beat));
+  // tracklist.forEach((key, i) => key.classList.toggle("selected", i === track));
+  // currentValue[modify.voiceType] = voiceType;
+  // currentValue[modify.instrument] = instrument;
+  // before[modify.instrument] = voiceType === 0 ? before.kits : before.synths;
+  // Object.assign(before[modify.none], voiceType === 0 ? before.hits : beforeScale(scale, rootNote));
+  redraw();
 }
 
 (async function loop() {
-  try {
-    await update();
-  } catch(e) {
-    console.error(e);
-  } finally {
-    redraw();
-    requestAnimationFrame(loop);
-  }
+  try { await update() }
+  catch(e) { console.error(e) }
+  finally { requestAnimationFrame(loop) }
 })();
