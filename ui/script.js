@@ -84,7 +84,7 @@ const beforeScale = (index, rootNote) => {
   return legend;
 };
 
-const nativeCall = (label, float) => {
+const engine = (label, float) => {
   if (window[label]) {
     return window[label](float);
   } else {
@@ -96,7 +96,7 @@ const nativeCall = (label, float) => {
 
 
 /*
- * to native
+ * to engine
  */
 
 const keys = document.querySelectorAll(".key");
@@ -121,7 +121,7 @@ const redraw = () => {
 };
 
 const handleSend = (event, value) => {
-  nativeCall(modifier + value, event.type === "keyup" ? 0 : 1);
+  engine(modifier + value, event.type === "keyup" ? 0 : 1);
 };
 
 const handleModify = (event, value) => {
@@ -157,21 +157,21 @@ document.addEventListener("keypress", event => event.preventDefault());
 
 
 /* 
- * from native
+ * from engine
  */
 
 const sequence = document.querySelectorAll(".sequence");
 const tracklist = document.querySelectorAll(".tracklist");
 
 const update = async () => {
-  const playing = await nativeCall("playing");
-  const beat = await nativeCall("beat");
-  const armed = await nativeCall("armed");
-  // const track = await nativeCall("track");
-  // const scale = await nativeCall("scale");
-  // const voiceType = await nativeCall("voiceType");
-  // const instrument = await nativeCall("instrument");
-  // const rootNote = await nativeCall("rootNote");
+  const playing = await engine("playing");
+  const beat = await engine("beat");
+  const armed = await engine("armed");
+  // const track = await engine("track");
+  // const scale = await engine("scale");
+  // const voiceType = await engine("voiceType");
+  // const instrument = await engine("instrument");
+  // const rootNote = await engine("rootNote");
   before["q"]["p"] = playing ? "■" : "▶";
   document.body.classList.toggle("armed", armed);
   sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === beat));

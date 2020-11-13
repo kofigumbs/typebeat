@@ -1,15 +1,12 @@
-[submodule "desktop/webview"]
-	path = native/webview
+[submodule "engine/webview"]
+	path = engine/webview
 	url = https://github.com/webview/webview
 [submodule "desktop/miniaudio"]
-	path = native/miniaudio
+	path = engine/miniaudio
 	url = https://github.com/dr-soft/miniaudio
-[submodule "native/SOUL"]
-	path = native/SOUL
-	url = https://github.com/soul-lang/SOUL
-[submodule "dsp/Enfer"]
-	path = dsp/Enfer
+[submodule "engine/Enfer"]
+	path = engine/Enfer
 	url = https://github.com/neauoire/Enfer
-[submodule "native/faust"]
-	path = native/faust
+[submodule "engine/faust"]
+	path = engine/faust
 	url = https://github.com/grame-cncm/faust

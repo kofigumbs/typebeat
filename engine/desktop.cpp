@@ -43,7 +43,7 @@ struct WebviewUI: UI {
         for (int kit = 0; kit < enfer::kits.size(); kit++) {
             for (int sample = 0; sample < enfer::samples.size(); sample++) {
                 auto i = kit * sample;
-                auto filename = root / "dsp" / "Enfer" / "media" / enfer::kits[kit] / (enfer::samples[sample] + ".wav");
+                auto filename = root / "engine" / "Enfer" / "media" / enfer::kits[kit] / (enfer::samples[sample] + ".wav");
                 unsigned int sampleRate;
                 ma_uint64 length;
                 data[i] = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels[i], &sampleRate, &length, NULL);
@@ -95,7 +95,7 @@ struct WebviewUI: UI {
 };
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
-    auto mydsp = (dsp*) device->pUserData;
+    auto DSP = (dsp*) device->pUserData;
     float deinterleavedInput[device->capture.channels][frameCount],
     deinterleavedOutput[device->playback.channels][frameCount],
     *inputChannels[device->capture.channels],
@@ -113,7 +113,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
         outputChannels[channel] = ((float*) deinterleavedOutput) + channel*frameCount;
 
     // render audio context
-    mydsp->compute(frameCount, inputChannels, outputChannels);
+    DSP->compute(frameCount, inputChannels, outputChannels);
 
     // interleave output audio frames
     for (int channel = 0; channel < device->playback.channels; channel++)
@@ -126,19 +126,19 @@ int WINAPI WinMain(HINSTANCE hInt, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCm
 #else
 int main(int argc, char* argv[]) {
 #endif
-    dsp* mydsp = createmydsp();
+    dsp* DSP = new mydsp();
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
-    deviceConfig.capture.channels = mydsp->getNumInputs();
+    deviceConfig.capture.channels = DSP->getNumInputs();
     deviceConfig.capture.format = ma_format_f32;
-    deviceConfig.playback.channels = mydsp->getNumOutputs();
+    deviceConfig.playback.channels = DSP->getNumOutputs();
     deviceConfig.playback.format = ma_format_f32;
     deviceConfig.periodSizeInFrames = 256;
     deviceConfig.dataCallback = callback;
 
     ma_device device;
     MA_ASSERT(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
-    mydsp->init(device.sampleRate);
-    device.pUserData = mydsp;
+    DSP->init(device.sampleRate);
+    device.pUserData = DSP;
 
     auto root = std::filesystem::absolute(std::filesystem::path(argv[0]))
         .parent_path() // build directory
@@ -147,7 +147,7 @@ int main(int argc, char* argv[]) {
     view.set_size(900, 320, WEBVIEW_HINT_MIN);
     view.set_size(900, 320 + 22 /* see notes/frameless.md */, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (root / "ui" / "index.html").string());
-    mydsp->buildUserInterface(new WebviewUI(&view, root));
+    DSP->buildUserInterface(new WebviewUI(&view, root));
 
 #ifdef WEBVIEW_COCOA
     auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see notes/frameless.md
