@@ -121,7 +121,7 @@ const redraw = () => {
 };
 
 const handleSend = (event, value) => {
-  engine(modifier + value, event.type === "keyup" ? 0 : 1);
+  engine(modifier + toCode(value), event.type === "keyup" ? 0 : 1);
 };
 
 const handleModify = (event, value) => {
