@@ -19,6 +19,7 @@ Soundfile* defaultsound;
 
 
 struct WebviewUI: UI {
+    std::string bind_prefix = "groovebox:";
     webview::webview* view;
     std::filesystem::path root;
     WebviewUI(webview::webview* view, std::filesystem::path root): view(view), root(root) {}
@@ -81,7 +82,7 @@ struct WebviewUI: UI {
     }
 
     void toUi(const char* label, float* zone) {
-        view->bind(label, [this, zone](std::string data) -> std::string {
+        view->bind(bind_prefix + label, [this, zone](std::string data) -> std::string {
             return std::to_string(*zone);
         });
     }
@@ -89,7 +90,7 @@ struct WebviewUI: UI {
     void addVerticalBargraph(const char* label, float* zone, float min, float max) override { toUi(label, zone); }
 
     void toDsp(const char* label, float* zone) {
-        view->bind(label, [this, zone](std::string data) -> std::string {
+        view->bind(bind_prefix + label, [this, zone](std::string data) -> std::string {
             *zone = std::stof(data.substr(1, data.length() - 2));
             return "";
         });

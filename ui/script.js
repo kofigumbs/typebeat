@@ -85,13 +85,12 @@ const beforeScale = (index, rootNote) => {
 };
 
 const engine = (label, float) => {
-  if (window[label]) {
-    return window[label](float);
-  } else {
-    if (float !== undefined)
-      console.log(label, float);
-    return Promise.resolve(0);
-  }
+  const method = "groovebox:" + label;
+  if (window[method])
+    return window[method](float);
+  if (float !== undefined)
+    console.log(method, float);
+  return Promise.resolve(0);
 }
 
 
@@ -120,17 +119,22 @@ const redraw = () => {
   }
 };
 
-const handleSend = (event, value) => {
-  engine(modifier + toCode(value), event.type === "keyup" ? 0 : 1);
+const interpret = (event, value) => {
+  let method;
+  if (modifier === "q" && value === "p")
+    method = "play";
+  else if (modifier == noModifier)
+    method = "note:" + Array.from("nm,./hjkl;yuiop").indexOf(value);
+  engine(method, event.type === "keyup" ? 0 : 1);
 };
 
-const handleModify = (event, value) => {
+const handleModifier = (event, value) => {
   if (modifier === noModifier && event.type === "keydown")
     modifier = value;
   else if (modifier === value && event.type === "keyup")
     modifier = noModifier;
   else
-    handleSend(event, value);
+    interpret(event, value);
   redraw();
 };
 
@@ -138,9 +142,9 @@ const handleKeyboardKey = (event, key) => {
   event.preventDefault();
   key.classList.toggle("down", event.type === "keydown");
   if (key.dataset.control === "modify")
-    handleModify(event, key.dataset.after);
+    handleModifier(event, key.dataset.after);
   else if (key.dataset.control === "play")
-    handleSend(event, key.dataset.after);
+    interpret(event, key.dataset.after);
 };
 
 const handleDocumentKey = event => {
