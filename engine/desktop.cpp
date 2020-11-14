@@ -36,17 +36,17 @@ struct WebviewUI: UI {
 
         int totalLength = 0;
         float* data[fileCount];
-        unsigned int channels[fileCount];
+        unsigned int fileChannels[fileCount];
         Soundfile* soundfile = new Soundfile();
         soundfile->fChannels = 2;
 
         for (int kit = 0; kit < enfer::kits.size(); kit++) {
             for (int sample = 0; sample < enfer::samples.size(); sample++) {
-                auto i = kit * sample;
+                auto i = kit * enfer::samples.size() + sample;
                 auto filename = root / "engine" / "Enfer" / "media" / enfer::kits[kit] / (enfer::samples[sample] + ".wav");
                 unsigned int sampleRate;
                 ma_uint64 length;
-                data[i] = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels[i], &sampleRate, &length, NULL);
+                data[i] = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &fileChannels[i], &sampleRate, &length, NULL);
                 MA_ASSERT(data[i] != NULL);
                 soundfile->fSR[i] = sampleRate;
                 soundfile->fOffset[i] = totalLength;
@@ -66,11 +66,16 @@ struct WebviewUI: UI {
         for (int channel = 0; channel < soundfile->fChannels; channel++)
             soundfile->fBuffers[channel] = new float[totalLength] {};
         for (int i = 0; i < fileCount; i++) {
-            for (int channel = 0; channel < channels[i]; channel++)
-                for (int frame = 0; frame < *(soundfile->fLength); frame++)
-                    soundfile->fBuffers[channel][frame] = data[i][channel + frame * channels[i]];
-            free(data[i]);
+            for (int channel = 0; channel < soundfile->fChannels; channel++)
+                if (fileChannels[i] == 1)
+                    memcpy(soundfile->fBuffers[channel] + soundfile->fOffset[i], data[i], sizeof(float) * soundfile->fLength[i]);
+                else
+                    for (int frame = 0; frame < soundfile->fLength[i]; frame++)
+                        soundfile->fBuffers[channel][soundfile->fOffset[i] + frame] = data[i][channel + frame * fileChannels[i]];
+            MA_FREE(data[i]);
         }
+
+        *(sf_zone) = soundfile;
     }
 
     void toUi(const char* label, float* zone) {
