@@ -8,14 +8,14 @@ armed   =                    button("arm")  : ba.toggle : hbargraph("armed",   0
 beat    =                                                 hbargraph("beat",    0, 15);
 
 // ```
-//            ┌──────────────────────────────┬───────────────┬─────────
-// ───────────┘                              ╵               ╵
-// ^ hold 0   ^ set to 1 on first trig (b)   ^ negative pulse on subsequent trigs
+//             ┌──────────────────────────────┬────────────────┬───────┬──────────
+// ────────────┘                              ╵                ╵       ╵
+// ^ init: 0   ^ set to 1 on first trig (b)   ^ negative pulse on subsequent trigs
 // ```
 trigger(b) = flip(ba.impulsify(b)) * ba.peakhold(1, b);
 
 // `0` to `1` and vice versa
-flip = xor(1, _);
+flip = xor(1);
 
 bpm = 180;
 frames_since(hold) = (hold*_)~+(1) : _-1;
