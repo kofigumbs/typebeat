@@ -8,7 +8,6 @@
 #include "faust/gui/meta.h"
 #include "faust/gui/UI.h"
 #include "faust/gui/Soundfile.h"
-#include "faust/dsp/cpp-dsp-adapter.h"
 
 Soundfile* defaultsound;
 #include "mydsp.h"
@@ -40,6 +39,7 @@ struct WebviewUI: UI {
         Soundfile* soundfile = new Soundfile();
         soundfile->fChannels = 2;
 
+        // read each enfer wav file into `data`, tracking metadata in `soundfile` and `fileChannels`
         for (int kit = 0; kit < enfer::kits.size(); kit++) {
             for (int sample = 0; sample < enfer::samples.size(); sample++) {
                 auto i = kit * enfer::samples.size() + sample;
@@ -55,6 +55,7 @@ struct WebviewUI: UI {
             }
         }
 
+        // fill metadata for remaining soundfile parts
         for (int i = fileCount; i < MAX_SOUNDFILE_PARTS; i++) {
             soundfile->fLength[i] = BUFFER_SIZE;
             soundfile->fSR[i] = SAMPLE_RATE;
@@ -62,6 +63,7 @@ struct WebviewUI: UI {
             totalLength += BUFFER_SIZE;
         }
 
+        // fill actual audio data, now that we know the total buffer size
         soundfile->fBuffers = new float*[soundfile->fChannels];
         for (int channel = 0; channel < soundfile->fChannels; channel++)
             soundfile->fBuffers[channel] = new float[totalLength] {};
@@ -126,18 +128,14 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
             ((float*) output)[channel + frame*device->playback.channels] = deinterleavedOutput[channel][frame];
 }
 
-#ifdef WIN32
-int WINAPI WinMain(HINSTANCE hInt, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
-#else
-int main(int argc, char* argv[]) {
-#endif
+int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     dsp* DSP = new mydsp();
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
     deviceConfig.capture.channels = DSP->getNumInputs();
     deviceConfig.capture.format = ma_format_f32;
     deviceConfig.playback.channels = DSP->getNumOutputs();
     deviceConfig.playback.format = ma_format_f32;
-    deviceConfig.periodSizeInFrames = 256;
+    deviceConfig.sampleRate = SAMPLE_RATE;
     deviceConfig.dataCallback = callback;
 
     ma_device device;
@@ -145,7 +143,7 @@ int main(int argc, char* argv[]) {
     DSP->init(device.sampleRate);
     device.pUserData = DSP;
 
-    auto root = std::filesystem::absolute(std::filesystem::path(argv[0]))
+    auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
         .parent_path(); // project directory
     webview::webview view(true, nullptr);
