@@ -104,24 +104,15 @@ struct WebviewUI: UI {
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
     auto DSP = (dsp*) device->pUserData;
-    float deinterleavedInput[device->capture.channels][frameCount],
-    deinterleavedOutput[device->playback.channels][frameCount],
-    *inputChannels[device->capture.channels],
+    float deinterleavedOutput[device->playback.channels][frameCount],
     *outputChannels[device->playback.channels];
-
-    // de-interleave input audio frames and setup input wrapping array
-    for (int channel = 0; channel < device->capture.channels; channel++) {
-        for (int frame = 0; frame < frameCount; frame++)
-            deinterleavedInput[channel][frame] = ((float*) input)[channel + frame*device->capture.channels];
-        inputChannels[channel] = ((float*) deinterleavedInput) + channel*frameCount;
-    }
 
     // setup output wrapping array
     for (int channel = 0; channel < device->playback.channels; channel++)
         outputChannels[channel] = ((float*) deinterleavedOutput) + channel*frameCount;
 
     // render audio context
-    DSP->compute(frameCount, inputChannels, outputChannels);
+    DSP->compute(frameCount, NULL, outputChannels);
 
     // interleave output audio frames
     for (int channel = 0; channel < device->playback.channels; channel++)
@@ -131,9 +122,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
 
 int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     dsp* DSP = new mydsp();
-    ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
-    deviceConfig.capture.channels = DSP->getNumInputs();
-    deviceConfig.capture.format = ma_format_f32;
+    ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
     deviceConfig.playback.channels = DSP->getNumOutputs();
     deviceConfig.playback.format = ma_format_f32;
     deviceConfig.sampleRate = SAMPLE_RATE;
