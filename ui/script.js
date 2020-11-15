@@ -99,6 +99,7 @@ const engine = (label, float) => {
  */
 
 const keys = document.querySelectorAll(".key");
+const right = Array.from("nm,./hjkl;yuiop");
 
 const toCode = after => {
   switch (after) {
@@ -112,20 +113,23 @@ const toCode = after => {
 
 const redraw = () => {
   for (const key of keys) {
-    if (key.dataset.control === "play" || key.dataset.after !== modifier)
+    if (key.dataset.after !== modifier)
       key.dataset.before = before[modifier][key.dataset.after] || "";
-    if (key.dataset.control === "play")
-      key.classList.toggle("currentValue", key.dataset.after === currentValue[modifier]);
+    key.classList.toggle("currentValue", right.indexOf(key.dataset.after) === currentValue[modifier]);
   }
 };
 
 const interpret = (event, value) => {
-  let method;
-  if (modifier === "q" && value === "p")
+  let method, argument = event.type === "keyup" ? 0 : 1;
+  if (modifier === noModifier)
+    method = "note:" + right.indexOf(value);
+  else if (modifier === "q" && value === "p")
     method = "play";
-  else if (modifier == noModifier)
-    method = "note:" + Array.from("nm,./hjkl;yuiop").indexOf(value);
-  engine(method, event.type === "keyup" ? 0 : 1);
+  else if (modifier === "q" && value === ";")
+    method = "arm";
+  else if (modifier === "t")
+    method = "setInstrument", argument = right.indexOf(value);
+  engine(method, argument);
 };
 
 const handleModifier = (event, value) => {
@@ -171,19 +175,19 @@ const update = async () => {
   const playing = await engine("playing");
   const beat = await engine("beat");
   const armed = await engine("armed");
-  // const track = await engine("track");
-  // const scale = await engine("scale");
-  // const voiceType = await engine("voiceType");
-  // const instrument = await engine("instrument");
-  // const rootNote = await engine("rootNote");
-  before["q"]["p"] = playing ? "■" : "▶";
+  const track = await engine("track");
+  const scale = await engine("scale");
+  const trackType = await engine("trackType");
+  const instrument = await engine("instrument");
+  const rootNote = await engine("rootNote");
+  before.q.p = playing ? "■" : "▶";
   document.body.classList.toggle("armed", armed);
   sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === beat));
-  // tracklist.forEach((key, i) => key.classList.toggle("selected", i === track));
-  // currentValue[modify.voiceType] = voiceType;
-  // currentValue[modify.instrument] = instrument;
-  // before[modify.instrument] = voiceType === 0 ? before.kits : before.synths;
-  // Object.assign(before[modify.none], voiceType === 0 ? before.hits : beforeScale(scale, rootNote));
+  tracklist.forEach((key, i) => key.classList.toggle("selected", i === track));
+  currentValue.r = trackType;
+  currentValue.t = instrument;
+  before.t = trackType === 0 ? before.kits : before.synths;
+  Object.assign(before[noModifier], trackType === 0 ? before.hits : beforeScale(scale, rootNote));
   redraw();
 }
 
