@@ -27,7 +27,7 @@ const before = {
   f: {},
   g: {},
   q: {
-    "q": "",  "w": "1",  "e": "",   "r": "",   "t": "",
+    "q": "",   "w": "1",  "e": "",   "r": "",   "t": "",
     "y": "5",  "u": "",   "i": "",   "o": "",   "p": "",
     "a": "",   "s": "9",  "d": "",   "f": "",   "g": "",
     "h": "13", "j": "",   "k": "",   "l": "",   ";": "●",
@@ -42,7 +42,7 @@ const before = {
   t: {
   },
   kits: {
-    "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4", "p": "",
+    "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4",
     "h": "Dp",  "j": "Tch", "k": "Mod", "l": "Gab", ";": "Brg",
     "n": "808", "m": "909", ",": "DMX", ".": "DNB", "/": "Drk",
   },
@@ -52,6 +52,9 @@ const before = {
     "n": "BD", "m": "BD", ",": "BD", ".": "LT", "/": "SD",
   },
   synths: {
+    "y": "Fnk", "u": "Trk", "i": "Cmc",
+    "h": "Sln", "j": "Atk", "k": "Vib", "l": "Kul", ";": "Rav",
+    "n": "Saw", "m": "Sq", ",":  "FSq", ".": "Sld", "/": "Ody",
   },
 };
 
@@ -129,6 +132,8 @@ const interpret = (event, value) => {
     method = "arm";
   else if (modifier === "t")
     method = "setInstrument", argument = right.indexOf(value);
+  else if (modifier === "r")
+    method = "setTrackType", argument = right.indexOf(value);
   engine(method, argument);
 };
 
