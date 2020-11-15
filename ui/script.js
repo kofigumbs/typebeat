@@ -12,9 +12,9 @@ const currentValue = {
 
 const before = {
   [noModifier]: {
-    "q": "I", "w": "", "e": "", "r": "Typ", "t": "Ins",
-    "a": "",  "s": "", "d": "", "f": "",    "g": "",
-    "z": "",  "x": "", "c": "", "v": "",    "b": "",
+    "q": "I", "w": "", "e": "Scl", "r": "Typ", "t": "Ins",
+    "a": "",  "s": "", "d": "",    "f": "",    "g": "",
+    "z": "",  "x": "", "c": "",    "v": "",    "b": "",
   },
   z: {},
   x: {},
@@ -35,7 +35,11 @@ const before = {
     "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "",
   },
   w: {},
-  e: {},
+  e: {
+    "y": "MMD", "u": "MMa",
+    "h": "Mix", "j": "Loc", "k": "HMi", "l": "HMa", ";": "MMi",
+    "n": "Maj", "m": "Min", ",": "Dor", ".": "Phr", "/": "Lyd",
+  },
   r: {
     "n": "EKt", "m": "ESy",
   },
@@ -58,31 +62,28 @@ const before = {
   },
 };
 
-const scale = {
-  keys: [ "n", "m", ",", ".", "/", "h", "j", "k", "l", ";", "y", "u", "i", "o", "p" ],
-  notes: [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ],
-  names: [ "Maj", "Min", "Dor", "Phr", "Lyd", "Mix", "Loc", "HMi", "HMa", "MMi", "MMD", "MMa" ],
-  offsets: [
-    [ 0, 2, 4, 5, 7, 9, 11 ],
-    [ 0, 2, 3, 5, 7, 8, 10 ],
-    [ 0, 2, 3, 5, 7, 9, 10 ],
-    [ 0, 1, 3, 5, 7, 8, 10 ],
-    [ 0, 2, 4, 6, 7, 9, 11 ],
-    [ 0, 2, 4, 5, 7, 9, 10 ],
-    [ 0, 1, 3, 5, 6, 8, 10 ],
-    [ 0, 2, 3, 5, 7, 8, 11 ],
-    [ 0, 2, 4, 5, 7, 8, 11 ],
-    [ 0, 2, 3, 5, 7, 9, 11 ],
-    [ 0, 2, 3, 5, 7, 8, 10 ],
-    [ 0, 2, 4, 5, 7, 8, 10 ],
-  ],
-};
+const scaleKeys = [ "n", "m", ",", ".", "/", "h", "j", "k", "l", ";", "y", "u", "i", "o", "p" ];
+const scaleNotes = [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ];
+const scaleOffsets = [
+  [ 0, 2, 4, 5, 7, 9, 11 ],
+  [ 0, 2, 3, 5, 7, 8, 10 ],
+  [ 0, 2, 3, 5, 7, 9, 10 ],
+  [ 0, 1, 3, 5, 7, 8, 10 ],
+  [ 0, 2, 4, 6, 7, 9, 11 ],
+  [ 0, 2, 4, 5, 7, 9, 10 ],
+  [ 0, 1, 3, 5, 6, 8, 10 ],
+  [ 0, 2, 3, 5, 7, 8, 11 ],
+  [ 0, 2, 4, 5, 7, 8, 11 ],
+  [ 0, 2, 3, 5, 7, 9, 11 ],
+  [ 0, 2, 3, 5, 7, 8, 10 ],
+  [ 0, 2, 4, 5, 7, 8, 10 ],
+];
 
-const beforeScale = (index, rootNote) => {
+const beforeScale = (index, key) => {
   const legend = {};
-  scale.keys.forEach((key, i) => {
-    const offsets = scale.offsets[index];
-    legend[key] = scale.notes[(rootNote + offsets[i % offsets.length]) % scale.notes.length];
+  scaleKeys.forEach((after, i) => {
+    const offsets = scaleOffsets[index];
+    legend[after] = scaleNotes[(key + offsets[i % offsets.length]) % scaleNotes.length];
   });
   return legend;
 };
@@ -134,6 +135,8 @@ const interpret = (event, value) => {
     method = "setInstrument", argument = right.indexOf(value);
   else if (modifier === "r")
     method = "setTrackType", argument = right.indexOf(value);
+  else if (modifier === "e")
+    method = "setScale", argument = right.indexOf(value);
   engine(method, argument);
 };
 
@@ -178,21 +181,26 @@ const tracklist = document.querySelectorAll(".tracklist");
 
 const update = async () => {
   const playing = await engine("playing");
-  const beat = await engine("beat");
   const armed = await engine("armed");
   const track = await engine("track");
-  const scale = await engine("scale");
   const trackType = await engine("trackType");
   const instrument = await engine("instrument");
-  const rootNote = await engine("rootNote");
+  const key = await engine("key");
+  const octave = await engine("octave");
+  const scale = await engine("scale");
+  const beat = await engine("beat");
+
   before.q.p = playing ? "■" : "▶";
+  currentValue.r = trackType;
+  currentValue.t = instrument;
+  currentValue.e = scale;
+  before.t = trackType === 0 ? before.kits : before.synths;
+  Object.assign(before[noModifier], trackType === 0 ? before.hits : beforeScale(scale, key));
+  Object.assign(before.e, trackType === 0 ? {} : before.scales);
+
   document.body.classList.toggle("armed", armed);
   sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === beat));
   tracklist.forEach((key, i) => key.classList.toggle("selected", i === track));
-  currentValue.r = trackType;
-  currentValue.t = instrument;
-  before.t = trackType === 0 ? before.kits : before.synths;
-  Object.assign(before[noModifier], trackType === 0 ? before.hits : beforeScale(scale, rootNote));
   redraw();
 }
 
