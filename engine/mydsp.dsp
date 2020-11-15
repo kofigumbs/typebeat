@@ -7,7 +7,7 @@ armed = button("arm") : ba.toggle : hbargraph("armed", 0, 1);
 trackType = nentry("setTrackType", 0, 0, 1, 1) : hbargraph("trackType", 0, 1);
 instrument = nentry("setInstrument", 0, 0, 13, 1) : hbargraph("instrument", 0, 13);
 key = nentry("setKey", 0, 0, 11, 1) : hbargraph("key", 0, 11);
-octave = nentry("setOctave", 5, 0, 8, 1) : hbargraph("octave", 0, 8);
+octave = nentry("setOctave", 4, 0, 8, 1) : hbargraph("octave", 0, 8);
 scale = nentry("setScale", 0, 0, 11, 1) : hbargraph("scale", 0, 11);
 beat = hbargraph("beat", 0, 15);
 

@@ -12,7 +12,7 @@ const currentValue = {
 
 const before = {
   [noModifier]: {
-    "q": "I", "w": "", "e": "Scl", "r": "Typ", "t": "Ins",
+    "q": "I", "w": "Oct", "e": "Scl", "r": "Typ", "t": "Ins",
     "a": "",  "s": "", "d": "",    "f": "",    "g": "",
     "z": "",  "x": "", "c": "",    "v": "",    "b": "",
   },
@@ -34,7 +34,10 @@ const before = {
     "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
     "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "",
   },
-  w: {},
+  w: {
+    "h": "5", "j": "6", "k": "7", "l": "8",
+    "n": "0", "m": "1", ",": "2", ".": "3", "/": "4",
+  },
   e: {
     "y": "MMD", "u": "MMa",
     "h": "Mix", "j": "Loc", "k": "HMi", "l": "HMa", ";": "MMi",
@@ -137,6 +140,8 @@ const interpret = (event, value) => {
     method = "setTrackType", argument = right.indexOf(value);
   else if (modifier === "e")
     method = "setScale", argument = right.indexOf(value);
+  else if (modifier === "w")
+    method = "setOctave", argument = right.indexOf(value);
   engine(method, argument);
 };
 
@@ -194,6 +199,7 @@ const update = async () => {
   currentValue.r = trackType;
   currentValue.t = instrument;
   currentValue.e = scale;
+  currentValue.w = octave;
   before.t = trackType === 0 ? before.kits : before.synths;
   Object.assign(before[noModifier], trackType === 0 ? before.hits : beforeScale(scale, key));
   Object.assign(before.e, trackType === 0 ? {} : before.scales);
