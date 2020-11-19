@@ -1,5 +1,9 @@
 import("stdfaust.lib");
 
+/*
+ * ui
+ */
+
 keyCount = 15;
 keys = par(i, keyCount, button("key:%i"));
 
@@ -19,6 +23,11 @@ lastKey = keys : par(i, keyCount, ba.impulsify : *(i+1)) : parallelOp(max, keyCo
 	table(key) = rwtable(2, 0, key != 0, key - 1, always(1));
 };
 
+
+/*
+ * math
+ */
+
 // https://github.com/grame-cncm/faust/issues/423
 always = _, int(hslider("~nothing", 0, 0, 0, 0)) : max;
 
@@ -34,8 +43,20 @@ parallelOp(op,n) = op(parallelOp(op,n-1));
 // ```
 trigger(b) = flip(ba.impulsify(b)) * ba.peakhold(1, b);
 flip = xor(1); // `0` to `1` and vice versa
+clamp(low, high) = min(high, max(low, _));
+
+
+/*
+ * time
+ */
+
 framesSince(hold) = (hold*_)~+(1) : _-1;
-clamp(low, high, x) = min(high, max(low, x));
+setOrToggle(set, toggle) = _ ~ \(prev).(ba.if(set, 1, ba.if(toggle, flip(prev), prev)));
+
+
+/*
+ * tones
+ */
 
 scaleOffsets = waveform {
 		-12, -10, -8, -7, -5, -3, -1, 0, 2, 4, 5, 7, 9, 11, 12,
@@ -53,7 +74,7 @@ scaleOffsets = waveform {
 };
 note(key) = octave*12 + root + (scaleOffsets, int(key + scale*15) : rdtable);
 
-playInterpolated(targetNote, low, high, sound, channels, partOffset, frame) =
+playInterpolated(sound, channels, partOffset, frame, targetNote, low, high) =
 	slow, fast : par(i, 2, partOffset + useHigh, _ : sound) :> par(i, channels, it.interpolate_linear(interpolatedFrame - slow))
 with {
 	useHigh = abs(low - frame) > abs(high - frame);
@@ -68,16 +89,32 @@ playSample(sound, channels, part, frame) = part, frame : sound : untilEnd with {
 
 enfer = clamp(0, 255, _), _ : playSample(soundfile("enfer", 2), 2);
 enferKit(key, b) = ba.if(instrument == 13, key*18 + 15, key + instrument*18), framesSince(trigger(b)) : enfer;
-enferSynth(key, b) = playInterpolated(note(key), 36, 48, enfer, 2, instrument*18 + 16, framesSince(trigger(b)));
+enferSynth(key, b) = instrument*18 + 16, framesSince(trigger(b)), note(key), 36, 48 : playInterpolated(enfer, 2);
 enferKey(key, b) = enferKit(key, b), enferSynth(key, b) : ba.select2stereo(trackType);
-liveAudio = keys : par(i, keyCount, enferKey(i));
+
+
+/*
+ * sequence
+ */
 
 bpm = 180;
 stepsPerBeat = 2;
-stepCount = int(framesSince(playing) / ba.tempo(bpm) * stepsPerBeat) % (beatCount * stepsPerBeat);
-clock = stepCount, beat(int(stepCount/stepsPerBeat)) : max; // same as `stepCount`, but passed through and updates `beat`
-sequenceStep(key, i, b) = ba.toggle(ba.impulsify(b) * (lastKey == key)) * (clock == i) * playing;
-sequenceTrig(key) = sequenceSteps : par(i, beatCount, _, par(j, stepsPerBeat - 1, 0)) : sum(i, beatCount * stepsPerBeat, sequenceStep(key, i));
+stepsInSequence = beatCount * stepsPerBeat;
+stepPosition(subdivision) = int(framesSince(playing) / ba.tempo(bpm) * subdivision);
+stepMod = stepPosition(stepsPerBeat) % stepsInSequence;
+clock = stepMod, beat(int(stepMod/stepsPerBeat)) : max; // same as `stepMod`, but passes through and updates `beat`
 
-voice(key, b) = enferKey(key, b | sequenceTrig(key));
+sequenceStep(keyIndex, keyButton, stepIndex, stepButton) = recorded, toggled : setOrToggle : *(stepIndex == clock) : *(playing) : ba.impulsify with {
+	toggled = stepButton : ba.impulsify : *(lastKey == keyIndex);
+	recorded = keyButton : ba.impulsify * armed * playing * (stepIndex == quantClock);
+	quantClock = (stepPosition(2*stepsPerBeat) + 1) / 2 : int : %(stepsInSequence);
+};
+sequenceTrig(key, b) = sequenceSteps : par(i, beatCount, _, par(j, stepsPerBeat - 1, 0)) : sum(i, stepsInSequence, key, b, i, _ : sequenceStep);
+
+
+/*
+ * output
+ */
+
+voice(key, b) = enferKey(key, b | sequenceTrig(key, b));
 process = keys : par(i, keyCount, voice(i)) :> _, _;
