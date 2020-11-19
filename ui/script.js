@@ -82,19 +82,19 @@ const scaleOffsets = [
   [ 0, 2, 4, 5, 7, 8, 10 ],
 ];
 
-const beforeScale = (index, key) => {
+const beforeScale = (index, root) => {
   const legend = {};
-  scaleKeys.forEach((after, i) => {
+  scaleKeys.forEach((key, i) => {
     const offsets = scaleOffsets[index];
-    legend[after] = scaleNotes[(key + offsets[i % offsets.length]) % scaleNotes.length];
+    legend[key] = scaleNotes[(root + offsets[i % offsets.length]) % scaleNotes.length];
   });
   return legend;
 };
 
-const engine = (label, float) => {
+const ffi = (label, float) => {
   const method = "groovebox:" + label;
   if (window[method])
-    return window[method](float);
+    return window[method](float|0);
   if (float !== undefined)
     console.log(method, float);
   return Promise.resolve(0);
@@ -106,7 +106,11 @@ const engine = (label, float) => {
  */
 
 const keys = document.querySelectorAll(".key");
+const sequence = document.querySelectorAll(".sequence");
+const tracklist = document.querySelectorAll(".tracklist");
+
 const right = Array.from("nm,./hjkl;yuiop");
+const sequenceAfters = Array.from(sequence).map(x => x.dataset.after);
 
 const toCode = after => {
   switch (after) {
@@ -127,22 +131,22 @@ const redraw = () => {
 };
 
 const interpret = (event, value) => {
-  let method, argument = event.type === "keyup" ? 0 : 1;
   if (modifier === noModifier)
-    method = "note:" + right.indexOf(value);
+    ffi("key:" + right.indexOf(value), event.type === "keyup" ? 0 : 1);
   else if (modifier === "q" && value === "p")
-    method = "play";
+    ffi("play", event.type === "keydown");
   else if (modifier === "q" && value === ";")
-    method = "arm";
-  else if (modifier === "t")
-    method = "setInstrument", argument = right.indexOf(value);
-  else if (modifier === "r")
-    method = "setTrackType", argument = right.indexOf(value);
-  else if (modifier === "e")
-    method = "setScale", argument = right.indexOf(value);
-  else if (modifier === "w")
-    method = "setOctave", argument = right.indexOf(value);
-  engine(method, argument);
+    ffi("arm", event.type === "keydown");
+  else if (modifier === "q" && sequenceAfters.includes(value))
+    ffi("sequenceStep:" + sequenceAfters.indexOf(value), event.type === "keydown");
+  else if (modifier === "t" && right.includes(value))
+    ffi("setInstrument", right.indexOf(value));
+  else if (modifier === "r" && right.includes(value))
+    ffi("setTrackType", right.indexOf(value));
+  else if (modifier === "e" && right.includes(value))
+    ffi("setScale", right.indexOf(value));
+  else if (modifier === "w" && right.includes(value))
+    ffi("setOctave", right.indexOf(value));
 };
 
 const handleModifier = (event, value) => {
@@ -181,28 +185,26 @@ document.addEventListener("keypress", event => event.preventDefault());
  * from engine
  */
 
-const sequence = document.querySelectorAll(".sequence");
-const tracklist = document.querySelectorAll(".tracklist");
-
 const update = async () => {
-  const playing = await engine("playing");
-  const armed = await engine("armed");
-  const track = await engine("track");
-  const trackType = await engine("trackType");
-  const instrument = await engine("instrument");
-  const key = await engine("key");
-  const octave = await engine("octave");
-  const scale = await engine("scale");
-  const beat = await engine("beat");
+  const playing = await ffi("playing");
+  const armed = await ffi("armed");
+  const track = await ffi("track");
+  const trackType = await ffi("trackType");
+  const instrument = await ffi("instrument");
+  const root = await ffi("root");
+  const octave = await ffi("octave");
+  const scale = await ffi("scale");
+  const beat = await ffi("beat");
+  const lastKey = await ffi("lastKey");
 
   before.q.p = playing ? "■" : "▶";
-  currentValue.r = trackType;
-  currentValue.t = instrument;
-  currentValue.e = scale;
-  currentValue.w = octave;
   before.t = trackType === 0 ? before.kits : before.synths;
-  Object.assign(before[noModifier], trackType === 0 ? before.hits : beforeScale(scale, key));
+  Object.assign(before[noModifier], trackType === 0 ? before.hits : beforeScale(scale, root));
   Object.assign(before.e, trackType === 0 ? {} : before.scales);
+  Object.assign(currentValue, {
+    [noModifier]: lastKey,
+    e: scale, w: octave, r: trackType, t: instrument,
+  });
 
   document.body.classList.toggle("armed", armed);
   sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === beat));
