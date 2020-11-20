@@ -8,7 +8,7 @@ keyCount = 15;
 keys = par(i, keyCount, button("key:%i"));
 
 beatCount = 16;
-sequenceSteps = par(i, beatCount, button("sequenceStep:%i"));
+stepToggles = par(i, beatCount, button("toggleStep:%i"));
 
 playing = button("play") : ba.toggle : hbargraph("playing", 0, 1);
 armed = button("arm") : ba.toggle : hbargraph("armed", 0, 1);
@@ -41,7 +41,7 @@ parallelOp(op,n) = op(parallelOp(op,n-1));
 // ────────────┘                              ╵                ╵       ╵
 // ^ init: 0   ^ set to 1 on first trig (b)   ^ negative pulse on subsequent trigs
 // ```
-trigger(b) = flip(ba.impulsify(b)) * ba.peakhold(1, b);
+holdPulse(b) = flip(ba.impulsify(b)) * ba.peakhold(1, b);
 flip = xor(1); // `0` to `1` and vice versa
 clamp(low, high) = min(high, max(low, _));
 
@@ -50,8 +50,8 @@ clamp(low, high) = min(high, max(low, _));
  * time
  */
 
-framesSince(hold) = (hold*_)~+(1) : _-1;
-setOrToggle(set, toggle) = _ ~ \(prev).(ba.if(set, 1, ba.if(toggle, flip(prev), prev)));
+framesSince(hold) = (hold*_) ~ +(1) : _-1;
+setOrToggle(set, toggle) = _ ~ \(prev).(set | select2(toggle, prev, flip(prev)));
 
 
 /*
@@ -88,9 +88,9 @@ playSample(sound, channels, part, frame) = part, frame : sound : untilEnd with {
 };
 
 enfer = clamp(0, 255, _), _ : playSample(soundfile("enfer", 2), 2);
-enferKit(key, b) = ba.if(instrument == 13, key*18 + 15, key + instrument*18), framesSince(trigger(b)) : enfer;
-enferSynth(key, b) = instrument*18 + 16, framesSince(trigger(b)), note(key), 36, 48 : playInterpolated(enfer, 2);
-enferKey(key, b) = enferKit(key, b), enferSynth(key, b) : ba.select2stereo(trackType);
+enferKit(key, trig) = ba.if(instrument == 13, key*18 + 15, key + instrument*18), framesSince(holdPulse(trig)) : enfer;
+enferSynth(key, trig) = instrument*18 + 16, framesSince(holdPulse(trig)), note(key), 36, 48 : playInterpolated(enfer, 2);
+enferKey(key, trig) = enferKit(key, trig), enferSynth(key, trig) : ba.select2stereo(trackType);
 
 
 /*
@@ -104,17 +104,19 @@ stepPosition(subdivision) = int(framesSince(playing) / ba.tempo(bpm) * subdivisi
 stepMod = stepPosition(stepsPerBeat) % stepsInSequence;
 clock = stepMod, beat(int(stepMod/stepsPerBeat)) : max; // same as `stepMod`, but passes through and updates `beat`
 
-sequenceStep(keyIndex, keyButton, stepIndex, stepButton) = recorded, toggled : setOrToggle : *(stepIndex == clock) : *(playing) : ba.impulsify with {
-	toggled = stepButton : ba.impulsify : *(lastKey == keyIndex);
-	recorded = keyButton : ba.impulsify * armed * playing * (stepIndex == quantClock);
+stepTrigger(keyI, keyB, stepI, stepB) = sequenceTrigger | liveTrigger with {
+	liveTrigger = keyB : ba.impulsify : *(stepI == clock) : ba.if(playing & armed & (clock != quantClock), 0);
+	sequenceTrigger = recorded, toggled : setOrToggle : *(stepI == clock) : *(playing) : ba.impulsify;
+	toggled = stepB : ba.impulsify : *(lastKey == keyI);
+	recorded = keyB : ba.impulsify * armed * playing * (stepI == quantClock);
 	quantClock = (stepPosition(2*stepsPerBeat) + 1) / 2 : int : %(stepsInSequence);
 };
-sequenceTrig(key, b) = sequenceSteps : par(i, beatCount, _, par(j, stepsPerBeat - 1, 0)) : sum(i, stepsInSequence, key, b, i, _ : sequenceStep);
+beatTrigger(keyI, keyB, beatI, beatB) = sum(i, stepsPerBeat, keyI, keyB, i + beatI*stepsPerBeat, (i==0)*beatB : stepTrigger);
+voiceTrigger(keyI, keyB) = stepToggles : sum(i, beatCount, keyI, keyB, i, _ : beatTrigger);
 
 
 /*
  * output
  */
 
-voice(key, b) = enferKey(key, b | sequenceTrig(key, b));
-process = keys : par(i, keyCount, voice(i)) :> _, _;
+process = keys : par(i, keyCount, voiceTrigger(i) : enferKey(i)) :> _, _;

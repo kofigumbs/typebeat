@@ -138,7 +138,7 @@ const interpret = (event, value) => {
   else if (modifier === "q" && value === ";")
     ffi("arm", event.type === "keydown");
   else if (modifier === "q" && sequenceAfters.includes(value))
-    ffi("sequenceStep:" + sequenceAfters.indexOf(value), event.type === "keydown");
+    ffi("toggleStep:" + sequenceAfters.indexOf(value), event.type === "keydown");
   else if (modifier === "t" && right.includes(value))
     ffi("setInstrument", right.indexOf(value));
   else if (modifier === "r" && right.includes(value))
