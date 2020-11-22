@@ -7,8 +7,8 @@ import("stdfaust.lib");
 keyCount = 15;
 keys = par(i, keyCount, button("key:%i"));
 
-beatCount = 16;
-stepToggles = par(i, beatCount, button("toggleStep:%i"));
+stepCount = 16;
+stepToggles = par(i, stepCount, button("toggleStep:%i"));
 
 playing = button("play") : ba.toggle : hbargraph("playing", 0, 1);
 armed = button("arm") : ba.toggle : hbargraph("armed", 0, 1);
@@ -17,7 +17,7 @@ instrument = nentry("setInstrument", 0, 0, 13, 1) : hbargraph("instrument", 0, 1
 root = nentry("setRoot", 0, 0, 11, 1) : hbargraph("root", 0, 11);
 octave = nentry("setOctave", 4, 0, 8, 1) : hbargraph("octave", 0, 8);
 scale = nentry("setScale", 0, 0, 11, 1) : hbargraph("scale", 0, 11);
-beat = hbargraph("beat", 0, beatCount - 1);
+beat = hbargraph("beat", 0, stepCount - 1);
 
 lastKey = keys : par(i, keyCount, ba.impulsify : *(i+1)) : parallelOp(max, keyCount) : table : hbargraph("lastKey", 0, keyCount - 1) with {
 	table(key) = rwtable(2, 0, key != 0, key - 1, always(1));
@@ -25,8 +25,12 @@ lastKey = keys : par(i, keyCount, ba.impulsify : *(i+1)) : parallelOp(max, keyCo
 
 
 /*
- * math
+ * utilities
  */
+
+clamp(low, high) = min(high, max(low, _));
+framesSince(hold) = (hold*_) ~ +(1) : -(hold);
+setOrToggle(set, toggle) = _ ~ (set | (toggle xor _));
 
 // https://github.com/grame-cncm/faust/issues/423
 always = _, int(hslider("~nothing", 0, 0, 0, 0)) : max;
@@ -41,17 +45,7 @@ parallelOp(op,n) = op(parallelOp(op,n-1));
 // ────────────┘                              ╵                ╵       ╵
 // ^ init: 0   ^ set to 1 on first trig (b)   ^ negative pulse on subsequent trigs
 // ```
-holdPulse(b) = flip(ba.impulsify(b)) * ba.peakhold(1, b);
-flip = xor(1); // `0` to `1` and vice versa
-clamp(low, high) = min(high, max(low, _));
-
-
-/*
- * time
- */
-
-framesSince(hold) = (hold*_) ~ +(1) : _-1;
-setOrToggle(set, toggle) = _ ~ \(prev).(set | select2(toggle, prev, flip(prev)));
+triggered(b) = (ba.impulsify(b) xor 1) * ba.peakhold(1, b);
 
 
 /*
@@ -88,35 +82,38 @@ playSample(sound, channels, part, frame) = part, frame : sound : untilEnd with {
 };
 
 enfer = clamp(0, 255, _), _ : playSample(soundfile("enfer", 2), 2);
-enferKit(key, trig) = ba.if(instrument == 13, key*18 + 15, key + instrument*18), framesSince(holdPulse(trig)) : enfer;
-enferSynth(key, trig) = instrument*18 + 16, framesSince(holdPulse(trig)), note(key), 36, 48 : playInterpolated(enfer, 2);
-enferKey(key, trig) = enferKit(key, trig), enferSynth(key, trig) : ba.select2stereo(trackType);
+enferKit(key, position) = ba.if(instrument == 13, key*18 + 15, key + instrument*18), position : enfer;
+enferSynth(key, position) = instrument*18 + 16, position, note(key), 36, 48 : playInterpolated(enfer, 2);
+enferKey(key, position) = enferKit(key, position), enferSynth(key, position) : ba.select2stereo(trackType);
 
 
 /*
- * sequence
+ * sequencer
  */
 
 bpm = 180;
-stepsPerBeat = 2;
-stepsInSequence = beatCount * stepsPerBeat;
-stepPosition(subdivision) = int(framesSince(playing) / ba.tempo(bpm) * subdivision);
-stepMod = stepPosition(stepsPerBeat) % stepsInSequence;
-clock = stepMod, beat(int(stepMod/stepsPerBeat)) : max; // same as `stepMod`, but passes through and updates `beat`
+stepPosition(subdivision) = int(framesSince(playing) / ba.tempo(bpm) * subdivision * 2);
+clock = stepPosition(1) % stepCount : beat;
 
-stepTrigger(keyI, keyB, stepI, stepB) = sequenceTrigger | liveTrigger with {
-	liveTrigger = keyB : ba.impulsify : *(stepI == clock) : ba.if(playing & armed & (clock != quantClock), 0);
-	sequenceTrigger = recorded, toggled : setOrToggle : *(stepI == clock) : *(playing) : ba.impulsify;
+stepTrigger(keyI, keyB, stepI, stepB) = liveTrigger | sequenceTrigger : *(stepI == clock) : ba.impulsify with {
+	liveTrigger = keyB : ba.impulsify : ba.if(playing & armed & (clock != quantClock), 0);
+	sequenceTrigger = recorded, toggled : setOrToggle : *(playing);
 	toggled = stepB : ba.impulsify : *(lastKey == keyI);
 	recorded = keyB : ba.impulsify * armed * playing * (stepI == quantClock);
-	quantClock = (stepPosition(2*stepsPerBeat) + 1) / 2 : int : %(stepsInSequence);
+	quantClock = int((stepPosition(2) + 1) / 2) : %(stepCount);
 };
-beatTrigger(keyI, keyB, beatI, beatB) = sum(i, stepsPerBeat, keyI, keyB, i + beatI*stepsPerBeat, (i==0)*beatB : stepTrigger);
-voiceTrigger(keyI, keyB) = stepToggles : sum(i, beatCount, keyI, keyB, i, _ : beatTrigger);
+voiceTrigger(keyI, keyB) = stepToggles : sum(i, stepCount, keyI, keyB, i, _ : stepTrigger);
 
 
 /*
  * output
  */
 
-process = keys : par(i, keyCount, voiceTrigger(i) : enferKey(i)) :> _, _;
+voiceKey = ffunction(int voiceKey ( // see notes/voice.md
+	int,
+	float, float, float, float, float,
+	float, float, float, float, float,
+	float, float, float, float, float), <voice.h>, "");
+voicePosition = ffunction(float voicePosition (int, int), <voice.h>, "");
+
+process = keys : par(i, keyCount, voiceTrigger(i) : triggered : framesSince) <: par(i, 5, voiceKey(i) <: _, voicePosition(i) : enferKey) :> _, _;

@@ -8,8 +8,8 @@ endif
 # TODO Windows
 # TODO WebAudio/WASM/Emscriptem ?
 
-build/groovebox: engine/desktop.cpp engine/webview engine/miniaudio engine/Enfer build/include/mydsp.h
-	time g++ engine/desktop.cpp -I build/include -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o $@
+build/groovebox: $(shell ls engine/*.{h,cpp}) engine/webview engine/miniaudio engine/Enfer build/include/mydsp.h
+	time g++ engine/desktop.cpp -I engine -I build/include -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o $@
 
 build/include/mydsp.h: build/bin/faust engine/mydsp.dsp
 	time build/bin/faust -o $@ engine/mydsp.dsp
