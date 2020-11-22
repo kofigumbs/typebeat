@@ -1,7 +1,5 @@
 #include <filesystem>
 
-#include "enfer.h"
-
 #include "webview/webview.h"
 
 #include "faust/dsp/dsp.h"
@@ -17,8 +15,20 @@ Soundfile* defaultsound;
 #define MA_NO_GENERATION
 #include "miniaudio/miniaudio.h"
 
-
 struct WebviewUI: UI {
+    const std::array<std::string, 13> enferKits {
+        "tr808", "tr909", "dmx", "dnb", "dark",
+        "deep", "tech", "modular", "gabber", "bergh",
+        "vermona", "commodore", "dmg",
+    };
+    const std::array<std::string, 18> enferSamples {
+        "kick", "kick-up", "kick-down", "tom", "snare",
+        "snare-up", "snare-down", "clap", "hat", "hat-open",
+        "hat-shut", "cymb", "fx1", "fx2", "fx3",
+        "fx4",
+        "synth-C2", "synth-C3"
+    };
+
     std::string bind_prefix = "groovebox:";
     webview::webview* view;
     std::filesystem::path root;
@@ -31,7 +41,7 @@ struct WebviewUI: UI {
     void declare(float* zone, const char* key, const char* val) override {}
 
     void addSoundfile(const char* label, const char* filename, Soundfile** sf_zone) override {
-        const int fileCount = enfer::samples.size() * enfer::kits.size();
+        const int fileCount = enferSamples.size() * enferKits.size();
         MA_ASSERT(fileCount <= MAX_SOUNDFILE_PARTS);
 
         int totalLength = 0;
@@ -41,10 +51,10 @@ struct WebviewUI: UI {
         soundfile->fChannels = 2;
 
         // read each enfer wav file into `data`, tracking metadata in `soundfile` and `fileChannels`
-        for (int kit = 0; kit < enfer::kits.size(); kit++) {
-            for (int sample = 0; sample < enfer::samples.size(); sample++) {
-                auto i = kit * enfer::samples.size() + sample;
-                auto filename = root / "engine" / "Enfer" / "media" / enfer::kits[kit] / (enfer::samples[sample] + ".wav");
+        for (int kit = 0; kit < enferKits.size(); kit++) {
+            for (int sample = 0; sample < enferSamples.size(); sample++) {
+                auto i = kit * enferSamples.size() + sample;
+                auto filename = root / "engine" / "Enfer" / "media" / enferKits[kit] / (enferSamples[sample] + ".wav");
                 unsigned int sampleRate;
                 ma_uint64 length;
                 data[i] = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &fileChannels[i], &sampleRate, &length, NULL);
