@@ -111,6 +111,7 @@ const tracklist = document.querySelectorAll(".tracklist");
 
 const right = Array.from("nm,./hjkl;yuiop");
 const sequenceAfters = Array.from(sequence).map(x => x.dataset.after);
+const tracklistAfters = Array.from(tracklist).map(x => x.dataset.after);
 
 const toCode = after => {
   switch (after) {
@@ -131,14 +132,17 @@ const redraw = () => {
 };
 
 const interpret = (event, value) => {
+  const down = event.type === "keydown";
   if (modifier === noModifier)
-    ffi("key:" + right.indexOf(value), event.type === "keyup" ? 0 : 1);
+    ffi("key:" + right.indexOf(value), down);
   else if (modifier === "q" && value === "p")
-    ffi("play", event.type === "keydown");
+    ffi("play", down);
   else if (modifier === "q" && value === ";")
-    ffi("arm", event.type === "keydown");
+    ffi("arm", down);
   else if (modifier === "q" && sequenceAfters.includes(value))
-    ffi("toggleStep:" + sequenceAfters.indexOf(value), event.type === "keydown");
+    ffi("step:" + sequenceAfters.indexOf(value), down);
+  else if (modifier === "q" && tracklistAfters.includes(value))
+    ffi("track:" + tracklistAfters.indexOf(value), down);
   else if (modifier === "t" && right.includes(value))
     ffi("setInstrument", right.indexOf(value));
   else if (modifier === "r" && right.includes(value))

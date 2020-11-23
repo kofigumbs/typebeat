@@ -1,8 +1,16 @@
+#include <array>
+#include <cassert>
 #include <filesystem>
+#include <vector>
 
 #include "webview/webview.h"
 
-#include "faust/dsp/dsp.h"
+#define MINIAUDIO_IMPLEMENTATION
+#define MA_NO_ENCODING
+#define MA_NO_GENERATION
+#include "miniaudio/miniaudio.h"
+
+#include "faust/dsp/one-sample-dsp.h"
 #include "faust/gui/meta.h"
 #include "faust/gui/UI.h"
 #include "faust/gui/Soundfile.h"
@@ -10,138 +18,56 @@
 Soundfile* defaultsound;
 #include "mydsp.h"
 
-#define MINIAUDIO_IMPLEMENTATION
-#define MA_NO_ENCODING
-#define MA_NO_GENERATION
-#include "miniaudio/miniaudio.h"
+#include "enfer-ui.h"
+#include "sequencer.h"
 
-struct WebviewUI: UI {
-    const std::array<std::string, 13> enferKits {
-        "tr808", "tr909", "dmx", "dnb", "dark",
-        "deep", "tech", "modular", "gabber", "bergh",
-        "vermona", "commodore", "dmg",
-    };
-    const std::array<std::string, 18> enferSamples {
-        "kick", "kick-up", "kick-down", "tom", "snare",
-        "snare-up", "snare-down", "clap", "hat", "hat-open",
-        "hat-shut", "cymb", "fx1", "fx2", "fx3",
-        "fx4",
-        "synth-C2", "synth-C3"
-    };
-
-    std::string bind_prefix = "groovebox:";
-    webview::webview* view;
-    std::filesystem::path root;
-    WebviewUI(webview::webview* view, std::filesystem::path root): view(view), root(root) {}
-
-    void openTabBox(const char* label) override {}
-    void openHorizontalBox(const char* label) override {}
-    void openVerticalBox(const char* label) override {}
-    void closeBox() override {}
-    void declare(float* zone, const char* key, const char* val) override {}
-
-    void addSoundfile(const char* label, const char* filename, Soundfile** sf_zone) override {
-        const int fileCount = enferSamples.size() * enferKits.size();
-        MA_ASSERT(fileCount <= MAX_SOUNDFILE_PARTS);
-
-        int totalLength = 0;
-        float* data[fileCount];
-        unsigned int fileChannels[fileCount];
-        Soundfile* soundfile = new Soundfile();
-        soundfile->fChannels = 2;
-
-        // read each enfer wav file into `data`, tracking metadata in `soundfile` and `fileChannels`
-        for (int kit = 0; kit < enferKits.size(); kit++) {
-            for (int sample = 0; sample < enferSamples.size(); sample++) {
-                auto i = kit * enferSamples.size() + sample;
-                auto filename = root / "engine" / "Enfer" / "media" / enferKits[kit] / (enferSamples[sample] + ".wav");
-                unsigned int sampleRate;
-                ma_uint64 length;
-                data[i] = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &fileChannels[i], &sampleRate, &length, NULL);
-                MA_ASSERT(data[i] != NULL);
-                soundfile->fSR[i] = sampleRate;
-                soundfile->fOffset[i] = totalLength;
-                soundfile->fLength[i] = length;
-                totalLength += length;
-            }
-        }
-
-        // fill metadata for remaining soundfile parts
-        for (int i = fileCount; i < MAX_SOUNDFILE_PARTS; i++) {
-            soundfile->fLength[i] = BUFFER_SIZE;
-            soundfile->fSR[i] = SAMPLE_RATE;
-            soundfile->fOffset[i] = totalLength;
-            totalLength += BUFFER_SIZE;
-        }
-
-        // fill actual audio data, now that we know the total buffer size
-        soundfile->fBuffers = new float*[soundfile->fChannels];
-        for (int channel = 0; channel < soundfile->fChannels; channel++)
-            soundfile->fBuffers[channel] = new float[totalLength] {};
-        for (int i = 0; i < fileCount; i++) {
-            for (int channel = 0; channel < soundfile->fChannels; channel++)
-                if (fileChannels[i] == 1)
-                    memcpy(soundfile->fBuffers[channel] + soundfile->fOffset[i], data[i], sizeof(float) * soundfile->fLength[i]);
-                else
-                    for (int frame = 0; frame < soundfile->fLength[i]; frame++)
-                        soundfile->fBuffers[channel][soundfile->fOffset[i] + frame] = data[i][channel + frame * fileChannels[i]];
-            MA_FREE(data[i]);
-        }
-
-        *(sf_zone) = soundfile;
-    }
-
-    void toUi(const char* label, float* zone) {
-        view->bind(bind_prefix + label, [this, zone](std::string data) -> std::string {
-            return std::to_string(*zone);
-        });
-    }
-    void addHorizontalBargraph(const char* label, float* zone, float min, float max) override { toUi(label, zone); }
-    void addVerticalBargraph(const char* label, float* zone, float min, float max) override { toUi(label, zone); }
-
-    void toDsp(const char* label, float* zone) {
-        view->bind(bind_prefix + label, [this, zone](std::string data) -> std::string {
-            *zone = std::stof(data.substr(1, data.length() - 2));
-            return "";
-        });
-    }
-    void addCheckButton(const char* label, float* zone) override { toDsp(label, zone); }
-    void addVerticalSlider(const char* label, float* zone, float init, float min, float max, float step) override { toDsp(label, zone); }
-    void addHorizontalSlider(const char* label, float* zone, float init, float min, float max, float step) override { toDsp(label, zone); }
-    void addNumEntry(const char* label, float* zone, float init, float min, float max, float step) override { toDsp(label, zone); }
-    void addButton(const char* label, float* zone) override { toDsp(label, zone); }
+struct UserData {
+    groovebox::Input* input;
+    groovebox::Sequencer* sequencer;
+    one_sample_dsp* dsp;
 };
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
-    auto DSP = (dsp*) device->pUserData;
-    float deinterleavedOutput[device->playback.channels][frameCount],
-    *outputChannels[device->playback.channels];
+    auto userData = (UserData*) device->pUserData;
+    int intControls[userData->dsp->getNumIntControls()];
+    float floatControls[userData->dsp->getNumRealControls()];
+    userData->dsp->control(intControls, floatControls);
+    for (int frame = 0; frame < frameCount; frame++) {
+        userData->sequencer->compute(*(userData->input));
+        userData->dsp->compute((float*) userData->sequencer->voiceOut.data(), ((float*)output) + frame*device->playback.channels, intControls, floatControls);
+    }
+}
 
-    // setup output wrapping array
-    for (int channel = 0; channel < device->playback.channels; channel++)
-        outputChannels[channel] = ((float*) deinterleavedOutput) + channel*frameCount;
+void toView(webview::webview* view, std::string label, int* p) {
+    view->bind("groovebox:" + label, [p](std::string data) -> std::string {
+        return std::to_string(*p);
+    });
+}
 
-    // render audio context
-    DSP->compute(frameCount, NULL, outputChannels);
-
-    // interleave output audio frames
-    for (int channel = 0; channel < device->playback.channels; channel++)
-        for (int frame = 0; frame < frameCount; frame++)
-            ((float*) output)[channel + frame*device->playback.channels] = deinterleavedOutput[channel][frame];
+void toSequencer(webview::webview* view, std::string label, int* p) {
+    view->bind("groovebox:" + label, [p](std::string data) -> std::string {
+        *p = std::stoi(data.substr(1, data.length() - 2));
+        return "";
+    });
 }
 
 int main(int argc, char* argv[]) { // TODO WinMain, see webview README
-    dsp* DSP = new mydsp();
+    groovebox::Input input {};
+    groovebox::Sequencer sequencer {};
+    one_sample_dsp* dsp = new mydsp();
+    assert(groovebox::trackCount * groovebox::keyCount * groovebox::Output::count == dsp->getNumInputs());
+    UserData userData { &input, &sequencer, dsp };
+
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
-    deviceConfig.playback.channels = DSP->getNumOutputs();
+    deviceConfig.playback.channels = dsp->getNumOutputs();
     deviceConfig.playback.format = ma_format_f32;
     deviceConfig.sampleRate = SAMPLE_RATE;
     deviceConfig.dataCallback = callback;
 
     ma_device device;
-    MA_ASSERT(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
-    DSP->init(device.sampleRate);
-    device.pUserData = DSP;
+    assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
+    dsp->init(device.sampleRate);
+    device.pUserData = &userData;
 
     auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
@@ -150,7 +76,21 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     view.set_size(900, 320, WEBVIEW_HINT_MIN);
     view.set_size(900, 320 + 22 /* see notes/frameless.md */, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (root / "ui" / "index.html").string());
-    DSP->buildUserInterface(new WebviewUI(&view, root));
+    dsp->buildUserInterface(new groovebox::EnferUI(root));
+
+    toView(&view, "playing", &(sequencer.playing));
+    toView(&view, "armed", &(sequencer.armed));
+    toView(&view, "track", &(sequencer.activeTrack));
+    toView(&view, "lastKey", &(sequencer.lastKey));
+    toView(&view, "beat", &(sequencer.stepPosition));
+    toSequencer(&view, "play", &(input.playDown));
+    toSequencer(&view, "arm", &(input.armDown));
+    for (int i = 0; i < input.trackDown.size(); i++)
+        toSequencer(&view, "track:" + std::to_string(i), input.trackDown.data() + i);
+    for (int i = 0; i < input.keyDown.size(); i++)
+        toSequencer(&view, "key:" + std::to_string(i), input.keyDown.data() + i);
+    for (int i = 0; i < input.stepDown.size(); i++)
+        toSequencer(&view, "step:" + std::to_string(i), input.stepDown.data() + i);
 
 #ifdef WEBVIEW_COCOA
     auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see notes/frameless.md
