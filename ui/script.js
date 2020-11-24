@@ -131,26 +131,25 @@ const redraw = () => {
   }
 };
 
-const interpret = (event, value) => {
-  const down = event.type === "keydown";
+const sendMethod = value => {
   if (modifier === noModifier)
-    ffi("key:" + right.indexOf(value), down);
-  else if (modifier === "q" && value === "p")
-    ffi("play", down);
-  else if (modifier === "q" && value === ";")
-    ffi("arm", down);
-  else if (modifier === "q" && sequenceAfters.includes(value))
-    ffi("step:" + sequenceAfters.indexOf(value), down);
-  else if (modifier === "q" && tracklistAfters.includes(value))
-    ffi("track:" + tracklistAfters.indexOf(value), down);
-  else if (modifier === "t" && right.includes(value))
-    ffi("setInstrument", right.indexOf(value));
-  else if (modifier === "r" && right.includes(value))
-    ffi("setTrackType", right.indexOf(value));
-  else if (modifier === "e" && right.includes(value))
-    ffi("setScale", right.indexOf(value));
-  else if (modifier === "w" && right.includes(value))
-    ffi("setOctave", right.indexOf(value));
+    return "key:" + right.indexOf(value);
+  if (modifier === "q" && value === "p")
+    return "play";
+  if (modifier === "q" && value === ";")
+    return "arm";
+  if (modifier === "q" && sequenceAfters.includes(value))
+    return "step:" + sequenceAfters.indexOf(value);
+  if (modifier === "q" && tracklistAfters.includes(value))
+    return "track:" + tracklistAfters.indexOf(value);
+  if (modifier === "t" && right.includes(value))
+    return "instrument:" + right.indexOf(value);
+  if (modifier === "r" && right.includes(value))
+    return "trackType:" + right.indexOf(value);
+  if (modifier === "e" && right.includes(value))
+    return "scale:" + right.indexOf(value);
+  if (modifier === "w" && right.includes(value))
+    return "octave:" + right.indexOf(value);
 };
 
 const handleModifier = (event, value) => {
@@ -159,7 +158,7 @@ const handleModifier = (event, value) => {
   else if (modifier === value && event.type === "keyup")
     modifier = noModifier;
   else
-    interpret(event, value);
+    ffi(sendMethod(value), event.type === "keydown");
   redraw();
 };
 
@@ -169,7 +168,7 @@ const handleKeyboardKey = (event, key) => {
   if (key.dataset.control === "modify")
     handleModifier(event, key.dataset.after);
   else if (key.dataset.control === "play")
-    interpret(event, key.dataset.after);
+    ffi(sendMethod(key.dataset.after), event.type === "keydown");
 };
 
 const handleDocumentKey = event => {

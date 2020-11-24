@@ -10,16 +10,19 @@ namespace groovebox {
         int type;
         int instrument;
         int octave = 4;
-        int nextVoice;
-        std::array<std::array<bool, keyCount>, stepCount> steps {};
+        std::array<std::array<bool, keyCount>, stepCount> steps;
     };
 
     struct Input {
-        int playDown;
-        int armDown;
-        std::array<int, trackCount> trackDown {};
-        std::array<int, keyCount> keyDown {};
-        std::array<int, stepCount> stepDown {};
+        int play;
+        int arm;
+        std::array<int, keyCount> key;
+        std::array<int, stepCount> step;
+        std::array<int, trackCount> track;
+        std::array<int, stepCount> trackType;
+        std::array<int, stepCount> instrument;
+        std::array<int, stepCount> scale;
+        std::array<int, stepCount> octave;
     };
 
     enum Output {
@@ -36,38 +39,51 @@ namespace groovebox {
         // transport
         int playing;
         int armed;
-        int activeTrack;
         int lastKey;
         int framePosition;
         int stepPosition;
+        // outputs
+        int activeTrack;
+        int activeTrackType;
+        int activeInstrument;
+        int activeOctave;
         // internals
         Input previous;
-        std::array<Track, trackCount> tracks {};
-        std::array<std::array<float, keyCount>, trackCount> voiceIncrements {};
-        std::array<std::array<std::array<float, Output::count>, keyCount>, trackCount> voiceOut {};
+        std::array<Track, trackCount> tracks;
+        std::array<std::array<float, keyCount>, trackCount> voiceIncrements;
+        std::array<std::array<std::array<float, Output::count>, keyCount>, trackCount> voiceOut;
 
-        Sequencer() {
+        // explicit `init` so that we keep the default, zero-initializing constructor
+        void init() {
             for (int t = 0; t < trackCount; t++)
                 for (int k = 0; k < keyCount; k++)
                     voiceOut[t][k][Output::sample] = 255;
         }
 
         void compute(Input current) {
-            playing ^= !previous.playDown && current.playDown;
-            armed ^= !previous.armDown && current.armDown;
+            playing ^= !previous.play && current.play;
+            armed ^= !previous.arm && current.arm;
             framePosition = playing ? framePosition+1 : -1;
             stepPosition = inSteps(framePosition) % stepCount;
 
-#define TRIGS(prefix, ifTrig) \
-            auto prefix##Trigs = current.prefix##Down; \
+#define TRIGS(prefix, ifTrig)                                \
+            auto prefix##Trigs = current.prefix;             \
             for (int i = 0; i < prefix##Trigs.size(); i++) { \
-                prefix##Trigs[i] &= !previous.prefix##Down[i]; \
-                if (prefix##Trigs[i]) { ifTrig; } \
+                prefix##Trigs[i] &= !previous.prefix[i];     \
+                if (prefix##Trigs[i]) { ifTrig; }            \
             }
+            TRIGS(scale, scale = i)
             TRIGS(track, activeTrack = i)
+            TRIGS(trackType, tracks[activeTrack].type = i)
+            TRIGS(instrument, tracks[activeTrack].instrument = i)
+            TRIGS(octave, tracks[activeTrack].octave = i)
             TRIGS(key, lastKey = i; liveKey(i))
             TRIGS(step, tracks[activeTrack].steps[i][lastKey] ^= true)
 #undef TRIGS
+
+            activeTrackType = tracks[activeTrack].type;
+            activeInstrument = tracks[activeTrack].instrument;
+            activeOctave = tracks[activeTrack].octave;
 
             for (int t = 0; t < trackCount; t++)
                 for (int k = 0; k < keyCount; k++)

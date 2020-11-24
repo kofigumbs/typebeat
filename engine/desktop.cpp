@@ -51,11 +51,18 @@ void toSequencer(webview::webview* view, std::string label, int* p) {
     });
 }
 
+template <std::size_t N>
+void toSequencerArray(webview::webview* view, std::string prefix, std::array<int, N>* down) {
+    for (int i = 0; i < down->size(); i++)
+        toSequencer(view, prefix + std::to_string(i), down->data() + i);
+}
+
 int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     groovebox::Input input {};
     groovebox::Sequencer sequencer {};
     one_sample_dsp* dsp = new mydsp();
     assert(groovebox::trackCount * groovebox::keyCount * groovebox::Output::count == dsp->getNumInputs());
+    sequencer.init();
     UserData userData { &input, &sequencer, dsp };
 
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
@@ -78,19 +85,24 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     view.navigate("file://" + (root / "ui" / "index.html").string());
     dsp->buildUserInterface(new groovebox::EnferUI(root));
 
-    toView(&view, "playing", &(sequencer.playing));
-    toView(&view, "armed", &(sequencer.armed));
-    toView(&view, "track", &(sequencer.activeTrack));
-    toView(&view, "lastKey", &(sequencer.lastKey));
-    toView(&view, "beat", &(sequencer.stepPosition));
-    toSequencer(&view, "play", &(input.playDown));
-    toSequencer(&view, "arm", &(input.armDown));
-    for (int i = 0; i < input.trackDown.size(); i++)
-        toSequencer(&view, "track:" + std::to_string(i), input.trackDown.data() + i);
-    for (int i = 0; i < input.keyDown.size(); i++)
-        toSequencer(&view, "key:" + std::to_string(i), input.keyDown.data() + i);
-    for (int i = 0; i < input.stepDown.size(); i++)
-        toSequencer(&view, "step:" + std::to_string(i), input.stepDown.data() + i);
+    toView(&view, "playing", &sequencer.playing);
+    toView(&view, "armed", &sequencer.armed);
+    toView(&view, "beat", &sequencer.stepPosition);
+    toView(&view, "lastKey", &sequencer.lastKey);
+    toView(&view, "track", &sequencer.activeTrack);
+    toView(&view, "trackType", &sequencer.activeTrackType);
+    toView(&view, "instrument", &sequencer.activeInstrument);
+    toView(&view, "scale", &sequencer.scale);
+    toView(&view, "octave", &sequencer.activeOctave);
+    toSequencer(&view, "play", &input.play);
+    toSequencer(&view, "arm", &input.arm);
+    toSequencerArray(&view, "key:", &input.key);
+    toSequencerArray(&view, "step:", &input.step);
+    toSequencerArray(&view, "track:", &input.track);
+    toSequencerArray(&view, "trackType:", &input.trackType);
+    toSequencerArray(&view, "instrument:", &input.instrument);
+    toSequencerArray(&view, "scale:", &input.scale);
+    toSequencerArray(&view, "octave:", &input.octave);
 
 #ifdef WEBVIEW_COCOA
     auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see notes/frameless.md
