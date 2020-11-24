@@ -111,10 +111,36 @@ namespace groovebox {
             useVoice(activeTrack, key);
         }
 
-        void useVoice(int track, int key) {
-            voiceIncrements[track][key] = 1; // TODO
-            voiceOut[track][key][Output::sample] = key; // TODO
-            voiceOut[track][key][Output::position] = 0;
+        void useVoice(int t, int key) {
+            static const std::array<std::array<int, 15>, 12> scaleOffsets {
+                -12, -10, -8, -7, -5, -3, -1, 0, 2, 4, 5, 7, 9, 11, 12,
+                -12, -10, -9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10, 12,
+                -12, -10, -9, -7, -5, -3, -2, 0, 2, 3, 5, 7, 9, 10, 12,
+                -12, -11, -9, -7, -5, -4, -2, 0, 1, 3, 5, 7, 8, 10, 12,
+                -12, -10, -8, -6, -5, -3, -1, 0, 2, 4, 6, 7, 9, 11, 12,
+                -12, -10, -8, -7, -5, -3, -2, 0, 2, 4, 5, 7, 9, 10, 12,
+                -12, -11, -9, -7, -6, -4, -2, 0, 1, 3, 5, 6, 8, 10, 12,
+                -12, -10, -9, -7, -5, -4, -1, 0, 2, 3, 5, 7, 8, 11, 12,
+                -12, -10, -8, -7, -5, -4, -1, 0, 2, 4, 5, 7, 8, 11, 12,
+                -12, -10, -9, -7, -5, -3, -1, 0, 2, 3, 5, 7, 9, 11, 12,
+                -12, -10, -9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10, 12,
+                -12, -10, -8, -7, -5, -4, -2, 0, 2, 4, 5, 7, 8, 10, 12
+            };
+            auto track = tracks[t];
+            voiceOut[t][key][Output::position] = 0;
+            switch (tracks[t].type) {
+            case 0:
+                voiceIncrements[t][key] = 1;
+                voiceOut[t][key][Output::sample] = track.instrument == 13 ? key*18 + 15 : key + track.instrument*18;
+                break;
+            case 1:
+                auto note = root + scaleOffsets[scale][key] + track.octave*12;
+                auto useHighTargetNote = note > 42;
+                auto sampleNote = useHighTargetNote ? 48 : 36;
+                voiceIncrements[t][key] = pow(2.0f, note / 12.0f) / pow (2.0f, sampleNote / 12.0f);
+                voiceOut[t][key][Output::sample] = track.instrument*18 + 16 + useHighTargetNote;
+                break;
+            }
         }
     };
 }
