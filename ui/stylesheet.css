@@ -12,7 +12,7 @@ html {
 }
 
 body > *:last-child {
-  margin-bottom: 22px; /* see notes/frameless.md */
+  margin-bottom: 22px; /* see docs/frameless.md */
 }
 
 

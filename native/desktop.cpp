@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
         .parent_path(); // project directory
     webview::webview view(true, nullptr);
     view.set_size(900, 320, WEBVIEW_HINT_MIN);
-    view.set_size(900, 320 + 22 /* see notes/frameless.md */, WEBVIEW_HINT_NONE);
+    view.set_size(900, 320 + 22 /* see docs/frameless.md */, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (root / "ui" / "index.html").string());
     dsp->buildUserInterface(new groovebox::EnferUI(root));
 
@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     toSequencerArray(&view, "octave:", &input.octave);
 
 #ifdef WEBVIEW_COCOA
-    auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see notes/frameless.md
+    auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see docs/frameless.md
     auto window = (id) view.window();
     objc_msgSend(window, sel_registerName("setBackgroundColor:"), light);
     objc_msgSend(window, sel_registerName("setTitlebarAppearsTransparent:"), 1);
