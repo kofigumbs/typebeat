@@ -141,11 +141,11 @@ html {
   background: var(--gray);
 }
 
-.key.sequence.selected + .shadow {
+.key.sequence.highlight + .shadow {
   background: var(--orange);
 }
 
-.armed .key.sequence.selected + .shadow {
+.armed .key.sequence.highlight + .shadow {
   background: var(--yellow);
 }
 
@@ -154,11 +154,11 @@ html {
   background: var(--orange);
 }
 
-.key.tracklist.selected + .shadow {
+.key.tracklist.highlight + .shadow {
   background: var(--yellow);
 }
 
-.key.currentValue {
+.key.active {
   color: var(--light);
   background: var(--dark);
 }

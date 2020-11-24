@@ -7,7 +7,10 @@
 const noModifier = "";
 let modifier = noModifier;
 
-const currentValue = {
+const active = {
+    "q": [], "w": [], "e": [], "r": [], "t": [],
+    "a": [], "s": [], "d": [], "f": [], "g": [],
+    "z": [], "x": [], "c": [], "v": [], "b": [],
 };
 
 const before = {
@@ -127,7 +130,7 @@ const redraw = () => {
   for (const key of keys) {
     if (key.dataset.after !== modifier)
       key.dataset.before = before[modifier][key.dataset.after] || "";
-    key.classList.toggle("currentValue", right.indexOf(key.dataset.after) === currentValue[modifier]);
+    key.classList.toggle("active", active[modifier].includes(key.dataset.after));
   }
 };
 
@@ -198,20 +201,24 @@ const update = async () => {
   const octave = await ffi("octave");
   const scale = await ffi("scale");
   const beat = await ffi("beat");
-  const lastKey = await ffi("lastKey");
+  const key = await ffi("key");
+  const hits = await Promise.all(Array.from(sequence, (_, i) => ffi("hit:" + i)));
+
+  let activeHits = [];
+  hits.forEach((hit, i) => { if (hit) activeHits.push(sequenceAfters[i]) });
 
   before.q.p = playing ? "■" : "▶";
   before.t = trackType === 0 ? before.kits : before.synths;
   Object.assign(before[noModifier], trackType === 0 ? before.hits : beforeScale(scale, root));
   Object.assign(before.e, trackType === 0 ? {} : before.scales);
-  Object.assign(currentValue, {
-    [noModifier]: lastKey,
-    e: scale, w: octave, r: trackType, t: instrument,
+  Object.assign(active, {
+    [noModifier]: [right[key]],
+    q: activeHits, e: [right[scale]], w: [right[octave]], r: [right[trackType]], t: [right[instrument]],
   });
 
   document.body.classList.toggle("armed", armed);
-  sequence.forEach((key, i) => key.classList.toggle("selected", playing && i === beat));
-  tracklist.forEach((key, i) => key.classList.toggle("selected", i === track));
+  sequence.forEach((key, i) => key.classList.toggle("highlight", playing && i === beat));
+  tracklist.forEach((key, i) => key.classList.toggle("highlight", i === track));
   redraw();
 }
 

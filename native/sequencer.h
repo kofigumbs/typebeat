@@ -39,14 +39,15 @@ namespace groovebox {
         // transport
         int playing;
         int armed;
-        int lastKey;
         int framePosition;
         int stepPosition;
-        // outputs
+        // selections
+        int activeKey;
         int activeTrack;
         int activeTrackType;
         int activeInstrument;
         int activeOctave;
+        std::array<int, stepCount> activeHits;
         // internals
         Input previous;
         std::array<Track, trackCount> tracks;
@@ -78,13 +79,15 @@ namespace groovebox {
             TRIGS(trackType, tracks[activeTrack].type = i)
             TRIGS(instrument, tracks[activeTrack].instrument = i)
             TRIGS(octave, tracks[activeTrack].octave = i)
-            TRIGS(key, lastKey = i; liveKey(i))
-            TRIGS(step, tracks[activeTrack].steps[i][lastKey] ^= true)
+            TRIGS(key, activeKey = i; liveKey(i))
+            TRIGS(step, tracks[activeTrack].steps[i][activeKey] ^= true)
 #undef TRIGS
 
             activeTrackType = tracks[activeTrack].type;
             activeInstrument = tracks[activeTrack].instrument;
             activeOctave = tracks[activeTrack].octave;
+            for (int s = 0; s < stepCount; s++)
+                activeHits[s] = tracks[activeTrack].steps[s][activeKey];
 
             for (int t = 0; t < trackCount; t++)
                 for (int k = 0; k < keyCount; k++)

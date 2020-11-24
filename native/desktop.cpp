@@ -52,9 +52,15 @@ void toSequencer(webview::webview* view, std::string label, int* p) {
 }
 
 template <std::size_t N>
-void toSequencerArray(webview::webview* view, std::string prefix, std::array<int, N>* down) {
-    for (int i = 0; i < down->size(); i++)
-        toSequencer(view, prefix + std::to_string(i), down->data() + i);
+void toViewArray(webview::webview* view, std::string prefix, std::array<int, N>* array) {
+    for (int i = 0; i < array->size(); i++)
+        toView(view, prefix + std::to_string(i), array->data() + i);
+}
+
+template <std::size_t N>
+void toSequencerArray(webview::webview* view, std::string prefix, std::array<int, N>* array) {
+    for (int i = 0; i < array->size(); i++)
+        toSequencer(view, prefix + std::to_string(i), array->data() + i);
 }
 
 int main(int argc, char* argv[]) { // TODO WinMain, see webview README
@@ -89,12 +95,13 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     toView(&view, "playing", &sequencer.playing);
     toView(&view, "armed", &sequencer.armed);
     toView(&view, "beat", &sequencer.stepPosition);
-    toView(&view, "lastKey", &sequencer.lastKey);
+    toView(&view, "key", &sequencer.activeKey);
     toView(&view, "track", &sequencer.activeTrack);
     toView(&view, "trackType", &sequencer.activeTrackType);
     toView(&view, "instrument", &sequencer.activeInstrument);
     toView(&view, "scale", &sequencer.scale);
     toView(&view, "octave", &sequencer.activeOctave);
+    toViewArray(&view, "hit:", &sequencer.activeHits);
     toSequencer(&view, "play", &input.play);
     toSequencer(&view, "arm", &input.arm);
     toSequencerArray(&view, "key:", &input.key);
