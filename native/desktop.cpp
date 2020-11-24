@@ -16,7 +16,7 @@
 #include "faust/gui/Soundfile.h"
 
 Soundfile* defaultsound;
-#include "mydsp.h"
+#include "sampler.h"
 
 #include "enfer-ui.h"
 #include "sequencer.h"
@@ -60,7 +60,7 @@ void toSequencerArray(webview::webview* view, std::string prefix, std::array<int
 int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     groovebox::Input input {};
     groovebox::Sequencer sequencer {};
-    one_sample_dsp* dsp = new mydsp();
+    one_sample_dsp* dsp = new Sampler();
     assert(groovebox::trackCount * groovebox::keyCount * groovebox::Output::count == dsp->getNumInputs());
     sequencer.init();
     UserData userData { &input, &sequencer, dsp };

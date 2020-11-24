@@ -102,7 +102,7 @@ const ffi = (label, float) => {
 
 
 /*
- * to engine
+ * to native
  */
 
 const keys = document.querySelectorAll(".key");
@@ -185,7 +185,7 @@ document.addEventListener("keypress", event => event.preventDefault());
 
 
 /* 
- * from engine
+ * from native
  */
 
 const update = async () => {
