@@ -52,6 +52,7 @@ namespace groovebox {
         std::array<Track, trackCount> tracks;
         std::array<std::array<float, keyCount>, trackCount> voiceIncrements;
         std::array<std::array<std::array<float, Output::count>, keyCount>, trackCount> voiceOut;
+        const int voiceOutCount = trackCount * keyCount * Output::count;
 
         // explicit `init` so that we keep the default, zero-initializing constructor
         void init() {
@@ -98,7 +99,7 @@ namespace groovebox {
         }
 
         int inSteps(int frames, int subdivision = 1) {
-            return floor(frames / (60 * 44100 / bpm) * subdivision * 2);
+            return floor(frames / (60 * SAMPLE_RATE / bpm) * subdivision * 2);
         }
 
         void liveKey(int key) {
