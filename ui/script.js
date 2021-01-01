@@ -15,12 +15,12 @@ const active = {
 
 const before = {
   [noModifier]: {
-    "q": "I", "w": "Oct", "e": "Scl", "r": "Typ", "t": "Ins",
-    "y": "∿", "u": "∿",   "i": "∿",   "o": "∿",   "p": "∿",
-    "a": "",  "s": "",    "d": "",    "f": "",    "g": "",
-    "h": "∿", "j": "∿",   "k": "∿",   "l": "∿",   ";": "∿",
-    "z": "",  "x": "",    "c": "",    "v": "",    "b": "",
-    "n": "∿", "m": "∿",   ",": "∿",   ".": "∿",   "/": "∿",
+    "q": "Seq", "w": "Typ", "e": "Ins", "r": "Oct", "t": "Scl",
+    "y": "∿",   "u": "∿",   "i": "∿",   "o": "∿",   "p": "∿",
+    "a": "",    "s": "",    "d": "",    "f": "",    "g": "",
+    "h": "∿",   "j": "∿",   "k": "∿",   "l": "∿",   ";": "∿",
+    "z": "",    "x": "",    "c": "",    "v": "",    "b": "",
+    "n": "∿",   "m": "∿",   ",": "∿",   ".": "∿",   "/": "∿",
   },
   z: {},
   x: {},
@@ -41,21 +41,21 @@ const before = {
     "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "",
   },
   w: {
-    "h": "5", "j": "6", "k": "7", "l": "8",
-    "n": "0", "m": "1", ",": "2", ".": "3", "/": "4",
-  },
-  e: {
-    "y": "MMD", "u": "MMa",
-    "h": "Mix", "j": "Loc", "k": "HMi", "l": "HMa", ";": "MMi",
-    "n": "Maj", "m": "Min", ",": "Dor", ".": "Phr", "/": "Lyd",
-  },
-  r: {
     "n": "Kit", "m": "Mon", ",": "Pol", ".": "Arp", "/": "Chr"
   },
-  t: {
+  e: {
     "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4", "p": "Syn",
     "h": "Dp",  "j": "Tch", "k": "Mod", "l": "Gab", ";": "Brg",
     "n": "808", "m": "909", ",": "DMX", ".": "DNB", "/": "Drk",
+  },
+  r: {
+    "h": "5", "j": "6", "k": "7", "l": "8",
+    "n": "0", "m": "1", ",": "2", ".": "3", "/": "4",
+  },
+  t: {
+    "y": "MMD", "u": "MMa",
+    "h": "Mix", "j": "Loc", "k": "HMi", "l": "HMa", ";": "MMi",
+    "n": "Maj", "m": "Min", ",": "Dor", ".": "Phr", "/": "Lyd",
   },
 };
 
@@ -110,14 +110,14 @@ const sendMethod = value => {
     return "step:" + sequenceAfters.indexOf(value);
   if (modifier === "q" && tracklistAfters.includes(value))
     return "track:" + tracklistAfters.indexOf(value);
-  if (modifier === "t" && right.includes(value))
-    return "instrument:" + right.indexOf(value);
-  if (modifier === "r" && right.includes(value))
+  if (modifier === "w" && right.includes(value))
     return "trackType:" + right.indexOf(value);
   if (modifier === "e" && right.includes(value))
-    return "scale:" + right.indexOf(value);
-  if (modifier === "w" && right.includes(value))
+    return "instrument:" + right.indexOf(value);
+  if (modifier === "r" && right.includes(value))
     return "octave:" + right.indexOf(value);
+  if (modifier === "t" && right.includes(value))
+    return "scale:" + right.indexOf(value);
 };
 
 const handleModifier = (event, value) => {
@@ -174,7 +174,7 @@ const update = async () => {
 
   Object.assign(active, {
     [noModifier]: [right[key]],
-    q: activeHits, e: [right[scale]], w: [right[octave]], r: [right[trackType]], t: [right[instrument]],
+    q: activeHits, w: [right[trackType]], e: [right[instrument]], r: [right[octave]], t: [right[scale]],
   });
 
   document.body.classList.toggle("armed", armed);

@@ -146,15 +146,16 @@ namespace groovebox {
                 -12, -10, -8, -7, -5, -4, -2, 0, 2, 4, 5, 7, 8, 10, 12
             };
             auto track = tracks[t];
-            voiceOut[t][key][Output::position] = 0;
-            voiceOut[t][key][Output::sample] = track.activeSample;
+            auto voiceIndex = track.type == Type::mono ? 0 : key;
+            voiceOut[t][voiceIndex][Output::position] = 0;
+            voiceOut[t][voiceIndex][Output::sample] = track.activeSample;
             switch (tracks[t].type) {
             case Type::kit:
-                voiceIncrements[t][key] = 1;
+                voiceIncrements[t][voiceIndex] = 1;
                 break;
             default:
                 auto note = root + scaleOffsets[scale][key] + track.octave*12;
-                voiceIncrements[t][key] = pow(2.0f, note / 12.0f) / pow(2.0f, 36 / 12.0f);
+                voiceIncrements[t][voiceIndex] = pow(2.0f, note / 12.0f) / pow(2.0f, 36 / 12.0f);
                 break;
             }
         }
