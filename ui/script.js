@@ -16,8 +16,11 @@ const active = {
 const before = {
   [noModifier]: {
     "q": "I", "w": "Oct", "e": "Scl", "r": "Typ", "t": "Ins",
-    "a": "",  "s": "", "d": "",    "f": "",    "g": "",
-    "z": "",  "x": "", "c": "",    "v": "",    "b": "",
+    "y": "∿", "u": "∿",   "i": "∿",   "o": "∿",   "p": "∿",
+    "a": "",  "s": "",    "d": "",    "f": "",    "g": "",
+    "h": "∿", "j": "∿",   "k": "∿",   "l": "∿",   ";": "∿",
+    "z": "",  "x": "",    "c": "",    "v": "",    "b": "",
+    "n": "∿", "m": "∿",   ",": "∿",   ".": "∿",   "/": "∿",
   },
   z: {},
   x: {},
@@ -31,7 +34,7 @@ const before = {
   g: {},
   q: {
     "q": "",   "w": "1",  "e": "",   "r": "",   "t": "",
-    "y": "5",  "u": "",   "i": "",   "o": "",   "p": "",
+    "y": "5",  "u": "",   "i": "",   "o": "",   "p": "▶",
     "a": "",   "s": "9",  "d": "",   "f": "",   "g": "",
     "h": "13", "j": "",   "k": "",   "l": "",   ";": "●",
     "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
@@ -47,51 +50,13 @@ const before = {
     "n": "Maj", "m": "Min", ",": "Dor", ".": "Phr", "/": "Lyd",
   },
   r: {
-    "n": "EKt", "m": "ESy",
+    "n": "Kit", "m": "Mon", ",": "Pol", ".": "Arp", "/": "Chr"
   },
   t: {
-  },
-  kits: {
-    "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4",
+    "y": "Vrm", "u": "Cmd", "i": "DMG", "o": "FX4", "p": "Syn",
     "h": "Dp",  "j": "Tch", "k": "Mod", "l": "Gab", ";": "Brg",
     "n": "808", "m": "909", ",": "DMX", ".": "DNB", "/": "Drk",
   },
-  hits: {
-    "y": "CH", "u": "CY", "i": "FX", "o": "FX", "p": "FX",
-    "h": "SD", "j": "SD", "k": "CP", "l": "OH", ";": "OH",
-    "n": "BD", "m": "BD", ",": "BD", ".": "LT", "/": "SD",
-  },
-  synths: {
-    "y": "Fnk", "u": "Trk", "i": "Cmc",
-    "h": "Sln", "j": "Atk", "k": "Vib", "l": "Kul", ";": "Rav",
-    "n": "Saw", "m": "Sq", ",":  "FSq", ".": "Sld", "/": "Ody",
-  },
-};
-
-const scaleKeys = [ "n", "m", ",", ".", "/", "h", "j", "k", "l", ";", "y", "u", "i", "o", "p" ];
-const scaleNotes = [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ];
-const scaleOffsets = [
-  [ 0, 2, 4, 5, 7, 9, 11 ],
-  [ 0, 2, 3, 5, 7, 8, 10 ],
-  [ 0, 2, 3, 5, 7, 9, 10 ],
-  [ 0, 1, 3, 5, 7, 8, 10 ],
-  [ 0, 2, 4, 6, 7, 9, 11 ],
-  [ 0, 2, 4, 5, 7, 9, 10 ],
-  [ 0, 1, 3, 5, 6, 8, 10 ],
-  [ 0, 2, 3, 5, 7, 8, 11 ],
-  [ 0, 2, 4, 5, 7, 8, 11 ],
-  [ 0, 2, 3, 5, 7, 9, 11 ],
-  [ 0, 2, 3, 5, 7, 8, 10 ],
-  [ 0, 2, 4, 5, 7, 8, 10 ],
-];
-
-const beforeScale = (index, root) => {
-  const legend = {};
-  scaleKeys.forEach((key, i) => {
-    const offsets = scaleOffsets[index];
-    legend[key] = scaleNotes[(root + offsets[i % offsets.length]) % scaleNotes.length];
-  });
-  return legend;
 };
 
 const ffi = (label, float) => {
@@ -207,10 +172,6 @@ const update = async () => {
   let activeHits = [];
   hits.forEach((hit, i) => { if (hit) activeHits.push(sequenceAfters[i]) });
 
-  before.q.p = playing ? "■" : "▶";
-  before.t = trackType === 0 ? before.kits : before.synths;
-  Object.assign(before[noModifier], trackType === 0 ? before.hits : beforeScale(scale, root));
-  Object.assign(before.e, trackType === 0 ? {} : before.scales);
   Object.assign(active, {
     [noModifier]: [right[key]],
     q: activeHits, e: [right[scale]], w: [right[octave]], r: [right[trackType]], t: [right[instrument]],

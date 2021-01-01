@@ -5,11 +5,21 @@ namespace groovebox {
     const int trackCount = 8;
     const int stepCount = 16;
     const int keyCount = 15;
+    const int outputCount = 2;
+
+    enum Type {
+        kit,
+        mono,
+        poly,
+        arp,
+        chord
+    };
 
     struct Track {
-        int type;
+        Type type;
+        int activeSample;
         int instrument;
-        int octave = 4;
+        int octave = 3;
         std::array<std::array<bool, keyCount>, stepCount> steps;
     };
 
@@ -27,8 +37,7 @@ namespace groovebox {
 
     enum Output {
         sample,
-        position,
-        count
+        position
     };
 
     struct Sequencer {
@@ -52,8 +61,8 @@ namespace groovebox {
         Input previous;
         std::array<Track, trackCount> tracks;
         std::array<std::array<float, keyCount>, trackCount> voiceIncrements;
-        std::array<std::array<std::array<float, Output::count>, keyCount>, trackCount> voiceOut;
-        const int voiceOutCount = trackCount * keyCount * Output::count;
+        std::array<std::array<std::array<float, outputCount>, keyCount>, trackCount> voiceOut;
+        const int voiceOutCount = trackCount * keyCount * outputCount;
 
         // explicit `init` so that we keep the default, zero-initializing constructor
         void init() {
@@ -76,10 +85,10 @@ namespace groovebox {
             }
             TRIGS(scale, scale = i)
             TRIGS(track, activeTrack = i)
-            TRIGS(trackType, tracks[activeTrack].type = i)
-            TRIGS(instrument, tracks[activeTrack].instrument = i)
+            TRIGS(trackType, tracks[activeTrack].type = static_cast<Type>(i))
+            TRIGS(instrument, tracks[activeTrack].instrument = i; updateActiveSample())
             TRIGS(octave, tracks[activeTrack].octave = i)
-            TRIGS(key, activeKey = i; liveKey(i))
+            TRIGS(key, activeKey = i; updateActiveSample(); liveKey())
             TRIGS(step, tracks[activeTrack].steps[i][activeKey] ^= true)
 #undef TRIGS
 
@@ -105,14 +114,20 @@ namespace groovebox {
             return floor(frames / (60 * SAMPLE_RATE / bpm) * subdivision * 2);
         }
 
-        void liveKey(int key) {
+        void updateActiveSample() {
+            auto track = tracks.data() + activeTrack;
+            if (track->type == Type::kit)
+                track->activeSample = track->instrument > 12 ? activeKey*18 + track->instrument + 2 : activeKey + track->instrument*18;
+        }
+
+        void liveKey() {
             if (playing && armed) {
                 auto quantizePosition = (int) ((inSteps(framePosition, 2) + 1) / 2.0) % stepCount;
-                tracks[activeTrack].steps[quantizePosition][key] = true;
+                tracks[activeTrack].steps[quantizePosition][activeKey] = true;
                 if (stepPosition != quantizePosition)
                     return; // prevent double-trig -- aka live-quantize
             }
-            useVoice(activeTrack, key);
+            useVoice(activeTrack, activeKey);
         }
 
         void useVoice(int t, int key) {
@@ -132,17 +147,14 @@ namespace groovebox {
             };
             auto track = tracks[t];
             voiceOut[t][key][Output::position] = 0;
+            voiceOut[t][key][Output::sample] = track.activeSample;
             switch (tracks[t].type) {
-            case 0:
+            case Type::kit:
                 voiceIncrements[t][key] = 1;
-                voiceOut[t][key][Output::sample] = track.instrument == 13 ? key*18 + 15 : key + track.instrument*18;
                 break;
-            case 1:
+            default:
                 auto note = root + scaleOffsets[scale][key] + track.octave*12;
-                auto useHighTargetNote = note > 42;
-                auto sampleNote = useHighTargetNote ? 48 : 36;
-                voiceIncrements[t][key] = pow(2.0f, note / 12.0f) / pow (2.0f, sampleNote / 12.0f);
-                voiceOut[t][key][Output::sample] = track.instrument*18 + 16 + useHighTargetNote;
+                voiceIncrements[t][key] = pow(2.0f, note / 12.0f) / pow(2.0f, 36 / 12.0f);
                 break;
             }
         }
