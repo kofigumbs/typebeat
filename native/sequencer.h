@@ -123,7 +123,11 @@ namespace groovebox {
         void updateActiveSample() {
             auto track = tracks.data() + activeTrack;
             if (track->type == Type::kit)
-                track->activeSample = track->instrument > 12 ? activeKey*18 + track->instrument + 2 : activeKey + track->instrument*18;
+                track->activeSample = getSample(track, activeKey);
+        }
+
+        int getSample(Track* track, int key) {
+            return track->instrument > 12 ? key*18 + track->instrument + 2 : key + track->instrument*18;
         }
 
         void liveKey() {
@@ -154,7 +158,7 @@ namespace groovebox {
             auto track = tracks[t];
             auto voiceIndex = track.type == Type::mono ? 0 : key;
             voiceOut[t][voiceIndex][Output::position] = 0;
-            voiceOut[t][voiceIndex][Output::sample] = track.activeSample;
+            voiceOut[t][voiceIndex][Output::sample] = track.type == Type::kit ? getSample(&track, key) : track.activeSample;
             switch (tracks[t].type) {
             case Type::kit:
                 voiceIncrements[t][voiceIndex] = 1;
