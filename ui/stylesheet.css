@@ -149,12 +149,16 @@ html {
   background: var(--yellow);
 }
 
-.key.tracklist.fill {
+.key.tracklist {
   color: var(--light);
   background: var(--orange);
 }
 
 .key.tracklist.highlight + .shadow {
+  background: var(--light);
+}
+
+.key.tracklist.lowlight + .shadow {
   background: var(--yellow);
 }
 

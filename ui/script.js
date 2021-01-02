@@ -27,18 +27,21 @@ const before = {
   c: {},
   v: {},
   b: {},
-  a: {},
+  a: {
+    "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
+    "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "",
+  },
   s: {},
   d: {},
   f: {},
   g: {},
   q: {
-    "q": "",   "w": "1",   "e": "", "r": "", "t": "",
-    "y": "5",  "u": "",    "i": "", "o": "", "p": "▶",
-    "a": "",   "s": "9",   "d": "", "f": "", "g": "",
-    "h": "13", "j": "",    "k": "", "l": "", ";": "●",
-    "z": "",   "x": "Len", "c": "", "v": "", "b": "",
-    "n": "",   "m": "T6",  ",": "", ".": "", "/": "",
+    "q": "", "w": "Stp", "e": "", "r": "", "t": "",
+    "y": "", "u": "",    "i": "", "o": "", "p": "▶",
+    "a": "", "s": "",    "d": "", "f": "", "g": "",
+    "h": "", "j": "",    "k": "", "l": "", ";": "●",
+    "z": "", "x": "Len", "c": "", "v": "", "b": "",
+    "n": "",  "m": "",   ",": "", ".": "", "/": "",
   },
   w: {
     "n": "Kit", "m": "Mon", ",": "Pol", ".": "Arp", "/": "Chr"
@@ -119,7 +122,6 @@ const tracklist = document.querySelectorAll(".tracklist");
 
 const right = Array.from("nm,./hjkl;yuiop");
 const sequenceAfters = Array.from(sequence).map(x => x.dataset.after);
-const tracklistAfters = Array.from(tracklist).map(x => x.dataset.after);
 
 const toCode = after => {
   switch (after) {
@@ -211,6 +213,7 @@ const update = async () => {
   const armed = await ffi("armed");
   const track = await ffi("track");
   const trackType = await ffi("trackType");
+  const page = await ffi("page");
   const length = await ffi("length");
   const instrument = await ffi("instrument");
   const root = await ffi("root");
@@ -228,12 +231,13 @@ const update = async () => {
     q: activeHits, w: [right[trackType]], e: [right[instrument]], r: [right[octave]], t: [right[scale]],
   });
 
-  before.q["/"] = bpm;
+  before["q"]["/"] = bpm;
+  before[noModifier]["a"] = "T" + (track + 1);
 
   document.body.classList.toggle("armed", armed);
   sequence.forEach((key, i) => key.classList.toggle("highlight", playing && i === beat));
-  tracklist.forEach((key, i) => key.classList.toggle("highlight", i === track));
-  tracklist.forEach((key, i) => key.classList.toggle("fill", i <= length));
+  tracklist.forEach((key, i) => key.classList.toggle("highlight", i <= length));
+  tracklist.forEach((key, i) => key.classList.toggle("lowlight", i === page));
   redraw();
 }
 

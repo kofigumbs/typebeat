@@ -64,6 +64,7 @@ namespace groovebox {
         int activeKey;
         int activeTrack;
         int activeTrackType;
+        int activePage;
         int activeLength;
         int activeInstrument;
         int activeOctave;
@@ -103,15 +104,16 @@ namespace groovebox {
             TRIGS(instrument, tracks[activeTrack].instrument = i; updateActiveSample())
             TRIGS(octave, tracks[activeTrack].octave = i)
             TRIGS(key, activeKey = i; updateActiveSample(); liveKey())
-            TRIGS(step, getWindowedStep(activeTrack, i)[activeKey] ^= true)
+            TRIGS(step, getBeatStep(i)[activeKey] ^= true)
 #undef TRIGS
 
+            activePage = getBeatPage();
             activeLength = tracks[activeTrack].length;
             activeTrackType = tracks[activeTrack].type;
             activeInstrument = tracks[activeTrack].instrument;
             activeOctave = tracks[activeTrack].octave;
             for (int s = 0; s < hitCount; s++)
-                activeHits[s] = getWindowedStep(activeTrack, s)[activeKey];
+                activeHits[s] = getBeatStep(s)[activeKey];
 
             for (int t = 0; t < trackCount; t++)
                 for (int k = 0; k < keyCount; k++)
@@ -139,8 +141,12 @@ namespace groovebox {
             return track.instrument > 12 ? key*18 + track.instrument + 2 : key + track.instrument*18;
         }
 
-        bool* getWindowedStep(int t, int i) {
-            return tracks[t].steps[i + ((stepPosition / hitCount) % (tracks[t].length + 1)) * hitCount].data();
+        int getBeatPage() {
+            return (stepPosition / hitCount) % (tracks[activeTrack].length + 1);
+        }
+
+        bool* getBeatStep(int i) {
+            return tracks[activeTrack].steps[i + getBeatPage() * hitCount].data();
         }
 
         bool* getAbsoluteStep(int t, int i) {

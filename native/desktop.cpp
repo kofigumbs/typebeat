@@ -99,6 +99,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     toView(&view, "key", &sequencer.activeKey);
     toView(&view, "track", &sequencer.activeTrack);
     toView(&view, "trackType", &sequencer.activeTrackType);
+    toView(&view, "page", &sequencer.activePage);
     toView(&view, "length", &sequencer.activeLength);
     toView(&view, "instrument", &sequencer.activeInstrument);
     toView(&view, "scale", &sequencer.scale);
