@@ -17,7 +17,7 @@ const before = {
   [noModifier]: {
     "q": "Seq", "w": "Typ", "e": "Snd", "r": "Oct", "t": "",
     "y": "~",   "u": "~",   "i": "~",   "o": "~",   "p": "~",
-    "a": "",    "s": "",    "d": "",    "f": "",    "g": "",
+    "a": "Trk", "s": "",    "d": "",    "f": "",    "g": "",
     "h": "~",   "j": "~",   "k": "~",   "l": "~",   ";": "~",
     "z": "Key", "x": "",    "c": "",    "v": "",    "b": "",
     "n": "~",   "m": "~",   ",": "~",   ".": "~",   "/": "~",
@@ -35,8 +35,11 @@ const before = {
   v: {},
   b: {},
   a: {
-    "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
-    "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "",
+    "y": "",  "u": "",  "i": "",  "o": "",  "p": "▶",
+    "a": "Mut",
+    "h": "",  "j": "",  "k": "",  "l": "",  ";": "●",
+    "z": "",  "x": "1", "c": "2", "v": "3", "b": "4",
+    "n": "5", "m": "6", ",": "7", ".": "8", "/": "",
   },
   s: {},
   d: {},
@@ -44,9 +47,9 @@ const before = {
   g: {},
   q: {
     "q": "", "w": "Stp", "e": "", "r": "", "t": "",
-    "y": "", "u": "",    "i": "", "o": "", "p": "▶",
+    "y": "", "u": "",    "i": "", "o": "", "p": "",
     "a": "", "s": "",    "d": "", "f": "", "g": "",
-    "h": "", "j": "",    "k": "", "l": "", ";": "●",
+    "h": "", "j": "",    "k": "", "l": "", ";": "",
     "z": "", "x": "Len", "c": "", "v": "", "b": "",
     "n": "",  "m": "",   ",": "", ".": "", "/": "",
   },
@@ -72,9 +75,6 @@ const sends = {
     "n": { trig: "key:0" },  "m": { trig: "key:1" },  ",": { trig: "key:2" },  ".": { trig: "key:3" },  "/": { trig: "key:4" },
   },
   "q": {
-    "p": { trig: "play" },
-    ";": { trig: "arm" },
-    "/": { tapTempo: "setBpm" },
     "w": { trig: "step:0" },  "e": { trig: "step:1" },  "r": { trig: "step:2" },  "t": { trig: "step:3" },
     "y": { trig: "step:4" },  "u": { trig: "step:5" },  "i": { trig: "step:6" },  "o": { trig: "step:7" },
     "s": { trig: "step:8" },  "d": { trig: "step:9" },  "f": { trig: "step:10" }, "g": { trig: "step:11" },
@@ -83,6 +83,9 @@ const sends = {
     "n": { trig: "length:4" }, "m": { trig: "length:5" }, ",": { trig: "length:6" }, ".": { trig: "length:7" },
   },
   "a": {
+    "p": { trig: "play" },
+    ";": { trig: "arm" },
+    "/": { tapTempo: "setBpm" },
     "x": { trig: "track:0" }, "c": { trig: "track:1" }, "v": { trig: "track:2" }, "b": { trig: "track:3" },
     "n": { trig: "track:4" }, "m": { trig: "track:5" }, ",": { trig: "track:6" }, ".": { trig: "track:7" },
   },
@@ -130,6 +133,7 @@ const left12 = Array.from("xcvbsdfgwert");
 const right12 = Array.from("nm,.hjklyuio");
 const right15 = Array.from("nm,./hjkl;yuiop");
 const sequenceAfters = Array.from(sequence).map(x => x.dataset.after);
+const tracklistAfters = Array.from(tracklist).map(x => x.dataset.after);
 
 const toCode = after => {
   switch (after) {
@@ -237,11 +241,11 @@ const update = async () => {
   Object.assign(active, {
     [noModifier]: [right15[key]],
     q: activeHits, w: [right15[trackType]], e: [right15[sounds]], r: [right15[octave]],
+    a: [tracklistAfters[track]],
     z: [left12[root], right12[scale]],
   });
 
-  before["q"]["/"] = bpm;
-  before[noModifier]["a"] = "T" + (track + 1);
+  before["a"]["/"] = bpm;
 
   document.body.classList.toggle("armed", armed);
   sequence.forEach((key, i) => key.classList.toggle("highlight", playing && i === beat));
