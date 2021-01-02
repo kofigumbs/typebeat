@@ -30,6 +30,7 @@ namespace groovebox {
     struct Input {
         int play;
         int arm;
+        int bpm;
         std::array<int, keyCount> key;
         std::array<int, stepCount> step;
         std::array<int, trackCount> track;
@@ -46,9 +47,9 @@ namespace groovebox {
 
     struct Sequencer {
         // song
-        float bpm = 120;
         int root;
         int scale;
+        int bpm = 120;
         // transport
         int playing;
         int armed;
@@ -80,6 +81,7 @@ namespace groovebox {
             armed ^= !previous.arm && current.arm;
             framePosition = playing ? framePosition+1 : -1;
             stepPosition = inSteps(framePosition) % stepCount;
+            if (current.bpm) bpm = current.bpm;
 
 #define TRIGS(prefix, ifTrig)                                \
             auto prefix##Trigs = current.prefix;             \
@@ -115,7 +117,7 @@ namespace groovebox {
         }
 
         int inSteps(int frames, int subdivision = 1) {
-            return floor(frames / (60 * SAMPLE_RATE / bpm) * subdivision * 2);
+            return floor(frames / (60.f * SAMPLE_RATE / bpm) * subdivision * 2);
         }
 
         void updateActiveSample() {

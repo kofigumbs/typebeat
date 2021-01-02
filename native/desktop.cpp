@@ -92,6 +92,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     view.set_size(900, 320 + 22 /* see docs/frameless.md */, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (root / "ui" / "index.html").string());
 
+    toView(&view, "bpm", &sequencer.bpm);
     toView(&view, "playing", &sequencer.playing);
     toView(&view, "armed", &sequencer.armed);
     toView(&view, "beat", &sequencer.stepPosition);
@@ -104,6 +105,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     toViewArray(&view, "hit:", &sequencer.activeHits);
     toSequencer(&view, "play", &input.play);
     toSequencer(&view, "arm", &input.arm);
+    toSequencer(&view, "setBpm", &input.bpm);
     toSequencerArray(&view, "key:", &input.key);
     toSequencerArray(&view, "step:", &input.step);
     toSequencerArray(&view, "track:", &input.track);

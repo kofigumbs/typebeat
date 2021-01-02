@@ -68,6 +68,7 @@ const sends = {
   "q": {
     "p": { trig: "play" },
     ";": { trig: "arm" },
+    "/": { tapTempo: "setBpm" },
     "w": { trig: "step:0" },  "e": { trig: "step:1" },  "r": { trig: "step:2" },  "t": { trig: "step:3" },
     "y": { trig: "step:4" },  "u": { trig: "step:5" },  "i": { trig: "step:6" },  "o": { trig: "step:7" },
     "s": { trig: "step:8" },  "d": { trig: "step:9" },  "f": { trig: "step:10" }, "g": { trig: "step:11" },
@@ -134,18 +135,41 @@ const redraw = () => {
   }
 };
 
+const tapTempo = {
+  taps: [],
+  reset() {
+    this.taps = [];
+  },
+  push(method, timeStamp) {
+    this.taps.push(timeStamp);
+    if (this.taps.length > 1) {
+      let diffs = 0;
+      for (let i = 1; i < this.taps.length; i++)
+        diffs += this.taps[i] - this.taps[i-1];
+      ffi(method, Math.round(60000 / (diffs / (this.taps.length - 1))));
+    }
+  },
+};
+
+const resetModifier = () => {
+  tapTempo.reset();
+  modifier = noModifier;
+};
+
 const handleSend = (event, value) => {
   if (!sends[modifier] || !sends[modifier][value])
     return;
   if (sends[modifier][value].trig)
     return ffi(sends[modifier][value].trig, event.type === "keydown");
+  if (sends[modifier][value].tapTempo)
+    return event.type === "keydown" && tapTempo.push(sends[modifier][value].tapTempo, event.timeStamp);
 };
 
 const handleModifier = (event, value) => {
   if (modifier === noModifier && event.type === "keydown")
     modifier = value;
   else if (modifier === value && event.type === "keyup")
-    modifier = noModifier;
+    resetModifier();
   else
     handleSend(event, value);
   redraw();
@@ -178,6 +202,7 @@ document.addEventListener("keypress", event => event.preventDefault());
  */
 
 const update = async () => {
+  const bpm = await ffi("bpm");
   const playing = await ffi("playing");
   const armed = await ffi("armed");
   const track = await ffi("track");
@@ -197,6 +222,8 @@ const update = async () => {
     [noModifier]: [right[key]],
     q: activeHits, w: [right[trackType]], e: [right[instrument]], r: [right[octave]], t: [right[scale]],
   });
+
+  before.q["/"] = bpm;
 
   document.body.classList.toggle("armed", armed);
   sequence.forEach((key, i) => key.classList.toggle("highlight", playing && i === beat));
