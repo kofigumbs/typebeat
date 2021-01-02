@@ -101,7 +101,8 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     toView(&view, "trackType", &sequencer.activeTrackType);
     toView(&view, "page", &sequencer.activePage);
     toView(&view, "length", &sequencer.activeLength);
-    toView(&view, "instrument", &sequencer.activeInstrument);
+    toView(&view, "sounds", &sequencer.activeSounds);
+    toView(&view, "root", &sequencer.root);
     toView(&view, "scale", &sequencer.scale);
     toView(&view, "octave", &sequencer.activeOctave);
     toViewArray(&view, "hit:", &sequencer.activeHits);
@@ -113,7 +114,8 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     toSequencerArray(&view, "length:", &input.length);
     toSequencerArray(&view, "track:", &input.track);
     toSequencerArray(&view, "trackType:", &input.trackType);
-    toSequencerArray(&view, "instrument:", &input.instrument);
+    toSequencerArray(&view, "sounds:", &input.sounds);
+    toSequencerArray(&view, "root:", &input.root);
     toSequencerArray(&view, "scale:", &input.scale);
     toSequencerArray(&view, "octave:", &input.octave);
 

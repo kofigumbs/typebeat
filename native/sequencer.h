@@ -8,8 +8,9 @@ namespace groovebox {
     const int stepCount = 128;
     const int keyCount = 15;
     const int trackTypeCount = 5;
-    const int instrumentCount = 15;
+    const int soundsCount = 15;
     const int octaveCount = 9;
+    const int rootCount = 12;
     const int scaleCount = 12;
     const int outputCount = 2;
 
@@ -25,7 +26,7 @@ namespace groovebox {
         Type type;
         int length;
         int activeSample;
-        int instrument;
+        int sounds;
         int octave = 3;
         std::array<std::array<bool, keyCount>, stepCount> steps;
     };
@@ -39,7 +40,8 @@ namespace groovebox {
         std::array<int, lengthCount> length;
         std::array<int, trackCount> track;
         std::array<int, trackTypeCount> trackType;
-        std::array<int, instrumentCount> instrument;
+        std::array<int, soundsCount> sounds;
+        std::array<int, rootCount> root;
         std::array<int, octaveCount> octave;
         std::array<int, scaleCount> scale;
     };
@@ -66,7 +68,7 @@ namespace groovebox {
         int activeTrackType;
         int activePage;
         int activeLength;
-        int activeInstrument;
+        int activeSounds;
         int activeOctave;
         std::array<int, hitCount> activeHits;
         // internals
@@ -97,11 +99,12 @@ namespace groovebox {
                 prefix##Trigs[i] &= !previous.prefix[i];     \
                 if (prefix##Trigs[i]) { ifTrig; }            \
             }
+            TRIGS(root, root = i)
             TRIGS(scale, scale = i)
             TRIGS(track, activeTrack = i)
             TRIGS(trackType, tracks[activeTrack].type = static_cast<Type>(i))
             TRIGS(length, tracks[activeTrack].length = i)
-            TRIGS(instrument, tracks[activeTrack].instrument = i; updateActiveSample())
+            TRIGS(sounds, tracks[activeTrack].sounds = i; updateActiveSample())
             TRIGS(octave, tracks[activeTrack].octave = i)
             TRIGS(key, activeKey = i; updateActiveSample(); liveKey())
             TRIGS(step, getBeatStep(i)[activeKey] ^= true)
@@ -110,7 +113,7 @@ namespace groovebox {
             activePage = getBeatPage();
             activeLength = tracks[activeTrack].length;
             activeTrackType = tracks[activeTrack].type;
-            activeInstrument = tracks[activeTrack].instrument;
+            activeSounds = tracks[activeTrack].sounds;
             activeOctave = tracks[activeTrack].octave;
             for (int s = 0; s < hitCount; s++)
                 activeHits[s] = getBeatStep(s)[activeKey];
@@ -138,7 +141,7 @@ namespace groovebox {
 
         int getSample(int t, int key) {
             auto track = tracks[t];
-            return track.instrument > 12 ? key*18 + track.instrument + 2 : key + track.instrument*18;
+            return track.sounds > 12 ? key*18 + track.sounds + 2 : key + track.sounds*18;
         }
 
         int getBeatPage() {
