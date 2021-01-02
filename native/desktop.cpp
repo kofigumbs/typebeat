@@ -95,10 +95,11 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     toView(&view, "bpm", &sequencer.bpm);
     toView(&view, "playing", &sequencer.playing);
     toView(&view, "armed", &sequencer.armed);
-    toView(&view, "beat", &sequencer.stepPosition);
+    toView(&view, "beat", &sequencer.beat);
     toView(&view, "key", &sequencer.activeKey);
     toView(&view, "track", &sequencer.activeTrack);
     toView(&view, "trackType", &sequencer.activeTrackType);
+    toView(&view, "length", &sequencer.activeLength);
     toView(&view, "instrument", &sequencer.activeInstrument);
     toView(&view, "scale", &sequencer.scale);
     toView(&view, "octave", &sequencer.activeOctave);
@@ -108,6 +109,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     toSequencer(&view, "setBpm", &input.bpm);
     toSequencerArray(&view, "key:", &input.key);
     toSequencerArray(&view, "step:", &input.step);
+    toSequencerArray(&view, "length:", &input.length);
     toSequencerArray(&view, "track:", &input.track);
     toSequencerArray(&view, "trackType:", &input.trackType);
     toSequencerArray(&view, "instrument:", &input.instrument);

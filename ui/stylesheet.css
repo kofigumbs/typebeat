@@ -149,7 +149,7 @@ html {
   background: var(--yellow);
 }
 
-.key.tracklist {
+.key.tracklist.fill {
   color: var(--light);
   background: var(--orange);
 }

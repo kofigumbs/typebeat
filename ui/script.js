@@ -33,12 +33,12 @@ const before = {
   f: {},
   g: {},
   q: {
-    "q": "",   "w": "1",  "e": "",   "r": "",   "t": "",
-    "y": "5",  "u": "",   "i": "",   "o": "",   "p": "▶",
-    "a": "",   "s": "9",  "d": "",   "f": "",   "g": "",
-    "h": "13", "j": "",   "k": "",   "l": "",   ";": "●",
-    "z": "",   "x": "T1", "c": "T2", "v": "T3", "b": "T4",
-    "n": "T5", "m": "T6", ",": "T7", ".": "T8", "/": "",
+    "q": "",   "w": "1",   "e": "", "r": "", "t": "",
+    "y": "5",  "u": "",    "i": "", "o": "", "p": "▶",
+    "a": "",   "s": "9",   "d": "", "f": "", "g": "",
+    "h": "13", "j": "",    "k": "", "l": "", ";": "●",
+    "z": "",   "x": "Len", "c": "", "v": "", "b": "",
+    "n": "",   "m": "T6",  ",": "", ".": "", "/": "",
   },
   w: {
     "n": "Kit", "m": "Mon", ",": "Pol", ".": "Arp", "/": "Chr"
@@ -73,6 +73,10 @@ const sends = {
     "y": { trig: "step:4" },  "u": { trig: "step:5" },  "i": { trig: "step:6" },  "o": { trig: "step:7" },
     "s": { trig: "step:8" },  "d": { trig: "step:9" },  "f": { trig: "step:10" }, "g": { trig: "step:11" },
     "h": { trig: "step:12" }, "j": { trig: "step:13" }, "k": { trig: "step:14" }, "l": { trig: "step:15" },
+    "x": { trig: "length:0" }, "c": { trig: "length:1" }, "v": { trig: "length:2" }, "b": { trig: "length:3" },
+    "n": { trig: "length:4" }, "m": { trig: "length:5" }, ",": { trig: "length:6" }, ".": { trig: "length:7" },
+  },
+  "a": {
     "x": { trig: "track:0" }, "c": { trig: "track:1" }, "v": { trig: "track:2" }, "b": { trig: "track:3" },
     "n": { trig: "track:4" }, "m": { trig: "track:5" }, ",": { trig: "track:6" }, ".": { trig: "track:7" },
   },
@@ -207,6 +211,7 @@ const update = async () => {
   const armed = await ffi("armed");
   const track = await ffi("track");
   const trackType = await ffi("trackType");
+  const length = await ffi("length");
   const instrument = await ffi("instrument");
   const root = await ffi("root");
   const octave = await ffi("octave");
@@ -228,6 +233,7 @@ const update = async () => {
   document.body.classList.toggle("armed", armed);
   sequence.forEach((key, i) => key.classList.toggle("highlight", playing && i === beat));
   tracklist.forEach((key, i) => key.classList.toggle("highlight", i === track));
+  tracklist.forEach((key, i) => key.classList.toggle("fill", i <= length));
   redraw();
 }
 

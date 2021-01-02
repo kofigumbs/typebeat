@@ -3,7 +3,9 @@
 
 namespace groovebox {
     const int trackCount = 8;
-    const int stepCount = 16;
+    const int lengthCount = 8;
+    const int hitCount = 16;
+    const int stepCount = 128;
     const int keyCount = 15;
     const int trackTypeCount = 5;
     const int instrumentCount = 15;
@@ -21,6 +23,7 @@ namespace groovebox {
 
     struct Track {
         Type type;
+        int length;
         int activeSample;
         int instrument;
         int octave = 3;
@@ -32,7 +35,8 @@ namespace groovebox {
         int arm;
         int bpm;
         std::array<int, keyCount> key;
-        std::array<int, stepCount> step;
+        std::array<int, hitCount> step;
+        std::array<int, lengthCount> length;
         std::array<int, trackCount> track;
         std::array<int, trackTypeCount> trackType;
         std::array<int, instrumentCount> instrument;
@@ -55,13 +59,15 @@ namespace groovebox {
         int armed;
         int framePosition;
         int stepPosition;
+        int beat;
         // selections
         int activeKey;
         int activeTrack;
         int activeTrackType;
+        int activeLength;
         int activeInstrument;
         int activeOctave;
-        std::array<int, stepCount> activeHits;
+        std::array<int, hitCount> activeHits;
         // internals
         Input previous;
         std::array<Track, trackCount> tracks;
@@ -81,6 +87,7 @@ namespace groovebox {
             armed ^= !previous.arm && current.arm;
             framePosition = playing ? framePosition+1 : -1;
             stepPosition = inSteps(framePosition) % stepCount;
+            beat = stepPosition % hitCount;
             if (current.bpm) bpm = current.bpm;
 
 #define TRIGS(prefix, ifTrig)                                \
@@ -92,17 +99,19 @@ namespace groovebox {
             TRIGS(scale, scale = i)
             TRIGS(track, activeTrack = i)
             TRIGS(trackType, tracks[activeTrack].type = static_cast<Type>(i))
+            TRIGS(length, tracks[activeTrack].length = i)
             TRIGS(instrument, tracks[activeTrack].instrument = i; updateActiveSample())
             TRIGS(octave, tracks[activeTrack].octave = i)
             TRIGS(key, activeKey = i; updateActiveSample(); liveKey())
-            TRIGS(step, tracks[activeTrack].steps[i][activeKey] ^= true)
+            TRIGS(step, getWindowedStep(activeTrack, i)[activeKey] ^= true)
 #undef TRIGS
 
+            activeLength = tracks[activeTrack].length;
             activeTrackType = tracks[activeTrack].type;
             activeInstrument = tracks[activeTrack].instrument;
             activeOctave = tracks[activeTrack].octave;
-            for (int s = 0; s < stepCount; s++)
-                activeHits[s] = tracks[activeTrack].steps[s][activeKey];
+            for (int s = 0; s < hitCount; s++)
+                activeHits[s] = getWindowedStep(activeTrack, s)[activeKey];
 
             for (int t = 0; t < trackCount; t++)
                 for (int k = 0; k < keyCount; k++)
@@ -110,7 +119,7 @@ namespace groovebox {
             if (playing && stepPosition != inSteps(framePosition - 1) % stepCount)
                 for (int t = 0; t < trackCount; t++)
                     for (int k = 0; k < keyCount; k++)
-                        if (tracks[t].steps[stepPosition][k])
+                        if (getAbsoluteStep(t, stepPosition)[k])
                             useVoice(t, k);
 
             previous = current;
@@ -121,19 +130,27 @@ namespace groovebox {
         }
 
         void updateActiveSample() {
-            auto track = tracks.data() + activeTrack;
-            if (track->type == Type::kit)
-                track->activeSample = getSample(track, activeKey);
+            if (tracks[activeTrack].type == Type::kit)
+                tracks[activeTrack].activeSample = getSample(activeTrack, activeKey);
         }
 
-        int getSample(Track* track, int key) {
-            return track->instrument > 12 ? key*18 + track->instrument + 2 : key + track->instrument*18;
+        int getSample(int t, int key) {
+            auto track = tracks[t];
+            return track.instrument > 12 ? key*18 + track.instrument + 2 : key + track.instrument*18;
+        }
+
+        bool* getWindowedStep(int t, int i) {
+            return tracks[t].steps[i + ((stepPosition / hitCount) % (tracks[t].length + 1)) * hitCount].data();
+        }
+
+        bool* getAbsoluteStep(int t, int i) {
+            return tracks[t].steps[i % ((tracks[t].length + 1) * hitCount)].data();
         }
 
         void liveKey() {
             if (playing && armed) {
                 auto quantizePosition = (int) ((inSteps(framePosition, 2) + 1) / 2.0) % stepCount;
-                tracks[activeTrack].steps[quantizePosition][activeKey] = true;
+                getAbsoluteStep(activeTrack, quantizePosition)[activeKey] = true;
                 if (stepPosition != quantizePosition)
                     return; // prevent double-trig -- aka live-quantize
             }
@@ -158,7 +175,7 @@ namespace groovebox {
             auto track = tracks[t];
             auto voiceIndex = track.type == Type::mono ? 0 : key;
             voiceOut[t][voiceIndex][Output::position] = 0;
-            voiceOut[t][voiceIndex][Output::sample] = track.type == Type::kit ? getSample(&track, key) : track.activeSample;
+            voiceOut[t][voiceIndex][Output::sample] = track.type == Type::kit ? getSample(t, key) : track.activeSample;
             switch (tracks[t].type) {
             case Type::kit:
                 voiceIncrements[t][voiceIndex] = 1;
