@@ -5,6 +5,10 @@ namespace groovebox {
     const int trackCount = 8;
     const int stepCount = 16;
     const int keyCount = 15;
+    const int trackTypeCount = 5;
+    const int instrumentCount = 15;
+    const int octaveCount = 9;
+    const int scaleCount = 12;
     const int outputCount = 2;
 
     enum Type {
@@ -29,10 +33,10 @@ namespace groovebox {
         std::array<int, keyCount> key;
         std::array<int, stepCount> step;
         std::array<int, trackCount> track;
-        std::array<int, stepCount> trackType;
-        std::array<int, stepCount> instrument;
-        std::array<int, stepCount> scale;
-        std::array<int, stepCount> octave;
+        std::array<int, trackTypeCount> trackType;
+        std::array<int, instrumentCount> instrument;
+        std::array<int, octaveCount> octave;
+        std::array<int, scaleCount> scale;
     };
 
     enum Output {
@@ -131,7 +135,7 @@ namespace groovebox {
         }
 
         void useVoice(int t, int key) {
-            static const std::array<std::array<int, 15>, 12> scaleOffsets {
+            static const std::array<std::array<int, keyCount>, scaleCount> scaleOffsets {
                 -12, -10, -8, -7, -5, -3, -1, 0, 2, 4, 5, 7, 9, 11, 12,
                 -12, -10, -9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10, 12,
                 -12, -10, -9, -7, -5, -3, -2, 0, 2, 3, 5, 7, 9, 10, 12,
