@@ -3,14 +3,9 @@
 
 namespace groovebox {
     const int trackCount = 8;
-    const int lengthCount = 8;
     const int hitCount = 16;
     const int stepCount = 128;
     const int keyCount = 15;
-    const int trackTypeCount = 5;
-    const int soundsCount = 15;
-    const int octaveCount = 9;
-    const int rootCount = 12;
     const int scaleCount = 12;
     const int outputCount = 2;
 
