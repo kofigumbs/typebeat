@@ -56,10 +56,6 @@ const custom = {
         diffs += this.state[i] - this.state[i - 1];
       nativePut(this.method, Math.round(60000 / (diffs / (this.state.length - 1))));
     },
-    reset() {
-      this.state = [];
-      nativePut(this.method, 0);
-    },
   },
 };
 
@@ -72,13 +68,20 @@ let modifier = noModifier;
 const bindings = window.bindings();
 
 const keys = document.querySelectorAll(".key");
-const keysByCode = Object.fromEntries(Array.from(keys).map(key => [ key.dataset.after, key ]));
 const keysInPage = document.querySelectorAll(".page");
 const keysInSequence = document.querySelectorAll(".sequence");
 
+const keysByEventCode = Object.fromEntries(Array.from(keys).map(key => [
+  key.dataset.after
+    .replace(/[a-z]/, match => `Key${match.toUpperCase()}`)
+    .replace(";", "Semicolon")
+    .replace(",", "Comma").replace(".", "Period").replace("/", "Slash"),
+  key,
+]));
+
 const resetModifier = () => {
   modifier = noModifier;
-  custom.bpm.reset();
+  custom.bpm.state = [];
 }
 
 const handleSend = (event, value) => {
@@ -114,12 +117,8 @@ const handleKeyboardKey = (event, key) => {
 const handleDocumentKey = event => {
   if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.repeat)
     return;
-  let code = event.code
-    .replace("Semicolon", ";")
-    .replace("Comma", ",").replace("Period", ".").replace("Slash", "/")
-    .replace("Key", "").toLowerCase();
-  if (keysByCode[code])
-    handleKeyboardKey(event, keysByCode[code]);
+  if (keysByEventCode[event.code])
+    handleKeyboardKey(event, keysByEventCode[event.code]);
 };
 
 document.addEventListener("keydown", handleDocumentKey);

@@ -96,8 +96,6 @@ namespace groovebox {
             for (int i = 0; i < hitCount; i++)
                 getBeatStep(i)[activeKey] ^= received(steps[i]);
             // set
-            if (received(bpm))
-                bpm = current.bpm - 1;
             if (received(track))
                 activeTrack = current.track - 1;
             if (received(trackType))
@@ -119,6 +117,9 @@ namespace groovebox {
                 updateActiveSample();
                 liveKey();
             }
+            // custom
+            if (received(bpm))
+                bpm = current.bpm;
 #undef received
 
             activePage = getBeatPage();
