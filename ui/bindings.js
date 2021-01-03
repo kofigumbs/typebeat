@@ -1,6 +1,9 @@
 window.bindings = () => ({
   q: [ "Seq", {
-    ...top16("step", "Stp"),
+    w: toggle("step:0", "Stp"), e: toggle("step:1"),  r: toggle("step:2"),  t: toggle("step:3"),
+    y: toggle("step:4"),        u: toggle("step:5"),  i: toggle("step:6"),  o: toggle("step:7"),
+    s: toggle("step:8"),        d: toggle("step:9"),  f: toggle("step:10"), g: toggle("step:11"),
+    h: toggle("step:12"),       j: toggle("step:13"), k: toggle("step:14"), l: toggle("step:15"),
     ...bottom8("length", "Len"),
   }],
   w: [ "Typ", {
@@ -20,7 +23,7 @@ window.bindings = () => ({
   a: [ "Mix", {
     // TODO ...middle8("mute", "Mut"),
     ...bottom8("track", "Trk"),
-    "p": trig("play", "▶"), ";": trig("arm", "●"), "/": custom.bpm,
+    p: trig("play", "▶"), ";": trig("arm", "●"), "/": custom.bpm,
   }],
   s: [ "Vel", {
     // TODO ...right15("velocity", range(1, 15)),

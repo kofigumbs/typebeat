@@ -2,8 +2,8 @@
  * native ffi
  */
 
-const nativeGet = (method) => window[`toUi:${method}`]();
-const nativePut = (method, value) => window[`fromUi:${method}`](value|0);
+const nativeGet = (method) => window[`fromNative:${method}`]();
+const nativePut = (method, value) => window[`toNative:${method}`](value|0);
 
 
 /*
@@ -13,7 +13,8 @@ const nativePut = (method, value) => window[`fromUi:${method}`](value|0);
 const noModifier = "";
 
 const trig = (method, label) => ({ type: "trig", method, label });
-const trigValue = (method, value, label) => ({ type: "trigValue", method, value, label });
+const toggle = (method, label) => ({ type: "toggle", method, value: 1, label });
+const set = (method, value, label) => ({ type: "set", method, value, label });
 
 const range = (low, high) => {
   return Array.from({ length: high - low + 1 }, (_, i) => (low + i).toString());
@@ -22,7 +23,7 @@ const range = (low, high) => {
 const labeled = (length, keys, method, toLabel) => {
   return Object.fromEntries(Array.from({ length }, (_, i) => [
     keys[i],
-    trigValue(method, i, toLabel(i)),
+    set(method, i, toLabel(i)),
   ]));
 };
 
@@ -34,8 +35,6 @@ const labelAll = (keys, method, labels) => {
   return labeled(Math.min(keys.length, labels.length), keys, method, i => labels[i]);
 };
 
-const top8 = (method, label) => labelFirst("wertyuio", method, label);
-const top16 = (method, label) => labelFirst("wertyuiosdfghjkl", method, label);
 const middle8 = (method, label) => labelFirst("sdfghjkl", method, label);
 const bottom8 = (method, label) => labelFirst("xcvbnm,.", method, label);
 const left12 = (method, labels) => labelAll("xcvbsdfgwert", method, labels);
@@ -57,6 +56,10 @@ const custom = {
         diffs += this.state[i] - this.state[i - 1];
       nativePut(this.method, Math.round(60000 / (diffs / (this.state.length - 1))));
     },
+    reset() {
+      this.state = [];
+      nativePut(this.method, 0);
+    },
   },
 };
 
@@ -74,18 +77,18 @@ const keysInPage = document.querySelectorAll(".page");
 const keysInSequence = document.querySelectorAll(".sequence");
 
 const resetModifier = () => {
-  custom.bpm.state = [];
   modifier = noModifier;
+  custom.bpm.reset();
 }
 
 const handleSend = (event, value) => {
   const binding = bindings[modifier][1][value];
   if (!binding)
     return;
-  if (binding.type === "trig")
+  if (binding.type === "trig" || binding.type === "toggle")
     return nativePut(binding.method, event.type === "keydown");
-  if (binding.type === "trigValue")
-    return nativePut(`${binding.method}:${binding.value}`, event.type === "keydown");
+  if (binding.type === "set")
+    return nativePut(binding.method, (binding.value + 1) * (event.type === "keydown"));
   if (binding.type === "custom")
     return binding.handle(event, value);
 };

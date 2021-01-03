@@ -38,29 +38,22 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     }
 }
 
-void toView(webview::webview* view, std::string label, int* p) {
-    view->bind("toUi:" + label, [p](std::string data) -> std::string {
-        return std::to_string(*p);
+void fromNative(webview::webview* view, std::string label, int* source) {
+    view->bind("fromNative:" + label, [source](std::string data) -> std::string {
+        return std::to_string(*source);
     });
 }
 
-void toSequencer(webview::webview* view, std::string label, int* p) {
-    view->bind("fromUi:" + label, [p](std::string data) -> std::string {
-        *p = std::stoi(data.substr(1, data.length() - 2));
+void toNative(webview::webview* view, std::string label, int* destination) {
+    view->bind("toNative:" + label, [destination](std::string data) -> std::string {
+        *destination = std::stoi(data.substr(1, data.length() - 2));
         return "";
     });
 }
 
-template <std::size_t N>
-void toViewArray(webview::webview* view, std::string prefix, std::array<int, N>* array) {
-    for (int i = 0; i < array->size(); i++)
-        toView(view, prefix + std::to_string(i), array->data() + i);
-}
-
-template <std::size_t N>
-void toSequencerArray(webview::webview* view, std::string prefix, std::array<int, N>* array) {
-    for (int i = 0; i < array->size(); i++)
-        toSequencer(view, prefix + std::to_string(i), array->data() + i);
+void syncNative(webview::webview* view, std::string label, int* source, int* destination) {
+    fromNative(view, label, source);
+    toNative(view, label, destination);
 }
 
 int main(int argc, char* argv[]) { // TODO WinMain, see webview README
@@ -92,33 +85,21 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     view.set_size(900, 320 + 22 /* see docs/frameless.md */, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (root / "ui" / "index.html").string());
 
-    toView(&view, "beat", &sequencer.beat);
-    toView(&view, "bpm", &sequencer.bpm);
-    toView(&view, "play", &sequencer.playing);
-    toView(&view, "arm", &sequencer.armed);
-    toView(&view, "step", &sequencer.beat); // TODO delete
-    toView(&view, "key", &sequencer.activeKey);
-    toView(&view, "track", &sequencer.activeTrack);
-    toView(&view, "type", &sequencer.activeTrackType);
-    toView(&view, "page", &sequencer.activePage);
-    toView(&view, "length", &sequencer.activeLength);
-    toView(&view, "sounds", &sequencer.activeSounds);
-    toView(&view, "root", &sequencer.root);
-    toView(&view, "scale", &sequencer.scale);
-    toView(&view, "octave", &sequencer.activeOctave);
-    toViewArray(&view, "hit:", &sequencer.activeHits);
-    toSequencer(&view, "play", &input.play);
-    toSequencer(&view, "arm", &input.arm);
-    toSequencer(&view, "bpm", &input.bpm);
-    toSequencerArray(&view, "key:", &input.key);
-    toSequencerArray(&view, "step:", &input.step);
-    toSequencerArray(&view, "length:", &input.length);
-    toSequencerArray(&view, "track:", &input.track);
-    toSequencerArray(&view, "type:", &input.trackType);
-    toSequencerArray(&view, "sounds:", &input.sounds);
-    toSequencerArray(&view, "root:", &input.root);
-    toSequencerArray(&view, "scale:", &input.scale);
-    toSequencerArray(&view, "octave:", &input.octave);
+    fromNative(&view, "beat", &sequencer.beat);
+    fromNative(&view, "page", &sequencer.activePage);
+    syncNative(&view, "bpm", &sequencer.bpm, &input.bpm);
+    syncNative(&view, "play", &sequencer.playing, &input.play);
+    syncNative(&view, "arm", &sequencer.armed, &input.arm);
+    syncNative(&view, "key", &sequencer.activeKey, &input.key);
+    syncNative(&view, "track", &sequencer.activeTrack, &input.track);
+    syncNative(&view, "type", &sequencer.activeTrackType, &input.trackType);
+    syncNative(&view, "length", &sequencer.activeLength, &input.length);
+    syncNative(&view, "sounds", &sequencer.activeSounds, &input.sounds);
+    syncNative(&view, "root", &sequencer.root, &input.root);
+    syncNative(&view, "scale", &sequencer.scale, &input.scale);
+    syncNative(&view, "octave", &sequencer.activeOctave, &input.octave);
+    for (int i = 0; i < sequencer.activeSteps.size(); i++)
+        syncNative(&view, "step:" + std::to_string(i), sequencer.activeSteps.data() + i, input.steps.data() + i);
 
 #ifdef WEBVIEW_COCOA
     auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see docs/frameless.md

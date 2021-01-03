@@ -35,15 +35,15 @@ namespace groovebox {
         int play;
         int arm;
         int bpm;
-        std::array<int, keyCount> key;
-        std::array<int, hitCount> step;
-        std::array<int, lengthCount> length;
-        std::array<int, trackCount> track;
-        std::array<int, trackTypeCount> trackType;
-        std::array<int, soundsCount> sounds;
-        std::array<int, rootCount> root;
-        std::array<int, octaveCount> octave;
-        std::array<int, scaleCount> scale;
+        int key;
+        int length;
+        int track;
+        int trackType;
+        int sounds;
+        int root;
+        int octave;
+        int scale;
+        std::array<int, hitCount> steps;
     };
 
     enum Output {
@@ -62,7 +62,7 @@ namespace groovebox {
         int framePosition;
         int stepPosition;
         int beat;
-        // selections
+        // active (for ui)
         int activeKey;
         int activeTrack;
         int activeTrackType;
@@ -70,7 +70,7 @@ namespace groovebox {
         int activeLength;
         int activeSounds;
         int activeOctave;
-        std::array<int, hitCount> activeHits;
+        std::array<int, hitCount> activeSteps;
         // internals
         Input previous;
         std::array<Track, trackCount> tracks;
@@ -86,29 +86,40 @@ namespace groovebox {
         }
 
         void compute(Input current) {
-            playing ^= !previous.play && current.play;
-            armed ^= !previous.arm && current.arm;
+#define received(x) current.x && current.x != previous.x
+            // trig
+            playing ^= received(play);
+            armed ^= received(arm);
             framePosition = playing ? framePosition+1 : -1;
             stepPosition = inSteps(framePosition) % stepCount;
             beat = stepPosition % hitCount;
-            if (current.bpm) bpm = current.bpm;
-
-#define TRIGS(prefix, ifTrig)                                \
-            auto prefix##Trigs = current.prefix;             \
-            for (int i = 0; i < prefix##Trigs.size(); i++) { \
-                prefix##Trigs[i] &= !previous.prefix[i];     \
-                if (prefix##Trigs[i]) { ifTrig; }            \
+            for (int i = 0; i < hitCount; i++)
+                getBeatStep(i)[activeKey] ^= received(steps[i]);
+            // set
+            if (received(bpm))
+                bpm = current.bpm - 1;
+            if (received(track))
+                activeTrack = current.track - 1;
+            if (received(trackType))
+                tracks[activeTrack].type = static_cast<Type>(current.trackType - 1);
+            if (received(length))
+                tracks[activeTrack].length = current.length - 1;
+            if (received(sounds)) {
+                tracks[activeTrack].sounds = current.sounds - 1;
+                updateActiveSample();
             }
-            TRIGS(root, root = i)
-            TRIGS(scale, scale = i)
-            TRIGS(track, activeTrack = i)
-            TRIGS(trackType, tracks[activeTrack].type = static_cast<Type>(i))
-            TRIGS(length, tracks[activeTrack].length = i)
-            TRIGS(sounds, tracks[activeTrack].sounds = i; updateActiveSample())
-            TRIGS(octave, tracks[activeTrack].octave = i)
-            TRIGS(key, activeKey = i; updateActiveSample(); liveKey())
-            TRIGS(step, getBeatStep(i)[activeKey] ^= true)
-#undef TRIGS
+            if (received(root))
+                root = current.root - 1;
+            if (received(scale))
+                scale = current.scale - 1;
+            if (received(octave))
+                tracks[activeTrack].octave = current.octave - 1;
+            if (received(key)) {
+                activeKey = current.key - 1;
+                updateActiveSample();
+                liveKey();
+            }
+#undef received
 
             activePage = getBeatPage();
             activeLength = tracks[activeTrack].length;
@@ -116,7 +127,7 @@ namespace groovebox {
             activeSounds = tracks[activeTrack].sounds;
             activeOctave = tracks[activeTrack].octave;
             for (int s = 0; s < hitCount; s++)
-                activeHits[s] = getBeatStep(s)[activeKey];
+                activeSteps[s] = getBeatStep(s)[activeKey];
 
             for (int t = 0; t < trackCount; t++)
                 for (int k = 0; k < keyCount; k++)
