@@ -1,5 +1,13 @@
 /*
- * binding dsl
+ * native ffi
+ */
+
+const nativeGet = (method) => window[`toUi:${method}`]();
+const nativePut = (method, value) => window[`fromUi:${method}`](value|0);
+
+
+/*
+ * bindings dsl
  */
 
 const noModifier = "";
@@ -35,7 +43,22 @@ const left15 = (method, labels) => labelAll("zxcvbasdfgqwert", method, labels);
 const right12 = (method, labels) => labelAll("nm,.hjklyuio", method, labels);
 const right15 = (method, labels) => labelAll("nm,./hjkl;yuiop", method, labels);
 
-const bindings = window.bindings();
+const custom = {
+  bpm: {
+    type: "custom", method: "bpm", state: [],
+    handle(event) {
+      if (event.type !== "keydown")
+        return;
+      this.state.push(event.timeStamp);
+      if (this.state.length === 1)
+        return;
+      let diffs = 0;
+      for (let i = 1; i < this.state.length; i++)
+        diffs += this.state[i] - this.state[i - 1];
+      nativePut(this.method, Math.round(60000 / (diffs / (this.state.length - 1))));
+    },
+  },
+};
 
 
 /*
@@ -43,12 +66,17 @@ const bindings = window.bindings();
  */
 
 let modifier = noModifier;
+const bindings = window.bindings();
 
 const keys = document.querySelectorAll(".key");
 const keysByCode = Object.fromEntries(Array.from(keys).map(key => [ key.dataset.after, key ]));
+const keysInPage = document.querySelectorAll(".page");
+const keysInSequence = document.querySelectorAll(".sequence");
 
-const nativeGet = (method) => window[`toUi:${method}`]();
-const nativePut = (method, value) => window[`fromUi:${method}`](value|0);
+const resetModifier = () => {
+  custom.bpm.state = [];
+  modifier = noModifier;
+}
 
 const handleSend = (event, value) => {
   const binding = bindings[modifier][1][value];
@@ -58,13 +86,15 @@ const handleSend = (event, value) => {
     return nativePut(binding.method, event.type === "keydown");
   if (binding.type === "trigValue")
     return nativePut(`${binding.method}:${binding.value}`, event.type === "keydown");
+  if (binding.type === "custom")
+    return binding.handle(event, value);
 };
 
 const handleModifier = (event, value) => {
   if (modifier === noModifier && event.type === "keydown")
     modifier = value;
   else if (modifier === value && event.type === "keyup")
-    modifier = noModifier;
+    resetModifier();
   else
     handleSend(event, value);
 };
@@ -98,7 +128,7 @@ document.addEventListener("keypress", event => event.preventDefault());
  * draw loop
  */
 
-const getMethods = new Set();
+const getMethods = new Set([ "beat", "page" ]);
 for (let controls of Object.values(bindings))
   for (let binding of Object.values(controls[1]))
     getMethods.add(binding.method);
@@ -112,16 +142,17 @@ for (let controls of Object.values(bindings))
     key.classList.toggle("active", binding?.value === (active[binding?.method] ?? "inactive"));
   }
 
+  bindings["a"][1]["/"]["label"] = active.bpm;
+  document.body.classList.toggle("arm", active.arm);
+  keysInPage.forEach((key, i) => key.classList.toggle("available", i <= active.length));
+  keysInPage.forEach((key, i) => key.classList.toggle("highlight", i === active.page));
+  keysInSequence.forEach((key, i) => key.classList.toggle("highlight", i === active.beat));
+
   for (const key of keys)
     if (key.dataset.after !== modifier)
       key.dataset.before = modifier === noModifier && key.dataset.after in bindings
         ? bindings[key.dataset.after][0]
         : bindings[modifier][1][key.dataset.after]?.label || "";
-
-  // TODO bpm
-  // TODO assign `armed` to body
-  // TODO assign `highlight` to keys
-  // TODO assign `lowlight` to keys
 
   requestAnimationFrame(loop);
 })();

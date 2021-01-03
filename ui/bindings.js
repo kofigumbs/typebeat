@@ -17,10 +17,10 @@ window.bindings = () => ({
   }],
   t: [ "", {
   }],
-  a: [ "Trk", {
+  a: [ "Mix", {
     // TODO ...middle8("mute", "Mut"),
-    ...bottom8("track", "Sel"),
-    "p": trig("play", "▶"), ";": trig("arm", "●"), // TODO "/": custom.tempo,
+    ...bottom8("track", "Trk"),
+    "p": trig("play", "▶"), ";": trig("arm", "●"), "/": custom.bpm,
   }],
   s: [ "Vel", {
     // TODO ...right15("velocity", range(1, 15)),

@@ -145,20 +145,20 @@ html {
   background: var(--orange);
 }
 
-.armed .key.sequence.highlight + .shadow {
+.arm .key.sequence.highlight + .shadow {
   background: var(--yellow);
 }
 
-.key.tracklist {
+.key.page {
   color: var(--light);
   background: var(--orange);
 }
 
-.key.tracklist.highlight + .shadow {
+.key.page.available + .shadow {
   background: var(--light);
 }
 
-.key.tracklist.lowlight + .shadow {
+.key.page.highlight + .shadow {
   background: var(--yellow);
 }
 
