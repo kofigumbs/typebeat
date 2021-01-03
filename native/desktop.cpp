@@ -39,13 +39,13 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
 }
 
 void toView(webview::webview* view, std::string label, int* p) {
-    view->bind("groovebox:" + label, [p](std::string data) -> std::string {
+    view->bind("toUi:" + label, [p](std::string data) -> std::string {
         return std::to_string(*p);
     });
 }
 
 void toSequencer(webview::webview* view, std::string label, int* p) {
-    view->bind("groovebox:" + label, [p](std::string data) -> std::string {
+    view->bind("fromUi:" + label, [p](std::string data) -> std::string {
         *p = std::stoi(data.substr(1, data.length() - 2));
         return "";
     });
@@ -93,12 +93,12 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     view.navigate("file://" + (root / "ui" / "index.html").string());
 
     toView(&view, "bpm", &sequencer.bpm);
-    toView(&view, "playing", &sequencer.playing);
-    toView(&view, "armed", &sequencer.armed);
-    toView(&view, "beat", &sequencer.beat);
+    toView(&view, "play", &sequencer.playing);
+    toView(&view, "arm", &sequencer.armed);
+    toView(&view, "step", &sequencer.beat); // TODO
     toView(&view, "key", &sequencer.activeKey);
     toView(&view, "track", &sequencer.activeTrack);
-    toView(&view, "trackType", &sequencer.activeTrackType);
+    toView(&view, "type", &sequencer.activeTrackType);
     toView(&view, "page", &sequencer.activePage);
     toView(&view, "length", &sequencer.activeLength);
     toView(&view, "sounds", &sequencer.activeSounds);
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     toSequencerArray(&view, "step:", &input.step);
     toSequencerArray(&view, "length:", &input.length);
     toSequencerArray(&view, "track:", &input.track);
-    toSequencerArray(&view, "trackType:", &input.trackType);
+    toSequencerArray(&view, "type:", &input.trackType);
     toSequencerArray(&view, "sounds:", &input.sounds);
     toSequencerArray(&view, "root:", &input.root);
     toSequencerArray(&view, "scale:", &input.scale);
