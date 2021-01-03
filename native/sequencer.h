@@ -22,28 +22,36 @@ namespace groovebox {
         chord
     };
 
+    struct Sample {
+        int velocity;
+        int pan = 7;
+        int filter = 7;
+        int resonance;
+        int reverb;
+        int delay;
+    };
+
     struct Track {
         Type type;
         int length;
         int activeSample;
         int sounds;
         int octave = 3;
+        std::array<Sample, keyCount> samples;
         std::array<std::array<bool, keyCount>, stepCount> steps;
     };
 
     struct Input {
-        int play;
-        int arm;
-        int bpm;
         int key;
-        int length;
-        int track;
-        int trackType;
-        int sounds;
-        int root;
-        int octave;
-        int scale;
+        // transport
+        int play; int arm; int bpm;
+        // song
+        int root; int octave; int scale;
+        // track
+        int track; int type; int length; int sounds;
         std::array<int, hitCount> steps;
+        // sample
+        int velocity; int pan; int filter; int resonance; int reverb; int delay;
     };
 
     enum Output {
@@ -62,14 +70,20 @@ namespace groovebox {
         int framePosition;
         int stepPosition;
         int beat;
-        // active (for ui)
+        // active (for ui) -- TODO reuse Input
         int activeKey;
         int activeTrack;
-        int activeTrackType;
+        int activeType;
         int activePage;
         int activeLength;
         int activeSounds;
         int activeOctave;
+        int activeVelocity;
+        int activePan;
+        int activeFilter;
+        int activeResonance;
+        int activeReverb;
+        int activeDelay;
         std::array<int, hitCount> activeSteps;
         // internals
         Input previous;
@@ -98,8 +112,8 @@ namespace groovebox {
             // set
             if (received(track))
                 activeTrack = current.track - 1;
-            if (received(trackType))
-                tracks[activeTrack].type = static_cast<Type>(current.trackType - 1);
+            if (received(type))
+                tracks[activeTrack].type = static_cast<Type>(current.type - 1);
             if (received(length))
                 tracks[activeTrack].length = current.length - 1;
             if (received(sounds)) {
@@ -117,6 +131,18 @@ namespace groovebox {
                 updateActiveSample();
                 liveKey();
             }
+            if (received(velocity))
+                tracks[activeTrack].samples[tracks[activeTrack].activeSample].velocity = current.velocity - 1;
+            if (received(pan))
+                tracks[activeTrack].samples[tracks[activeTrack].activeSample].pan = current.pan - 1;
+            if (received(filter))
+                tracks[activeTrack].samples[tracks[activeTrack].activeSample].filter = current.filter - 1;
+            if (received(resonance))
+                tracks[activeTrack].samples[tracks[activeTrack].activeSample].resonance = current.resonance - 1;
+            if (received(reverb))
+                tracks[activeTrack].samples[tracks[activeTrack].activeSample].reverb = current.reverb - 1;
+            if (received(delay))
+                tracks[activeTrack].samples[tracks[activeTrack].activeSample].delay = current.delay - 1;
             // custom
             if (received(bpm))
                 bpm = current.bpm;
@@ -124,9 +150,15 @@ namespace groovebox {
 
             activePage = getBeatPage();
             activeLength = tracks[activeTrack].length;
-            activeTrackType = tracks[activeTrack].type;
+            activeType = tracks[activeTrack].type;
             activeSounds = tracks[activeTrack].sounds;
             activeOctave = tracks[activeTrack].octave;
+            activeVelocity = tracks[activeTrack].samples[tracks[activeTrack].activeSample].velocity;
+            activePan = tracks[activeTrack].samples[tracks[activeTrack].activeSample].pan;
+            activeFilter = tracks[activeTrack].samples[tracks[activeTrack].activeSample].filter;
+            activeResonance = tracks[activeTrack].samples[tracks[activeTrack].activeSample].resonance;
+            activeReverb = tracks[activeTrack].samples[tracks[activeTrack].activeSample].reverb;
+            activeDelay = tracks[activeTrack].samples[tracks[activeTrack].activeSample].delay;
             for (int s = 0; s < hitCount; s++)
                 activeSteps[s] = getBeatStep(s)[activeKey];
 

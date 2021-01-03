@@ -92,12 +92,18 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     syncNative(&view, "arm", &sequencer.armed, &input.arm);
     syncNative(&view, "key", &sequencer.activeKey, &input.key);
     syncNative(&view, "track", &sequencer.activeTrack, &input.track);
-    syncNative(&view, "type", &sequencer.activeTrackType, &input.trackType);
+    syncNative(&view, "type", &sequencer.activeType, &input.type);
     syncNative(&view, "length", &sequencer.activeLength, &input.length);
     syncNative(&view, "sounds", &sequencer.activeSounds, &input.sounds);
     syncNative(&view, "root", &sequencer.root, &input.root);
     syncNative(&view, "scale", &sequencer.scale, &input.scale);
     syncNative(&view, "octave", &sequencer.activeOctave, &input.octave);
+    syncNative(&view, "velocity", &sequencer.activeVelocity, &input.velocity);
+    syncNative(&view, "pan", &sequencer.activePan, &input.pan);
+    syncNative(&view, "filter", &sequencer.activeFilter, &input.filter);
+    syncNative(&view, "resonance", &sequencer.activeResonance, &input.resonance);
+    syncNative(&view, "reverb", &sequencer.activeReverb, &input.reverb);
+    syncNative(&view, "delay", &sequencer.activeDelay, &input.delay);
     for (int i = 0; i < sequencer.activeSteps.size(); i++)
         syncNative(&view, "step:" + std::to_string(i), sequencer.activeSteps.data() + i, input.steps.data() + i);
 

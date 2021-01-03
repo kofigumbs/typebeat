@@ -26,16 +26,16 @@ window.bindings = () => ({
     p: trig("play", "▶"), ";": trig("arm", "●"), "/": custom.bpm,
   }],
   s: [ "Vel", {
-    // TODO ...right15("velocity", range(1, 15)),
+    ...right15("velocity", range(1, 15)),
   }],
   d: [ "Pan", {
-    // TODO ...right15("pan", range(-7, 7)),
+    ...right15("pan", range(-7, 7)),
   }],
   f: [ "Flt", {
-    // TODO ...right15("filter", range(-7, 7)),
+    ...right15("filter", range(-7, 7)),
   }],
   g: [ "Res", {
-    // TODO ...right15("filter", range(1, 15)),
+    ...right15("resonance", range(0, 14)),
   }],
   z: [ "Key", {
     ...left12("root", [
@@ -47,10 +47,10 @@ window.bindings = () => ({
     ]),
   }],
   x: [ "Rev", {
-    // TODO ...right15("reverb", range(1, 15)),
+    ...right15("reverb", range(0, 14)),
   }],
   c: [ "Dly", {
-    // TODO ...right15("delay", range(1, 15)),
+    ...right15("delay", range(0, 14)),
   }],
   v: [ "", {
   }],
