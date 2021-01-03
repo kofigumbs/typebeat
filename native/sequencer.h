@@ -42,7 +42,7 @@ namespace groovebox {
     };
 
     struct Input {
-        int key;
+        std::array<int, keyCount> keys;
         // transport
         int play; int arm; int bpm;
         // song
@@ -71,7 +71,6 @@ namespace groovebox {
         int stepPosition;
         int beat;
         // active (for ui) -- TODO reuse Input
-        int activeKey;
         int activeTrack;
         int activeType;
         int activePage;
@@ -84,8 +83,10 @@ namespace groovebox {
         int activeResonance;
         int activeReverb;
         int activeDelay;
+        std::array<int, keyCount> activeKeys;
         std::array<int, hitCount> activeSteps;
         // internals
+        int currentKey;
         Input previous;
         std::array<Track, trackCount> tracks;
         std::array<std::array<float, keyCount>, trackCount> voiceIncrements;
@@ -101,14 +102,20 @@ namespace groovebox {
 
         void compute(Input current) {
 #define received(x) current.x && current.x != previous.x
-            // trig
+            // toggle
             playing ^= received(play);
             armed ^= received(arm);
             framePosition = playing ? framePosition+1 : -1;
             stepPosition = inSteps(framePosition) % stepCount;
             beat = stepPosition % hitCount;
+            for (int i = 0; i < keyCount; i++)
+                if(received(keys[i])) {
+                    currentKey = i;
+                    updateActiveSample();
+                    liveKey();
+                }
             for (int i = 0; i < hitCount; i++)
-                getBeatStep(i)[activeKey] ^= received(steps[i]);
+                getBeatStep(i)[currentKey] ^= received(steps[i]);
             // set
             if (received(track))
                 activeTrack = current.track - 1;
@@ -126,11 +133,6 @@ namespace groovebox {
                 scale = current.scale - 1;
             if (received(octave))
                 tracks[activeTrack].octave = current.octave - 1;
-            if (received(key)) {
-                activeKey = current.key - 1;
-                updateActiveSample();
-                liveKey();
-            }
             if (received(velocity))
                 tracks[activeTrack].samples[tracks[activeTrack].activeSample].velocity = current.velocity - 1;
             if (received(pan))
@@ -159,8 +161,10 @@ namespace groovebox {
             activeResonance = tracks[activeTrack].samples[tracks[activeTrack].activeSample].resonance;
             activeReverb = tracks[activeTrack].samples[tracks[activeTrack].activeSample].reverb;
             activeDelay = tracks[activeTrack].samples[tracks[activeTrack].activeSample].delay;
+            for (int s = 0; s < keyCount; s++)
+                activeKeys[s] = s == currentKey;
             for (int s = 0; s < hitCount; s++)
-                activeSteps[s] = getBeatStep(s)[activeKey];
+                activeSteps[s] = getBeatStep(s)[currentKey];
 
             for (int t = 0; t < trackCount; t++)
                 for (int k = 0; k < keyCount; k++)
@@ -180,7 +184,7 @@ namespace groovebox {
 
         void updateActiveSample() {
             if (tracks[activeTrack].type == Type::kit)
-                tracks[activeTrack].activeSample = getSample(activeTrack, activeKey);
+                tracks[activeTrack].activeSample = getSample(activeTrack, currentKey);
         }
 
         int getSample(int t, int key) {
@@ -203,11 +207,11 @@ namespace groovebox {
         void liveKey() {
             if (playing && armed) {
                 auto quantizePosition = (int) ((inSteps(framePosition, 2) + 1) / 2.0) % stepCount;
-                getAbsoluteStep(activeTrack, quantizePosition)[activeKey] = true;
+                getAbsoluteStep(activeTrack, quantizePosition)[currentKey] = true;
                 if (stepPosition != quantizePosition)
                     return; // prevent double-trig -- aka live-quantize
             }
-            useVoice(activeTrack, activeKey);
+            useVoice(activeTrack, currentKey);
         }
 
         void useVoice(int t, int key) {

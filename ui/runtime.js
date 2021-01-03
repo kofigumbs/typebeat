@@ -12,9 +12,8 @@ const nativePut = (method, value) => window[`toNative:${method}`](value|0);
 
 const noModifier = "";
 
-const trig = (method, label) => ({ type: "trig", method, label });
-const toggle = (method, label) => ({ type: "toggle", method, value: 1, label });
-const set = (method, value, label) => ({ type: "set", method, value, label });
+const toggle = (method, label, value = 1) => ({ type: "toggle", method, label, value });
+const set = (method, label, value) => ({ type: "set", method, label, value });
 
 const range = (low, high) => {
   return Array.from({ length: high - low + 1 }, (_, i) => (low + i).toString());
@@ -88,7 +87,7 @@ const handleSend = (event, value) => {
   const binding = bindings[modifier][1][value];
   if (!binding)
     return;
-  if (binding.type === "trig" || binding.type === "toggle")
+  if (binding.type === "toggle")
     return nativePut(binding.method, event.type === "keydown");
   if (binding.type === "set")
     return nativePut(binding.method, (binding.value + 1) * (event.type === "keydown"));

@@ -23,7 +23,7 @@ window.bindings = () => ({
   a: [ "Mix", {
     // TODO ...middle8("mute", "Mut"),
     ...bottom8("track", "Trk"),
-    p: trig("play", "▶"), ";": trig("arm", "●"), "/": custom.bpm,
+    p: toggle("play", "▶", null), ";": toggle("arm", "●", null), "/": custom.bpm,
   }],
   s: [ "Vel", {
     ...right15("velocity", range(1, 15)),
@@ -57,6 +57,8 @@ window.bindings = () => ({
   b: [ "", {
   }],
   [noModifier]: [ "", {
-    ...right15("key", Array(15).fill("~")),
+    "y": toggle("key:10", "~"), "u": toggle("key:11", "~"), "i": toggle("key:12", "~"), "o": toggle("key:13", "~"), "p": toggle("key:14", "~"),
+    "h": toggle("key:5", "~"),  "j": toggle("key:6", "~"),  "k": toggle("key:7", "~"),  "l": toggle("key:8", "~"),  ";": toggle("key:9", "~"),
+    "n": toggle("key:0", "~"),  "m": toggle("key:1", "~"),  ",": toggle("key:2", "~"),  ".": toggle("key:3", "~"),  "/": toggle("key:4", "~"),
   }],
 });

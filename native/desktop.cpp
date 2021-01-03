@@ -90,7 +90,6 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     syncNative(&view, "bpm", &sequencer.bpm, &input.bpm);
     syncNative(&view, "play", &sequencer.playing, &input.play);
     syncNative(&view, "arm", &sequencer.armed, &input.arm);
-    syncNative(&view, "key", &sequencer.activeKey, &input.key);
     syncNative(&view, "track", &sequencer.activeTrack, &input.track);
     syncNative(&view, "type", &sequencer.activeType, &input.type);
     syncNative(&view, "length", &sequencer.activeLength, &input.length);
@@ -104,6 +103,8 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     syncNative(&view, "resonance", &sequencer.activeResonance, &input.resonance);
     syncNative(&view, "reverb", &sequencer.activeReverb, &input.reverb);
     syncNative(&view, "delay", &sequencer.activeDelay, &input.delay);
+    for (int i = 0; i < sequencer.activeKeys.size(); i++)
+        syncNative(&view, "key:" + std::to_string(i), sequencer.activeKeys.data() + i, input.keys.data() + i);
     for (int i = 0; i < sequencer.activeSteps.size(); i++)
         syncNative(&view, "step:" + std::to_string(i), sequencer.activeSteps.data() + i, input.steps.data() + i);
 
