@@ -107,6 +107,8 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
         syncNative(&view, "key:" + std::to_string(i), sequencer.activeKeys.data() + i, input.keys.data() + i);
     for (int i = 0; i < sequencer.activeSteps.size(); i++)
         syncNative(&view, "step:" + std::to_string(i), sequencer.activeSteps.data() + i, input.steps.data() + i);
+    for (int i = 0; i < sequencer.activeMutes.size(); i++)
+        syncNative(&view, "mute:" + std::to_string(i), sequencer.activeMutes.data() + i, input.mutes.data() + i);
 
 #ifdef WEBVIEW_COCOA
     auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see docs/frameless.md

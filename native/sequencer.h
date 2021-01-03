@@ -37,6 +37,7 @@ namespace groovebox {
         int activeSample;
         int sounds;
         int octave = 3;
+        int muted;
         std::array<Sample, keyCount> samples;
         std::array<std::array<bool, keyCount>, stepCount> steps;
     };
@@ -50,6 +51,7 @@ namespace groovebox {
         // track
         int track; int type; int length; int sounds;
         std::array<int, hitCount> steps;
+        std::array<int, trackCount> mutes;
         // sample
         int velocity; int pan; int filter; int resonance; int reverb; int delay;
     };
@@ -85,6 +87,7 @@ namespace groovebox {
         int activeDelay;
         std::array<int, keyCount> activeKeys;
         std::array<int, hitCount> activeSteps;
+        std::array<int, trackCount> activeMutes;
         // internals
         int currentKey;
         Input previous;
@@ -108,14 +111,16 @@ namespace groovebox {
             framePosition = playing ? framePosition+1 : -1;
             stepPosition = inSteps(framePosition) % stepCount;
             beat = stepPosition % hitCount;
-            for (int i = 0; i < keyCount; i++)
-                if(received(keys[i])) {
-                    currentKey = i;
+            for (int k = 0; k < keyCount; k++)
+                if(received(keys[k])) {
+                    currentKey = k;
                     updateActiveSample();
                     liveKey();
                 }
-            for (int i = 0; i < hitCount; i++)
-                getBeatStep(i)[currentKey] ^= received(steps[i]);
+            for (int h = 0; h < hitCount; h++)
+                getBeatStep(h)[currentKey] ^= received(steps[h]);
+            for (int t = 0; t < trackCount; t++)
+                tracks[t].muted ^= received(mutes[t]);
             // set
             if (received(track))
                 activeTrack = current.track - 1;
@@ -161,10 +166,12 @@ namespace groovebox {
             activeResonance = tracks[activeTrack].samples[tracks[activeTrack].activeSample].resonance;
             activeReverb = tracks[activeTrack].samples[tracks[activeTrack].activeSample].reverb;
             activeDelay = tracks[activeTrack].samples[tracks[activeTrack].activeSample].delay;
-            for (int s = 0; s < keyCount; s++)
-                activeKeys[s] = s == currentKey;
+            for (int k = 0; k < keyCount; k++)
+                activeKeys[k] = k == currentKey;
             for (int s = 0; s < hitCount; s++)
                 activeSteps[s] = getBeatStep(s)[currentKey];
+            for (int t = 0; t < trackCount; t++)
+                activeMutes[t] = tracks[t].muted;
 
             for (int t = 0; t < trackCount; t++)
                 for (int k = 0; k < keyCount; k++)

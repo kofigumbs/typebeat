@@ -21,9 +21,10 @@ window.bindings = () => ({
   t: [ "", {
   }],
   a: [ "Mix", {
-    // TODO ...middle8("mute", "Mut"),
+    s: toggle("mute:0", "Mut"), d: toggle("mute:1"), f: toggle("mute:2"), g: toggle("mute:3"),
+    h: toggle("mute:4"),        j: toggle("mute:5"), k: toggle("mute:6"), l: toggle("mute:7"),
     ...bottom8("track", "Trk"),
-    p: toggle("play", "▶", null), ";": toggle("arm", "●", null), "/": custom.bpm,
+    p: toggle("play", "▶", noActiveValue), ";": toggle("arm", "●", noActiveValue), "/": custom.bpm,
   }],
   s: [ "Vel", {
     ...right15("velocity", range(1, 15)),
