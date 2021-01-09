@@ -27,7 +27,7 @@ window.bindings = () => ({
     p: toggle("play", "▶", noActiveValue), ";": toggle("arm", "●", noActiveValue), "/": custom.bpm,
   }],
   s: [ "Vel", {
-    ...right15("velocity", range(1, 15)),
+    ...right15("velocity", range(0, 14)),
   }],
   d: [ "Pan", {
     ...right15("pan", range(-7, 7)),

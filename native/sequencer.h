@@ -6,6 +6,7 @@ namespace groovebox {
     const int hitCount = 16;
     const int stepCount = 128;
     const int keyCount = 15;
+    const int sampleCount = 256;
     const int scaleCount = 12;
     const int outputCount = 2;
 
@@ -18,7 +19,7 @@ namespace groovebox {
     };
 
     struct Sample {
-        int velocity;
+        int velocity = 10;
         int pan = 7;
         int filter = 7;
         int resonance;
@@ -33,7 +34,7 @@ namespace groovebox {
         int sounds;
         int octave = 3;
         int muted;
-        std::array<Sample, keyCount> samples;
+        std::array<Sample, sampleCount> samples;
         std::array<std::array<bool, keyCount>, stepCount> steps;
     };
 
@@ -83,7 +84,7 @@ namespace groovebox {
         void init() {
             for (int t = 0; t < trackCount; t++)
                 for (int k = 0; k < keyCount; k++)
-                    voiceOut[t][k][Output::sample] = 255;
+                    voiceOut[t][k][Output::sample] = 255 | sampleControlOuts(tracks[t].samples[0]);
             active.bpm = 120;
             updateActive();
         }
@@ -227,8 +228,10 @@ namespace groovebox {
             };
             auto track = tracks[t];
             auto voiceIndex = track.type == Type::mono ? 0 : key;
+            auto s = track.type == Type::kit ? getSample(t, key) : track.currentSample;
             voiceOut[t][voiceIndex][Output::position] = 0;
-            voiceOut[t][voiceIndex][Output::sample] = track.type == Type::kit ? getSample(t, key) : track.currentSample;
+            voiceOut[t][voiceIndex][Output::sample] = s | sampleControlOuts(track.samples[s]);
+
             switch (tracks[t].type) {
             case Type::kit:
                 voiceIncrements[t][voiceIndex] = 1;
@@ -238,6 +241,15 @@ namespace groovebox {
                 voiceIncrements[t][voiceIndex] = pow(2.0f, note / 12.0f) / pow(2.0f, 36 / 12.0f);
                 break;
             }
+        }
+
+        int sampleControlOuts(Sample sample) {
+            return (sample.velocity  << 8)
+                 | (sample.pan       << 12)
+                 | (sample.filter    << 16)
+                 | (sample.resonance << 20)
+                 | (sample.reverb    << 24)
+                 | (sample.delay     << 28);
         }
     };
 }
