@@ -3,7 +3,7 @@ import("stdfaust.lib");
 bi = sp.stereoize;
 clamp(low, high) = min(high, max(low, _));
 
-stereoPan(amount, inputL, inputR) = ba.select2stereo(amount < 0,
+stereoPan(amount, inputL, inputR) = ba.select2stereo(amount > 0,
 	inputL + inputR*abs(amount),  inputR*(1+amount),
 	inputL*(1-amount),            inputR + inputL*amount
 );
