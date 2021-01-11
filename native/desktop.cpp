@@ -33,8 +33,8 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     float floatControls[userData->sampler->getNumRealControls()];
     userData->sampler->control(intControls, floatControls);
     for (int frame = 0; frame < frameCount; frame++) {
-        userData->sequencer->compute(*(userData->input));
-        userData->sampler->compute((float*) userData->sequencer->voiceOut.data(), ((float*)output) + frame*device->playback.channels, intControls, floatControls);
+        userData->sequencer->compute(*(userData->input), ((float*) input)[frame]);
+        userData->sampler->compute((float*) userData->sequencer->voiceOut.data(), ((float*) output) + frame*device->playback.channels, intControls, floatControls);
     }
 }
 
@@ -72,13 +72,15 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     UserData userData { &input, &sequencer, &sampler };
 
     ma_device device;
-    ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
+    ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
+    deviceConfig.capture.channels = 1;
     deviceConfig.playback.channels = sampler.getNumOutputs();
     deviceConfig.playback.format = ma_format_f32;
     deviceConfig.sampleRate = SAMPLE_RATE;
     deviceConfig.dataCallback = callback;
     deviceConfig.pUserData = &userData;
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
+    assert(device.capture.channels == 1);
 
     webview::webview view(true, nullptr);
     view.set_size(900, 320, WEBVIEW_HINT_MIN);

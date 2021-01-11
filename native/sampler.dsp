@@ -18,9 +18,9 @@ effect(controls) = stereoPan(pan) : bi(*(velocity)) <: bi(_), bi(*(reverb)) with
 	controlValue(n, low, high) = ((controls >> (n*4)) & 15) / 14, low, high : it.interpolate_cosine;
 };
 
-enfer(sample, position, controls) = clamp(0, 255, sample), position : soundfile("enfer", 2) : untilEnd : effect(controls) with {
+enfer(sample, position) = clamp(0, 255, sample), position : soundfile("enfer", 2) : untilEnd with {
 	untilEnd(length, rate) = bi(*(position < length));
 };
 
-voices = 8*15;
-process = par(i, voices, enfer) :> bi(_), dm.freeverb_demo :> bi(_);
+voice(sample, p, controls) = enfer(sample, p), p, p : ba.select2stereo(sample == 256) : effect(controls);
+process = par(i, 8*15, voice) :> bi(_), dm.freeverb_demo :> bi(_);
