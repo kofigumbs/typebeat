@@ -6,8 +6,6 @@ namespace groovebox {
     const int hitCount = 16;
     const int stepCount = 128;
     const int keyCount = 15;
-    const int sampleCount = 256;
-    const int outputCount = 3;
 
     const std::array<std::string, 13> enferKits {
         "tr808", "tr909", "dmx", "dnb", "dark", "deep", "tech",
@@ -34,13 +32,16 @@ namespace groovebox {
         -12, -10, -8, -7, -5, -4, -2, 0, 2, 4, 5, 7, 8, 10, 12
     };
 
-    enum Type {
-        kit,
-        mono,
-        poly,
-        arp,
-        chord,
-        inputThrough,
+    struct Output {
+        float l;
+        float r;
+        float controls;
+    };
+
+    struct Sample {
+        bool stereo;
+        ma_uint64 length;
+        float* frames;
     };
 
     struct Controls {
@@ -50,22 +51,50 @@ namespace groovebox {
         int resonance;
         int reverb;
         int delay;
+
+        void encode(Output* output) {
+            output->controls = velocity | pan << 4 | filter << 8 | resonance << 12 | reverb << 16 | delay << 20;
+        }
+    };
+
+    struct Voice {
+        float position;
+        float increment;
+
+        void play(Sample sample, Output* output) {
+            output->l = interpolate(sample, sample.stereo ? 2*position : position);
+            output->r = interpolate(sample, sample.stereo ? 2*position + 1 : position);
+            position += increment;
+        }
+
+        float interpolate(Sample sample, float frame) {
+            auto i = int(frame);
+            return position >= sample.length
+                ? 0
+                : sample.frames[i] + (frame-i) * (sample.frames[i+1] - sample.frames[i]);
+        }
+    };
+
+    enum Type {
+        kit,
+        mono,
+        poly,
+        arp,
+        chord,
+        line,
     };
 
     struct Track {
         Type type;
         int length;
-        int currentSample;
         int sounds;
         int octave = 3;
         int muted;
-        int memoryIndex;
-        Controls input;
-        std::array<float, 5*SAMPLE_RATE> memory;
-        std::array<Controls, sampleCount> samples;
+        int currentKitKey;
+        Controls inputControls;
+        std::array<Controls, enferKits.size() * enferSamples.size()> sampleControls;
         std::array<std::array<bool, keyCount>, stepCount> steps;
-        std::array<float, keyCount> voicePositions;
-        std::array<float, keyCount> voiceIncrements;
+        std::array<Voice, keyCount> voices;
     };
 
     struct Input {
@@ -90,48 +119,31 @@ namespace groovebox {
         std::array<int, trackCount> mutes;
     };
 
-    enum Output {
-        left,
-        right,
-        controls,
-    };
-
     struct Sequencer {
         Input active { .bpm = 120 };
-        // enfer
-        std::array<float*, enferKits.size() * enferSamples.size()> enferFrames;
-        std::array<ma_uint64, enferKits.size() * enferSamples.size()> enferLengths;
-        // transport
+        std::array<Sample, enferKits.size() * enferSamples.size()> samples;
         int framePosition;
         int stepPosition;
         int beat;
         int page;
-        // internals
         int currentKey;
-        Input previous;
         std::array<Track, trackCount> tracks;
-        std::array<std::array<std::array<float, outputCount>, keyCount>, trackCount> output;
+        Input previous;
+        std::array<std::array<Output, keyCount>, trackCount> output;
 
         // explicit `init` so that we keep the default, zero-initializing constructor
         void init(std::filesystem::path root) {
-            // load enfer sample frames
             for (int kit = 0; kit < enferKits.size(); kit++) {
                 for (int sample = 0; sample < enferSamples.size(); sample++) {
                     auto i = kit * enferSamples.size() + sample;
                     auto filename = root / "native" / "Enfer" / "media" / enferKits[kit] / (enferSamples[sample] + ".wav");
                     unsigned int channels;
                     unsigned int sampleRate;
-                    enferFrames[i] = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &enferLengths[i], NULL);
-                    assert(enferFrames[i] != NULL);
+                    samples[i].frames = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &samples[i].length, NULL);
+                    assert(samples[i].frames != NULL);
                     assert(sampleRate == SAMPLE_RATE);
-                    // convert mono to stereo
-                    if (channels == 1) {
-                        float* frames = new float[enferLengths[i] * 2];
-                        for (int f = 0; f < enferLengths[i]; f++)
-                            frames[2*f] = frames[2*f + 1] = enferFrames[i][f];
-                        free(enferFrames[i]);
-                        enferFrames[i] = frames;
-                    }
+                    assert(channels == 1 || channels == 2);
+                    samples[i].stereo = channels == 2;
                 }
             }
         }
@@ -147,7 +159,8 @@ namespace groovebox {
             for (int k = 0; k < keyCount; k++)
                 if(received(keys[k])) {
                     currentKey = k;
-                    updateActiveSample();
+                    if (tracks[active.track].type == Type::kit)
+                        tracks[active.track].currentKitKey = k;
                     liveKey(audio);
                 }
             for (int h = 0; h < hitCount; h++)
@@ -161,10 +174,8 @@ namespace groovebox {
                 tracks[active.track].type = static_cast<Type>(current.type - 1);
             if (received(length))
                 tracks[active.track].length = current.length - 1;
-            if (received(sounds)) {
+            if (received(sounds))
                 tracks[active.track].sounds = current.sounds - 1;
-                updateActiveSample();
-            }
             if (received(root))
                 active.root = current.root - 1;
             if (received(scale))
@@ -206,40 +217,16 @@ namespace groovebox {
             for (int t = 0; t < trackCount; t++)
                 active.mutes[t] = tracks[t].muted;
 
-            for (int t = 0; t < trackCount; t++)
-                for (int k = 0; k < keyCount; k++) {
-                    auto s = getSample(t, k);
-                    tracks[t].voicePositions[k] += tracks[t].voiceIncrements[k];
-                    if (tracks[t].voiceIncrements[k] == 0 || tracks[t].voicePositions[k] >= enferLengths[s]) {
-                        output[t][k][Output::left] = 0;
-                        output[t][k][Output::right] = 0;
-                    } else {
-                        int i = floor(2*tracks[t].voicePositions[k]);
-                        output[t][k][Output::left] = enferFrames[s][i];
-                        output[t][k][Output::right] = enferFrames[s][i+1];
-                    }
-                }
-
-            for (int t = 0; t < trackCount; t++)
-                if (tracks[t].type >= Type::inputThrough)
-                    useVoice(t, 0, audio);
-
-            if (active.play && stepPosition != inSteps(framePosition - 1) % stepCount)
-                for (int t = 0; t < trackCount; t++)
-                    for (int k = 0; k < keyCount; k++)
-                        if (getAbsoluteStep(t, stepPosition)[k])
-                            useVoice(t, k, audio);
+            auto playing = active.play && stepPosition != inSteps(framePosition - 1) % stepCount;
+            for (int t = 0; t < tracks.size(); t++)
+                for (int v = 0; v < tracks[t].voices.size(); v++)
+                    useVoice(t, v, audio, playing && getAbsoluteStep(t, stepPosition)[v]);
 
             previous = current;
         }
 
         int inSteps(int frames, int subdivision = 1) {
             return floor(frames / (60.f * SAMPLE_RATE / active.bpm) * subdivision * 2);
-        }
-
-        void updateActiveSample() {
-            if (tracks[active.track].type == Type::kit)
-                tracks[active.track].currentSample = getSample(active.track, currentKey);
         }
 
         int getSample(int t, int key) {
@@ -259,9 +246,9 @@ namespace groovebox {
         }
 
         Controls* getActiveControls() {
-            return tracks[active.track].type >= Type::inputThrough
-                ? &tracks[active.track].input
-                : &tracks[active.track].samples[tracks[active.track].currentSample];
+            return tracks[active.track].type >= Type::line
+                ? &tracks[active.track].inputControls
+                : &tracks[active.track].sampleControls[tracks[active.track].currentKitKey];
         }
 
         void liveKey(float audio) {
@@ -271,60 +258,48 @@ namespace groovebox {
                 if (stepPosition != quantizePosition)
                     return; // prevent double-trig -- aka live-quantize
             }
-            useVoice(active.track, currentKey, audio);
+            useVoice(active.track, currentKey, audio, true);
         }
 
-        void useVoice(int t, int key, float audio) {
+        void useVoice(int t, int key, float audio, bool fresh) {
+            auto s = getSample(t, key);
             switch (tracks[t].type) {
-            case Type::kit: {
-                auto s = getSample(t, key);
-                tracks[t].voicePositions[key] = 0;
-                tracks[t].voiceIncrements[key] = 1;
-                output[t][key][Output::left] = enferFrames[s][0];
-                output[t][key][Output::right] = enferFrames[s][1];
-                output[t][key][Output::controls] = encodeControls(tracks[t].samples[s]);
+            case Type::kit:
+                if (fresh) {
+                    tracks[t].voices[key].position = 0;
+                    tracks[t].voices[key].increment = 1;
+                }
+                tracks[t].voices[key].play(samples[s], &output[t][key]);
+                tracks[t].sampleControls[s].encode(&output[t][key]);
                 break;
-            }
-            case Type::mono: {
-                // auto s = tracks[t].currentSample;
-                // output[t][0][Output::left] = audio;
-                // output[t][0][Output::right] = audio;
-                // output[t][0][Output::controls] = encodeControls(tracks[t].samples[s]);
-                // voiceIncrements[t][key] = noteIncrement(t, key);
+            case Type::mono:
+                if (fresh) {
+                    tracks[t].voices[0].position = 0;
+                    tracks[t].voices[0].increment = noteIncrement(t, key);
+                }
+                tracks[t].voices[0].play(samples[tracks[t].currentKitKey], &output[t][0]);
+                tracks[t].sampleControls[tracks[t].currentKitKey].encode(&output[t][0]);
                 break;
-            }
-            case Type::poly: {
-                // auto s = tracks[t].currentSample;
-                // output[t][key][Output::left] = audio;
-                // output[t][key][Output::right] = audio;
-                // output[t][key][Output::controls] = encodeControls(tracks[t].samples[s]);
-                // voiceIncrements[t][key] = noteIncrement(t, key);
+            case Type::poly:
+                if (fresh) {
+                    tracks[t].voices[key].position = 0;
+                    tracks[t].voices[key].increment = noteIncrement(t, key);
+                }
+                tracks[t].voices[key].play(samples[tracks[t].currentKitKey], &output[t][key]);
+                tracks[t].sampleControls[tracks[t].currentKitKey].encode(&output[t][key]);
                 break;
-            }
-            case Type::arp: {
+            case Type::arp:
                 // TODO
                 break;
-            }
-            case Type::chord: {
+            case Type::chord:
                 // TODO
                 break;
-            }
-            case Type::inputThrough: {
-                output[t][0][Output::left] = audio;
-                output[t][0][Output::right] = audio;
-                output[t][0][Output::controls] = encodeControls(tracks[t].input);
+            case Type::line:
+                output[t][0].l = audio;
+                output[t][0].r = audio;
+                tracks[t].inputControls.encode(&output[t][0]);
                 break;
             }
-            }
-        }
-
-        int encodeControls(Controls controls) {
-            return controls.velocity
-                | (controls.pan       << 4)
-                | (controls.filter    << 8)
-                | (controls.resonance << 12)
-                | (controls.reverb    << 16)
-                | (controls.delay     << 20);
         }
 
         float noteIncrement(int t, int key) {
