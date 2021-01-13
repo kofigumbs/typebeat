@@ -53,7 +53,7 @@ const custom = {
       let diffs = 0;
       for (let i = 1; i < this.state.length; i++)
         diffs += this.state[i] - this.state[i - 1];
-      nativePut(this.method, Math.round(60000 / (diffs / (this.state.length - 1))));
+      nativePut(this.method, Math.round(60000 / (diffs / (this.state.length - 1)) + 1));
     },
   },
 };
