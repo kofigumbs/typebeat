@@ -7,7 +7,7 @@ window.bindings = () => ({
     ...bottom8("length", "Len"),
   }],
   w: [ "Typ", {
-    ...right15("type", [ "Kit", "Mon", "Pol", "Arp", "Chr", "Vox" ]),
+    ...right15("type", [ "Kit", "Mon", "Pol", "Arp", "Chr", "In" ]),
   }],
   e: [ "Snd", {
     ...right15("sounds", [

@@ -7,10 +7,19 @@ namespace groovebox {
     const int stepCount = 128;
     const int keyCount = 15;
     const int sampleCount = 256;
-    const int scaleCount = 12;
     const int outputCount = 3;
 
-    const std::array<std::array<int, keyCount>, scaleCount> scaleOffsets {
+    const std::array<std::string, 13> enferKits {
+        "tr808", "tr909", "dmx", "dnb", "dark", "deep", "tech",
+        "modular", "gabber", "bergh", "vermona", "commodore", "dmg",
+    };
+
+    const std::array<std::string, 18> enferSamples {
+        "kick", "kick-up", "kick-down", "tom", "snare", "snare-up", "snare-down", "clap",
+        "hat", "hat-open", "hat-shut", "cymb", "fx1", "fx2", "fx3", "fx4", "synth-C2", "synth-C3"
+    };
+
+    const std::array<std::array<int, keyCount>, 12> scaleOffsets {
         -12, -10, -8, -7, -5, -3, -1, 0, 2, 4, 5, 7, 9, 11, 12,
         -12, -10, -9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10, 12,
         -12, -10, -9, -7, -5, -3, -2, 0, 2, 3, 5, 7, 9, 10, 12,
@@ -31,10 +40,10 @@ namespace groovebox {
         poly,
         arp,
         chord,
-        vox
+        inputThrough,
     };
 
-    struct Sample {
+    struct Controls {
         int velocity = 10;
         int pan = 7;
         int filter = 7;
@@ -50,7 +59,10 @@ namespace groovebox {
         int sounds;
         int octave = 3;
         int muted;
-        std::array<Sample, sampleCount+1> samples;
+        int memoryIndex;
+        Controls input;
+        std::array<float, 5*SAMPLE_RATE> memory;
+        std::array<Controls, sampleCount> samples;
         std::array<std::array<bool, keyCount>, stepCount> steps;
     };
 
@@ -77,13 +89,16 @@ namespace groovebox {
     };
 
     enum Output {
-        sample,
-        position,
-        controls
+        left,
+        right,
+        controls,
     };
 
     struct Sequencer {
-        Input active;
+        Input active { .bpm = 120 };
+        // enfer
+        std::array<float*, enferKits.size() * enferSamples.size()> enferFrames;
+        std::array<ma_uint64, enferKits.size() * enferSamples.size()> enferLengths;
         // transport
         int framePosition;
         int stepPosition;
@@ -98,12 +113,27 @@ namespace groovebox {
         const int voiceOutCount = trackCount * keyCount * outputCount;
 
         // explicit `init` so that we keep the default, zero-initializing constructor
-        void init() {
-            for (int t = 0; t < trackCount; t++)
-                for (int k = 0; k < keyCount; k++)
-                    voiceOut[t][k][Output::sample] = 255;
-            active.bpm = 120;
-            updateActive();
+        void init(std::filesystem::path root) {
+            // load enfer sample frames
+            for (int kit = 0; kit < enferKits.size(); kit++) {
+                for (int sample = 0; sample < enferSamples.size(); sample++) {
+                    auto i = kit * enferSamples.size() + sample;
+                    auto filename = root / "native" / "Enfer" / "media" / enferKits[kit] / (enferSamples[sample] + ".wav");
+                    unsigned int channels;
+                    unsigned int sampleRate;
+                    enferFrames[i] = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &enferLengths[i], NULL);
+                    MA_ASSERT(enferFrames[i] != NULL);
+                    MA_ASSERT(sampleRate == SAMPLE_RATE);
+                    // convert mono to stereo
+                    if (channels == 1) {
+                        float* frames = new float[enferLengths[i] * 2];
+                        for (int f = 0; f < enferLengths[i]; f++)
+                            frames[2*f] = frames[2*f + 1] = enferFrames[i][f];
+                        MA_FREE(enferFrames[i]);
+                        enferFrames[i] = frames;
+                    }
+                }
+            }
         }
 
         void compute(Input current, float audio) {
@@ -159,29 +189,6 @@ namespace groovebox {
 #undef received
 
             page = getBeatPage();
-            updateActive();
-
-            for (int t = 0; t < trackCount; t++)
-                for (int k = 0; k < keyCount; k++)
-                    if (tracks[t].type == Type::vox)
-                        useVoice(t, k, audio);
-                    else
-                        voiceOut[t][k][Output::position] += voiceIncrements[t][k];
-
-            if (active.play && stepPosition != inSteps(framePosition - 1) % stepCount)
-                for (int t = 0; t < trackCount; t++)
-                    for (int k = 0; k < keyCount; k++)
-                        if (getAbsoluteStep(t, stepPosition)[k])
-                            useVoice(t, k, audio);
-
-            previous = current;
-        }
-
-        int inSteps(int frames, int subdivision = 1) {
-            return floor(frames / (60.f * SAMPLE_RATE / active.bpm) * subdivision * 2);
-        }
-
-        void updateActive() {
             active.length = tracks[active.track].length;
             active.type = tracks[active.track].type;
             active.sounds = tracks[active.track].sounds;
@@ -198,6 +205,26 @@ namespace groovebox {
                 active.steps[s] = getBeatStep(s)[currentKey];
             for (int t = 0; t < trackCount; t++)
                 active.mutes[t] = tracks[t].muted;
+
+            // for (int t = 0; t < trackCount; t++)
+            //     for (int k = 0; k < keyCount; k++)
+            //         voiceOut[t][k][Output::position] += voiceIncrements[t][k];
+
+            for (int t = 0; t < trackCount; t++)
+                if (tracks[t].type >= Type::inputThrough)
+                    useVoice(t, 0, audio);
+
+            if (active.play && stepPosition != inSteps(framePosition - 1) % stepCount)
+                for (int t = 0; t < trackCount; t++)
+                    for (int k = 0; k < keyCount; k++)
+                        if (getAbsoluteStep(t, stepPosition)[k])
+                            useVoice(t, k, audio);
+
+            previous = current;
+        }
+
+        int inSteps(int frames, int subdivision = 1) {
+            return floor(frames / (60.f * SAMPLE_RATE / active.bpm) * subdivision * 2);
         }
 
         void updateActiveSample() {
@@ -206,8 +233,7 @@ namespace groovebox {
         }
 
         int getSample(int t, int key) {
-            auto track = tracks[t];
-            return track.sounds > 12 ? key*18 + track.sounds + 2 : key + track.sounds*18;
+            return tracks[t].sounds > 12 ? key*18 + tracks[t].sounds + 2 : key + tracks[t].sounds*18;
         }
 
         int getBeatPage() {
@@ -222,10 +248,10 @@ namespace groovebox {
             return tracks[t].steps[i % ((tracks[t].length + 1) * hitCount)].data();
         }
 
-        Sample* getActiveControls() {
-            return tracks[active.track].samples.data() + (
-                tracks[active.track].type == Type::vox ? sampleCount : tracks[active.track].currentSample
-            );
+        Controls* getActiveControls() {
+            return tracks[active.track].type >= Type::inputThrough
+                ? &tracks[active.track].input
+                : &tracks[active.track].samples[tracks[active.track].currentSample];
         }
 
         void liveKey(float audio) {
@@ -241,16 +267,25 @@ namespace groovebox {
         void useVoice(int t, int key, float audio) {
             switch (tracks[t].type) {
             case Type::kit:
-                useVoice(t, getSample(t, key), key, 0);
-                voiceIncrements[t][key] = 1;
+                // auto s = getSample(t, key);
+                // voiceOut[t][key][Output::left] = audio;
+                // voiceOut[t][key][Output::right] = audio;
+                // voiceOut[t][key][Output::controls] = encodeControls(tracks[t].samples[s]);
+                // voiceIncrements[t][key] = 1;
                 break;
             case Type::mono:
-                useVoice(t, tracks[t].currentSample, 0, 0);
-                voiceIncrements[t][0] = noteIncrement(t, key);
+                // auto s = tracks[t].currentSample;
+                // voiceOut[t][0][Output::left] = audio;
+                // voiceOut[t][0][Output::right] = audio;
+                // voiceOut[t][0][Output::controls] = encodeControls(tracks[t].samples[s]);
+                // voiceIncrements[t][key] = noteIncrement(t, key);
                 break;
             case Type::poly:
-                useVoice(t, tracks[t].currentSample, key, 0);
-                voiceIncrements[t][key] = noteIncrement(t, key);
+                // auto s = tracks[t].currentSample;
+                // voiceOut[t][key][Output::left] = audio;
+                // voiceOut[t][key][Output::right] = audio;
+                // voiceOut[t][key][Output::controls] = encodeControls(tracks[t].samples[s]);
+                // voiceIncrements[t][key] = noteIncrement(t, key);
                 break;
             case Type::arp:
                 // TODO
@@ -258,22 +293,21 @@ namespace groovebox {
             case Type::chord:
                 // TODO
                 break;
-            case Type::vox:
-                useVoice(t, sampleCount, key, audio);
+            case Type::inputThrough:
+                voiceOut[t][0][Output::left] = audio;
+                voiceOut[t][0][Output::right] = audio;
+                voiceOut[t][0][Output::controls] = encodeControls(tracks[t].input);
                 break;
             }
         }
 
-        void useVoice(int t, int s, int voice, float position) {
-            voiceOut[t][voice][Output::sample] = s;
-            voiceOut[t][voice][Output::position] = position;
-            voiceOut[t][voice][Output::controls] =
-                   tracks[t].samples[s].velocity
-                | (tracks[t].samples[s].pan       << 4)
-                | (tracks[t].samples[s].filter    << 8)
-                | (tracks[t].samples[s].resonance << 12)
-                | (tracks[t].samples[s].reverb    << 16)
-                | (tracks[t].samples[s].delay     << 20);
+        int encodeControls(Controls controls) {
+            return controls.velocity
+                | (controls.pan       << 4)
+                | (controls.filter    << 8)
+                | (controls.resonance << 12)
+                | (controls.reverb    << 16)
+                | (controls.delay     << 20);
         }
 
         float noteIncrement(int t, int key) {

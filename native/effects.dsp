@@ -1,7 +1,6 @@
 import("stdfaust.lib");
 
 bi = sp.stereoize;
-clamp(low, high) = min(high, max(low, _));
 
 stereoPan(amount, inputL, inputR) = ba.select2stereo(amount > 0,
 	inputL + inputR*abs(amount),  inputR*(1+amount),
@@ -18,9 +17,5 @@ effect(controls) = stereoPan(pan) : bi(*(velocity)) <: bi(_), bi(*(reverb)) with
 	controlValue(n, low, high) = ((controls >> (n*4)) & 15) / 14, low, high : it.interpolate_cosine;
 };
 
-enfer(sample, position) = clamp(0, 255, sample), position : soundfile("enfer", 2) : untilEnd with {
-	untilEnd(length, rate) = bi(*(position < length));
-};
-
-voice(sample, p, controls) = enfer(sample, p), p, p : ba.select2stereo(sample == 256) : effect(controls);
+voice(inputL, inputR, controls) = inputL, inputR : effect(controls);
 process = par(i, 8*15, voice) :> bi(_), dm.freeverb_demo :> bi(_);

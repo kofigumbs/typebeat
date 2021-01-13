@@ -5,6 +5,8 @@
 
 #include "webview/webview.h"
 
+# define SAMPLE_RATE 44100
+
 #define MINIAUDIO_IMPLEMENTATION
 #define MA_NO_ENCODING
 #define MA_NO_GENERATION
@@ -13,28 +15,24 @@
 #include "faust/dsp/one-sample-dsp.h"
 #include "faust/gui/meta.h"
 #include "faust/gui/UI.h"
-#include "faust/gui/Soundfile.h" // defines SAMPLE_RATE
 
-Soundfile* defaultsound; // required by sampler.h
-
-#include "sampler.h"
-#include "enfer-ui.h"
+#include "effects.h"
 #include "sequencer.h"
 
 struct UserData {
     groovebox::Input* input;
     groovebox::Sequencer* sequencer;
-    groovebox::Sampler* sampler;
+    groovebox::Effects* effects;
 };
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
     auto userData = (UserData*) device->pUserData;
-    int intControls[userData->sampler->getNumIntControls()];
-    float floatControls[userData->sampler->getNumRealControls()];
-    userData->sampler->control(intControls, floatControls);
+    int intControls[userData->effects->getNumIntControls()];
+    float floatControls[userData->effects->getNumRealControls()];
+    userData->effects->control(intControls, floatControls);
     for (int frame = 0; frame < frameCount; frame++) {
         userData->sequencer->compute(*(userData->input), ((float*) input)[frame]);
-        userData->sampler->compute((float*) userData->sequencer->voiceOut.data(), ((float*) output) + frame*device->playback.channels, intControls, floatControls);
+        userData->effects->compute((float*) userData->sequencer->voiceOut.data(), ((float*) output) + frame*device->playback.channels, intControls, floatControls);
     }
 }
 
@@ -62,19 +60,17 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
         .parent_path(); // project directory
     groovebox::Input input {};
     groovebox::Sequencer sequencer {};
-    groovebox::Sampler sampler {};
-    groovebox::EnferUI enferUI(root);
+    groovebox::Effects effects {};
 
-    assert(sequencer.voiceOutCount == sampler.getNumInputs());
-    sequencer.init();
-    sampler.init(SAMPLE_RATE);
-    sampler.buildUserInterface(&enferUI);
-    UserData userData { &input, &sequencer, &sampler };
+    assert(sequencer.voiceOutCount == effects.getNumInputs());
+    sequencer.init(root);
+    effects.init(SAMPLE_RATE);
+    UserData userData { &input, &sequencer, &effects };
 
     ma_device device;
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
     deviceConfig.capture.channels = 1;
-    deviceConfig.playback.channels = sampler.getNumOutputs();
+    deviceConfig.playback.channels = effects.getNumOutputs();
     deviceConfig.playback.format = ma_format_f32;
     deviceConfig.sampleRate = SAMPLE_RATE;
     deviceConfig.dataCallback = callback;
