@@ -32,7 +32,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     userData->effects->control(intControls, floatControls);
     for (int frame = 0; frame < frameCount; frame++) {
         userData->sequencer->compute(*(userData->input), ((float*) input)[frame]);
-        userData->effects->compute((float*) userData->sequencer->voiceOut.data(), ((float*) output) + frame*device->playback.channels, intControls, floatControls);
+        userData->effects->compute((float*) userData->sequencer->output.data(), ((float*) output) + frame*device->playback.channels, intControls, floatControls);
     }
 }
 
@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     groovebox::Sequencer sequencer {};
     groovebox::Effects effects {};
 
-    assert(sequencer.voiceOutCount == effects.getNumInputs());
+    assert(sizeof(sequencer.output) == effects.getNumInputs() * sizeof(float));
     sequencer.init(root);
     effects.init(SAMPLE_RATE);
     UserData userData { &input, &sequencer, &effects };

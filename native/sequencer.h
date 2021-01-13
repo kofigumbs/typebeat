@@ -64,6 +64,8 @@ namespace groovebox {
         std::array<float, 5*SAMPLE_RATE> memory;
         std::array<Controls, sampleCount> samples;
         std::array<std::array<bool, keyCount>, stepCount> steps;
+        std::array<float, keyCount> voicePositions;
+        std::array<float, keyCount> voiceIncrements;
     };
 
     struct Input {
@@ -108,9 +110,7 @@ namespace groovebox {
         int currentKey;
         Input previous;
         std::array<Track, trackCount> tracks;
-        std::array<std::array<float, keyCount>, trackCount> voiceIncrements;
-        std::array<std::array<std::array<float, outputCount>, keyCount>, trackCount> voiceOut;
-        const int voiceOutCount = trackCount * keyCount * outputCount;
+        std::array<std::array<std::array<float, outputCount>, keyCount>, trackCount> output;
 
         // explicit `init` so that we keep the default, zero-initializing constructor
         void init(std::filesystem::path root) {
@@ -122,14 +122,14 @@ namespace groovebox {
                     unsigned int channels;
                     unsigned int sampleRate;
                     enferFrames[i] = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &enferLengths[i], NULL);
-                    MA_ASSERT(enferFrames[i] != NULL);
-                    MA_ASSERT(sampleRate == SAMPLE_RATE);
+                    assert(enferFrames[i] != NULL);
+                    assert(sampleRate == SAMPLE_RATE);
                     // convert mono to stereo
                     if (channels == 1) {
                         float* frames = new float[enferLengths[i] * 2];
                         for (int f = 0; f < enferLengths[i]; f++)
                             frames[2*f] = frames[2*f + 1] = enferFrames[i][f];
-                        MA_FREE(enferFrames[i]);
+                        free(enferFrames[i]);
                         enferFrames[i] = frames;
                     }
                 }
@@ -206,9 +206,19 @@ namespace groovebox {
             for (int t = 0; t < trackCount; t++)
                 active.mutes[t] = tracks[t].muted;
 
-            // for (int t = 0; t < trackCount; t++)
-            //     for (int k = 0; k < keyCount; k++)
-            //         voiceOut[t][k][Output::position] += voiceIncrements[t][k];
+            for (int t = 0; t < trackCount; t++)
+                for (int k = 0; k < keyCount; k++) {
+                    auto s = getSample(t, k);
+                    tracks[t].voicePositions[k] += tracks[t].voiceIncrements[k];
+                    if (tracks[t].voiceIncrements[k] == 0 || tracks[t].voicePositions[k] >= enferLengths[s]) {
+                        output[t][k][Output::left] = 0;
+                        output[t][k][Output::right] = 0;
+                    } else {
+                        int i = floor(2*tracks[t].voicePositions[k]);
+                        output[t][k][Output::left] = enferFrames[s][i];
+                        output[t][k][Output::right] = enferFrames[s][i+1];
+                    }
+                }
 
             for (int t = 0; t < trackCount; t++)
                 if (tracks[t].type >= Type::inputThrough)
@@ -266,38 +276,45 @@ namespace groovebox {
 
         void useVoice(int t, int key, float audio) {
             switch (tracks[t].type) {
-            case Type::kit:
-                // auto s = getSample(t, key);
-                // voiceOut[t][key][Output::left] = audio;
-                // voiceOut[t][key][Output::right] = audio;
-                // voiceOut[t][key][Output::controls] = encodeControls(tracks[t].samples[s]);
-                // voiceIncrements[t][key] = 1;
+            case Type::kit: {
+                auto s = getSample(t, key);
+                tracks[t].voicePositions[key] = 0;
+                tracks[t].voiceIncrements[key] = 1;
+                output[t][key][Output::left] = enferFrames[s][0];
+                output[t][key][Output::right] = enferFrames[s][1];
+                output[t][key][Output::controls] = encodeControls(tracks[t].samples[s]);
                 break;
-            case Type::mono:
+            }
+            case Type::mono: {
                 // auto s = tracks[t].currentSample;
-                // voiceOut[t][0][Output::left] = audio;
-                // voiceOut[t][0][Output::right] = audio;
-                // voiceOut[t][0][Output::controls] = encodeControls(tracks[t].samples[s]);
+                // output[t][0][Output::left] = audio;
+                // output[t][0][Output::right] = audio;
+                // output[t][0][Output::controls] = encodeControls(tracks[t].samples[s]);
                 // voiceIncrements[t][key] = noteIncrement(t, key);
                 break;
-            case Type::poly:
+            }
+            case Type::poly: {
                 // auto s = tracks[t].currentSample;
-                // voiceOut[t][key][Output::left] = audio;
-                // voiceOut[t][key][Output::right] = audio;
-                // voiceOut[t][key][Output::controls] = encodeControls(tracks[t].samples[s]);
+                // output[t][key][Output::left] = audio;
+                // output[t][key][Output::right] = audio;
+                // output[t][key][Output::controls] = encodeControls(tracks[t].samples[s]);
                 // voiceIncrements[t][key] = noteIncrement(t, key);
                 break;
-            case Type::arp:
+            }
+            case Type::arp: {
                 // TODO
                 break;
-            case Type::chord:
+            }
+            case Type::chord: {
                 // TODO
                 break;
-            case Type::inputThrough:
-                voiceOut[t][0][Output::left] = audio;
-                voiceOut[t][0][Output::right] = audio;
-                voiceOut[t][0][Output::controls] = encodeControls(tracks[t].input);
+            }
+            case Type::inputThrough: {
+                output[t][0][Output::left] = audio;
+                output[t][0][Output::right] = audio;
+                output[t][0][Output::controls] = encodeControls(tracks[t].input);
                 break;
+            }
             }
         }
 
