@@ -1,6 +1,7 @@
 #include <array>
 #include <cassert>
 #include <filesystem>
+#include <iostream>
 #include <vector>
 
 #include "webview/webview.h"

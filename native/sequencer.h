@@ -1,6 +1,3 @@
-#include <array>
-#include <cmath>
-
 namespace groovebox {
     const int trackCount = 8;
     const int hitCount = 16;
@@ -32,16 +29,21 @@ namespace groovebox {
         -12, -10, -8, -7, -5, -4, -2, 0, 2, 4, 5, 7, 8, 10, 12
     };
 
-    struct Output {
-        float l;
-        float r;
-        float controls;
-    };
-
     struct Sample {
         bool stereo;
         ma_uint64 length;
         float* frames;
+    };
+
+    struct Library {
+        std::array<Sample, enferKits.size() * enferSamples.size()> samples;
+    };
+
+    struct Output {
+        // eventually cast to a float*, so fields should only be floats
+        float l;
+        float r;
+        float controls;
     };
 
     struct Controls {
@@ -82,6 +84,8 @@ namespace groovebox {
         arp,
         chord,
         line,
+        lineRecord,
+        linePlay,
     };
 
     struct Track {
@@ -91,10 +95,11 @@ namespace groovebox {
         int octave = 3;
         int muted;
         int currentKitKey;
-        Controls inputControls;
+        Sample lineSample;
+        Controls lineControls;
         std::array<Controls, enferKits.size() * enferSamples.size()> sampleControls;
-        std::array<std::array<bool, keyCount>, stepCount> steps;
         std::array<Voice, keyCount> voices;
+        std::array<std::array<bool, keyCount>, stepCount> steps;
     };
 
     struct Input {
@@ -127,23 +132,28 @@ namespace groovebox {
         int page;
         int currentKey;
         Input previous;
+        Library library;
         std::array<Track, trackCount> tracks;
-        std::array<Sample, enferKits.size() * enferSamples.size()> library;
         std::array<std::array<Output, keyCount>, trackCount> output;
 
         // explicit `init` so that we keep the default, zero-initializing constructor
         void init(std::filesystem::path root) {
+            for (int t = 0; t < tracks.size(); t++) {
+                tracks[t].lineSample.stereo = false;
+                tracks[t].lineSample.length = 6*SAMPLE_RATE;
+                tracks[t].lineSample.frames = new float[tracks[t].lineSample.length];
+            }
             for (int kit = 0; kit < enferKits.size(); kit++) {
                 for (int sample = 0; sample < enferSamples.size(); sample++) {
                     auto i = kit * enferSamples.size() + sample;
                     auto filename = root / "native" / "Enfer" / "media" / enferKits[kit] / (enferSamples[sample] + ".wav");
                     unsigned int channels;
                     unsigned int sampleRate;
-                    library[i].frames = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &library[i].length, NULL);
-                    assert(library[i].frames != NULL);
+                    library.samples[i].frames = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &library.samples[i].length, NULL);
+                    assert(library.samples[i].frames != NULL);
                     assert(sampleRate == SAMPLE_RATE);
                     assert(channels == 1 || channels == 2);
-                    library[i].stereo = channels == 2;
+                    library.samples[i].stereo = channels == 2;
                 }
             }
         }
@@ -211,6 +221,13 @@ namespace groovebox {
             for (int t = 0; t < trackCount; t++)
                 active.mutes[t] = tracks[t].muted;
 
+            // clear line input memory
+            if (received(type) && tracks[active.track].type == Type::lineRecord) {
+                tracks[active.track].voices[0].position = 0;
+                for (int i = 0; i < tracks[active.track].lineSample.length; i++)
+                    tracks[active.track].lineSample.frames[i] = 0;
+            }
+
             // play track voices
             auto playing = active.play && stepPosition != inSteps(framePosition - 1) % stepCount;
             for (int t = 0; t < tracks.size(); t++)
@@ -229,7 +246,7 @@ namespace groovebox {
 
         int getSample(int t, int key) {
             return std::min(
-                int(library.size() - 1),
+                int(library.samples.size() - 1),
                 tracks[t].sounds > 12 ? key*18 + tracks[t].sounds + 2 : key + tracks[t].sounds*18
             );
         }
@@ -248,7 +265,7 @@ namespace groovebox {
 
         Controls* getActiveControls() {
             return tracks[active.track].type >= Type::line
-                ? &tracks[active.track].inputControls
+                ? &tracks[active.track].lineControls
                 : &tracks[active.track].sampleControls[getSample(active.track, tracks[active.track].currentKitKey)];
         }
 
@@ -261,17 +278,11 @@ namespace groovebox {
                     tracks[t].voices[key].increment = 1;
                 }
                 s = getSample(t, key);
-                tracks[t].voices[key].play(library[s], output[t][key]);
+                tracks[t].voices[key].play(library.samples[s], output[t][key]);
                 tracks[t].sampleControls[s].encode(output[t][key]);
                 break;
             case Type::mono:
-                if (fresh) {
-                    tracks[t].voices[0].position = 0;
-                    tracks[t].voices[0].increment = noteIncrement(t, key);
-                }
-                s = getSample(t, tracks[t].currentKitKey);
-                tracks[t].voices[0].play(library[s], output[t][0]);
-                tracks[t].sampleControls[s].encode(output[t][0]);
+                // TODO
                 break;
             case Type::poly:
                 if (fresh) {
@@ -279,7 +290,7 @@ namespace groovebox {
                     tracks[t].voices[key].increment = noteIncrement(t, key);
                 }
                 s = getSample(t, tracks[t].currentKitKey);
-                tracks[t].voices[key].play(library[s], output[t][key]);
+                tracks[t].voices[key].play(library.samples[s], output[t][key]);
                 tracks[t].sampleControls[s].encode(output[t][key]);
                 break;
             case Type::arp:
@@ -289,9 +300,22 @@ namespace groovebox {
                 // TODO
                 break;
             case Type::line:
-                output[t][0].l = audio;
-                output[t][0].r = audio;
-                tracks[t].inputControls.encode(output[t][0]);
+                output[t][key].l = output[t][key].r = key == 0 ? audio : 0;
+                tracks[t].lineControls.encode(output[t][key]);
+                break;
+            case Type::lineRecord:
+                if (key == 0 && int(tracks[t].voices[0].position) < tracks[t].lineSample.length)
+                    tracks[t].lineSample.frames[int(tracks[t].voices[0].position++)] = audio;
+                output[t][key].l = output[t][key].r = key == 0 ? audio : 0;
+                tracks[t].lineControls.encode(output[t][key]);
+                break;
+            case Type::linePlay:
+                if (fresh) {
+                    tracks[t].voices[key].position = 0;
+                    tracks[t].voices[key].increment = noteIncrement(t, key);
+                }
+                tracks[t].voices[key].play(tracks[t].lineSample, output[t][key]);
+                tracks[t].lineControls.encode(output[t][key]);
                 break;
             }
         }
