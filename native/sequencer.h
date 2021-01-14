@@ -33,6 +33,14 @@ namespace groovebox {
         bool stereo;
         ma_uint64 length;
         float* frames;
+
+        float left(int frame) {
+            return frames[stereo ? 2*frame : frame];
+        }
+
+        float right(int frame) {
+            return frames[stereo ? 2*frame + 1 : frame];
+        }
     };
 
     struct Library {
@@ -64,16 +72,24 @@ namespace groovebox {
         float increment;
 
         void play(Sample sample, Output& output) {
-            output.l = interpolate(sample, sample.stereo ? 2*position : position);
-            output.r = interpolate(sample, sample.stereo ? 2*position + 1 : position);
-            position += increment;
+            auto frame = int(position);
+            if (position == frame && position < sample.length) {
+                output.l = sample.left(frame);
+                output.r = sample.right(frame);
+                position += increment;
+            }
+            else if (frame + 1 < sample.length) {
+                output.l = interpolate(position-frame, sample.left(frame), sample.left(frame + 1));
+                output.r = interpolate(position-frame, sample.right(frame), sample.right(frame + 1));
+                position += increment;
+            }
+            else {
+                output.l = output.r = 0;
+            }
         }
 
-        float interpolate(Sample sample, float frame) {
-            auto i = int(frame);
-            return position+1 >= sample.length
-                ? 0
-                : sample.frames[i] + (frame-i) * (sample.frames[i+1] - sample.frames[i]);
+        float interpolate(float x, float a, float b) {
+            return a + x*(b - a);
         }
     };
 

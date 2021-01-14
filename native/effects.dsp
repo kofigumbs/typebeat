@@ -14,7 +14,7 @@ effect(controls) = stereoPan(pan) : bi(*(velocity)) <: bi(_), bi(*(reverb)) with
 	resonance = controlValue(3,  0, 1);
 	reverb    = controlValue(4,  0, 1);
 	delay     = controlValue(5,  0, 1);
-	controlValue(n, low, high) = ((controls >> (n*4)) & 15) / 14, low, high : it.interpolate_cosine;
+	controlValue(n, low, high) = ((controls >> (n*4)) & 15) / 14, low, high : it.interpolate_cosine : si.smoo;
 };
 
 // https://github.com/grame-cncm/faustlibraries/blob/master/demos.lib
