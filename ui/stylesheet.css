@@ -74,6 +74,11 @@ body > *:last-child {
   font-style: italic;
 }
 
+.key[data-after=f]::after,
+.key[data-after=j]::after {
+  text-decoration: underline;
+}
+
 .key, .shadow {
   width: 3rem;
   height: 3rem;
