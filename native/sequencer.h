@@ -307,6 +307,8 @@ namespace groovebox {
 
         void useVoice(int t, int key, float audio, bool fresh) {
             int s;
+            if (tracks[t].muted)
+                fresh = false;
             switch (tracks[t].type) {
             case Type::kit:
                 if (fresh)
