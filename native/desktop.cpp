@@ -6,13 +6,12 @@
 
 #include "webview/webview.h"
 
-# define SAMPLE_RATE 44100
-
 #define MINIAUDIO_IMPLEMENTATION
 #define MA_NO_ENCODING
 #define MA_NO_GENERATION
 #include "miniaudio/miniaudio.h"
 
+#define SAMPLE_RATE 44100
 #include "faust/dsp/one-sample-dsp.h"
 #include "faust/gui/meta.h"
 #include "faust/gui/UI.h"
@@ -56,6 +55,26 @@ void syncNative(webview::webview* view, std::string label, int* source, int* des
 }
 
 int main(int argc, char* argv[]) { // TODO WinMain, see webview README
+    ma_context context;
+    ma_device_id* captureDeviceId;
+    ma_device_id* playbackDeviceId;
+    assert(ma_context_init(NULL, 0, NULL, &context) == MA_SUCCESS);
+    if (argc >= 2) {
+        ma_uint32 captureDeviceCount;
+        ma_device_info* captureDeviceInfo;
+        ma_uint32 playbackDeviceCount;
+        ma_device_info* playbackDeviceInfo;
+        assert(ma_context_get_devices(&context, &playbackDeviceInfo, &playbackDeviceCount,  &captureDeviceInfo, &captureDeviceCount) == MA_SUCCESS);
+        for (int i = 0; i < captureDeviceCount; ++i)
+            if (strcmp(argv[1], captureDeviceInfo[i].name) == 0)
+                captureDeviceId = &captureDeviceInfo[i].id;
+        for (int i = 0; i < playbackDeviceCount; ++i)
+            if (strcmp(argv[1], playbackDeviceInfo[i].name) == 0)
+                playbackDeviceId = &playbackDeviceInfo[i].id;
+        assert(captureDeviceId != nullptr);
+        assert(playbackDeviceId != nullptr);
+    }
+
     auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
         .parent_path(); // project directory
@@ -71,13 +90,15 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     ma_device device;
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
     deviceConfig.capture.channels = 1;
+    deviceConfig.capture.format = ma_format_f32;
+    deviceConfig.capture.pDeviceID = captureDeviceId;
     deviceConfig.playback.channels = effects.getNumOutputs();
     deviceConfig.playback.format = ma_format_f32;
+    deviceConfig.playback.pDeviceID = playbackDeviceId;
     deviceConfig.sampleRate = SAMPLE_RATE;
     deviceConfig.dataCallback = callback;
     deviceConfig.pUserData = &userData;
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
-    assert(device.capture.channels == 1);
 
     webview::webview view(true, nullptr);
     view.set_size(900, 320, WEBVIEW_HINT_MIN);
@@ -123,5 +144,6 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     ma_device_start(&device);
     view.run();
     ma_device_uninit(&device);
+    ma_context_uninit(&context);
     return 0;
 }
