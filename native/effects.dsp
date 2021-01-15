@@ -2,7 +2,7 @@ import("stdfaust.lib");
 
 process = par(i, 8*15, voice) :> bi(_), sendEffects :> bi(_);
 voice(inputL, inputR, controls) = inputL, inputR : insertEffects(controls);
-sendEffects(dl, dr, rl, rr) = dl, dr : bi(ef.echo(3, .15, .9)) : +(rl), +(rr) : stereoReverb;
+sendEffects(dl, dr, rl, rr) = dl, dr : bi(ef.reverseEchoN(1, 2^15)) : +(rl), +(rr) : stereoReverb;
 
 insertEffects(controls) = stereoPan(pan) : bi(*(velocity)) <: bi(_), bi(*(delay)), bi(*(reverb)) with {
 	velocity  = controlValue(0,  0, 1);
