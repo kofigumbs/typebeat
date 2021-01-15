@@ -59,11 +59,11 @@ namespace groovebox {
         int pan = 7;
         int filter = 7;
         int resonance;
-        int reverb;
         int delay;
+        int reverb;
 
         void encode(Output& output) {
-            output.controls = velocity | pan << 4 | filter << 8 | resonance << 12 | reverb << 16 | delay << 20;
+            output.controls = velocity | pan << 4 | filter << 8 | resonance << 12 | delay << 16 | reverb << 20;
         }
     };
 
