@@ -89,6 +89,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     syncNative(&view, "bpm", &sequencer.active.bpm, &input.bpm);
     syncNative(&view, "play", &sequencer.active.play, &input.play);
     syncNative(&view, "arm", &sequencer.active.arm, &input.arm);
+    syncNative(&view, "clock", &sequencer.active.clock, &input.clock);
     syncNative(&view, "track", &sequencer.active.track, &input.track);
     syncNative(&view, "type", &sequencer.active.type, &input.type);
     syncNative(&view, "length", &sequencer.active.length, &input.length);
@@ -100,8 +101,8 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     syncNative(&view, "pan", &sequencer.active.pan, &input.pan);
     syncNative(&view, "filter", &sequencer.active.filter, &input.filter);
     syncNative(&view, "resonance", &sequencer.active.resonance, &input.resonance);
-    syncNative(&view, "reverb", &sequencer.active.reverb, &input.reverb);
     syncNative(&view, "delay", &sequencer.active.delay, &input.delay);
+    syncNative(&view, "reverb", &sequencer.active.reverb, &input.reverb);
     for (int i = 0; i < sequencer.active.keys.size(); i++)
         syncNative(&view, "key:" + std::to_string(i), sequencer.active.keys.data() + i, input.keys.data() + i);
     for (int i = 0; i < sequencer.active.steps.size(); i++)

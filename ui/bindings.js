@@ -4,6 +4,7 @@ window.bindings = () => ({
     y: toggle("step:4"),        u: toggle("step:5"),  i: toggle("step:6"),  o: toggle("step:7"),
     s: toggle("step:8"),        d: toggle("step:9"),  f: toggle("step:10"), g: toggle("step:11"),
     h: toggle("step:12"),       j: toggle("step:13"), k: toggle("step:14"), l: toggle("step:15"),
+    p: toggle("play", "▶", noActiveValue), ";": toggle("arm", "●", noActiveValue), "/": custom.bpm,
     ...bottom8("length", "Len"),
   }],
   w: [ "Typ", {
@@ -24,7 +25,7 @@ window.bindings = () => ({
     s: toggle("mute:0", "Mut"), d: toggle("mute:1"), f: toggle("mute:2"), g: toggle("mute:3"),
     h: toggle("mute:4"),        j: toggle("mute:5"), k: toggle("mute:6"), l: toggle("mute:7"),
     ...bottom8("track", "Trk"),
-    p: toggle("play", "▶", noActiveValue), ";": toggle("arm", "●", noActiveValue), "/": custom.bpm,
+    "/": toggle("clock", "Clk"),
   }],
   s: [ "Vel", {
     ...right15("velocity", range(0, 14)),
@@ -47,11 +48,11 @@ window.bindings = () => ({
       "Dor", "Phr", "Lyd", "Mix", "Loc", "HMi", "HMa", "MMi", "MMD", "MMa"
     ]),
   }],
-  x: [ "Rev", {
-    ...right15("reverb", range(0, 14)),
-  }],
-  c: [ "Dly", {
+  x: [ "Dly", {
     ...right15("delay", range(0, 14)),
+  }],
+  c: [ "Rev", {
+    ...right15("reverb", range(0, 14)),
   }],
   v: [ "", {
   }],

@@ -122,6 +122,7 @@ namespace groovebox {
         int play;
         int arm;
         int bpm;
+        int clock;
         int root;
         int scale;
         int track;
@@ -133,8 +134,8 @@ namespace groovebox {
         int pan;
         int filter;
         int resonance;
-        int reverb;
         int delay;
+        int reverb;
         std::array<int, keyCount> keys;
         std::array<int, hitCount> steps;
         std::array<int, trackCount> mutes;
@@ -215,8 +216,8 @@ namespace groovebox {
             set(*getActiveControls(), pan, int);
             set(*getActiveControls(), filter, int);
             set(*getActiveControls(), resonance, int);
-            set(*getActiveControls(), reverb, int);
             set(*getActiveControls(), delay, int);
+            set(*getActiveControls(), reverb, int);
 
             // sync active, which reflects state to ui
             page = getBeatPage();
@@ -228,8 +229,8 @@ namespace groovebox {
             active.pan = getActiveControls()->pan;
             active.filter = getActiveControls()->filter;
             active.resonance = getActiveControls()->resonance;
-            active.reverb = getActiveControls()->reverb;
             active.delay = getActiveControls()->delay;
+            active.reverb = getActiveControls()->reverb;
             for (int k = 0; k < keyCount; k++)
                 active.keys[k] = k == currentKey;
             for (int s = 0; s < hitCount; s++)
@@ -291,7 +292,7 @@ namespace groovebox {
             case Type::kit:
                 if (fresh) {
                     tracks[t].voices[key].position = 0;
-                    tracks[t].voices[key].increment = 1;
+                    tracks[t].voices[key].increment = noteIncrement(t, 7);
                 }
                 s = getSample(t, key);
                 tracks[t].voices[key].play(library.samples[s], output[t][key]);

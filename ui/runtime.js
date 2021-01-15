@@ -129,10 +129,15 @@ document.addEventListener("keypress", event => event.preventDefault());
  * draw loop
  */
 
+let bpm;
 const getMethods = new Set([ "beat", "page" ]);
-for (let controls of Object.values(bindings))
-  for (let binding of Object.values(controls[1]))
+for (let controls of Object.values(bindings)) {
+  for (let binding of Object.values(controls[1])) {
+    if (binding.method === "bpm")
+      bpm = binding;
     getMethods.add(binding.method);
+  }
+}
 
 (async function loop() {
   const active = {};
@@ -143,7 +148,7 @@ for (let controls of Object.values(bindings))
     key.classList.toggle("active", binding?.value === (active[binding?.method] ?? "inactive"));
   }
 
-  bindings["a"][1]["/"]["label"] = active.bpm;
+  bpm.label = active.bpm;
   document.body.classList.toggle("arm", active.arm);
   keysInPage.forEach((key, i) => key.classList.toggle("available", i <= active.length));
   keysInPage.forEach((key, i) => key.classList.toggle("highlight", i === active.page));
