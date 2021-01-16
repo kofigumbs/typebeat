@@ -318,7 +318,15 @@ namespace groovebox {
                 tracks[t].sampleControls[s].encode(output[t][key]);
                 break;
             case Type::mono:
-                // TODO
+                if (fresh)
+                    tracks[t].voices[0].prepare(noteIncrement(t, key));
+                if (fresh || key == 0) {
+                    s = getSample(t, tracks[t].currentKitKey);
+                    tracks[t].voices[0].play(library.samples[s], output[t][0]);
+                    tracks[t].sampleControls[s].encode(output[t][0]);
+                }
+                if (key > 0)
+                    output[t][key].l = output[t][key].r = 0;
                 break;
             case Type::poly:
                 if (fresh)
