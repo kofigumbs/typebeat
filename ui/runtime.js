@@ -12,6 +12,7 @@ const nativePut = (method, value) => window[`toNative:${method}`](value|0);
 
 const noModifier = "";
 const noActiveValue = null;
+const noBinding = { name: "", icon: "", keyMap: {} };
 
 const toggle = (method, label, value = 1) => ({ type: "toggle", method, label, value });
 const set = (method, label, value) => ({ type: "set", method, label, value });
@@ -64,6 +65,7 @@ const custom = {
  */
 
 let modifier = noModifier;
+let redraw = true;
 const bindings = window.bindings();
 
 const keys = document.querySelectorAll(".key");
@@ -71,20 +73,26 @@ const keysInPage = document.querySelectorAll(".page");
 const keysInSequence = document.querySelectorAll(".sequence");
 
 const keysByEventCode = Object.fromEntries(Array.from(keys).map(key => [
-  key.dataset.after
+  key.dataset.symbol
     .replace(/[a-z]/, match => `Key${match.toUpperCase()}`)
     .replace(";", "Semicolon")
     .replace(",", "Comma").replace(".", "Period").replace("/", "Slash"),
   key,
 ]));
 
+const setModifier = value => {
+  modifier = value;
+  redraw = true;
+};
+
 const resetModifier = () => {
   modifier = noModifier;
+  redraw = true;
   custom.bpm.state = [];
 }
 
 const handleSend = (event, value) => {
-  const binding = bindings[modifier][1][value];
+  const binding = bindings[modifier].keyMap[value];
   if (!binding)
     return;
   if (binding.type === "toggle")
@@ -97,7 +105,7 @@ const handleSend = (event, value) => {
 
 const handleModifier = (event, value) => {
   if (modifier === noModifier && event.type === "keydown")
-    modifier = value;
+    setModifier(value);
   else if (modifier === value && event.type === "keyup")
     resetModifier();
   else
@@ -108,9 +116,9 @@ const handleKeyboardKey = (event, key) => {
   event.preventDefault();
   key.classList.toggle("down", event.type === "keydown");
   if (key.dataset.control === "send")
-    return handleSend(event, key.dataset.after);
+    return handleSend(event, key.dataset.symbol);
   if (key.dataset.control === "modify")
-    return handleModifier(event, key.dataset.after);
+    return handleModifier(event, key.dataset.symbol);
 };
 
 const handleDocumentKey = event => {
@@ -131,20 +139,27 @@ document.addEventListener("keypress", event => event.preventDefault());
 
 let bpm;
 const getMethods = new Set([ "beat", "page" ]);
-for (let controls of Object.values(bindings)) {
-  for (let binding of Object.values(controls[1])) {
+for (let { keyMap } of Object.values(bindings)) {
+  for (let binding of Object.values(keyMap)) {
     if (binding.method === "bpm")
       bpm = binding;
     getMethods.add(binding.method);
   }
 }
 
+const iconImages = {};
+for (const { icon } of Object.values(bindings))
+  if (icon)
+    window.fetchIcon(icon)
+      .then(response => response.ok && response.text())
+      .then(svg => redraw = iconImages[icon] = svg); // redraw if we loaded the icon
+
 (async function loop() {
   const active = {};
   for (let method of getMethods)
     active[method] = await nativeGet(method);
   for (let key of keys) {
-    const binding = bindings[modifier][1][key.dataset.after];
+    const binding = bindings[modifier].keyMap[key.dataset.symbol];
     key.classList.toggle("active", binding?.value === (active[binding?.method] ?? "inactive"));
   }
 
@@ -154,11 +169,17 @@ for (let controls of Object.values(bindings)) {
   keysInPage.forEach((key, i) => key.classList.toggle("highlight", i === active.page));
   keysInSequence.forEach((key, i) => key.classList.toggle("highlight", i === active.beat));
 
-  for (const key of keys)
-    if (key.dataset.after !== modifier)
-      key.dataset.before = modifier === noModifier && key.dataset.after in bindings
-        ? bindings[key.dataset.after][0]
-        : bindings[modifier][1][key.dataset.after]?.label || "";
+  if (redraw) {
+    for (const key of keys)
+      if (key.dataset.symbol !== modifier) {
+        const useIcon = modifier === noModifier && key.dataset.symbol in bindings;
+        const html = useIcon
+          ? await iconImages[bindings[key.dataset.symbol].icon]
+          : bindings[modifier].keyMap[key.dataset.symbol]?.label;
+        key.innerHTML = html || "";
+      }
+    redraw = false;
+  }
 
   requestAnimationFrame(loop);
 })();

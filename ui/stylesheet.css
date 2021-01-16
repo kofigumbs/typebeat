@@ -51,46 +51,26 @@ body > *:last-child {
 }
 
 .key {
-  text-transform: capitalize;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: .25rem;
   /* https://www.huratips.com/tech-tips/fixing-z-index-issue-on-safari-browser.html */
   z-index: 999;
   -webkit-transform: translate3d(0,0,0);
-}
-
-.key::before {
-  content: attr(data-before);
-  position: absolute;
-  top: .25rem;
-  left: .5rem;
-}
-
-.key::after {
-  content: attr(data-after);
-  position: absolute;
-  right: 0;
-  padding: 0 .5rem;
-  bottom: .25rem;
-  opacity: .6;
-  font-style: italic;
-}
-
-.key[data-after=f]::after,
-.key[data-after=j]::after {
-  text-decoration: underline;
-}
-
-.key, .shadow {
-  width: 3rem;
-  height: 3rem;
-  border: solid .25rem;
-  border-radius: .25rem;
-  font-weight: 800;
 }
 
 .shadow {
   position: absolute;
   top: .5rem;
   left: .5rem;
+  width: 3rem;
+  height: 3rem;
+}
+
+.key, .shadow {
+  border: solid .25rem;
+  border-radius: .25rem;
+  font-weight: 800;
 }
 
 .key.down {
