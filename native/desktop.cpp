@@ -56,8 +56,8 @@ void syncNative(webview::webview* view, std::string label, int* source, int* des
 
 int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     ma_context context;
-    ma_device_id* captureDeviceId;
-    ma_device_id* playbackDeviceId;
+    ma_device_id* captureDeviceId = nullptr;
+    ma_device_id* playbackDeviceId = nullptr;
     assert(ma_context_init(NULL, 0, NULL, &context) == MA_SUCCESS);
     if (argc >= 2) {
         ma_uint32 captureDeviceCount;
@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
             if (strcmp(argv[1], captureDeviceInfo[i].name) == 0)
                 captureDeviceId = &captureDeviceInfo[i].id;
         for (int i = 0; i < playbackDeviceCount; ++i)
-            if (strcmp(argv[1], playbackDeviceInfo[i].name) == 0)
+            if (strcmp(argv[argc > 2 ? 2 : 1], playbackDeviceInfo[i].name) == 0)
                 playbackDeviceId = &playbackDeviceInfo[i].id;
         assert(captureDeviceId != nullptr);
         assert(playbackDeviceId != nullptr);
