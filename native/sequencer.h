@@ -133,8 +133,8 @@ namespace groovebox {
 
     struct Input {
         int play;
-        int arm;
-        int bpm;
+        int record;
+        int tempo;
         int clock;
         int root;
         int scale;
@@ -155,7 +155,7 @@ namespace groovebox {
     };
 
     struct Sequencer {
-        Input active { .bpm = 120 };
+        Input active { .tempo = 120 };
         int framePosition;
         int stepPosition;
         int beat;
@@ -195,7 +195,7 @@ namespace groovebox {
 
             // input toggles
             active.play ^= received(play);
-            active.arm ^= received(arm);
+            active.record ^= received(record);
             framePosition = active.play ? framePosition+1 : -1;
             stepPosition = inSteps(framePosition) % stepCount;
             beat = stepPosition % hitCount;
@@ -204,7 +204,7 @@ namespace groovebox {
                     currentKey = k;
                     if (tracks[active.track].type == Type::kit)
                         tracks[active.track].currentKitKey = k;
-                    if (active.play && active.arm) {
+                    if (active.play && active.record) {
                         auto quantizePosition = (int) ((inSteps(framePosition, 2) + 1) / 2.0) % stepCount;
                         getAbsoluteStep(active.track, quantizePosition)[currentKey] = true;
                         if (stepPosition != quantizePosition)
@@ -217,7 +217,7 @@ namespace groovebox {
                 tracks[t].muted ^= received(mutes[t]);
 
             // input values
-            set(active, bpm, int);
+            set(active, tempo, int);
             set(active, root, int);
             set(active, scale, int);
             set(active, track, int);
@@ -277,7 +277,7 @@ namespace groovebox {
         }
 
         int inSteps(int frames, int subdivision = 1) {
-            return floor(frames / (60.f * SAMPLE_RATE / active.bpm) * subdivision * 2);
+            return floor(frames / (60.f * SAMPLE_RATE / active.tempo) * subdivision * 2);
         }
 
         int getSample(int t, int key) {

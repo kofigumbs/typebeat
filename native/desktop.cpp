@@ -107,9 +107,9 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
 
     fromNative(&view, "beat", &sequencer.beat);
     fromNative(&view, "page", &sequencer.page);
-    syncNative(&view, "bpm", &sequencer.active.bpm, &input.bpm);
+    syncNative(&view, "tempo", &sequencer.active.tempo, &input.tempo);
     syncNative(&view, "play", &sequencer.active.play, &input.play);
-    syncNative(&view, "arm", &sequencer.active.arm, &input.arm);
+    syncNative(&view, "record", &sequencer.active.record, &input.record);
     syncNative(&view, "clock", &sequencer.active.clock, &input.clock);
     syncNative(&view, "track", &sequencer.active.track, &input.track);
     syncNative(&view, "type", &sequencer.active.type, &input.type);

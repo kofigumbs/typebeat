@@ -14,7 +14,7 @@ const noModifier = "";
 const noActiveValue = null;
 const noBinding = { name: "", icon: "", keyMap: {} };
 
-const toggle = (method, label, value = 1) => ({ type: "toggle", method, label, value });
+const toggle = (method, label = "", value = 1) => ({ type: "toggle", method, label, value });
 const set = (method, label, value) => ({ type: "set", method, label, value });
 
 const range = (low, high) => {
@@ -43,8 +43,8 @@ const right12 = (method, labels) => labelAll("nm,.hjklyuio", method, labels);
 const right15 = (method, labels) => labelAll("nm,./hjkl;yuiop", method, labels);
 
 const custom = {
-  bpm: {
-    type: "custom", method: "bpm", state: [],
+  tempo: {
+    type: "custom", method: "tempo", state: [],
     handle(event) {
       if (event.type !== "keydown")
         return;
@@ -54,6 +54,7 @@ const custom = {
       let diffs = 0;
       for (let i = 1; i < this.state.length; i++)
         diffs += this.state[i] - this.state[i - 1];
+      redraw = true;
       nativePut(this.method, Math.round(60000 / (diffs / (this.state.length - 1)) + 1));
     },
   },
@@ -68,6 +69,7 @@ let modifier = noModifier;
 let redraw = true;
 const bindings = window.bindings();
 
+const help = document.querySelector(".help");
 const keys = document.querySelectorAll(".key");
 const keysInPage = document.querySelectorAll(".page");
 const keysInSequence = document.querySelectorAll(".sequence");
@@ -82,25 +84,29 @@ const keysByEventCode = Object.fromEntries(Array.from(keys).map(key => [
 
 const setModifier = value => {
   modifier = value;
+  help.innerText = bindings[modifier].name;
   redraw = true;
 };
 
 const resetModifier = () => {
   modifier = noModifier;
+  custom.tempo.state = [];
   redraw = true;
-  custom.bpm.state = [];
 }
 
 const handleSend = (event, value) => {
   const binding = bindings[modifier].keyMap[value];
   if (!binding)
     return;
+  const down = event.type === "keydown";
+  if (down)
+    help.innerText = `${bindings[modifier].name} › ${binding.method}`;
   if (binding.type === "toggle")
-    return nativePut(binding.method, event.type === "keydown");
+    nativePut(binding.method, down);
   if (binding.type === "set")
-    return nativePut(binding.method, (binding.value + 1) * (event.type === "keydown"));
+    nativePut(binding.method, (binding.value + 1) * down);
   if (binding.type === "custom")
-    return binding.handle(event, value);
+    binding.handle(event);
 };
 
 const handleModifier = (event, value) => {
@@ -137,12 +143,12 @@ document.addEventListener("keypress", event => event.preventDefault());
  * draw loop
  */
 
-let bpm;
+let tempo;
 const getMethods = new Set([ "beat", "page" ]);
 for (let { keyMap } of Object.values(bindings)) {
   for (let binding of Object.values(keyMap)) {
-    if (binding.method === "bpm")
-      bpm = binding;
+    if (binding.method === "tempo")
+      tempo = binding;
     getMethods.add(binding.method);
   }
 }
@@ -163,8 +169,8 @@ for (const { icon } of Object.values(bindings))
     key.classList.toggle("active", binding?.value === (active[binding?.method] ?? "inactive"));
   }
 
-  bpm.label = active.bpm;
-  document.body.classList.toggle("arm", active.arm);
+  tempo.label = active.tempo;
+  document.body.classList.toggle("recording", active.record);
   keysInPage.forEach((key, i) => key.classList.toggle("available", i <= active.length));
   keysInPage.forEach((key, i) => key.classList.toggle("highlight", i === active.page));
   keysInSequence.forEach((key, i) => key.classList.toggle("highlight", i === active.beat));

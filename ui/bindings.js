@@ -7,7 +7,7 @@ window.bindings = () => ({
       y: toggle("step:4"),         u: toggle("step:5"),  i: toggle("step:6"),  o: toggle("step:7"),
       s: toggle("step:8"),         d: toggle("step:9"),  f: toggle("step:10"), g: toggle("step:11"),
       h: toggle("step:12"),        j: toggle("step:13"), k: toggle("step:14"), l: toggle("step:15"),
-      p: toggle("play", "▶", noActiveValue), ";": toggle("arm", "●", noActiveValue), "/": custom.bpm,
+      p: toggle("play", "▶", noActiveValue), ";": toggle("record", "●", noActiveValue), "/": custom.tempo,
       ...bottom8("length", "Len"),
     },
   },
@@ -19,12 +19,12 @@ window.bindings = () => ({
     },
   },
   e: {
-    name: "Sound pack",
+    name: "Sample pack",
     icon: "notification",
     keyMap: {
       ...right15("sounds", [
-        "808", "909", "DMX", "DNB", "Drk", "Dp",  "Tch",
-        "Mod", "Gab", "Brg", "Vrm", "Cmd", "DMG", "FX4", "Syn",
+        "808", "909", "DMX", "DNB", "Drk", "Deep",  "Tech",
+        "Mod", "Gab", "Berg", "Vrm", "Cmd", "DMG", "FX4", "Snth",
       ]),
     },
   },
@@ -91,7 +91,7 @@ window.bindings = () => ({
   v: noBinding,
   b: noBinding,
   [noModifier]: {
-    name: "",
+    name: "Note",
     icon: "",
     keyMap: {
       "y": toggle("key:10"), "u": toggle("key:11"), "i": toggle("key:12"), "o": toggle("key:13"), "p": toggle("key:14"),
