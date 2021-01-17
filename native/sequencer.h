@@ -105,7 +105,7 @@ namespace groovebox {
         }
     };
 
-    enum Type {
+    enum Source {
         kit,
         mono,
         poly,
@@ -117,7 +117,7 @@ namespace groovebox {
     };
 
     struct Track {
-        Type type;
+        Source source;
         int length;
         int sounds;
         int octave = 3;
@@ -139,7 +139,7 @@ namespace groovebox {
         int root;
         int scale;
         int track;
-        int type;
+        int source;
         int length;
         int sounds;
         int octave;
@@ -202,7 +202,7 @@ namespace groovebox {
             for (int k = 0; k < keyCount; k++)
                 if(received(keys[k])) {
                     currentKey = k;
-                    if (tracks[active.track].type == Type::kit)
+                    if (tracks[active.track].source == Source::kit)
                         tracks[active.track].currentKitKey = k;
                     if (active.play && active.record) {
                         auto quantizePosition = (int) ((inSteps(framePosition, 2) + 1) / 2.0) % stepCount;
@@ -221,7 +221,7 @@ namespace groovebox {
             set(active, root, int);
             set(active, scale, int);
             set(active, track, int);
-            set(tracks[active.track], type, Type);
+            set(tracks[active.track], source, Source);
             set(tracks[active.track], length, int);
             set(tracks[active.track], sounds, int);
             set(tracks[active.track], octave, int);
@@ -235,7 +235,7 @@ namespace groovebox {
             // sync active, which reflects state to ui
             page = getBeatPage();
             active.length = tracks[active.track].length;
-            active.type = tracks[active.track].type;
+            active.source = tracks[active.track].source;
             active.sounds = tracks[active.track].sounds;
             active.octave = tracks[active.track].octave;
             active.volume = getActiveControls()->volume;
@@ -252,13 +252,13 @@ namespace groovebox {
                 active.mutes[t] = tracks[t].muted;
 
             // it can be jarring to swap samples mid-playback
-            if (received(type) || received(sounds))
+            if (received(source) || received(sounds))
                 for (int t = 0; t < tracks.size(); t++)
                     for (int v = 0; v < tracks[t].voices.size(); v++)
                         tracks[active.track].voices[v].release();
 
             // clear line sample
-            if (received(type) && tracks[active.track].type == Type::lineRecord) {
+            if (received(source) && tracks[active.track].source == Source::lineRecord) {
                 tracks[active.track].linePosition = 0;
                 auto sample = tracks[active.track].lineSample;
                 std::fill(sample.frames, sample.frames + sample.length, 0);
@@ -300,7 +300,7 @@ namespace groovebox {
         }
 
         Controls* getActiveControls() {
-            return tracks[active.track].type >= Type::lineThrough
+            return tracks[active.track].source >= Source::lineThrough
                 ? &tracks[active.track].lineControls
                 : &tracks[active.track].sampleControls[getSample(active.track, tracks[active.track].currentKitKey)];
         }
@@ -309,15 +309,15 @@ namespace groovebox {
             int s;
             if (tracks[t].muted)
                 fresh = false;
-            switch (tracks[t].type) {
-            case Type::kit:
+            switch (tracks[t].source) {
+            case Source::kit:
                 if (fresh)
                     tracks[t].voices[key].prepare(noteIncrement(t, (keyCount-1)/2));
                 s = getSample(t, key);
                 tracks[t].voices[key].play(library.samples[s], output[t][key]);
                 tracks[t].sampleControls[s].encode(output[t][key]);
                 break;
-            case Type::mono:
+            case Source::mono:
                 if (fresh)
                     tracks[t].voices[0].prepare(noteIncrement(t, key));
                 if (fresh || key == 0) {
@@ -328,30 +328,30 @@ namespace groovebox {
                 if (key > 0)
                     output[t][key].l = output[t][key].r = 0;
                 break;
-            case Type::poly:
+            case Source::poly:
                 if (fresh)
                     tracks[t].voices[key].prepare(noteIncrement(t, key));
                 s = getSample(t, tracks[t].currentKitKey);
                 tracks[t].voices[key].play(library.samples[s], output[t][key]);
                 tracks[t].sampleControls[s].encode(output[t][key]);
                 break;
-            case Type::arp:
+            case Source::arp:
                 // TODO
                 break;
-            case Type::chord:
+            case Source::chord:
                 // TODO
                 break;
-            case Type::lineThrough:
+            case Source::lineThrough:
                 output[t][key].l = output[t][key].r = key == 0 ? audio : 0;
                 tracks[t].lineControls.encode(output[t][key]);
                 break;
-            case Type::lineRecord:
+            case Source::lineRecord:
                 if (key == 0 && tracks[t].linePosition < tracks[t].lineSample.length)
                     tracks[t].lineSample.frames[tracks[t].linePosition++] = audio;
                 output[t][key].l = output[t][key].r = key == 0 ? audio : 0;
                 tracks[t].lineControls.encode(output[t][key]);
                 break;
-            case Type::linePlay:
+            case Source::linePlay:
                 if (fresh)
                     tracks[t].voices[key].prepare(noteIncrement(t, key));
                 tracks[t].voices[key].play(tracks[t].lineSample, output[t][key]);

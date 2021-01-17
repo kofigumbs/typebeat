@@ -12,10 +12,10 @@ window.bindings = () => ({
     },
   },
   w: {
-    name: "track type",
+    name: "source",
     icon: "audio-device",
     keyMap: {
-      ...right15("type", [ "Kit", "Mono", "Poly", "Arp", "Chrd", "Mic", "Mic●", "Mic▶" ]),
+      ...right15("source", [ "Kit", "Mono", "Poly", "Arp", "Chrd", "Mic", "Mic●", "Mic▶" ]),
     },
   },
   e: {
