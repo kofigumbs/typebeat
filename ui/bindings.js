@@ -15,7 +15,7 @@ window.bindings = () => ({
     name: "source",
     icon: "mic",
     keyMap: {
-      ...right15("source", [ "Kit", "Mono", "Poly", "Arp", "Chrd", "Mic", "Mic●", "Mic▶" ]),
+      ...right15("source", [ "Kit", "Mono", "Poly", "", "", "~", "~ ●", "~ ▶", "~ ▶▶" ]),
     },
   },
   e: {

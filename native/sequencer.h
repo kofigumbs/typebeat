@@ -113,7 +113,8 @@ namespace groovebox {
         chord,
         lineThrough,
         lineRecord,
-        linePlay,
+        lineMono,
+        linePoly,
     };
 
     struct Track {
@@ -318,21 +319,13 @@ namespace groovebox {
                 tracks[t].sampleControls[s].encode(output[t][key]);
                 break;
             case Source::mono:
-                if (fresh)
-                    tracks[t].voices[0].prepare(noteIncrement(t, key));
-                if (fresh || key == 0) {
-                    s = getSample(t, tracks[t].currentKitKey);
-                    tracks[t].voices[0].play(library.samples[s], output[t][0]);
-                    tracks[t].sampleControls[s].encode(output[t][0]);
-                }
-                if (key > 0)
-                    output[t][key].l = output[t][key].r = 0;
+                s = getSample(t, tracks[t].currentKitKey);
+                playMono(t, key, fresh, library.samples[s]);
+                tracks[t].sampleControls[s].encode(output[t][key]);
                 break;
             case Source::poly:
-                if (fresh)
-                    tracks[t].voices[key].prepare(noteIncrement(t, key));
                 s = getSample(t, tracks[t].currentKitKey);
-                tracks[t].voices[key].play(library.samples[s], output[t][key]);
+                playPoly(t, key, fresh, library.samples[s]);
                 tracks[t].sampleControls[s].encode(output[t][key]);
                 break;
             case Source::arp:
@@ -351,13 +344,30 @@ namespace groovebox {
                 output[t][key].l = output[t][key].r = key == 0 ? audio : 0;
                 tracks[t].lineControls.encode(output[t][key]);
                 break;
-            case Source::linePlay:
-                if (fresh)
-                    tracks[t].voices[key].prepare(noteIncrement(t, key));
-                tracks[t].voices[key].play(tracks[t].lineSample, output[t][key]);
+            case Source::lineMono:
+                playMono(t, key, fresh, tracks[t].lineSample);
+                tracks[t].lineControls.encode(output[t][key]);
+                break;
+            case Source::linePoly:
+                playPoly(t, key, fresh, tracks[t].lineSample);
                 tracks[t].lineControls.encode(output[t][key]);
                 break;
             }
+        }
+
+        void playMono(int t, int key, bool fresh, Sample sample) {
+            if (fresh)
+                tracks[t].voices[0].prepare(noteIncrement(t, key));
+            if (fresh || key == 0)
+                tracks[t].voices[0].play(sample, output[t][0]);
+            if (key > 0)
+                output[t][key].l = output[t][key].r = 0;
+        }
+
+        void playPoly(int t, int key, bool fresh, Sample sample) {
+            if (fresh)
+                tracks[t].voices[key].prepare(noteIncrement(t, key));
+            tracks[t].voices[key].play(sample, output[t][key]);
         }
 
         float noteIncrement(int t, int key) {
