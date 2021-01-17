@@ -14,7 +14,7 @@ all: ui/feather.js build/groovebox
 ui/feather.js:
 	curl -sSL https://unpkg.com/feather-icons@4.28.0/dist/feather.min.js > $@
 
-build/groovebox: desktop/main.cpp audio/sequencer.h desktop/webview audio/miniaudio audio/Enfer build/include/effects.h
+build/groovebox: desktop/main.cpp audio/device.h audio/sequencer.h desktop/webview audio/miniaudio audio/Enfer build/include/effects.h
 	time g++ desktop/main.cpp -I audio -I build/include -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o $@
 
 build/include/effects.h: build/bin/faust audio/effects.dsp
