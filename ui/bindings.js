@@ -13,14 +13,14 @@ window.bindings = () => ({
   },
   w: {
     name: "source",
-    icon: "audio-device",
+    icon: "mic",
     keyMap: {
       ...right15("source", [ "Kit", "Mono", "Poly", "Arp", "Chrd", "Mic", "Mic●", "Mic▶" ]),
     },
   },
   e: {
     name: "sample pack",
-    icon: "notification",
+    icon: "bell",
     keyMap: {
       ...right15("sounds", [
         "808", "909", "DMX", "DNB", "Drk", "Deep",  "Tech",
@@ -30,7 +30,7 @@ window.bindings = () => ({
   },
   r: {
     name: "oct",
-    icon: "chevrons-vertical",
+    icon: "octagon",
     keyMap: {
       ...right15("octave", range(0, 8)),
     },
@@ -38,7 +38,7 @@ window.bindings = () => ({
   t: noBinding,
   a: {
     name: "mix",
-    icon: "chart-multiple",
+    icon: "sliders",
     keyMap: {
       s: toggle("mute:0", "Mute"), d: toggle("mute:1"), f: toggle("mute:2"), g: toggle("mute:3"),
       h: toggle("mute:4"),         j: toggle("mute:5"), k: toggle("mute:6"), l: toggle("mute:7"),
@@ -47,14 +47,14 @@ window.bindings = () => ({
   },
   s: {
     name: "volume",
-    icon: "arrows-vertical",
+    icon: "volume-1",
     keyMap: {
       ...right15("volume", range(0, 14)),
     },
   },
   d: {
     name: "pan",
-    icon: "arrows-horizontal",
+    icon: "maximize-2",
     keyMap: {
       ...right15("pan", range(-7, 7)),
     },
@@ -63,7 +63,7 @@ window.bindings = () => ({
   g: noBinding,
   z: {
     name: "key",
-    icon: "invert",
+    icon: "key",
     keyMap: {
       ...left12("root", [
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
@@ -76,14 +76,14 @@ window.bindings = () => ({
   },
   x: {
     name: "delay",
-    icon: "section-copy",
+    icon: "copy",
     keyMap: {
       ...right15("delay", range(0, 14)),
     },
   },
   c: {
     name: "reverb",
-    icon: "missed-call",
+    icon: "maximize",
     keyMap: {
       ...right15("reverb", range(0, 14)),
     },

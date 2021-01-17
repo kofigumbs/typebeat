@@ -8,6 +8,12 @@ endif
 # TODO Windows
 # TODO WebAudio/WASM/Emscriptem ?
 
+.PHONY: all
+all: ui/feather.js build/groovebox
+
+ui/feather.js:
+	curl -sSL https://unpkg.com/feather-icons@4.28.0/dist/feather.min.js > $@
+
 build/groovebox: $(shell ls native/*.{h,cpp}) native/webview native/miniaudio native/Enfer build/include/effects.h
 	time g++ native/desktop.cpp -I native -I build/include -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o $@
 

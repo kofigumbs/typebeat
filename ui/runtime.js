@@ -155,13 +155,6 @@ for (let { keyMap } of Object.values(bindings)) {
   }
 }
 
-const iconImages = {};
-for (const { icon } of Object.values(bindings))
-  if (icon)
-    window.fetchIcon(icon)
-      .then(response => response.ok && response.text())
-      .then(svg => redraw = iconImages[icon] = svg); // redraw if we loaded the icon
-
 (async function loop() {
   const active = {};
   for (let method of getMethods)
@@ -181,11 +174,14 @@ for (const { icon } of Object.values(bindings))
     for (const key of keys)
       if (key.dataset.symbol !== modifier) {
         const useIcon = modifier === noModifier && key.dataset.symbol in bindings;
-        const html = useIcon
-          ? await iconImages[bindings[key.dataset.symbol].icon]
-          : bindings[modifier].keyMap[key.dataset.symbol]?.label;
+        let html;
+        if (!useIcon)
+          html = bindings[modifier].keyMap[key.dataset.symbol]?.label;
+        else if (bindings[key.dataset.symbol].icon)
+          html = `<i data-feather="${bindings[key.dataset.symbol].icon}"></i>`
         key.innerHTML = html || "";
       }
+    feather.replace();
     redraw = false;
   }
 

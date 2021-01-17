@@ -85,6 +85,10 @@ body > *:last-child {
   left: .5rem;
 }
 
+.key svg {
+  stroke-width: 3;
+}
+
 
 /*
  * horizontal spacing
