@@ -100,7 +100,9 @@ const handleSend = (event, value) => {
     return;
   const down = event.type === "keydown";
   if (down)
-    help.innerText = `${bindings[modifier].name} › ${binding.method}`;
+    help.innerText = bindings[modifier].name;
+  if (down && bindings[modifier].name !== binding.method)
+    help.innerText += ` › ${binding.method}`;
   if (binding.type === "toggle")
     nativePut(binding.method, down);
   if (binding.type === "set")

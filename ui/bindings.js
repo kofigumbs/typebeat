@@ -1,6 +1,6 @@
 window.bindings = () => ({
   q: {
-    name: "Sequence",
+    name: "sequence",
     icon: "grid",
     keyMap: {
       w: toggle("step:0", "Step"), e: toggle("step:1"),  r: toggle("step:2"),  t: toggle("step:3"),
@@ -12,14 +12,14 @@ window.bindings = () => ({
     },
   },
   w: {
-    name: "Track type",
+    name: "track type",
     icon: "audio-device",
     keyMap: {
       ...right15("type", [ "Kit", "Mono", "Poly", "Arp", "Chrd", "Mic", "Mic●", "Mic▶" ]),
     },
   },
   e: {
-    name: "Sample pack",
+    name: "sample pack",
     icon: "notification",
     keyMap: {
       ...right15("sounds", [
@@ -29,7 +29,7 @@ window.bindings = () => ({
     },
   },
   r: {
-    name: "Oct",
+    name: "oct",
     icon: "chevrons-vertical",
     keyMap: {
       ...right15("octave", range(0, 8)),
@@ -37,7 +37,7 @@ window.bindings = () => ({
   },
   t: noBinding,
   a: {
-    name: "Mix",
+    name: "mix",
     icon: "chart-multiple",
     keyMap: {
       s: toggle("mute:0", "Mute"), d: toggle("mute:1"), f: toggle("mute:2"), g: toggle("mute:3"),
@@ -46,14 +46,14 @@ window.bindings = () => ({
     },
   },
   s: {
-    name: "Volume",
+    name: "volume",
     icon: "arrows-vertical",
     keyMap: {
-      ...right15("velocity", range(0, 14)),
+      ...right15("volume", range(0, 14)),
     },
   },
   d: {
-    name: "Pan",
+    name: "pan",
     icon: "arrows-horizontal",
     keyMap: {
       ...right15("pan", range(-7, 7)),
@@ -62,7 +62,7 @@ window.bindings = () => ({
   f: noBinding,
   g: noBinding,
   z: {
-    name: "Key",
+    name: "key",
     icon: "invert",
     keyMap: {
       ...left12("root", [
@@ -75,14 +75,14 @@ window.bindings = () => ({
     },
   },
   x: {
-    name: "Delay",
+    name: "delay",
     icon: "section-copy",
     keyMap: {
       ...right15("delay", range(0, 14)),
     },
   },
   c: {
-    name: "Reverb",
+    name: "reverb",
     icon: "missed-call",
     keyMap: {
       ...right15("reverb", range(0, 14)),
@@ -91,7 +91,7 @@ window.bindings = () => ({
   v: noBinding,
   b: noBinding,
   [noModifier]: {
-    name: "Note",
+    name: "note",
     icon: "",
     keyMap: {
       "y": toggle("key:10"), "u": toggle("key:11"), "i": toggle("key:12"), "o": toggle("key:13"), "p": toggle("key:14"),

@@ -118,7 +118,7 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     syncNative(&view, "root", &sequencer.active.root, &input.root);
     syncNative(&view, "scale", &sequencer.active.scale, &input.scale);
     syncNative(&view, "octave", &sequencer.active.octave, &input.octave);
-    syncNative(&view, "velocity", &sequencer.active.velocity, &input.velocity);
+    syncNative(&view, "volume", &sequencer.active.volume, &input.volume);
     syncNative(&view, "pan", &sequencer.active.pan, &input.pan);
     syncNative(&view, "filter", &sequencer.active.filter, &input.filter);
     syncNative(&view, "resonance", &sequencer.active.resonance, &input.resonance);

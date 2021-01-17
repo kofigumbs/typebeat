@@ -4,8 +4,8 @@ process = par(i, 8*15, voice) :> bi(_), sendEffects :> bi(_);
 voice(inputL, inputR, controls) = inputL, inputR : insertEffects(controls);
 sendEffects(dl, dr, rl, rr) = dl, dr : bi(ef.reverseEchoN(1, 2^15)) : +(rl), +(rr) : stereoReverb;
 
-insertEffects(controls) = stereoPan(pan) : bi(*(velocity)) <: bi(_), bi(*(delay)), bi(*(reverb)) with {
-	velocity  = controlValue(0,  0, 1);
+insertEffects(controls) = stereoPan(pan) : bi(*(volume)) <: bi(_), bi(*(delay)), bi(*(reverb)) with {
+	volume    = controlValue(0,  0, 1);
 	pan       = controlValue(1, -1, 1);
 	filter    = controlValue(2, -1, 1);
 	resonance = controlValue(3,  0, 1);

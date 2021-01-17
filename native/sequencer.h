@@ -55,7 +55,7 @@ namespace groovebox {
     };
 
     struct Controls {
-        int velocity = 10;
+        int volume = 10;
         int pan = 7;
         int filter = 7;
         int resonance;
@@ -63,7 +63,7 @@ namespace groovebox {
         int reverb;
 
         void encode(Output& output) {
-            output.controls = velocity | pan << 4 | filter << 8 | resonance << 12 | delay << 16 | reverb << 20;
+            output.controls = volume | pan << 4 | filter << 8 | resonance << 12 | delay << 16 | reverb << 20;
         }
     };
 
@@ -143,7 +143,7 @@ namespace groovebox {
         int length;
         int sounds;
         int octave;
-        int velocity;
+        int volume;
         int pan;
         int filter;
         int resonance;
@@ -225,7 +225,7 @@ namespace groovebox {
             set(tracks[active.track], length, int);
             set(tracks[active.track], sounds, int);
             set(tracks[active.track], octave, int);
-            set(*getActiveControls(), velocity, int);
+            set(*getActiveControls(), volume, int);
             set(*getActiveControls(), pan, int);
             set(*getActiveControls(), filter, int);
             set(*getActiveControls(), resonance, int);
@@ -238,7 +238,7 @@ namespace groovebox {
             active.type = tracks[active.track].type;
             active.sounds = tracks[active.track].sounds;
             active.octave = tracks[active.track].octave;
-            active.velocity = getActiveControls()->velocity;
+            active.volume = getActiveControls()->volume;
             active.pan = getActiveControls()->pan;
             active.filter = getActiveControls()->filter;
             active.resonance = getActiveControls()->resonance;
