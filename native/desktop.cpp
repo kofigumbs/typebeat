@@ -36,22 +36,22 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     }
 }
 
-void fromNative(webview::webview* view, std::string label, int* source) {
-    view->bind("fromNative:" + label, [source](std::string data) -> std::string {
-        return std::to_string(*source);
+void toUi(webview::webview* view, std::string label, int* state) {
+    view->bind("toUi:" + label, [state](std::string data) -> std::string {
+        return std::to_string(*state);
     });
 }
 
-void toNative(webview::webview* view, std::string label, int* destination) {
-    view->bind("toNative:" + label, [destination](std::string data) -> std::string {
-        *destination = std::stoi(data.substr(1, data.length() - 2));
+void fromUi(webview::webview* view, std::string label, int* input) {
+    view->bind("fromUi:" + label, [input](std::string data) -> std::string {
+        *input = std::stoi(data.substr(1, data.length() - 2));
         return "";
     });
 }
 
-void syncNative(webview::webview* view, std::string label, int* source, int* destination) {
-    fromNative(view, label, source);
-    toNative(view, label, destination);
+void syncUi(webview::webview* view, std::string label, int* state, int* input) {
+    fromUi(view, label, input);
+    toUi(view, label, state);
 }
 
 int main(int argc, char* argv[]) { // TODO WinMain, see webview README
@@ -105,32 +105,32 @@ int main(int argc, char* argv[]) { // TODO WinMain, see webview README
     view.set_size(900, 320 + 22 /* see docs/frameless.md */, WEBVIEW_HINT_NONE);
     view.navigate("file://" + (root / "ui" / "index.html").string());
 
-    fromNative(&view, "beat", &sequencer.beat);
-    fromNative(&view, "page", &sequencer.page);
-    syncNative(&view, "tempo", &sequencer.active.tempo, &input.tempo);
-    syncNative(&view, "play", &sequencer.active.play, &input.play);
-    syncNative(&view, "record", &sequencer.active.record, &input.record);
-    syncNative(&view, "clock", &sequencer.active.clock, &input.clock);
-    syncNative(&view, "track", &sequencer.active.track, &input.track);
-    syncNative(&view, "source", &sequencer.active.source, &input.source);
-    syncNative(&view, "polyphonic", &sequencer.active.polyphonic, &input.polyphonic);
-    syncNative(&view, "length", &sequencer.active.length, &input.length);
-    syncNative(&view, "sounds", &sequencer.active.sounds, &input.sounds);
-    syncNative(&view, "root", &sequencer.active.root, &input.root);
-    syncNative(&view, "scale", &sequencer.active.scale, &input.scale);
-    syncNative(&view, "octave", &sequencer.active.octave, &input.octave);
-    syncNative(&view, "volume", &sequencer.active.volume, &input.volume);
-    syncNative(&view, "pan", &sequencer.active.pan, &input.pan);
-    syncNative(&view, "filter", &sequencer.active.filter, &input.filter);
-    syncNative(&view, "resonance", &sequencer.active.resonance, &input.resonance);
-    syncNative(&view, "delay", &sequencer.active.delay, &input.delay);
-    syncNative(&view, "reverb", &sequencer.active.reverb, &input.reverb);
+    toUi(&view, "beat", &sequencer.beat);
+    toUi(&view, "page", &sequencer.page);
+    syncUi(&view, "tempo", &sequencer.active.tempo, &input.tempo);
+    syncUi(&view, "play", &sequencer.active.play, &input.play);
+    syncUi(&view, "record", &sequencer.active.record, &input.record);
+    syncUi(&view, "clock", &sequencer.active.clock, &input.clock);
+    syncUi(&view, "track", &sequencer.active.track, &input.track);
+    syncUi(&view, "source", &sequencer.active.source, &input.source);
+    syncUi(&view, "polyphonic", &sequencer.active.polyphonic, &input.polyphonic);
+    syncUi(&view, "length", &sequencer.active.length, &input.length);
+    syncUi(&view, "sounds", &sequencer.active.sounds, &input.sounds);
+    syncUi(&view, "root", &sequencer.active.root, &input.root);
+    syncUi(&view, "scale", &sequencer.active.scale, &input.scale);
+    syncUi(&view, "octave", &sequencer.active.octave, &input.octave);
+    syncUi(&view, "volume", &sequencer.active.volume, &input.volume);
+    syncUi(&view, "pan", &sequencer.active.pan, &input.pan);
+    syncUi(&view, "filter", &sequencer.active.filter, &input.filter);
+    syncUi(&view, "resonance", &sequencer.active.resonance, &input.resonance);
+    syncUi(&view, "delay", &sequencer.active.delay, &input.delay);
+    syncUi(&view, "reverb", &sequencer.active.reverb, &input.reverb);
     for (int i = 0; i < sequencer.active.keys.size(); i++)
-        syncNative(&view, "key:" + std::to_string(i), sequencer.active.keys.data() + i, input.keys.data() + i);
+        syncUi(&view, "key:" + std::to_string(i), sequencer.active.keys.data() + i, input.keys.data() + i);
     for (int i = 0; i < sequencer.active.steps.size(); i++)
-        syncNative(&view, "step:" + std::to_string(i), sequencer.active.steps.data() + i, input.steps.data() + i);
+        syncUi(&view, "step:" + std::to_string(i), sequencer.active.steps.data() + i, input.steps.data() + i);
     for (int i = 0; i < sequencer.active.mutes.size(); i++)
-        syncNative(&view, "mute:" + std::to_string(i), sequencer.active.mutes.data() + i, input.mutes.data() + i);
+        syncUi(&view, "mute:" + std::to_string(i), sequencer.active.mutes.data() + i, input.mutes.data() + i);
 
 #ifdef WEBVIEW_COCOA
     auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see docs/frameless.md

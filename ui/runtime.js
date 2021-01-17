@@ -1,9 +1,9 @@
 /*
- * native ffi
+ * ffi
  */
 
-const nativeGet = (method) => window[`fromNative:${method}`]();
-const nativePut = (method, value) => window[`toNative:${method}`](value|0);
+const ffiGet = (method) => window[`toUi:${method}`]();
+const ffiPut = (method, value) => window[`fromUi:${method}`](value|0);
 
 
 /*
@@ -55,7 +55,7 @@ const custom = {
       for (let i = 1; i < this.state.length; i++)
         diffs += this.state[i] - this.state[i - 1];
       redraw = true;
-      nativePut(this.method, Math.round(60000 / (diffs / (this.state.length - 1)) + 1));
+      ffiPut(this.method, Math.round(60000 / (diffs / (this.state.length - 1)) + 1));
     },
   },
 };
@@ -104,9 +104,9 @@ const handleSend = (event, value) => {
   if (down && bindings[modifier].name !== binding.method)
     help.innerText += ` › ${binding.method}`;
   if (binding.type === "toggle")
-    nativePut(binding.method, down);
+    ffiPut(binding.method, down);
   if (binding.type === "set")
-    nativePut(binding.method, (binding.value + 1) * down);
+    ffiPut(binding.method, (binding.value + 1) * down);
   if (binding.type === "custom")
     binding.handle(event);
 };
@@ -158,7 +158,7 @@ for (let { keyMap } of Object.values(bindings)) {
 (async function loop() {
   const active = {};
   for (let method of getMethods)
-    active[method] = await nativeGet(method);
+    active[method] = await ffiGet(method);
   for (let key of keys) {
     const binding = bindings[modifier].keyMap[key.dataset.symbol];
     key.classList.toggle("active", binding?.value === (active[binding?.method] ?? "inactive"));
