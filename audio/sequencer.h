@@ -175,7 +175,7 @@ namespace groovebox {
             for (int kit = 0; kit < enferKits.size(); kit++) {
                 for (int sample = 0; sample < enferSamples.size(); sample++) {
                     auto i = kit * enferSamples.size() + sample;
-                    auto filename = root / "native" / "Enfer" / "media" / enferKits[kit] / (enferSamples[sample] + ".wav");
+                    auto filename = root / "audio" / "Enfer" / "media" / enferKits[kit] / (enferSamples[sample] + ".wav");
                     unsigned int channels;
                     unsigned int sampleRate;
                     library.samples[i].frames = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &library.samples[i].length, NULL);

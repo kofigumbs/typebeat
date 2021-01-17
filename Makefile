@@ -14,14 +14,14 @@ all: ui/feather.js build/groovebox
 ui/feather.js:
 	curl -sSL https://unpkg.com/feather-icons@4.28.0/dist/feather.min.js > $@
 
-build/groovebox: $(shell ls native/*.{h,cpp}) native/webview native/miniaudio native/Enfer build/include/effects.h
-	time g++ native/desktop.cpp -I native -I build/include -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o $@
+build/groovebox: desktop/main.cpp audio/sequencer.h desktop/webview audio/miniaudio audio/Enfer build/include/effects.h
+	time g++ desktop/main.cpp -I audio -I build/include -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o $@
 
-build/include/effects.h: build/bin/faust native/effects.dsp
-	time build/bin/faust -os -ns groovebox -cn Effects -o $@ native/effects.dsp
+build/include/effects.h: build/bin/faust audio/effects.dsp
+	time build/bin/faust -os -ns groovebox -cn Effects -o $@ audio/effects.dsp
 
-build/bin/faust: native/faust
-	cd native/faust && make PREFIX=${BUILD_DIR} && make install PREFIX=${BUILD_DIR}
+build/bin/faust: audio/faust
+	cd audio/faust && make PREFIX=${BUILD_DIR} && make install PREFIX=${BUILD_DIR}
 
-native/webview native/miniaudio native/faust native/Enfer:
+desktop/webview audio/miniaudio audio/faust audio/Enfer:
 	git submodule update --init --recursive
