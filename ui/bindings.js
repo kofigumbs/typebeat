@@ -29,8 +29,8 @@ window.bindings = () => ({
     },
   },
   r: {
-    name: "oct",
-    icon: "octagon",
+    name: "octave",
+    icon: "chevrons-up",
     keyMap: {
       ...right15("octave", range(0, 8)),
     },
@@ -54,7 +54,7 @@ window.bindings = () => ({
   },
   d: {
     name: "pan",
-    icon: "maximize-2",
+    icon: "radio",
     keyMap: {
       ...right15("pan", range(-7, 7)),
     },
