@@ -107,18 +107,15 @@ namespace groovebox {
 
     enum Source {
         kit,
-        mono,
-        poly,
-        arp,
-        chord,
+        note,
         lineThrough,
         lineRecord,
-        lineMono,
-        linePoly,
+        linePlay,
     };
 
     struct Track {
         Source source;
+        bool polyphonic = true;
         int length;
         int sounds;
         int octave = 3;
@@ -150,6 +147,7 @@ namespace groovebox {
         int resonance;
         int delay;
         int reverb;
+        int polyphonic;
         std::array<int, keyCount> keys;
         std::array<int, hitCount> steps;
         std::array<int, trackCount> mutes;
@@ -223,6 +221,7 @@ namespace groovebox {
             set(active, scale, int);
             set(active, track, int);
             set(tracks[active.track], source, Source);
+            set(tracks[active.track], polyphonic, bool);
             set(tracks[active.track], length, int);
             set(tracks[active.track], sounds, int);
             set(tracks[active.track], octave, int);
@@ -237,6 +236,7 @@ namespace groovebox {
             page = getBeatPage();
             active.length = tracks[active.track].length;
             active.source = tracks[active.track].source;
+            active.polyphonic = tracks[active.track].polyphonic;
             active.sounds = tracks[active.track].sounds;
             active.octave = tracks[active.track].octave;
             active.volume = getActiveControls()->volume;
@@ -252,8 +252,8 @@ namespace groovebox {
             for (int t = 0; t < trackCount; t++)
                 active.mutes[t] = tracks[t].muted;
 
-            // it can be jarring to swap samples mid-playback
-            if (received(source) || received(sounds))
+            // it can be jarring to swap some settings mid-playback
+            if (received(source) || received(sounds) || received(polyphonic))
                 for (int t = 0; t < tracks.size(); t++)
                     for (int v = 0; v < tracks[t].voices.size(); v++)
                         tracks[active.track].voices[v].release();
@@ -265,11 +265,18 @@ namespace groovebox {
                 std::fill(sample.frames, sample.frames + sample.length, 0);
             }
 
+            // kits are always polyphonic, TODO fix the root problem that prevents choking
+            if (tracks[active.track].source == Source::kit)
+                tracks[active.track].polyphonic = 1;
+            // line through is always monophonic, TODO implement live pitching
+            if (tracks[active.track].source == Source::lineThrough)
+                tracks[active.track].polyphonic = 0;
+
             // play track voices
             auto playing = active.play && stepPosition != inSteps(framePosition - 1) % stepCount;
             for (int t = 0; t < tracks.size(); t++)
                 for (int v = 0; v < tracks[t].voices.size(); v++)
-                    useVoice(t, v, audio, playing && getAbsoluteStep(t, stepPosition)[v] || t == active.track && received(keys[v]));
+                    setOutput(t, v, audio, playing && getAbsoluteStep(t, stepPosition)[v] || t == active.track && received(keys[v]));
 
             // remember previous for next call
             previous = current;
@@ -306,68 +313,56 @@ namespace groovebox {
                 : &tracks[active.track].sampleControls[getSample(active.track, tracks[active.track].currentKitKey)];
         }
 
-        void useVoice(int t, int key, float audio, bool fresh) {
+        void setOutput(int t, int key, float audio, bool fresh) {
             int s;
             if (tracks[t].muted)
                 fresh = false;
             switch (tracks[t].source) {
             case Source::kit:
-                if (fresh)
-                    tracks[t].voices[key].prepare(noteIncrement(t, (keyCount-1)/2));
-                s = getSample(t, key);
-                tracks[t].voices[key].play(library.samples[s], output[t][key]);
-                tracks[t].sampleControls[s].encode(output[t][key]);
+                setOutputSample(t, key, key, keyCount/2, fresh);
                 break;
-            case Source::mono:
-                s = getSample(t, tracks[t].currentKitKey);
-                playMono(t, key, fresh, library.samples[s]);
-                tracks[t].sampleControls[s].encode(output[t][key]);
-                break;
-            case Source::poly:
-                s = getSample(t, tracks[t].currentKitKey);
-                playPoly(t, key, fresh, library.samples[s]);
-                tracks[t].sampleControls[s].encode(output[t][key]);
-                break;
-            case Source::arp:
-                // TODO
-                break;
-            case Source::chord:
-                // TODO
+            case Source::note:
+                setOutputSample(t, key, tracks[t].currentKitKey, key, fresh);
                 break;
             case Source::lineThrough:
-                output[t][key].l = output[t][key].r = key == 0 ? audio : 0;
-                tracks[t].lineControls.encode(output[t][key]);
+                setOutputLine(t, key, audio);
                 break;
             case Source::lineRecord:
                 if (key == 0 && tracks[t].linePosition < tracks[t].lineSample.length)
                     tracks[t].lineSample.frames[tracks[t].linePosition++] = audio;
-                output[t][key].l = output[t][key].r = key == 0 ? audio : 0;
-                tracks[t].lineControls.encode(output[t][key]);
+                setOutputLine(t, key, audio);
                 break;
-            case Source::lineMono:
-                playMono(t, key, fresh, tracks[t].lineSample);
-                tracks[t].lineControls.encode(output[t][key]);
-                break;
-            case Source::linePoly:
-                playPoly(t, key, fresh, tracks[t].lineSample);
-                tracks[t].lineControls.encode(output[t][key]);
+            case Source::linePlay:
+                setOutputLine(t, key, 0);
+                setOutputSampleAudio(t, key, tracks[t].lineSample, key, fresh);
                 break;
             }
         }
 
-        void playMono(int t, int key, bool fresh, Sample sample) {
-            if (fresh)
-                tracks[t].voices[0].prepare(noteIncrement(t, key));
-            if (fresh || key == 0)
-                tracks[t].voices[0].play(sample, output[t][0]);
-            if (key > 0)
-                output[t][key].l = output[t][key].r = 0;
+        void setOutputSample(int t, int key, int sampleKey, int note, bool fresh) {
+            auto s = getSample(t, sampleKey);
+            setOutputSampleAudio(t, key, library.samples[s], note, fresh);
+            tracks[t].sampleControls[s].encode(output[t][key]);
         }
 
-        void playPoly(int t, int key, bool fresh, Sample sample) {
-            if (fresh)
-                tracks[t].voices[key].prepare(noteIncrement(t, key));
-            tracks[t].voices[key].play(sample, output[t][key]);
+        void setOutputSampleAudio(int t, int key, Sample sample, int note, bool fresh) {
+            // mono
+            if (!tracks[t].polyphonic && fresh)
+                tracks[t].voices[0].prepare(noteIncrement(t, note));
+            if (!tracks[t].polyphonic && fresh || key == 0)
+                tracks[t].voices[0].play(sample, output[t][0]);
+            if (!tracks[t].polyphonic && key > 0)
+                output[t][key].l = output[t][key].r = 0;
+            // poly
+            if (tracks[t].polyphonic && fresh)
+                tracks[t].voices[key].prepare(noteIncrement(t, note));
+            if (tracks[t].polyphonic)
+                tracks[t].voices[key].play(sample, output[t][key]);
+        }
+
+        void setOutputLine(int t, int key, float audio) {
+            output[t][key].l = output[t][key].r = key == 0 ? audio : 0;
+            tracks[t].lineControls.encode(output[t][key]);
         }
 
         float noteIncrement(int t, int key) {

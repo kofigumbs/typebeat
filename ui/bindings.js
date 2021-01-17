@@ -15,16 +15,17 @@ window.bindings = () => ({
     name: "source",
     icon: "mic",
     keyMap: {
-      ...right15("source", [ "Kit", "Mono", "Poly", "", "", "~", "~ ●", "~ ▶", "~ ▶▶" ]),
+      o: set("polyphonic", "Mono", 0), p: set("polyphonic", "Poly", 1),
+      ...right15("source", [ "Kit", "Note", "In", "In ●", "In ▶" ]),
     },
   },
   e: {
-    name: "sample pack",
+    name: "sounds",
     icon: "bell",
     keyMap: {
       ...right15("sounds", [
-        "808", "909", "DMX", "DNB", "Drk", "Deep",  "Tech",
-        "Mod", "Gab", "Berg", "Vrm", "Cmd", "DMG", "FX4", "Snth",
+        "808", "909", "DMX", "DnB", "Dark", "Deep",  "Tech",
+        "Mod", "Gab", "Berg", "Verm", "Cmdr", "DMG", "FX4", "Snth",
       ]),
     },
   },
@@ -91,7 +92,7 @@ window.bindings = () => ({
   v: noBinding,
   b: noBinding,
   [noModifier]: {
-    name: "note",
+    name: "＼＿ﾍ(◕‿◕ )",
     icon: "",
     keyMap: {
       "y": toggle("key:10"), "u": toggle("key:11"), "i": toggle("key:12"), "o": toggle("key:13"), "p": toggle("key:14"),
