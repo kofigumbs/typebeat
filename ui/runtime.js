@@ -14,34 +14,11 @@ const noModifier = "";
 const noActiveValue = null;
 const noBinding = { name: "", icon: "", keyMap: {} };
 
+const title = (i, text) => i === 0 ? text : "";
+const from = (keys, f) => Object.fromEntries(Array.from(keys, (key, i) => [ keys[i], f(key, i) ]));
+
 const toggle = (method, label = "", value = 1) => ({ type: "toggle", method, label, value });
 const set = (method, label, value) => ({ type: "set", method, label, value });
-
-const range = (low, high) => {
-  return Array.from({ length: high - low + 1 }, (_, i) => (low + i).toString());
-};
-
-const labeled = (length, keys, method, toLabel) => {
-  return Object.fromEntries(Array.from({ length }, (_, i) => [
-    keys[i],
-    set(method, toLabel(i), i),
-  ]));
-};
-
-const labelFirst = (keys, method, label) => {
-  return labeled(keys.length, keys, method, i => i ? "" : label);
-};
-
-const labelAll = (keys, method, labels) => {
-  return labeled(Math.min(keys.length, labels.length), keys, method, i => labels[i]);
-};
-
-const bottom8 = (method, label) => labelFirst("xcvbnm,.", method, label);
-const left12 = (method, labels) => labelAll("xcvbsdfgwert", method, labels);
-const left15 = (method, labels) => labelAll("zxcvbasdfgqwert", method, labels);
-const right12 = (method, labels) => labelAll("nm,.hjklyuio", method, labels);
-const right15 = (method, labels) => labelAll("nm,./hjkl;yuiop", method, labels);
-
 const custom = {
   tempo: {
     type: "custom", method: "tempo", state: [],

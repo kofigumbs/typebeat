@@ -3,39 +3,33 @@ window.bindings = () => ({
     name: "sequence",
     icon: "grid",
     keyMap: {
-      w: toggle("step:0", "Step"), e: toggle("step:1"),  r: toggle("step:2"),  t: toggle("step:3"),
-      y: toggle("step:4"),         u: toggle("step:5"),  i: toggle("step:6"),  o: toggle("step:7"),
-      s: toggle("step:8"),         d: toggle("step:9"),  f: toggle("step:10"), g: toggle("step:11"),
-      h: toggle("step:12"),        j: toggle("step:13"), k: toggle("step:14"), l: toggle("step:15"),
-      p: toggle("play", "▶", noActiveValue),
+      "p": toggle("play", "▶", noActiveValue),
       ";": toggle("record", "●", noActiveValue),
-      "/": toggle("clear", "Clr", noActiveValue),
-      ...bottom8("length", "Len"),
+      "/": toggle("clear", "×", noActiveValue),
+      ...from("wertyuiosdfghjkl", (key, i) => toggle(`step:${i}`, title(i, "Step"))),
+      ...from("xcvbnm,.", (key, i) => set("length", title(i, "Len"), i)),
     },
   },
   w: {
     name: "source",
     icon: "mic",
     keyMap: {
-      o: set("polyphonic", "Mono", 0), p: set("polyphonic", "Poly", 1),
-      ...right15("source", [ "Kit", "Note", "In", "In ●", "In ▶" ]),
+      ...from("op", (key, i) => set("polyphonic", ["Mono", "Poly"][i], i)),
+      ...from("nm,./", (key, i) => set("source", ["Kit", "Note", "In", "In ●", "In ▶"][i], i)),
     },
   },
   e: {
     name: "sounds",
     icon: "bell",
     keyMap: {
-      ...right15("sounds", [
-        "808", "909", "DMX", "DnB", "Dark", "Deep",  "Tech",
-        "Mod", "Gab", "Berg", "Verm", "Cmdr", "DMG", "FX4", "Snth",
-      ]),
+      ...from("nm,./hjkl;yuiop", (key, i) => set("sounds", ["808", "909", "DMX", "DnB", "Dark", "Deep", "Tech", "Mod", "Gab", "Berg", "Verm", "Cmdr", "DMG", "FX4", "Snth"][i], i)),
     },
   },
   r: {
     name: "octave",
     icon: "chevrons-up",
     keyMap: {
-      ...right15("octave", range(0, 8)),
+      ...from("nm,./hjkl", (key, i) => set("octave", `${i}`, i)),
     },
   },
   t: noBinding,
@@ -43,24 +37,23 @@ window.bindings = () => ({
     name: "mix",
     icon: "sliders",
     keyMap: {
-      s: toggle("mute:0", "Mute"), d: toggle("mute:1"), f: toggle("mute:2"), g: toggle("mute:3"),
-      h: toggle("mute:4"),         j: toggle("mute:5"), k: toggle("mute:6"), l: toggle("mute:7"),
-      p: custom.tempo,
-      ...bottom8("track", "Trck"),
+      "p": custom.tempo,
+      ...from("sdfghjkl", (key, i) => toggle(`mute:${i}`, title(i, "Mute"))),
+      ...from("xcvbnm,.", (key, i) => set("track", title(i, "Trck"), i)),
     },
   },
   s: {
     name: "volume",
     icon: "volume-1",
     keyMap: {
-      ...right15("volume", range(0, 14)),
+      ...from("nm,./hjkl;yuiop", (key, i) => set("volume", `${i}`, i)),
     },
   },
   d: {
     name: "pan",
     icon: "radio",
     keyMap: {
-      ...right15("pan", range(-7, 7)),
+      ...from("nm,./hjkl;yuiop", (key, i) => set("pan", `${i-7}`, i)),
     },
   },
   f: noBinding,
@@ -69,27 +62,22 @@ window.bindings = () => ({
     name: "key",
     icon: "key",
     keyMap: {
-      ...left12("root", [
-        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
-      ]),
-      ...right12("scale", [
-        "Maj", "Min",
-        "Dor", "Phr", "Lyd", "Mix", "Loc", "HMi", "HMa", "MMi", "MMD", "MMa"
-      ]),
+      ...from("xcvbsdfgwert", (key, i) => set("root", ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][i], i)),
+      ...from("nm,.hjklyuio", (key, i) => set("scale", ["Maj", "Min", "Dor", "Phr", "Lyd", "Mix", "Loc", "HMi", "HMa", "MMi", "MMD", "MMa"][i], i)),
     },
   },
   x: {
     name: "delay",
     icon: "copy",
     keyMap: {
-      ...right15("delay", range(0, 14)),
+      ...from("nm,./hjkl;yuiop", (key, i) => set("delay", `${i}`, i)),
     },
   },
   c: {
     name: "reverb",
     icon: "maximize",
     keyMap: {
-      ...right15("reverb", range(0, 14)),
+      ...from("nm,./hjkl;yuiop", (key, i) => set("reverb", `${i}`, i)),
     },
   },
   v: noBinding,
@@ -98,9 +86,7 @@ window.bindings = () => ({
     name: "＼＿ﾍ(◕‿◕ )",
     icon: "",
     keyMap: {
-      "y": toggle("key:10"), "u": toggle("key:11"), "i": toggle("key:12"), "o": toggle("key:13"), "p": toggle("key:14"),
-      "h": toggle("key:5"),  "j": toggle("key:6"),  "k": toggle("key:7"),  "l": toggle("key:8"),  ";": toggle("key:9"),
-      "n": toggle("key:0"),  "m": toggle("key:1"),  ",": toggle("key:2"),  ".": toggle("key:3"),  "/": toggle("key:4"),
+      ...from("nm,./hjkl;yuiop", (key, i) => toggle(`key:${i}`)),
     },
   },
   n: {
