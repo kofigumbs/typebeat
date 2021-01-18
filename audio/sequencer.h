@@ -295,9 +295,9 @@ namespace groovebox {
 
         int getKitSample(int t, int key) {
             if (tracks[t].sounds == 13) // fx4
-                return std::min(int(library.samples.size()), (key + 1)*17 - 2);
+                return std::min(int(library.samples.size() - 1), (key + 1)*17 - 2);
             else if (tracks[t].sounds == 14) // synths
-                return std::min(int(library.samples.size()), (key + 1)*17 - 1);
+                return std::min(int(library.samples.size() - 1), (key + 1)*17 - 1);
             else
                 return key + tracks[t].sounds*18;
         }
