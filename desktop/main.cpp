@@ -38,10 +38,10 @@ int main(int argc, char* argv[]) {
 
         toUi(&view, "beat", &sequencer->beat);
         toUi(&view, "page", &sequencer->page);
+        fromUi(&view, "clear", &input->clear);
         syncUi(&view, "tempo", &sequencer->active.tempo, &input->tempo);
         syncUi(&view, "play", &sequencer->active.play, &input->play);
         syncUi(&view, "record", &sequencer->active.record, &input->record);
-        syncUi(&view, "clock", &sequencer->active.clock, &input->clock);
         syncUi(&view, "track", &sequencer->active.track, &input->track);
         syncUi(&view, "source", &sequencer->active.source, &input->source);
         syncUi(&view, "polyphonic", &sequencer->active.polyphonic, &input->polyphonic);

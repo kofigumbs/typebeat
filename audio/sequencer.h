@@ -9,9 +9,9 @@ namespace groovebox {
         "modular", "gabber", "bergh", "vermona", "commodore", "dmg",
     };
 
-    const std::array<std::string, 18> enferSamples {
+    const std::array<std::string, 17> enferSamples {
         "kick", "kick-up", "kick-down", "tom", "snare", "snare-up", "snare-down", "clap",
-        "hat", "hat-open", "hat-shut", "cymb", "fx1", "fx2", "fx3", "fx4", "synth-C2", "synth-C3"
+        "hat", "hat-open", "hat-shut", "cymb", "fx1", "fx2", "fx3", "fx4", "synth-C3"
     };
 
     const std::array<std::array<int, 7>, 12> scaleOffsets {
@@ -55,7 +55,7 @@ namespace groovebox {
     };
 
     struct Controls {
-        int volume = 10;
+        int volume = 7;
         int pan = 7;
         int filter = 7;
         int resonance;
@@ -132,8 +132,8 @@ namespace groovebox {
     struct Input {
         int play;
         int record;
+        int clear;
         int tempo;
-        int clock;
         int root;
         int scale;
         int track;
@@ -225,12 +225,13 @@ namespace groovebox {
             set(tracks[active.track], length, int);
             set(tracks[active.track], sounds, int);
             set(tracks[active.track], octave, int);
-            set(*getActiveControls(), volume, int);
-            set(*getActiveControls(), pan, int);
-            set(*getActiveControls(), filter, int);
-            set(*getActiveControls(), resonance, int);
-            set(*getActiveControls(), delay, int);
-            set(*getActiveControls(), reverb, int);
+            Controls* activeControls = getActiveControls();
+            set(*activeControls, volume, int);
+            set(*activeControls, pan, int);
+            set(*activeControls, filter, int);
+            set(*activeControls, resonance, int);
+            set(*activeControls, delay, int);
+            set(*activeControls, reverb, int);
 
             // sync active, which reflects state to ui
             page = getBeatPage();
@@ -239,18 +240,22 @@ namespace groovebox {
             active.polyphonic = tracks[active.track].polyphonic;
             active.sounds = tracks[active.track].sounds;
             active.octave = tracks[active.track].octave;
-            active.volume = getActiveControls()->volume;
-            active.pan = getActiveControls()->pan;
-            active.filter = getActiveControls()->filter;
-            active.resonance = getActiveControls()->resonance;
-            active.delay = getActiveControls()->delay;
-            active.reverb = getActiveControls()->reverb;
+            active.volume = activeControls->volume;
+            active.pan = activeControls->pan;
+            active.filter = activeControls->filter;
+            active.resonance = activeControls->resonance;
+            active.delay = activeControls->delay;
+            active.reverb = activeControls->reverb;
             for (int k = 0; k < keyCount; k++)
                 active.keys[k] = k == currentKey;
             for (int s = 0; s < hitCount; s++)
                 active.steps[s] = getBeatStep(s)[currentKey];
             for (int t = 0; t < trackCount; t++)
                 active.mutes[t] = tracks[t].muted;
+            if (received(clear))
+                for (int s = 0; s < tracks[active.track].steps.size(); s++)
+                    for (int k = 0; k < tracks[active.track].steps[s].size(); k++)
+                        tracks[active.track].steps[s][k] = false;
 
             // it can be jarring to swap some settings mid-playback
             if (received(source) || received(sounds) || received(polyphonic))
@@ -288,11 +293,13 @@ namespace groovebox {
             return floor(frames / (60.f * SAMPLE_RATE / active.tempo) * subdivision * 2);
         }
 
-        int getSample(int t, int key) {
-            return std::min(
-                int(library.samples.size() - 1),
-                tracks[t].sounds > 12 ? key*18 + tracks[t].sounds + 2 : key + tracks[t].sounds*18
-            );
+        int getKitSample(int t, int key) {
+            if (tracks[t].sounds == 13) // fx4
+                return std::min(int(library.samples.size()), (key + 1)*17 - 2);
+            else if (tracks[t].sounds == 14) // synths
+                return std::min(int(library.samples.size()), (key + 1)*17 - 1);
+            else
+                return key + tracks[t].sounds*18;
         }
 
         int getBeatPage() {
@@ -310,7 +317,7 @@ namespace groovebox {
         Controls* getActiveControls() {
             return tracks[active.track].source >= Source::lineThrough
                 ? &tracks[active.track].lineControls
-                : &tracks[active.track].sampleControls[getSample(active.track, tracks[active.track].currentKitKey)];
+                : &tracks[active.track].sampleControls[getKitSample(active.track, tracks[active.track].currentKitKey)];
         }
 
         void setOutput(int t, int key, float audio, bool fresh) {
@@ -340,7 +347,7 @@ namespace groovebox {
         }
 
         void setOutputSample(int t, int key, int sampleKey, int note, bool fresh) {
-            auto s = getSample(t, sampleKey);
+            auto s = getKitSample(t, sampleKey);
             setOutputSampleAudio(t, key, library.samples[s], note, fresh);
             tracks[t].sampleControls[s].encode(output[t][key]);
         }
@@ -349,7 +356,7 @@ namespace groovebox {
             // mono
             if (!tracks[t].polyphonic && fresh)
                 tracks[t].voices[0].prepare(noteIncrement(t, note));
-            if (!tracks[t].polyphonic && fresh || key == 0)
+            if (!tracks[t].polyphonic && (fresh || key == 0))
                 tracks[t].voices[0].play(sample, output[t][0]);
             if (!tracks[t].polyphonic && key > 0)
                 output[t][key].l = output[t][key].r = 0;
