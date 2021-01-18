@@ -284,7 +284,7 @@ namespace groovebox {
             auto playing = active.play && stepPosition != inSteps(framePosition - 1) % stepCount;
             for (int t = 0; t < tracks.size(); t++)
                 for (int v = 0; v < tracks[t].voices.size(); v++)
-                    setOutput(t, v, audio, playing && getAbsoluteStep(t, stepPosition)[v] || t == active.track && received(keys[v]));
+                    setOutput(t, v, audio, t == active.track && received(keys[v]) || playing && !tracks[t].muted && getAbsoluteStep(t, stepPosition)[v]);
 
             // remember previous for next call
             previous = current;
@@ -324,9 +324,6 @@ namespace groovebox {
         }
 
         void setOutput(int t, int key, float audio, bool fresh) {
-            int s;
-            if (tracks[t].muted)
-                fresh = false;
             switch (tracks[t].source) {
             case Source::kit:
                 setOutputSample(t, key, key, keyCount/2, fresh);
