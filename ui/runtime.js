@@ -2,8 +2,8 @@
  * ffi
  */
 
-const ffiGet = (method) => window[`toUi:${method}`]();
-const ffiPut = (method, value) => window[`fromUi:${method}`](value|0);
+const ffiGet = (method) => window[`toUi:${method}`]?.();
+const ffiPut = (method, value) => window[`fromUi:${method}`]?.(value|0);
 
 
 /*
