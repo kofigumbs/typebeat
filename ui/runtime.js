@@ -59,9 +59,18 @@ const keysByEventCode = Object.fromEntries(Array.from(keys).map(key => [
   key,
 ]));
 
+const setHelp = method => {
+  if (!method || bindings[modifier].name === method)
+    help.innerText = bindings[modifier].name;
+  else if (!bindings[modifier].name)
+    help.innerText = method;
+  else
+    help.innerText = `${bindings[modifier].name} › ${method}`;
+};
+
 const setModifier = value => {
   modifier = value;
-  help.innerText = bindings[modifier].name;
+  setHelp();
   redraw = true;
 };
 
@@ -77,9 +86,7 @@ const handleSend = (event, value) => {
     return;
   const down = event.type === "keydown";
   if (down)
-    help.innerText = bindings[modifier].name;
-  if (down && bindings[modifier].name !== binding.method)
-    help.innerText += ` › ${binding.method}`;
+    setHelp(binding.method);
   if (binding.type === "toggle")
     ffiPut(binding.method, down);
   if (binding.type === "set")

@@ -89,7 +89,7 @@ window.bindings = () => ({
   v: noBinding,
   b: noBinding,
   [noModifier]: {
-    name: "＼＿ﾍ(◕‿◕ )",
+    name: "",
     icon: "",
     keyMap: {
       ...from("nm,./hjkl;yuiop", (key, i) => toggle(`key:${i}`)),

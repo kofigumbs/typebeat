@@ -377,7 +377,7 @@ namespace groovebox {
 
         float noteIncrement(int t, int key) {
             auto note =
-                active.root +
+                active.root * (tracks[t].source != Source::kit) +
                 scaleOffsets[active.scale][key % 7] +
                 (tracks[t].octave + (key/7 - 1)) * 12;
             return pow(2.0f, note / 12.0f) / pow(2.0f, 36 / 12.0f);
