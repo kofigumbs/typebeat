@@ -2,7 +2,7 @@ import("stdfaust.lib");
 
 process = par(i, 8*15, voice) :> bi(_), sendEffects :> bi(_);
 voice(inputL, inputR, controls) = inputL, inputR : insertEffects(controls);
-sendEffects(dl, dr, rl, rr) = dl, dr : bi(ef.reverseEchoN(1, 2^15)) : +(rl), +(rr) : stereoReverb;
+sendEffects(dl, dr, rl, rr) = dl, dr : stereoDelay : +(rl), +(rr) : stereoReverb;
 
 insertEffects(controls) = stereoPan(pan) : bi(*(volume)) <: bi(_), bi(*(delay)), bi(*(reverb)) with {
 	volume    = controlValue(0,  0, 1);
@@ -18,6 +18,8 @@ stereoPan(amount, inputL, inputR) = ba.select2stereo(amount > 0,
 	inputL + inputR*abs(amount),  inputR*(1+amount),
 	inputL*(1-amount),            inputR + inputL*amount
 );
+
+stereoDelay = bi(ef.echo(3, .3, .8));
 
 stereoReverb = bi(*(fixedgain)) : re.stereo_freeverb(combfeed, allpassfeed, damping, spatSpread) with {
 	scaleroom   = 0.28;
