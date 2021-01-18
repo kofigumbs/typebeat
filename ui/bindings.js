@@ -32,7 +32,13 @@ window.bindings = () => ({
       ...from("nm,./hjkl", (key, i) => set("octave", `${i}`, i)),
     },
   },
-  t: noBinding,
+  t: {
+    name: "selection",
+    icon: "mouse-pointer",
+    keyMap: {
+      ...from("nm,./hjkl;yuiop", (key, i) => set("selection", `${i}`, i)),
+    },
+  },
   a: {
     name: "mix",
     icon: "sliders",

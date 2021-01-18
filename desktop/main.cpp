@@ -56,6 +56,7 @@ int main(int argc, char* argv[]) {
         syncUi(&view, "resonance", &sequencer->active.resonance, &input->resonance);
         syncUi(&view, "delay", &sequencer->active.delay, &input->delay);
         syncUi(&view, "reverb", &sequencer->active.reverb, &input->reverb);
+        syncUi(&view, "selection", &sequencer->active.selection, &input->selection);
         for (int i = 0; i < sequencer->active.keys.size(); i++)
             syncUi(&view, "key:" + std::to_string(i), sequencer->active.keys.data() + i, input->keys.data() + i);
         for (int i = 0; i < sequencer->active.steps.size(); i++)

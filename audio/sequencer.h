@@ -120,7 +120,8 @@ namespace groovebox {
         int sounds;
         int octave = 3;
         int muted;
-        int currentKitKey;
+        int selection;
+        int keyKey;
         int linePosition;
         Sample lineSample;
         Controls lineControls;
@@ -138,6 +139,7 @@ namespace groovebox {
         int scale;
         int track;
         int source;
+        int polyphonic;
         int length;
         int sounds;
         int octave;
@@ -147,7 +149,7 @@ namespace groovebox {
         int resonance;
         int delay;
         int reverb;
-        int polyphonic;
+        int selection;
         std::array<int, keyCount> keys;
         std::array<int, hitCount> steps;
         std::array<int, trackCount> mutes;
@@ -159,7 +161,6 @@ namespace groovebox {
         int stepPosition;
         int beat;
         int page;
-        int currentKey;
         Input previous;
         Library library;
         std::array<Track, trackCount> tracks;
@@ -200,18 +201,18 @@ namespace groovebox {
             beat = stepPosition % hitCount;
             for (int k = 0; k < keyCount; k++)
                 if(received(keys[k])) {
-                    currentKey = k;
+                    tracks[active.track].selection = k;
                     if (tracks[active.track].source == Source::kit)
-                        tracks[active.track].currentKitKey = k;
+                        tracks[active.track].keyKey = k;
                     if (active.play && active.record) {
                         auto quantizePosition = (int) ((inSteps(framePosition, 2) + 1) / 2.0) % stepCount;
-                        getAbsoluteStep(active.track, quantizePosition)[currentKey] = true;
+                        getAbsoluteStep(active.track, quantizePosition)[k] = true;
                         if (stepPosition != quantizePosition)
                             current.keys[k] = 0; // prevent double-trig -- aka live-quantize
                     }
                 }
             for (int h = 0; h < hitCount; h++)
-                getBeatStep(h)[currentKey] ^= received(steps[h]);
+                getBeatStep(h)[tracks[active.track].selection] ^= received(steps[h]);
             for (int t = 0; t < trackCount; t++)
                 tracks[t].muted ^= received(mutes[t]);
 
@@ -225,6 +226,7 @@ namespace groovebox {
             set(tracks[active.track], length, int);
             set(tracks[active.track], sounds, int);
             set(tracks[active.track], octave, int);
+            set(tracks[active.track], selection, int);
             Controls* activeControls = getActiveControls();
             set(*activeControls, volume, int);
             set(*activeControls, pan, int);
@@ -246,10 +248,11 @@ namespace groovebox {
             active.resonance = activeControls->resonance;
             active.delay = activeControls->delay;
             active.reverb = activeControls->reverb;
+            active.selection = tracks[active.track].selection;
             for (int k = 0; k < keyCount; k++)
-                active.keys[k] = k == currentKey;
+                active.keys[k] = k == tracks[active.track].selection;
             for (int s = 0; s < hitCount; s++)
-                active.steps[s] = getBeatStep(s)[currentKey];
+                active.steps[s] = getBeatStep(s)[tracks[active.track].selection];
             for (int t = 0; t < trackCount; t++)
                 active.mutes[t] = tracks[t].muted;
             if (received(clear))
@@ -317,7 +320,7 @@ namespace groovebox {
         Controls* getActiveControls() {
             return tracks[active.track].source >= Source::lineThrough
                 ? &tracks[active.track].lineControls
-                : &tracks[active.track].sampleControls[getKitSample(active.track, tracks[active.track].currentKitKey)];
+                : &tracks[active.track].sampleControls[getKitSample(active.track, tracks[active.track].keyKey)];
         }
 
         void setOutput(int t, int key, float audio, bool fresh) {
@@ -329,7 +332,7 @@ namespace groovebox {
                 setOutputSample(t, key, key, keyCount/2, fresh);
                 break;
             case Source::note:
-                setOutputSample(t, key, tracks[t].currentKitKey, key, fresh);
+                setOutputSample(t, key, tracks[t].keyKey, key, fresh);
                 break;
             case Source::lineThrough:
                 setOutputLine(t, key, audio);
