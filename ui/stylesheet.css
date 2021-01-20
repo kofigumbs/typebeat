@@ -65,6 +65,9 @@ body > *:last-child {
   /* https://www.huratips.com/tech-tips/fixing-z-index-issue-on-safari-browser.html */
   z-index: 999;
   -webkit-transform: translate3d(0,0,0);
+  /* https://blog.teamtreehouse.com/increase-your-sites-performance-with-hardware-accelerated-css */
+  -webkit-backface-visibility: hidden;
+  -webkit-perspective: 1000;
 }
 
 .shadow {

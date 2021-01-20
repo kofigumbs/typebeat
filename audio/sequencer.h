@@ -302,7 +302,7 @@ namespace groovebox {
             else if (tracks[t].sounds == 14) // synths
                 return std::min(int(library.samples.size() - 1), (key + 1)*17 - 1);
             else
-                return key + tracks[t].sounds*18;
+                return key + tracks[t].sounds*17;
         }
 
         int getBeatPage() {

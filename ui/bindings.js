@@ -3,7 +3,6 @@ window.bindings = () => ({
     name: "sequence",
     icon: "grid",
     keyMap: {
-      "p": toggle("play", "▶", noActiveValue),
       ";": toggle("record", "●", noActiveValue),
       "/": toggle("clear", "×", noActiveValue),
       ...from("wertyuiosdfghjkl", (key, i) => toggle(`step:${i}`, title(i, "Step"))),
@@ -40,10 +39,11 @@ window.bindings = () => ({
     },
   },
   a: {
-    name: "mix",
+    name: "song",
     icon: "sliders",
     keyMap: {
       "p": custom.tempo,
+      ";": toggle("play", "▶", noActiveValue),
       ...from("sdfghjkl", (key, i) => toggle(`mute:${i}`, title(i, "Mute"))),
       ...from("xcvbnm,.", (key, i) => set("track", title(i, "Trck"), i)),
     },
