@@ -121,7 +121,7 @@ namespace groovebox {
         int octave = 3;
         int muted;
         int selection;
-        int keyKey;
+        int kitSelection;
         int linePosition;
         Sample lineSample;
         Controls lineControls;
@@ -203,7 +203,7 @@ namespace groovebox {
                 if(received(keys[k])) {
                     tracks[active.track].selection = k;
                     if (tracks[active.track].source == Source::kit)
-                        tracks[active.track].keyKey = k;
+                        tracks[active.track].kitSelection = k;
                     if (active.play && active.record) {
                         auto quantizePosition = (int) ((inSteps(framePosition, 2) + 1) / 2.0) % stepCount;
                         getAbsoluteStep(active.track, quantizePosition)[k] = true;
@@ -318,9 +318,16 @@ namespace groovebox {
         }
 
         Controls* getActiveControls() {
-            return tracks[active.track].source >= Source::lineThrough
-                ? &tracks[active.track].lineControls
-                : &tracks[active.track].sampleControls[getKitSample(active.track, tracks[active.track].keyKey)];
+            switch (tracks[active.track].source) {
+            case Source::kit:
+                return &tracks[active.track].sampleControls[getKitSample(active.track, tracks[active.track].selection)];
+            case Source::note:
+                return &tracks[active.track].sampleControls[getKitSample(active.track, tracks[active.track].kitSelection)];
+            case Source::lineThrough:
+            case Source::lineRecord:
+            case Source::linePlay:
+                return &tracks[active.track].lineControls;
+            }
         }
 
         void setOutput(int t, int key, float audio, bool fresh) {
@@ -329,7 +336,7 @@ namespace groovebox {
                 setOutputSample(t, key, key, keyCount/2, fresh);
                 break;
             case Source::note:
-                setOutputSample(t, key, tracks[t].keyKey, key, fresh);
+                setOutputSample(t, key, tracks[t].kitSelection, key, fresh);
                 break;
             case Source::lineThrough:
                 setOutputLine(t, key, audio);
