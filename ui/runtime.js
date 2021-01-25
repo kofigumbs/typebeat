@@ -149,7 +149,7 @@ for (let { keyMap } of Object.values(bindings)) {
   }
 
   tempo.label = active.tempo;
-  document.body.classList.toggle("recording", active.record);
+  document.body.classList.toggle("recording", !!active.record);
   keysInPage.forEach((key, i) => key.classList.toggle("available", i <= active.length));
   keysInPage.forEach((key, i) => key.classList.toggle("highlight", i === active.page));
   keysInSequence.forEach((key, i) => key.classList.toggle("highlight", i === active.beat));
@@ -162,7 +162,7 @@ for (let { keyMap } of Object.values(bindings)) {
         if (!useIcon)
           html = bindings[modifier].keyMap[key.dataset.symbol]?.label;
         else if (bindings[key.dataset.symbol].icon)
-          html = `<i data-feather="${bindings[key.dataset.symbol].icon}"></i>`
+          html = `<i data-feather="${bindings[key.dataset.symbol].icon}"></i>`;
         key.innerHTML = html || "";
       }
     feather.replace();

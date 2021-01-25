@@ -9,10 +9,10 @@ endif
 # TODO WebAudio/WASM/Emscriptem ?
 
 .PHONY: all
-all: ui/feather.js build/groovebox
+all: ui/feather.min.js ui/feather.min.js.map build/groovebox
 
-ui/feather.js:
-	curl -sSL https://unpkg.com/feather-icons@4.28.0/dist/feather.min.js > $@
+ui/feather.min.js ui/feather.min.js.map:
+	curl -sSL https://unpkg.com/feather-icons@4.28.0/dist/$(shell basename $@) > $@
 
 build/groovebox: desktop/main.cpp audio/device.h audio/sequencer.h desktop/webview audio/miniaudio audio/Enfer build/include/effects.h
 	time g++ desktop/main.cpp -I audio -I build/include -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o $@
