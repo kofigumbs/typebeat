@@ -10,3 +10,6 @@
 [submodule "audio/faust"]
 	path = audio/faust
 	url = https://github.com/grame-cncm/faust
+[submodule "ui/FiraCode"]
+	path = ui/FiraCode
+	url = https://github.com/tonsky/FiraCode
