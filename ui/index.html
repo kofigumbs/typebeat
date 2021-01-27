@@ -2,47 +2,45 @@
 <html>
   <meta charset="utf-8"/>
   <link rel="favicon" href="data:image/svg+xml,"/>
+  <link rel="stylesheet" href="FiraCode/distr/fira_code.css"/>
   <link rel="stylesheet" href="stylesheet.css"/>
-  <script defer src="feather.min.js"></script>
-  <script defer src="bindings.js"></script>
   <script defer src="runtime.js"></script>
-  <body class="flex column centered">
-    <div class="help box"></div>
-    <div class="flex row centered stagger-left">
-      <div class="box relative"><div data-symbol="q" data-control="modify" class="key relative"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="w" data-control="modify" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="e" data-control="modify" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="r" data-control="modify" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="t" data-control="modify" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative stagger-right"><div data-symbol="y" data-control="send" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="u" data-control="send" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="i" data-control="send" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="o" data-control="send" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="p" data-control="send" class="key relative"></div><div class="shadow"></div></div>
+  <body class="flex column">
+    <div class="flex row move-left">
+      <div data-cap="q" data-role="modify" data-label="#" class="key"><div class="view">Song</div></div>
+      <div data-cap="w" data-role="modify" data-label="[|" class="key"><div class="view">Sequence</div></div>
+      <div data-cap="e" data-role="modify" data-label="~~" class="key"><div class="view">Sample</div></div>
+      <div data-cap="r" data-role="modify" data-label="" class="key"><div class="view"></div></div>
+      <div data-cap="t" data-role="modify" data-label="" class="key"><div class="view"></div></div>
+      <div data-cap="y" data-role="select" class="key move-right"></div>
+      <div data-cap="u" data-role="select" class="key"></div>
+      <div data-cap="i" data-role="select" class="key"></div>
+      <div data-cap="o" data-role="select" class="key"></div>
+      <div data-cap="p" data-role="select" class="key"></div>
     </div>
-    <div class="flex row centered">
-      <div class="box relative"><div data-symbol="a" data-control="modify" class="key relative"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="s" data-control="modify" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="d" data-control="modify" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="f" data-control="modify" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="g" data-control="modify" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative stagger-right"><div data-symbol="h" data-control="send" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="j" data-control="send" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="k" data-control="send" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="l" data-control="send" class="key relative sequence"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol=";" data-control="send" class="key relative"></div><div class="shadow"></div></div>
+    <div class="flex row">
+      <div data-cap="a" data-role="modify" data-label=".-" class="key"><div class="view">Source</div></div>
+      <div data-cap="s" data-role="modify" data-label=">>=" class="key"><div class="view">Filters</div></div>
+      <div data-cap="d" data-role="modify" data-label="/=/" class="key"><div class="view">Envelope</div></div>
+      <div data-cap="f" data-role="modify" data-label="=:=" class="key"><div class="view">Effects</div></div>
+      <div data-cap="g" data-role="modify" data-label="=|" class="key"><div class="view">Tape</div></div>
+      <div data-cap="h" data-role="select" class="key move-right"></div>
+      <div data-cap="j" data-role="select" class="key"></div>
+      <div data-cap="k" data-role="select" class="key"></div>
+      <div data-cap="l" data-role="select" class="key"></div>
+      <div data-cap=";" data-role="select" class="key"></div></div>
     </div>
-    <div class="flex row centered stagger-right">
-      <div class="box relative"><div data-symbol="z" data-control="modify" class="key relative"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="x" data-control="modify" class="key relative page"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="c" data-control="modify" class="key relative page"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="v" data-control="modify" class="key relative page"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="b" data-control="modify" class="key relative page"></div><div class="shadow"></div></div>
-      <div class="box relative stagger-right"><div data-symbol="n" data-control="send" class="key relative page"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="m" data-control="send" class="key relative page"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="," data-control="send" class="key relative page"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="." data-control="send" class="key relative page"></div><div class="shadow"></div></div>
-      <div class="box relative"><div data-symbol="/" data-control="send" class="key relative"></div><div class="shadow"></div></div>
+    <div class="flex row move-right">
+      <div data-cap="z" data-role="modify" data-label="" class="key"><div class="view"></div></div>
+      <div data-cap="x" data-role="modify" data-label="" class="key"><div class="view"></div></div>
+      <div data-cap="c" data-role="modify" data-label="" class="key"><div class="view"></div></div>
+      <div data-cap="v" data-role="modify" data-label="" class="key"><div class="view"></div></div>
+      <div data-cap="b" data-role="modify" data-label="" class="key"><div class="view"></div></div>
+      <div data-cap="n" data-role="select" class="key move-right"></div>
+      <div data-cap="m" data-role="select" class="key"></div>
+      <div data-cap="," data-role="select" class="key"></div>
+      <div data-cap="." data-role="select" class="key"></div>
+      <div data-cap="/" data-role="select" class="key"></div>
     </div>
   </body>
 </html>

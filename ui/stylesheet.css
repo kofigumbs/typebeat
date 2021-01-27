@@ -1,167 +1,105 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
+:root {
+  --base: #3c3836;
+  --text: #9e9c9b;
+  --accent: #d65d0e;
+  /* neumorphism.io/#3c3836 */
+  --base-shadow-up: 5px 5px 10px #33302e, -5px -5px 10px #45403e;
+  --base-shadow-down: 1px 1px 2px #33302e, -1px -1px 2px #45403e;
+  --base-gradient-down: linear-gradient(145deg, #363231, #403c3a);
 }
 
 html {
   font-size: 16px;
-  font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
-  font-weight: 800;
+  font-family: 'Fira Code';
   cursor: default;
   overflow: hidden;
 }
 
-body > *:last-child {
-  margin-bottom: 22px; /* see docs/frameless.md */
-}
-
-
-/*
- * utilities
- */
-
-.relative {
-  position: relative;
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--base);
 }
 
 .flex {
   display: flex;
-}
-
-.row {
-  flex-direction: row;
+  align-items: center;
+  justify-content: center;
 }
 
 .column {
   flex-direction: column;
 }
 
-.centered {
-  align-items: center;
-  justify-content: center;
+.row {
+  flex-direction: row;
 }
 
-
-/*
- * components
- */
-
-.box {
-  margin: .5rem;
+.row.move-left {
+  margin-left: -3rem;
 }
 
-.help {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  text-transform: capitalize;
+.row.move-right {
+  margin-left: 3rem;
 }
 
 .key {
-  width: 2.5rem;
-  height: 2.5rem;
-  padding: .25rem;
-  /* https://www.huratips.com/tech-tips/fixing-z-index-issue-on-safari-browser.html */
-  z-index: 999;
-  -webkit-transform: translate3d(0,0,0);
-  /* https://blog.teamtreehouse.com/increase-your-sites-performance-with-hardware-accelerated-css */
-  -webkit-backface-visibility: hidden;
-  -webkit-perspective: 1000;
+  opacity: 1;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: .5rem;
+  border-radius: .5rem;
+  background: var(--base);
+  box-shadow: var(--base-shadow-up);
+  position: relative;
+  transition: all .15s ease;
 }
 
-.shadow {
-  position: absolute;
-  top: .5rem;
-  left: .5rem;
-  width: 3rem;
-  height: 3rem;
-}
-
-.key, .shadow {
-  border: solid .25rem;
-  border-radius: .25rem;
+.key.move-right {
+  margin-left: 4.5rem;
 }
 
 .key.down {
+  opacity: 1;
+  background: var(--base-gradient-down);
+  box-shadow: var(--base-shadow-down);
+}
+
+.key.gone {
+  opacity: .1;
+  box-shadow: var(--base-shadow-down);
+}
+
+.key::before {
+  content: attr(data-label);
+  position: absolute;
   top: .5rem;
   left: .5rem;
+  color: var(--text);
 }
 
-.key svg {
-  stroke-width: 3;
+.key::after {
+  content: attr(data-cap);
+  position: absolute;
+  right: .5rem;
+  bottom: .5rem;
+  opacity: .6;
+  text-transform: uppercase;
+  color: var(--text);
 }
 
-
-/*
- * horizontal spacing
- */
-
-.stagger-left {
-  margin-left: -2rem;
+.view {
+  position: absolute;
+  left: 3.5rem;
+  bottom: .5rem;
+  opacity: 0;
+  color: var(--accent);
+  font-weight: 700;
+  transition: all .15s ease;
 }
 
-.stagger-right {
-  margin-left: 2rem;
-}
-
-
-/*
- * gruvbox
- */
-
-:root {
-  --light: #fbf1c7;
-  --dark: #3c3836;
-  --gray: #7c6f64;
-  --yellow: #d79921;
-  --orange: #d65d0e;
-}
-
-html {
-  background: var(--light);
-}
-
-.key {
-  color: var(--dark);
-  background: var(--light);
-}
-
-.shadow {
-  background: var(--dark);
-}
-
-.key, .shadow {
-  border-color: var(--dark);
-}
-
-.key.sequence {
-  color: var(--light);
-  background: var(--gray);
-}
-
-.key.sequence.highlight + .shadow {
-  background: var(--orange);
-}
-
-.recording .key.sequence.highlight + .shadow {
-  background: var(--yellow);
-}
-
-.key.page {
-  color: var(--light);
-  background: var(--orange);
-}
-
-.key.page.available + .shadow {
-  background: var(--light);
-}
-
-.key.page.highlight + .shadow {
-  background: var(--yellow);
-}
-
-.key.active {
-  color: var(--light);
-  background: var(--dark);
+.key.down .view {
+  left: 4rem;
+  opacity: 1;
 }

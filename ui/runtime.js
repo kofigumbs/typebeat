@@ -7,110 +7,53 @@ const ffiPut = (method, value) => window[`fromUi:${method}`]?.(value|0);
 
 
 /*
- * bindings dsl
- */
-
-const noModifier = "";
-const noActiveValue = null;
-const noBinding = { name: "", icon: "", keyMap: {} };
-
-const title = (i, text) => i === 0 ? text : "";
-const from = (keys, f) => Object.fromEntries(Array.from(keys, (key, i) => [ keys[i], f(key, i) ]));
-
-const toggle = (method, label = "", value = 1) => ({ type: "toggle", method, label, value });
-const set = (method, label, value) => ({ type: "set", method, label, value });
-const custom = {
-  tempo: {
-    type: "custom", method: "tempo", state: [],
-    handle(event) {
-      if (event.type !== "keydown")
-        return;
-      this.state.push(event.timeStamp);
-      if (this.state.length === 1)
-        return;
-      let diffs = 0;
-      for (let i = 1; i < this.state.length; i++)
-        diffs += this.state[i] - this.state[i - 1];
-      redraw = true;
-      ffiPut(this.method, Math.round(60000 / (diffs / (this.state.length - 1)) + 1));
-    },
-  },
-};
-
-
-/*
  * events
  */
 
-let modifier = noModifier;
-let redraw = true;
-const bindings = window.bindings();
+let modifiers = [];
 
-const help = document.querySelector(".help");
-const keys = document.querySelectorAll(".key");
-const keysInPage = document.querySelectorAll(".page");
-const keysInSequence = document.querySelectorAll(".sequence");
+const tapTempo = {
+  init() {
+    this.state = [];
+  },
+  handle(event) {
+    if (event.type !== "keydown")
+      return;
+    this.state.push(event.timeStamp);
+    if (this.state.length === 1)
+      return;
+    let diffs = 0;
+    for (let i = 1; i < this.state.length; i++)
+      diffs += this.state[i] - this.state[i - 1];
+    ffiPut("tempo", Math.round(60000 / (diffs / (this.state.length - 1)) + 1));
+  },
+};
 
+const keys = document.querySelectorAll("[data-cap]");
 const keysByEventCode = Object.fromEntries(Array.from(keys).map(key => [
-  key.dataset.symbol
+  key.dataset.cap
     .replace(/[a-z]/, match => `Key${match.toUpperCase()}`)
     .replace(";", "Semicolon")
     .replace(",", "Comma").replace(".", "Period").replace("/", "Slash"),
   key,
 ]));
 
-const setHelp = method => {
-  if (!method || bindings[modifier].name === method)
-    help.innerText = bindings[modifier].name;
-  else if (!bindings[modifier].name)
-    help.innerText = method;
-  else
-    help.innerText = `${bindings[modifier].name} › ${method}`;
-};
-
-const setModifier = value => {
-  modifier = value;
-  setHelp();
-  redraw = true;
-};
-
-const resetModifier = () => {
-  modifier = noModifier;
-  custom.tempo.state = [];
-  redraw = true;
-}
-
-const handleSend = (event, value) => {
-  const binding = bindings[modifier].keyMap[value];
-  if (!binding)
-    return;
-  const down = event.type === "keydown";
-  if (down)
-    setHelp(binding.method);
-  if (binding.type === "toggle")
-    ffiPut(binding.method, down);
-  if (binding.type === "set")
-    ffiPut(binding.method, (binding.value + 1) * down);
-  if (binding.type === "custom")
-    binding.handle(event);
-};
-
-const handleModifier = (event, value) => {
-  if (modifier === noModifier && event.type === "keydown")
-    setModifier(value);
-  else if (modifier === value && event.type === "keyup")
-    resetModifier();
-  else
-    handleSend(event, value);
+const setModifiers = values => {
+  modifiers = values;
+  tapTempo.init();
+  for (let key of keys)
+    if (key.dataset.role === "modify") {
+      key.classList.toggle("down", modifiers[0] === key.dataset.cap);
+      key.classList.toggle("gone", !!modifiers[0] && modifiers[0] !== key.dataset.cap);
+    }
 };
 
 const handleKeyboardKey = (event, key) => {
   event.preventDefault();
-  key.classList.toggle("down", event.type === "keydown");
-  if (key.dataset.control === "send")
-    return handleSend(event, key.dataset.symbol);
-  if (key.dataset.control === "modify")
-    return handleModifier(event, key.dataset.symbol);
+  if (key.dataset.role === "modify" && !modifiers.includes(key.dataset.cap) && event.type === "keydown")
+    setModifiers([ ...modifiers, key.dataset.cap ]);
+  else if (modifiers.includes(key.dataset.cap) && event.type === "keyup")
+    setModifiers(modifiers.filter(x => x !== key.dataset.cap));
 };
 
 const handleDocumentKey = event => {
@@ -126,48 +69,15 @@ document.addEventListener("keypress", event => event.preventDefault());
 
 
 /*
- * draw loop
+ * draw
  */
-
-let tempo;
-const getMethods = new Set([ "beat", "page" ]);
-for (let { keyMap } of Object.values(bindings)) {
-  for (let binding of Object.values(keyMap)) {
-    if (binding.method === "tempo")
-      tempo = binding;
-    getMethods.add(binding.method);
-  }
-}
 
 (async function loop() {
   const active = {};
   for (let method of getMethods)
     active[method] = await ffiGet(method);
-  for (let key of keys) {
-    const binding = bindings[modifier].keyMap[key.dataset.symbol];
-    key.classList.toggle("active", binding?.value === (active[binding?.method] ?? "inactive"));
-  }
 
-  tempo.label = active.tempo;
-  document.body.classList.toggle("recording", !!active.record);
-  keysInPage.forEach((key, i) => key.classList.toggle("available", i <= active.length));
-  keysInPage.forEach((key, i) => key.classList.toggle("highlight", i === active.page));
-  keysInSequence.forEach((key, i) => key.classList.toggle("highlight", i === active.beat));
-
-  if (redraw) {
-    for (const key of keys)
-      if (key.dataset.symbol !== modifier) {
-        const useIcon = modifier === noModifier && key.dataset.symbol in bindings;
-        let html;
-        if (!useIcon)
-          html = bindings[modifier].keyMap[key.dataset.symbol]?.label;
-        else if (bindings[key.dataset.symbol].icon)
-          html = `<i data-feather="${bindings[key.dataset.symbol].icon}"></i>`;
-        key.innerHTML = html || "";
-      }
-    feather.replace();
-    redraw = false;
-  }
+  // TODO
 
   requestAnimationFrame(loop);
 })();
