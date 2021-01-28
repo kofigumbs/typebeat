@@ -23,7 +23,7 @@ const bindingsByModifier = new Map([
   ])}],
   ['G', { symbol: '=|', mode: 'Tape', actions: new Map([
   ])}],
-  ['Z', { symbol: '', mode: '', actions: new Map([
+  ['Z', { symbol: '~>', mode: 'LFO', actions: new Map([
   ])}],
   ['X', { symbol: '', mode: '', actions: new Map([
   ])}],
