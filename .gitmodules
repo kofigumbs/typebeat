@@ -13,3 +13,6 @@
 [submodule "ui/FiraCode"]
 	path = ui/FiraCode
 	url = https://github.com/tonsky/FiraCode
+[submodule "audio/choc"]
+	path = audio/choc
+	url = https://github.com/julianstorer/choc
