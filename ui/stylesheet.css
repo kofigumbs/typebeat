@@ -13,34 +13,34 @@ html {
   font-family: 'Fira Code';
   cursor: default;
   overflow: hidden;
+  background: var(--base);
 }
 
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: var(--base);
 }
 
-.flex {
+body {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.column {
   flex-direction: column;
 }
 
 .row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-direction: row;
 }
 
-.row.move-left {
+.row:nth-child(1) {
   margin-left: -3rem;
 }
 
-.row.move-right {
+.row:nth-child(3) {
   margin-left: 3rem;
 }
 
@@ -56,7 +56,7 @@ html, body {
   transition: all .15s ease;
 }
 
-.key.move-right {
+.key:nth-child(6) {
   margin-left: 4.5rem;
 }
 
@@ -66,30 +66,27 @@ html, body {
   box-shadow: var(--base-shadow-down);
 }
 
-.key.gone {
+.key.hidden {
   opacity: .1;
   box-shadow: var(--base-shadow-down);
 }
 
-.key::before {
-  content: attr(data-label);
+.key .cap {
+  position: absolute;
+  right: .5rem;
+  bottom: .5rem;
+  opacity: .6;
+  color: var(--text);
+}
+
+.key .symbol {
   position: absolute;
   top: .5rem;
   left: .5rem;
   color: var(--text);
 }
 
-.key::after {
-  content: attr(data-cap);
-  position: absolute;
-  right: .5rem;
-  bottom: .5rem;
-  opacity: .6;
-  text-transform: uppercase;
-  color: var(--text);
-}
-
-.view {
+.key .mode {
   position: absolute;
   left: 3.5rem;
   bottom: .5rem;
@@ -99,7 +96,7 @@ html, body {
   transition: all .15s ease;
 }
 
-.key.down .view {
+.key.down .mode {
   left: 4rem;
   opacity: 1;
 }

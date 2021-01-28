@@ -7,17 +7,55 @@ const ffiPut = (method, value) => window[`fromUi:${method}`]?.(value|0);
 
 
 /*
+ * elements
+ */
+
+const bindingsByCap = {
+  Q: { symbol: '#', mode: 'Song' },
+  W: { symbol: '[|', mode: 'Sequence' },
+  E: { symbol: '~~', mode: 'Sample' },
+  R: { symbol: '', mode: 'TBD' },
+  T: { symbol: '', mode: 'TBD' },
+  A: { symbol: '.-', mode: 'Source' },
+  S: { symbol: '>>=', mode: 'Filter' },
+  D: { symbol: '/=/', mode: 'Envelope' },
+  F: { symbol: '=:=', mode: 'Effects' },
+  G: { symbol: '=|', mode: 'Tape' },
+  Z: { symbol: '', mode: 'TBD' },
+  X: { symbol: '', mode: 'TBD' },
+  C: { symbol: '', mode: 'TBD' },
+  V: { symbol: '', mode: 'TBD' },
+  B: { symbol: '', mode: 'TBD' },
+};
+
+for (let row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
+  const keys = Array.from(row).map(cap => `
+    <div class='key'>
+      <div class='cap'>${cap}</div>
+      <div class='symbol'>${bindingsByCap[cap]?.symbol || ''}</div>
+      <div class='mode'>${bindingsByCap[cap]?.mode || ''}</div>
+    </div>
+  `);
+  document.body.innerHTML += `<div class='row'>${keys.join('')}</div>`;
+}
+
+const elementsByCap = {};
+for (let element of document.querySelectorAll('.key'))
+  elementsByCap[element.querySelector('.cap').innerText] = element;
+
+
+/*
  * events
  */
 
 let modifiers = [];
 
-const tapTempo = {
+const tempo = {
   init() {
     this.state = [];
   },
   handle(event) {
-    if (event.type !== "keydown")
+    if (event.type !== 'keydown')
       return;
     this.state.push(event.timeStamp);
     if (this.state.length === 1)
@@ -25,47 +63,37 @@ const tapTempo = {
     let diffs = 0;
     for (let i = 1; i < this.state.length; i++)
       diffs += this.state[i] - this.state[i - 1];
-    ffiPut("tempo", Math.round(60000 / (diffs / (this.state.length - 1)) + 1));
+    ffiPut('tempo', Math.round(60000 / (diffs / (this.state.length - 1)) + 1));
   },
 };
 
-const keys = document.querySelectorAll("[data-cap]");
-const keysByEventCode = Object.fromEntries(Array.from(keys).map(key => [
-  key.dataset.cap
-    .replace(/[a-z]/, match => `Key${match.toUpperCase()}`)
-    .replace(";", "Semicolon")
-    .replace(",", "Comma").replace(".", "Period").replace("/", "Slash"),
-  key,
-]));
-
 const setModifiers = values => {
   modifiers = values;
-  tapTempo.init();
-  for (let key of keys)
-    if (key.dataset.role === "modify") {
-      key.classList.toggle("down", modifiers[0] === key.dataset.cap);
-      key.classList.toggle("gone", !!modifiers[0] && modifiers[0] !== key.dataset.cap);
+  tempo.init();
+  for (let [cap, binding] of Object.entries(bindingsByCap))
+    if ('mode' in binding) {
+      const element = elementsByCap[cap];
+      element.classList.toggle('down', modifiers[0] === cap);
+      element.classList.toggle('hidden', !!modifiers[0] && modifiers[0] !== cap);
     }
-};
-
-const handleKeyboardKey = (event, key) => {
-  event.preventDefault();
-  if (key.dataset.role === "modify" && !modifiers.includes(key.dataset.cap) && event.type === "keydown")
-    setModifiers([ ...modifiers, key.dataset.cap ]);
-  else if (modifiers.includes(key.dataset.cap) && event.type === "keyup")
-    setModifiers(modifiers.filter(x => x !== key.dataset.cap));
 };
 
 const handleDocumentKey = event => {
   if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.repeat)
     return;
-  if (keysByEventCode[event.code])
-    handleKeyboardKey(event, keysByEventCode[event.code]);
+  const cap = event.code
+    .replace('Key', '')
+    .replace('Semicolon', ';')
+    .replace('Comma', ',').replace('Period', '.').replace('Slash', '/');
+  if (bindingsByCap[cap]?.mode && event.type === 'keydown')
+    setModifiers([ ...modifiers, cap ]);
+  else if (modifiers.includes(cap) && event.type === 'keyup')
+    setModifiers(modifiers.filter(x => x !== cap));
 };
 
-document.addEventListener("keydown", handleDocumentKey);
-document.addEventListener("keyup", handleDocumentKey);
-document.addEventListener("keypress", event => event.preventDefault());
+document.addEventListener('keydown', handleDocumentKey);
+document.addEventListener('keyup', handleDocumentKey);
+document.addEventListener('keypress', event => event.preventDefault());
 
 
 /*
@@ -73,11 +101,6 @@ document.addEventListener("keypress", event => event.preventDefault());
  */
 
 (async function loop() {
-  const active = {};
-  for (let method of getMethods)
-    active[method] = await ffiGet(method);
-
   // TODO
-
   requestAnimationFrame(loop);
 })();
