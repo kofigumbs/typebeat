@@ -1,3 +1,5 @@
+#include "choc/containers/choc_SingleReaderSingleWriterFIFO.h"
+
 namespace groovebox {
     const int trackCount = 4;
     const int hitCount = 16;
@@ -161,10 +163,12 @@ namespace groovebox {
         int stepPosition;
         int beat;
         int page;
-        Input previous;
         Library library;
         std::array<Track, trackCount> tracks;
         std::array<std::array<Output, keyCount>, trackCount> output;
+        std::array<bool, keyCount> receivedKeys;
+        std::map<std::string, std::function<void(int)>> handlers;
+        choc::fifo::SingleReaderSingleWriterFIFO<std::pair<std::function<void(int)>, int>> events;
 
         // explicit `init` so that we keep the default, zero-initializing constructor
         void init(std::filesystem::path root) {
@@ -186,110 +190,33 @@ namespace groovebox {
                     library.samples[i].stereo = channels == 2;
                 }
             }
+            handlers["keydown"] = [this](int value) {
+                receivedKeys[value] = true;
+                tracks[active.track].selection = value;
+                if (tracks[active.track].source == Source::kit)
+                    tracks[active.track].kitSelection = value;
+                if (active.play && active.record) {
+                    auto quantizePosition = (int) ((inSteps(framePosition, 2) + 1) / 2.0) % stepCount;
+                    getAbsoluteStep(active.track, quantizePosition)[value] = true;
+                    if (stepPosition != quantizePosition)
+                        receivedKeys[value] = false; // prevent double-trig -- aka live-quantize
+                }
+            };
+            events.reset(8);
         }
 
-        void compute(Input current, float audio) {
-            // input processing macros
-#define received(x) current.x && current.x != previous.x
-#define set(recipient, x, type) if (received(x)) (recipient).x = static_cast<type>(current.x - 1)
-
-            // input toggles
-            active.play ^= received(play);
-            active.record ^= received(record);
+        void compute(float audio) {
             framePosition = active.play ? framePosition+1 : -1;
             stepPosition = inSteps(framePosition) % stepCount;
             beat = stepPosition % hitCount;
-            for (int k = 0; k < keyCount; k++)
-                if(received(keys[k])) {
-                    tracks[active.track].selection = k;
-                    if (tracks[active.track].source == Source::kit)
-                        tracks[active.track].kitSelection = k;
-                    if (active.play && active.record) {
-                        auto quantizePosition = (int) ((inSteps(framePosition, 2) + 1) / 2.0) % stepCount;
-                        getAbsoluteStep(active.track, quantizePosition)[k] = true;
-                        if (stepPosition != quantizePosition)
-                            current.keys[k] = 0; // prevent double-trig -- aka live-quantize
-                    }
-                }
-            for (int h = 0; h < hitCount; h++)
-                getBeatStep(h)[tracks[active.track].selection] ^= received(steps[h]);
-            for (int t = 0; t < trackCount; t++)
-                tracks[t].muted ^= received(mutes[t]);
-
-            // input values
-            set(active, tempo, int);
-            set(active, root, int);
-            set(active, scale, int);
-            set(active, track, int);
-            set(tracks[active.track], source, Source);
-            set(tracks[active.track], polyphonic, bool);
-            set(tracks[active.track], length, int);
-            set(tracks[active.track], sounds, int);
-            set(tracks[active.track], octave, int);
-            set(tracks[active.track], selection, int);
-            Controls* activeControls = getActiveControls();
-            set(*activeControls, volume, int);
-            set(*activeControls, pan, int);
-            set(*activeControls, filter, int);
-            set(*activeControls, resonance, int);
-            set(*activeControls, delay, int);
-            set(*activeControls, reverb, int);
-
-            // sync active, which reflects state to ui
-            page = getBeatPage();
-            active.length = tracks[active.track].length;
-            active.source = tracks[active.track].source;
-            active.polyphonic = tracks[active.track].polyphonic;
-            active.sounds = tracks[active.track].sounds;
-            active.octave = tracks[active.track].octave;
-            active.volume = activeControls->volume;
-            active.pan = activeControls->pan;
-            active.filter = activeControls->filter;
-            active.resonance = activeControls->resonance;
-            active.delay = activeControls->delay;
-            active.reverb = activeControls->reverb;
-            active.selection = tracks[active.track].selection;
-            for (int k = 0; k < keyCount; k++)
-                active.keys[k] = k == tracks[active.track].selection;
-            for (int s = 0; s < hitCount; s++)
-                active.steps[s] = getBeatStep(s)[tracks[active.track].selection];
-            for (int t = 0; t < trackCount; t++)
-                active.mutes[t] = tracks[t].muted;
-            if (received(clear))
-                for (int s = 0; s < tracks[active.track].steps.size(); s++)
-                    for (int k = 0; k < tracks[active.track].steps[s].size(); k++)
-                        tracks[active.track].steps[s][k] = false;
-
-            // it can be jarring to swap some settings mid-playback
-            if (received(source) || received(sounds) || received(polyphonic))
-                for (int t = 0; t < tracks.size(); t++)
-                    for (int v = 0; v < tracks[t].voices.size(); v++)
-                        tracks[active.track].voices[v].release();
-
-            // clear line sample
-            if (received(source) && tracks[active.track].source == Source::lineRecord) {
-                tracks[active.track].linePosition = 0;
-                auto sample = tracks[active.track].lineSample;
-                std::fill(sample.frames, sample.frames + sample.length, 0);
-            }
-
-            // kits are always polyphonic, TODO fix the root problem that prevents choking
-            if (tracks[active.track].source == Source::kit)
-                tracks[active.track].polyphonic = 1;
-            // line through is always monophonic, TODO implement live pitching
-            if (tracks[active.track].source == Source::lineThrough)
-                tracks[active.track].polyphonic = 0;
-
-            // play track voices
+            std::pair<std::function<void(int)>, int> pair;
+            while(events.pop(pair))
+                pair.first(pair.second);
             auto playing = active.play && stepPosition != inSteps(framePosition - 1) % stepCount;
             for (int t = 0; t < tracks.size(); t++)
                 for (int v = 0; v < tracks[t].voices.size(); v++)
-                    setOutput(t, v, audio, t == active.track && received(keys[v]) || playing && !tracks[t].muted && getAbsoluteStep(t, stepPosition)[v]);
-
-            // remember previous for next call
-            previous = current;
-#undef set
-#undef received
+                    setOutput(t, v, audio, t == active.track && receivedKeys[v] || playing && !tracks[t].muted && getAbsoluteStep(t, stepPosition)[v]);
+            receivedKeys.fill(false);
         }
 
         int inSteps(int frames, int subdivision = 1) {

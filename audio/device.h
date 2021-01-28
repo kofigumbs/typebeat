@@ -12,7 +12,6 @@
 #include "sequencer.h"
 
 struct UserData {
-    groovebox::Input* input;
     groovebox::Sequencer* sequencer;
     groovebox::Effects* effects;
 };
@@ -23,12 +22,12 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     float floatControls[userData->effects->getNumRealControls()];
     userData->effects->control(intControls, floatControls);
     for (int frame = 0; frame < frameCount; frame++) {
-        userData->sequencer->compute(*(userData->input), ((float*) input)[frame]);
+        userData->sequencer->compute(((float*) input)[frame]);
         userData->effects->compute((float*) userData->sequencer->output.data(), ((float*) output) + frame*device->playback.channels, intControls, floatControls);
     }
 }
 
-void run(std::filesystem::path root, char* captureDeviceName, char* playbackDeviceName, std::function<void(groovebox::Sequencer*, groovebox::Input*)> view) {
+void run(std::filesystem::path root, char* captureDeviceName, char* playbackDeviceName, std::function<void(groovebox::Sequencer*)> view) {
     ma_context context;
     ma_device_id* captureDeviceId = nullptr;
     ma_device_id* playbackDeviceId = nullptr;
@@ -51,14 +50,13 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
         assert(playbackDeviceId != nullptr);
     }
 
-    groovebox::Input input {};
     groovebox::Sequencer sequencer {};
     groovebox::Effects effects {};
 
     assert(sizeof(sequencer.output) == effects.getNumInputs() * sizeof(float));
     sequencer.init(root);
     effects.init(SAMPLE_RATE);
-    UserData userData { &input, &sequencer, &effects };
+    UserData userData { &sequencer, &effects };
 
     ma_device device;
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
@@ -74,7 +72,7 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
     ma_device_start(&device);
-    view(&sequencer, &input);
+    view(&sequencer);
     ma_device_uninit(&device);
     ma_context_uninit(&context);
 }
