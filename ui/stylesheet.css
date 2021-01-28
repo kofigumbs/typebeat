@@ -1,6 +1,7 @@
 html {
   font-size: 16px;
   font-family: 'Fira Code';
+  font-feature-settings: 'ss07';
   cursor: default;
   overflow: hidden;
   background: var(--base);
