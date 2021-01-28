@@ -1,4 +1,10 @@
-:root {
+html {
+  font-size: 16px;
+  font-family: 'Fira Code';
+  cursor: default;
+  overflow: hidden;
+  background: var(--base);
+  /* github.com/morhetz/gruvbox/ */
   --base: #3c3836;
   --text: #9e9c9b;
   --accent: #d65d0e;
@@ -6,14 +12,6 @@
   --base-shadow-up: 5px 5px 10px #33302e, -5px -5px 10px #45403e;
   --base-shadow-down: 1px 1px 2px #33302e, -1px -1px 2px #45403e;
   --base-gradient-down: linear-gradient(145deg, #363231, #403c3a);
-}
-
-html {
-  font-size: 16px;
-  font-family: 'Fira Code';
-  cursor: default;
-  overflow: hidden;
-  background: var(--base);
 }
 
 html, body {
@@ -27,6 +25,9 @@ body {
   align-items: center;
   justify-content: center;
   flex-direction: column;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .row {
@@ -42,6 +43,7 @@ body {
 
 .row:nth-child(3) {
   margin-left: 3rem;
+  margin-bottom: 22px; /* see docs/frameless.md */
 }
 
 .key {
@@ -96,7 +98,7 @@ body {
   transition: all .15s ease;
 }
 
-.key.down .mode {
+.key.down:not(.hidden) .mode {
   left: 4rem;
   opacity: 1;
 }

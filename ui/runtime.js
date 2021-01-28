@@ -1,16 +1,9 @@
 /*
- * ffi
- */
-
-const ffiGet = (method) => window[`toUi:${method}`]?.();
-const ffiPut = (method, value) => window[`fromUi:${method}`]?.(value|0);
-
-
-/*
  * elements
  */
 
-const bindingsByCap = {
+const bindKeys = (caps, f) => Object.fromEntries(Array.from(caps, (cap, i) => [cap, f(i)]));
+const bindingsByModifier = {
   Q: { symbol: '#', mode: 'Song' },
   W: { symbol: '[|', mode: 'Sequence' },
   E: { symbol: '~~', mode: 'Sample' },
@@ -26,14 +19,15 @@ const bindingsByCap = {
   C: { symbol: '', mode: 'TBD' },
   V: { symbol: '', mode: 'TBD' },
   B: { symbol: '', mode: 'TBD' },
+  undefined: bindKeys("NM,./HJKL;YUIOP", i => `key:${i}`),
 };
 
 for (let row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
   const keys = Array.from(row).map(cap => `
     <div class='key'>
       <div class='cap'>${cap}</div>
-      <div class='symbol'>${bindingsByCap[cap]?.symbol || ''}</div>
-      <div class='mode'>${bindingsByCap[cap]?.mode || ''}</div>
+      <div class='symbol'>${bindingsByModifier[cap]?.symbol || ''}</div>
+      <div class='mode'>${bindingsByModifier[cap]?.mode || ''}</div>
     </div>
   `);
   document.body.innerHTML += `<div class='row'>${keys.join('')}</div>`;
@@ -49,6 +43,9 @@ for (let element of document.querySelectorAll('.key'))
  */
 
 let modifiers = [];
+
+const ffiGet = (method) => window[`toUi:${method}`]?.();
+const ffiPut = (method, value) => window[`fromUi:${method}`]?.(value|0);
 
 const tempo = {
   init() {
@@ -67,15 +64,11 @@ const tempo = {
   },
 };
 
-const setModifiers = values => {
+const modify = values => {
   modifiers = values;
   tempo.init();
-  for (let [cap, binding] of Object.entries(bindingsByCap))
-    if ('mode' in binding) {
-      const element = elementsByCap[cap];
-      element.classList.toggle('down', modifiers[0] === cap);
-      element.classList.toggle('hidden', !!modifiers[0] && modifiers[0] !== cap);
-    }
+  for (let [cap, binding] of Object.entries(bindingsByModifier))
+    elementsByCap[cap]?.classList.toggle('hidden', !!modifiers[0] && modifiers[0] !== cap);
 };
 
 const handleDocumentKey = event => {
@@ -85,10 +78,13 @@ const handleDocumentKey = event => {
     .replace('Key', '')
     .replace('Semicolon', ';')
     .replace('Comma', ',').replace('Period', '.').replace('Slash', '/');
-  if (bindingsByCap[cap]?.mode && event.type === 'keydown')
-    setModifiers([ ...modifiers, cap ]);
+  elementsByCap[cap]?.classList.toggle('down', event.type === 'keydown');
+  if (bindingsByModifier[cap]?.mode && event.type === 'keydown')
+    modify([ ...modifiers, cap ]);
   else if (modifiers.includes(cap) && event.type === 'keyup')
-    setModifiers(modifiers.filter(x => x !== cap));
+    modify(modifiers.filter(x => x !== cap));
+  else if (bindingsByModifier[modifiers[0]][cap])
+    ffiPut(bindingsByModifier[modifiers[0]][cap], event.type === 'keydown');
 };
 
 document.addEventListener('keydown', handleDocumentKey);

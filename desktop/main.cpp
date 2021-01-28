@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
             syncUi(&view, "mute:" + std::to_string(i), sequencer->active.mutes.data() + i, input->mutes.data() + i);
 
 #ifdef WEBVIEW_COCOA
-        auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 251/255.0, 241/255.0, 199/255.0, 1.0); // see docs/frameless.md
+        auto light = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 60/255.0, 56/255.0, 54/255.0, 1.0); // see docs/frameless.md
         auto window = (id) view.window();
         objc_msgSend(window, sel_registerName("setBackgroundColor:"), light);
         objc_msgSend(window, sel_registerName("setTitlebarAppearsTransparent:"), 1);
