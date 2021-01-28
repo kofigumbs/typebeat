@@ -1,5 +1,5 @@
 namespace groovebox {
-    const int trackCount = 8;
+    const int trackCount = 4;
     const int hitCount = 16;
     const int stepCount = 128;
     const int keyCount = 15;

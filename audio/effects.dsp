@@ -1,6 +1,6 @@
 import("stdfaust.lib");
 
-process = par(i, 8*15, voice) :> bi(_), sendEffects :> bi(_);
+process = par(i, 4*15, voice) :> bi(_), sendEffects :> bi(_);
 voice(inputL, inputR, controls) = inputL, inputR : insertEffects(controls);
 sendEffects(dl, dr, rl, rr) = dl, dr : stereoDelay : +(rl), +(rr) : stereoReverb;
 
