@@ -11,11 +11,11 @@ endif
 .PHONY: all
 all: ui/FiraCode build/groovebox
 
-build/groovebox: desktop/main.cpp audio/device.h audio/sequencer.h desktop/webview audio/choc audio/miniaudio audio/Enfer build/include/effects.h
+build/groovebox: audio/*.h desktop/main.cpp desktop/webview audio/choc audio/miniaudio audio/Enfer build/include/Effects.h
 	time g++ desktop/main.cpp -I audio -I build/include -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o $@
 
-build/include/effects.h: build/bin/faust audio/effects.dsp
-	time build/bin/faust -os -ns groovebox -cn Effects -o $@ audio/effects.dsp
+build/include/Effects.h: build/bin/faust audio/Effects.dsp
+	time build/bin/faust -os -ns groovebox -cn Effects -o $@ audio/Effects.dsp
 
 build/bin/faust: audio/faust
 	cd audio/faust && make PREFIX=${BUILD_DIR} && make install PREFIX=${BUILD_DIR}

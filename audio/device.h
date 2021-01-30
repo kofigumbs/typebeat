@@ -8,7 +8,9 @@
 #include "faust/gui/meta.h"
 #include "faust/gui/UI.h"
 
-#include "effects.h"
+#include "Effects.h"
+#include "EventQueue.h"
+#include "Library.h"
 #include "sequencer.h"
 
 struct UserData {
@@ -50,11 +52,10 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
         assert(playbackDeviceId != nullptr);
     }
 
-    groovebox::Sequencer sequencer {};
+    groovebox::Sequencer sequencer(root);
     groovebox::Effects effects {};
 
     assert(sizeof(sequencer.output) == effects.getNumInputs() * sizeof(float));
-    sequencer.init(root);
     effects.init(SAMPLE_RATE);
     UserData userData { &sequencer, &effects };
 

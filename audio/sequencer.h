@@ -1,20 +1,8 @@
-#include "EventQueue.h"
-
 namespace groovebox {
     const int trackCount = 15;
     const int hitCount = 16;
     const int stepCount = 128;
     const int keyCount = 15;
-
-    const std::array<std::string, 13> enferKits {
-        "tr808", "tr909", "dmx", "dnb", "dark", "deep", "tech",
-        "modular", "gabber", "bergh", "vermona", "commodore", "dmg",
-    };
-
-    const std::array<std::string, 17> enferSamples {
-        "kick", "kick-up", "kick-down", "tom", "snare", "snare-up", "snare-down", "clap",
-        "hat", "hat-open", "hat-shut", "cymb", "fx1", "fx2", "fx3", "fx4", "synth-C3"
-    };
 
     const std::array<std::array<int, 7>, 12> scaleOffsets {
         0, 2, 4, 5, 7, 9, 11,
@@ -29,24 +17,6 @@ namespace groovebox {
         0, 2, 3, 5, 7, 9, 11,
         0, 2, 3, 5, 7, 8, 10,
         0, 2, 4, 5, 7, 8, 10,
-    };
-
-    struct Sample {
-        bool stereo;
-        ma_uint64 length;
-        float* frames;
-
-        float left(int i) {
-            return frames[stereo ? 2*i : i];
-        }
-
-        float right(int i) {
-            return frames[stereo ? 2*i + 1 : i];
-        }
-    };
-
-    struct Library {
-        std::array<Sample, enferKits.size() * enferSamples.size()> samples;
     };
 
     struct Output {
@@ -84,7 +54,7 @@ namespace groovebox {
             active = false;
         }
 
-        void play(Sample sample, Output& output) {
+        void play(Library::Sample sample, Output& output) {
             auto i = int(position);
             if (active && position == i && position < sample.length) {
                 output.l = sample.left(i);
@@ -125,9 +95,9 @@ namespace groovebox {
         int selection;
         int kitSelection;
         int linePosition;
-        Sample lineSample;
+        Library::Sample lineSample;
         Controls lineControls;
-        std::array<Controls, enferKits.size() * enferSamples.size()> sampleControls;
+        std::array<Controls, Library::size> sampleControls;
         std::array<Voice, keyCount> voices;
         std::array<std::array<bool, keyCount>, stepCount> steps;
     };
@@ -147,25 +117,11 @@ namespace groovebox {
         std::array<std::array<Output, keyCount>, trackCount> output;
         std::array<bool, keyCount> receivedKeys;
 
-        // explicit `init` so that we keep the default, zero-initializing constructor
-        void init(std::filesystem::path root) {
+        Sequencer(std::filesystem::path root) : library(root), eventQueue(), tracks(), output(), receivedKeys() {
             for (int t = 0; t < tracks.size(); t++) {
                 tracks[t].lineSample.stereo = false;
                 tracks[t].lineSample.length = 6*SAMPLE_RATE;
                 tracks[t].lineSample.frames = new float[tracks[t].lineSample.length];
-            }
-            for (int kit = 0; kit < enferKits.size(); kit++) {
-                for (int sample = 0; sample < enferSamples.size(); sample++) {
-                    auto i = kit * enferSamples.size() + sample;
-                    auto filename = root / "audio" / "Enfer" / "media" / enferKits[kit] / (enferSamples[sample] + ".wav");
-                    unsigned int channels;
-                    unsigned int sampleRate;
-                    library.samples[i].frames = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &library.samples[i].length, NULL);
-                    assert(library.samples[i].frames != NULL);
-                    assert(sampleRate == SAMPLE_RATE);
-                    assert(channels == 1 || channels == 2);
-                    library.samples[i].stereo = channels == 2;
-                }
             }
             eventQueue.on("keyDown", [this](int value) {
                 receivedKeys[value] = true;
@@ -207,30 +163,8 @@ namespace groovebox {
             return floor(frames / (60.f * SAMPLE_RATE / tempo) * subdivision * 2);
         }
 
-        int getKitSample(int t, int key) {
-            if (tracks[t].samplePack == 13) // fx4
-                return std::min(int(library.samples.size() - 1), (key + 1)*17 - 2);
-            else if (tracks[t].samplePack == 14) // synths
-                return std::min(int(library.samples.size() - 1), (key + 1)*17 - 1);
-            else
-                return key + tracks[t].samplePack*17;
-        }
-
         bool* getAbsoluteStep(int t, int i) {
             return tracks[t].steps[i % ((tracks[t].length + 1) * hitCount)].data();
-        }
-
-        Controls* getActiveControls() {
-            switch (tracks[activeTrack].source) {
-            case Source::kit:
-                return &tracks[activeTrack].sampleControls[getKitSample(activeTrack, tracks[activeTrack].selection)];
-            case Source::note:
-                return &tracks[activeTrack].sampleControls[getKitSample(activeTrack, tracks[activeTrack].kitSelection)];
-            case Source::lineThrough:
-            case Source::lineRecord:
-            case Source::linePlay:
-                return &tracks[activeTrack].lineControls;
-            }
         }
 
         void setOutput(int t, int key, float audio, bool fresh) {
@@ -257,12 +191,12 @@ namespace groovebox {
         }
 
         void setOutputSample(int t, int key, int sampleKey, int note, bool fresh) {
-            auto s = getKitSample(t, sampleKey);
+            auto s = library.sampleId(tracks[t].samplePack, sampleKey);
             setOutputSampleAudio(t, key, library.samples[s], note, fresh);
             tracks[t].sampleControls[s].encode(output[t][key]);
         }
 
-        void setOutputSampleAudio(int t, int key, Sample sample, int note, bool fresh) {
+        void setOutputSampleAudio(int t, int key, Library::Sample sample, int note, bool fresh) {
             // mono
             if (!tracks[t].polyphonic && fresh)
                 tracks[t].voices[0].prepare(noteIncrement(t, note));
