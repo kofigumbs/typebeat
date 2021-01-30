@@ -1,5 +1,5 @@
 struct Sequencer {
-    static const int trackCount = 15;
+    static const int trackCount = 5;
     static const int hitCount = 16;
     static const int stepCount = 128;
     static const int keyCount = 15;
@@ -77,7 +77,8 @@ struct Sequencer {
             }
         });
         eventQueue.on("track", [this](int value) {
-            activeTrack = value;
+            if (value < 5) // TODO
+                activeTrack = value;
         });
         eventQueue.on("samplePack", [this](int value) {
             tracks[activeTrack].samplePack = value;
