@@ -1,7 +1,7 @@
 #include "choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
 namespace groovebox {
-    const int trackCount = 4;
+    const int trackCount = 15;
     const int hitCount = 16;
     const int stepCount = 128;
     const int keyCount = 15;
@@ -119,7 +119,7 @@ namespace groovebox {
         Source source;
         bool polyphonic = true;
         int length;
-        int sounds;
+        int samplePack;
         int octave = 3;
         int muted;
         int selection;
@@ -143,7 +143,7 @@ namespace groovebox {
         int source;
         int polyphonic;
         int length;
-        int sounds;
+        int samplePack;
         int octave;
         int volume;
         int pan;
@@ -190,7 +190,7 @@ namespace groovebox {
                     library.samples[i].stereo = channels == 2;
                 }
             }
-            handlers["keydown"] = [this](int value) {
+            handlers["keyDown"] = [this](int value) {
                 receivedKeys[value] = true;
                 tracks[active.track].selection = value;
                 if (tracks[active.track].source == Source::kit)
@@ -201,6 +201,15 @@ namespace groovebox {
                     if (stepPosition != quantizePosition)
                         receivedKeys[value] = false; // prevent double-trig -- aka live-quantize
                 }
+            };
+            handlers["track"] = [this](int value) {
+                active.track = value;
+            };
+            handlers["samplePack"] = [this](int value) {
+                tracks[active.track].samplePack = value;
+            };
+            handlers["mute"] = [this](int value) {
+                tracks[value].muted ^= true;
             };
             events.reset(8);
         }
@@ -224,12 +233,12 @@ namespace groovebox {
         }
 
         int getKitSample(int t, int key) {
-            if (tracks[t].sounds == 13) // fx4
+            if (tracks[t].samplePack == 13) // fx4
                 return std::min(int(library.samples.size() - 1), (key + 1)*17 - 2);
-            else if (tracks[t].sounds == 14) // synths
+            else if (tracks[t].samplePack == 14) // synths
                 return std::min(int(library.samples.size() - 1), (key + 1)*17 - 1);
             else
-                return key + tracks[t].sounds*17;
+                return key + tracks[t].samplePack*17;
         }
 
         int getBeatPage() {

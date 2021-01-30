@@ -5,7 +5,7 @@ html {
   cursor: default;
   overflow: hidden;
   background: var(--base);
-  /* github.com/morhetz/gruvbox/ */
+  /* github.com/morhetz/gruvbox */
   --base: #3c3836;
   --text: #9e9c9b;
   --accent: #d65d0e;
@@ -53,6 +53,7 @@ body {
   height: 3.5rem;
   margin: .5rem;
   border-radius: .5rem;
+  color: var(--text);
   background: var(--base);
   box-shadow: var(--base-shadow-up);
   position: relative;
@@ -79,20 +80,19 @@ body {
   right: .5rem;
   bottom: .5rem;
   opacity: .6;
-  color: var(--text);
 }
 
 .key .symbol {
   position: absolute;
   top: .5rem;
   left: .5rem;
-  color: var(--text);
 }
 
 .key .mode {
   position: absolute;
   left: 3.5rem;
   bottom: .5rem;
+  width: 8rem;
   opacity: 0;
   color: var(--accent);
   font-weight: 700;

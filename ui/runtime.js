@@ -55,7 +55,9 @@ const handleDocumentKey = event => {
       elementsByCap.get(cap)?.classList.toggle('hidden', !!mode && mode !== cap);
   }
   else {
-    bindingsByModifier.get(modifier.mode).actions.get(cap)?.(down);
+    const handler = bindingsByModifier.get(modifier.mode).actions.get(cap);
+    if (handler)
+      down ? handler.onDown?.() : handler.onUp?.();
   }
 };
 

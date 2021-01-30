@@ -1,17 +1,28 @@
-const ffiGet = (method) => toUi(method);
-const ffiPut = (method, value) => fromUi(method, value|0);
+const dot = (method, value) => state => state[method] === value ? '●' : '';
+const bindKeys = (caps, f) => Array.from(caps, (cap, i) => [cap, f(i)]);
 
-const bindKeys = (caps, f) => new Map(Array.from(caps, (cap, i) => [cap, f(i)]));
 const bindingsByModifier = new Map([
   ['Q', { symbol: '#', mode: 'Song', actions: new Map([
   ])}],
-  ['W', { symbol: '.-', mode: 'Sequence', actions: new Map([
+  ['W', { symbol: '.-', mode: 'Track', actions: new Map([
+    ...bindKeys('NM,./HJKL;YUIOP', i => ({
+      symbol: dot('track', i),
+      onDown: () => fromUi('track', i),
+    })),
   ])}],
-  ['E', { symbol: '~~', mode: 'Sample', actions: new Map([
+  ['E', { symbol: '~~', mode: 'Sample Pack', actions: new Map([
+    ...bindKeys('NM,./HJKL;YUIOP', i => ({
+      symbol: dot('samplePack', i),
+      onDown: () => fromUi('samplePack', i),
+    })),
   ])}],
   ['R', { symbol: '', mode: '', actions: new Map([
   ])}],
   ['T', { symbol: '!~', mode: 'Mute', actions: new Map([
+    ...bindKeys('NM,./HJKL;YUIOP', i => ({
+      symbol: dot(`mute:${i}`, 1),
+      onDown: () => fromUi('mute', i),
+    })),
   ])}],
   ['A', { symbol: '||=', mode: 'Source', actions: new Map([
   ])}],
@@ -34,6 +45,10 @@ const bindingsByModifier = new Map([
   ['B', { symbol: '[|', mode: 'File', actions: new Map([
   ])}],
   [undefined, { actions: new Map([
-    ...bindKeys("NM,./HJKL;YUIOP", i => down => ffiPut(`key${down ? 'down' : 'up'}`, i))
+    ...bindKeys('NM,./HJKL;YUIOP', i => ({
+      symbol: () => '',
+      onDown: () => fromUi('keyDown', i),
+      onUp: () => fromUi('keyUp', i),
+    })),
   ])}],
 ]);

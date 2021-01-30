@@ -1,10 +1,10 @@
 import("stdfaust.lib");
 
-process = par(i, 4*15, voice) :> bi(_), sendEffects :> bi(_);
+process = par(i, 15*15, voice) :> bi(_);
 voice(inputL, inputR, controls) = inputL, inputR : insertEffects(controls);
 sendEffects(dl, dr, rl, rr) = dl, dr : stereoDelay : +(rl), +(rr) : stereoReverb;
 
-insertEffects(controls) = stereoPan(pan) : bi(*(volume)) <: bi(_), bi(*(delay)), bi(*(reverb)) with {
+insertEffects(controls) = stereoPan(pan) : bi(*(volume)) with {
 	volume    = controlValue(0,  0, 1);
 	pan       = controlValue(1, -1, 1);
 	filter    = controlValue(2, -1, 1);
