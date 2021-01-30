@@ -9,8 +9,9 @@
 #include "faust/gui/UI.h"
 
 #include "Effects.h"
-#include "EventQueue.h"
 #include "Library.h"
+#include "Voice.h"
+#include "EventQueue.h"
 #include "sequencer.h"
 
 struct UserData {

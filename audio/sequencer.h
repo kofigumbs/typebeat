@@ -19,64 +19,6 @@ namespace groovebox {
         0, 2, 4, 5, 7, 8, 10,
     };
 
-    struct Output {
-        // eventually cast to a float*, so fields should only be floats
-        float l;
-        float r;
-        float controls;
-    };
-
-    struct Controls {
-        int volume = 7;
-        int pan = 7;
-        int filter = 7;
-        int resonance;
-        int delay;
-        int reverb;
-
-        void encode(Output& output) {
-            output.controls = volume | pan << 4 | filter << 8 | resonance << 12 | delay << 16 | reverb << 20;
-        }
-    };
-
-    struct Voice {
-        bool active;
-        float position;
-        float increment;
-
-        void prepare(float increment_) {
-            active = true;
-            position = 0;
-            increment = increment_;
-        }
-
-        void release() {
-            active = false;
-        }
-
-        void play(Library::Sample sample, Output& output) {
-            auto i = int(position);
-            if (active && position == i && position < sample.length) {
-                output.l = sample.left(i);
-                output.r = sample.right(i);
-                position += increment;
-            }
-            else if (active && i + 1 < sample.length) {
-                output.l = interpolate(position-i, sample.left(i), sample.left(i + 1));
-                output.r = interpolate(position-i, sample.right(i), sample.right(i + 1));
-                position += increment;
-            }
-            else {
-                active = false;
-                output.l = output.r = 0;
-            }
-        }
-
-        float interpolate(float x, float a, float b) {
-            return a + x*(b - a);
-        }
-    };
-
     enum Source {
         kit,
         note,
@@ -96,8 +38,8 @@ namespace groovebox {
         int kitSelection;
         int linePosition;
         Library::Sample lineSample;
-        Controls lineControls;
-        std::array<Controls, Library::size> sampleControls;
+        Voice::Controls lineControls;
+        std::array<Voice::Controls, Library::size> sampleControls;
         std::array<Voice, keyCount> voices;
         std::array<std::array<bool, keyCount>, stepCount> steps;
     };
@@ -114,7 +56,7 @@ namespace groovebox {
         Library library;
         EventQueue eventQueue;
         std::array<Track, trackCount> tracks;
-        std::array<std::array<Output, keyCount>, trackCount> output;
+        std::array<std::array<Voice::Output, keyCount>, trackCount> output;
         std::array<bool, keyCount> receivedKeys;
 
         Sequencer(std::filesystem::path root) : library(root), eventQueue(), tracks(), output(), receivedKeys() {
