@@ -12,7 +12,7 @@ endif
 all: ui/FiraCode build/groovebox
 
 build/groovebox: audio/*.h desktop/main.cpp desktop/webview audio/choc audio/miniaudio audio/Enfer build/include/Effects.h
-	time g++ desktop/main.cpp -I audio -I build/include -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o $@
+	time g++ desktop/main.cpp -I build/include -std=c++17 -ldl -lm -lpthread ${PLATFORM_LIBRARIES} -o $@
 
 build/include/Effects.h: build/bin/faust audio/Effects.dsp
 	time build/bin/faust -os -cn Effects -o $@ audio/Effects.dsp

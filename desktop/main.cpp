@@ -4,7 +4,7 @@
 #include <iostream>
 #include <map>
 
-#include "device.h"
+#include "../audio/lib.h"
 #include "webview/webview.h"
 
 int main(int argc, char* argv[]) {
