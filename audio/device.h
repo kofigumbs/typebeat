@@ -12,11 +12,11 @@
 #include "Library.h"
 #include "Voice.h"
 #include "EventQueue.h"
-#include "sequencer.h"
+#include "Sequencer.h"
 
 struct UserData {
-    groovebox::Sequencer* sequencer;
-    groovebox::Effects* effects;
+    Sequencer* sequencer;
+    Effects* effects;
 };
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
@@ -53,8 +53,8 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
         assert(playbackDeviceId != nullptr);
     }
 
-    groovebox::Sequencer sequencer(root);
-    groovebox::Effects effects {};
+    Sequencer sequencer(root);
+    Effects effects {};
 
     assert(sizeof(sequencer.output) == effects.getNumInputs() * sizeof(float));
     effects.init(SAMPLE_RATE);
