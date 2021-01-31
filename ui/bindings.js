@@ -7,13 +7,13 @@ const bindingsByModifier = new Map([
   ['W', { symbol: '.-', mode: 'Track', actions: new Map([
     ...bindKeys('NM,./HJKL;YUIOP', i => ({
       symbol: dot('track', i),
-      onDown: () => fromUi('track', i),
+      onDown: () => $push('track', i),
     })),
   ])}],
   ['E', { symbol: '~~', mode: 'Sample Pack', actions: new Map([
     ...bindKeys('NM,./HJKL;YUIOP', i => ({
       symbol: dot('samplePack', i),
-      onDown: () => fromUi('samplePack', i),
+      onDown: () => $push('samplePack', i),
     })),
   ])}],
   ['R', { symbol: '', mode: '', actions: new Map([
@@ -21,7 +21,7 @@ const bindingsByModifier = new Map([
   ['T', { symbol: '!~', mode: 'Mute', actions: new Map([
     ...bindKeys('NM,./HJKL;YUIOP', i => ({
       symbol: dot(`mute:${i}`, 1),
-      onDown: () => fromUi('mute', i),
+      onDown: () => $push('mute', i),
     })),
   ])}],
   ['A', { symbol: '||=', mode: 'Source', actions: new Map([
@@ -47,8 +47,8 @@ const bindingsByModifier = new Map([
   [undefined, { actions: new Map([
     ...bindKeys('NM,./HJKL;YUIOP', i => ({
       symbol: () => '',
-      onDown: () => fromUi('keyDown', i),
-      onUp: () => fromUi('keyUp', i),
+      onDown: () => $push('keyDown', i),
+      onUp: () => $push('keyUp', i),
     })),
   ])}],
 ]);

@@ -1,3 +1,8 @@
+#include <array>
+#include <cassert>
+#include <filesystem>
+#include <unordered_map>
+
 #define MINIAUDIO_IMPLEMENTATION
 #define MA_NO_ENCODING
 #define MA_NO_GENERATION
@@ -7,6 +12,8 @@
 #include "faust/dsp/one-sample-dsp.h"
 #include "faust/gui/meta.h"
 #include "faust/gui/UI.h"
+
+#include "choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
 #include "Effects.h"
 #include "Library.h"

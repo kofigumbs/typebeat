@@ -1,5 +1,3 @@
-#include "choc/containers/choc_SingleReaderSingleWriterFIFO.h"
-
 struct EventQueue {
     EventQueue() : handlers(), events() {
         events.reset(8); // max queue size
@@ -22,6 +20,6 @@ struct EventQueue {
     }
 
   private:
-    std::map<std::string, std::function<void(int)>> handlers;
+    std::unordered_map<std::string, std::function<void(int)>> handlers;
     choc::fifo::SingleReaderSingleWriterFIFO<std::pair<std::function<void(int)>, int>> events;
 };
