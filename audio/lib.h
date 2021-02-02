@@ -1,4 +1,5 @@
 #include <array>
+#include <iostream>
 #include <cassert>
 #include <filesystem>
 #include <unordered_map>
@@ -16,7 +17,6 @@
 #include "choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
 #include "Effects.h"
-#include "Library.h"
 #include "Voice.h"
 #include "EventQueue.h"
 #include "Sequencer.h"
