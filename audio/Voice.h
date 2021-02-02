@@ -66,11 +66,11 @@ struct Voice {
     }
 
   private:
-    bool active;
-    float position;
-    float increment;
+    bool active = false;
+    float position = 0;
+    float increment = 0;
     Sample memory;
-    const Sample* sample;
+    const Sample* sample = nullptr;
 
     float interpolate(float x, float a, float b) {
         return a + x*(b - a);

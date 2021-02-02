@@ -58,8 +58,8 @@ struct Sequencer {
         0, 2, 4, 5, 7, 8, 10,
     };
 
-    bool playing = 0;
-    bool armed = 0;
+    bool playing = false;
+    bool armed = false;
     int tempo = 120;
     int root = 0;
     int scale = 0;
