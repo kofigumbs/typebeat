@@ -1,30 +1,17 @@
-const dot = (method, value) => state => state[method] === value ? '●' : '';
 const bindKeys = (caps, f) => Array.from(caps, (cap, i) => [cap, f(i)]);
 
 const bindingsByModifier = new Map([
-  ['Q', { symbol: '#', mode: 'Song', actions: new Map([
+  ['Q', { symbol: '~~', mode: 'Sample', actions: new Map([
   ])}],
-  ['W', { symbol: '.-', mode: 'Track', actions: new Map([
-    ...bindKeys('NM,./HJKL;YUIOP', i => ({
-      symbol: dot('track', i),
-      onDown: () => $push('track', i),
-    })),
+  ['W', { symbol: '-<', mode: 'Oscillator', actions: new Map([
   ])}],
-  ['E', { symbol: '~~', mode: 'Sample Pack', actions: new Map([
-    ...bindKeys('NM,./HJKL;YUIOP', i => ({
-      symbol: dot('samplePack', i),
-      onDown: () => $push('samplePack', i),
-    })),
+  ['E', { symbol: '~>', mode: 'LFO', actions: new Map([
   ])}],
   ['R', { symbol: '', mode: '', actions: new Map([
   ])}],
-  ['T', { symbol: '!~', mode: 'Mute', actions: new Map([
-    ...bindKeys('NM,./HJKL;YUIOP', i => ({
-      symbol: dot(`mute:${i}`, 1),
-      onDown: () => $push('mute', i),
-    })),
+  ['T', { symbol: '<~>', mode: 'Note', actions: new Map([
   ])}],
-  ['A', { symbol: '||=', mode: 'Source', actions: new Map([
+  ['A', { symbol: '.=', mode: 'Sequence', actions: new Map([
   ])}],
   ['S', { symbol: '>>=', mode: 'Filter', actions: new Map([
   ])}],
@@ -34,7 +21,7 @@ const bindingsByModifier = new Map([
   ])}],
   ['G', { symbol: '=|', mode: 'Tape', actions: new Map([
   ])}],
-  ['Z', { symbol: '~>', mode: 'LFO', actions: new Map([
+  ['#', { symbol: '#', mode: 'Project', actions: new Map([
   ])}],
   ['X', { symbol: '', mode: '', actions: new Map([
   ])}],
@@ -42,13 +29,16 @@ const bindingsByModifier = new Map([
   ])}],
   ['V', { symbol: '', mode: '', actions: new Map([
   ])}],
-  ['B', { symbol: '[|', mode: 'File', actions: new Map([
+  ['B', { symbol: '!~', mode: 'Mute', actions: new Map([
+    ...bindKeys('NM,./HJKL;YUIOP', i => ({
+      onDown: () => $push('mute', i),
+    })),
   ])}],
   [undefined, { actions: new Map([
     ...bindKeys('NM,./HJKL;YUIOP', i => ({
       symbol: () => '',
-      onDown: () => $push('keyDown', i),
-      onUp: () => $push('keyUp', i),
+      onDown: () => $push('auditionDown', i),
+      onUp: () => $push('auditionUp', i),
     })),
   ])}],
 ]);
