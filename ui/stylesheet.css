@@ -4,15 +4,17 @@ html {
   font-feature-settings: 'ss07';
   cursor: default;
   overflow: hidden;
-  background: var(--base);
+  background: var(--base-gradient-background);
   /* github.com/morhetz/gruvbox */
-  --base: #3c3836;
   --text: #9e9c9b;
   --accent: #d65d0e;
+  --base: #3c3836;
+  --base-gradient: #363231, #403c3a;
   /* neumorphism.io/#3c3836 */
   --base-shadow-up: 5px 5px 10px #33302e, -5px -5px 10px #45403e;
   --base-shadow-down: 1px 1px 2px #33302e, -1px -1px 2px #45403e;
-  --base-gradient-down: linear-gradient(145deg, #363231, #403c3a);
+  --base-gradient-down: linear-gradient(145deg, var(--base-gradient));
+  --base-gradient-background: linear-gradient(-35deg, var(--base-gradient));
 }
 
 html, body {
@@ -29,6 +31,30 @@ body {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.screen, .keyboard {
+  flex: 1;
+  max-height: 50%;
+}
+
+.screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  width: 100%;
+  height: fit-content;
+}
+
+.screen svg {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.screen svg path {
+  fill: transparent;
+  stroke: var(--text);
 }
 
 .row {

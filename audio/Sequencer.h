@@ -32,7 +32,8 @@ struct Sequencer {
             voices[i].use(library[layout[i]]);
         // listen for ui bindings
         eventQueue.on("auditionDown", [this](int value) {
-            voices[value].prepare(keyToNote(7));
+            activeVoice = value;
+            voices[activeVoice].prepare(keyToNote(7));
         });
     }
 
@@ -40,6 +41,10 @@ struct Sequencer {
         eventQueue.evaluate();
         for (int v = 0; v < voiceCount; v++)
             voices[v].play(output[v]);
+    }
+
+    Sample::Waveform waveform() const {
+      return voices[activeVoice].waveform();
     }
 
   private:
@@ -64,7 +69,7 @@ struct Sequencer {
     int root = 0;
     int scale = 0;
     int activeVoice = 0;
-    std::array<Voice::Sample, librarySampleCount> library;
+    std::array<Sample, librarySampleCount> library;
     std::array<Voice, voiceCount> voices;
 
     int keyToNote(int key) {

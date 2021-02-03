@@ -17,6 +17,7 @@
 #include "choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
 #include "Effects.h"
+#include "Sample.h"
 #include "Voice.h"
 #include "EventQueue.h"
 #include "Sequencer.h"
@@ -37,7 +38,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     }
 }
 
-void run(std::filesystem::path root, char* captureDeviceName, char* playbackDeviceName, std::function<void(EventQueue*)> view) {
+void run(std::filesystem::path root, char* captureDeviceName, char* playbackDeviceName, std::function<void(Sequencer*)> view) {
     ma_context context;
     ma_device_id* captureDeviceId = nullptr;
     ma_device_id* playbackDeviceId = nullptr;
@@ -81,7 +82,7 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
     ma_device_start(&device);
-    view(&sequencer.eventQueue);
+    view(&sequencer);
     ma_device_uninit(&device);
     ma_context_uninit(&context);
 }

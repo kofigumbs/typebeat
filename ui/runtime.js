@@ -2,6 +2,24 @@
  * elements
  */
 
+document.body.innerHTML = `
+  <div class="screen"></div>
+  <div class="keyboard"></div>
+`;
+const screen = document.querySelector('.screen');
+const keyboard = document.querySelector('.keyboard');
+
+const drawWaveform = () => {
+  $waveform().then(waveform => {
+    screen.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${waveform.length-1} 40" style="width: 100%; height: 100%;">
+      <path d="M ${waveform.map((x,i) => `${i} ${(x+1) * 20}`).join(' L ')}" stroke-width=".1"></path>
+      </svg>
+    `;
+  });
+};
+setTimeout(drawWaveform, 0);
+
 for (let row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
   const keys = Array.from(row).map(cap => `
     <div class='key'>
@@ -10,7 +28,7 @@ for (let row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
       <div class='mode'>${bindingsByModifier.get(cap)?.mode || ''}</div>
     </div>
   `);
-  document.body.innerHTML += `<div class='row'>${keys.join('')}</div>`;
+  keyboard.innerHTML += `<div class='row'>${keys.join('')}</div>`;
 }
 
 const elementsByCap = new Map();
@@ -58,6 +76,7 @@ const handleDocumentKey = event => {
     const handler = bindingsByModifier.get(modifier.mode).actions.get(cap);
     if (handler)
       down ? handler.onDown?.() : handler.onUp?.();
+    drawWaveform();
   }
 };
 
