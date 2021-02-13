@@ -70,7 +70,6 @@ body {
 
 .row:nth-child(3) {
   margin-left: 3rem;
-  margin-bottom: 22px; /* see docs/frameless.md */
 }
 
 .key {

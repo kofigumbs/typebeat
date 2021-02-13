@@ -28,20 +28,6 @@ int main(int argc, char* argv[]) {
             );
             return "";
         });
-
-#ifdef WEBVIEW_COCOA
-        // see docs/frameless.md
-        auto window = (id) view.window();
-        auto background = objc_msgSend((id) objc_getClass("NSColor"), sel_registerName("colorWithRed:green:blue:alpha:"), 60/255.0, 56/255.0, 54/255.0, 1.0);
-        objc_msgSend(window, sel_registerName("setBackgroundColor:"), background);
-        objc_msgSend(window, sel_registerName("setTitlebarAppearsTransparent:"), 1);
-        objc_msgSend(window, sel_registerName("setHasShadow:"), 1);
-        view.set_size(960, 540 + 22, WEBVIEW_HINT_NONE);
-
-        objc_msgSend(window, sel_registerName("center"));
-        objc_msgSend(window, sel_registerName("makeFirstResponder:"), objc_msgSend(window, sel_registerName("contentView")));
-#endif
-
         view.run();
     });
 }
