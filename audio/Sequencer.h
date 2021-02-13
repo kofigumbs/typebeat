@@ -19,7 +19,7 @@ struct Sequencer {
             auto filename = enferPaths[i];
             unsigned int channels;
             unsigned int sampleRate;
-            library[i].frames = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &library[i].length, NULL);
+            library[i].frames = drwav_open_file_and_read_pcm_frames_f32(filename.string().c_str(), &channels, &sampleRate, &library[i].length, NULL);
             assert(library[i].frames != NULL);
             assert(sampleRate == SAMPLE_RATE);
             assert(channels == 1 || channels == 2);

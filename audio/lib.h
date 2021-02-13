@@ -10,11 +10,13 @@
 #include "miniaudio/miniaudio.h"
 
 #define SAMPLE_RATE 44100
-#include "faust/dsp/one-sample-dsp.h"
 #include "faust/gui/meta.h"
 #include "faust/gui/UI.h"
 
 #include "choc/containers/choc_SingleReaderSingleWriterFIFO.h"
+
+// MSVC workaround
+#include "one-sample-dsp-without-controls.h"
 
 #include "Effects.h"
 #include "Sample.h"
@@ -29,12 +31,10 @@ struct UserData {
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
     auto userData = (UserData*) device->pUserData;
-    int intControls[userData->effects->getNumIntControls()];
-    float floatControls[userData->effects->getNumRealControls()];
-    userData->effects->control(intControls, floatControls);
+    userData->effects->control(nullptr, nullptr);
     for (int frame = 0; frame < frameCount; frame++) {
         userData->sequencer->compute(((float*) input)[frame]);
-        userData->effects->compute((float*) userData->sequencer->output.data(), ((float*) output) + frame*device->playback.channels, intControls, floatControls);
+        userData->effects->compute((float*) userData->sequencer->output.data(), ((float*) output) + frame*device->playback.channels, nullptr, nullptr);
     }
 }
 
