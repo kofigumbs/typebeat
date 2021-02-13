@@ -12,4 +12,4 @@
 	url = https://github.com/tonsky/FiraCode
 [submodule "audio/choc"]
 	path = audio/choc
-	url = https://github.com/julianstorer/choc
+	url = https://github.com/kofigumbs/choc
