@@ -6,6 +6,13 @@ struct Voice {
         float controls;
     };
 
+    struct Sample {
+        int id;
+        bool stereo;
+        ma_uint64 length;
+        float* frames;
+    };
+
     int volume = 7;
     int pan = 7;
     int filter = 7;
@@ -42,13 +49,13 @@ struct Voice {
     void play(Output& output) {
         auto i = int(position);
         if (active && position == i && position < sample->length) {
-            output.l = sample->left(i);
-            output.r = sample->right(i);
+            output.l = leftChannelAt(i);
+            output.r = rightChannelAt(i);
             position += increment;
         }
         else if (active && i + 1 < sample->length) {
-            output.l = interpolate(position-i, sample->left(i), sample->left(i + 1));
-            output.r = interpolate(position-i, sample->right(i), sample->right(i + 1));
+            output.l = interpolate(position-i, leftChannelAt(i), leftChannelAt(i + 1));
+            output.r = interpolate(position-i, rightChannelAt(i), rightChannelAt(i + 1));
             position += increment;
         }
         else {
@@ -56,10 +63,6 @@ struct Voice {
             output.l = output.r = 0;
         }
         output.controls = volume | pan << 4 | filter << 8 | resonance << 12 | delay << 16 | reverb << 20;
-    }
-
-    Sample::Waveform waveform() const {
-        return sample->waveform();
     }
 
   private:
@@ -71,5 +74,13 @@ struct Voice {
 
     float interpolate(float x, float a, float b) {
         return a + x*(b - a);
+    }
+
+    float leftChannelAt(int i) {
+        return sample->frames[sample->stereo ? 2*i : i];
+    }
+
+    float rightChannelAt(int i) {
+        return sample->frames[sample->stereo ? 2*i + 1 : i];
     }
 };

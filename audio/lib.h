@@ -19,7 +19,6 @@
 #include "one-sample-dsp-without-controls.h"
 
 #include "Effects.h"
-#include "Sample.h"
 #include "Voice.h"
 #include "EventQueue.h"
 #include "Sequencer.h"
@@ -38,7 +37,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     }
 }
 
-void run(std::filesystem::path root, char* captureDeviceName, char* playbackDeviceName, std::function<void(Sequencer*)> view) {
+void run(std::filesystem::path root, char* captureDeviceName, char* playbackDeviceName, std::function<void(EventQueue*)> view) {
     ma_context context;
     ma_device_id* captureDeviceId = nullptr;
     ma_device_id* playbackDeviceId = nullptr;
@@ -82,7 +81,7 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
     ma_device_start(&device);
-    view(&sequencer);
+    view(&sequencer.eventQueue);
     ma_device_uninit(&device);
     ma_context_uninit(&context);
 }

@@ -21,7 +21,7 @@ const bindingsByModifier = new Map([
   ])}],
   ['G', { symbol: '=|', mode: 'Tape', actions: new Map([
   ])}],
-  ['Z', { symbol: '#', mode: 'Project', actions: new Map([
+  ['#', { symbol: '#', mode: 'Project', actions: new Map([
   ])}],
   ['X', { symbol: '', mode: '', actions: new Map([
   ])}],
