@@ -1,6 +1,7 @@
 #include <filesystem>
 #include "webview/webview.h"
 #include "../audio/lib.h"
+#include "../build/Ui.h"
 
 int main(int argc, char* argv[]) {
     auto root = std::filesystem::canonical(argv[0])
@@ -12,7 +13,7 @@ int main(int argc, char* argv[]) {
         webview::webview view(true, nullptr);
         view.set_size(960, 540, WEBVIEW_HINT_MIN);
         view.set_size(960, 540, WEBVIEW_HINT_NONE);
-        view.navigate("file://" + (root / "ui" / "index.html").string());
+        view.navigate(uiHtml);
         view.bind("$push", [eventQueue](std::string data) -> std::string {
             eventQueue->push(
                 data.substr(data.find_first_of("\"") + 1, data.find_last_of("\"") - 2),
