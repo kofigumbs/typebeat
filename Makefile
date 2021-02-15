@@ -4,7 +4,7 @@ FAUST_INCLUDE = $(shell faust --includedir)
 ifeq ($(OS), Windows_NT)
 EXECUTABLE = build/groovebox.exe
 build/groovebox.exe: ${EXECUTABLE_DEPENDENCIES}
-	copy desktop\\webview\\script\\microsoft.web.webview2.0.9.488\\build\\native\\x64\\WebView2Loader.dll build
+	copy desktop\\webview\\dll\\x64\\WebView2Loader.dll build
 	cl /I "${FAUST_INCLUDE}" /I desktop\\webview\\script /std:c++17 /EHsc /Fobuild\\ \
 		desktop\\main.cpp desktop\\webview\\script\\microsoft.web.webview2.0.9.488\\build\\native\\x64\\WebView2Loader.dll.lib \
 		/link /OUT:build\\groovebox.exe

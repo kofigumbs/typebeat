@@ -3,7 +3,13 @@
 #include "../audio/lib.h"
 #include "../build/Ui.h"
 
+#ifdef _WIN32
+int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    char** argv = __argv;
+    int argc = __argc;
+#else
 int main(int argc, char* argv[]) {
+#endif
     auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
         .parent_path(); // project directory
