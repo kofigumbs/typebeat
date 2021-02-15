@@ -10,7 +10,7 @@ build/groovebox.exe: ${EXECUTABLE_DEPENDENCIES}
 		/link /OUT:build\\groovebox.exe
 else
 EXECUTABLE = build/groovebox
-PLATFORM_LIBRARIES = $(shell [[ "$$(uname)" == Darwin ]] && echo "-framework WebKit" || echo "$$(pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0)")
+PLATFORM_LIBRARIES = $(shell [[ "$$(uname)" == Darwin ]] && echo "-framework WebKit" || pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0)
 build/groovebox: ${EXECUTABLE_DEPENDENCIES}
 	g++ desktop/main.cpp -std=c++17 -ldl -lm -lpthread -I ${FAUST_INCLUDE} ${PLATFORM_LIBRARIES} -o $@
 endif
