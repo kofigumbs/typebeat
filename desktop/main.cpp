@@ -5,8 +5,8 @@
 
 #ifdef _WIN32
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    char** argv = __argv;
     int argc = __argc;
+    char** argv = __argv;
 #else
 int main(int argc, char* argv[]) {
 #endif
@@ -15,11 +15,10 @@ int main(int argc, char* argv[]) {
         .parent_path(); // project directory
     char* captureDeviceName = argc < 2 ? nullptr : argv[1];
     char* playbackDeviceName = argc < 3 ? captureDeviceName : argv[2];
-    run(root, captureDeviceName, playbackDeviceName, [root](EventQueue* eventQueue) {
+    run(root, nullptr, nullptr, [root](EventQueue* eventQueue) {
         webview::webview view(true, nullptr);
         view.set_size(960, 540, WEBVIEW_HINT_MIN);
         view.set_size(960, 540, WEBVIEW_HINT_NONE);
-        view.navigate(uiHtml);
         view.bind("$push", [eventQueue](std::string data) -> std::string {
             eventQueue->push(
                 data.substr(data.find_first_of("\"") + 1, data.find_last_of("\"") - 2),
@@ -27,6 +26,7 @@ int main(int argc, char* argv[]) {
             );
             return "";
         });
+        view.navigate(uiHtml);
         view.run();
     });
 }
