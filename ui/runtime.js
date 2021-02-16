@@ -10,7 +10,7 @@ for (let row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
       <div class='mode'>${bindingsByModifier.get(cap)?.mode || ''}</div>
     </div>
   `);
-  document.body.innerHTML %2b= `<div class='row'>${keys.join('')}</div>`;
+  document.body.innerHTML += `<div class='row'>${keys.join('')}</div>`;
 }
 
 const elementsByCap = new Map();

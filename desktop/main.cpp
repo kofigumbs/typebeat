@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
             );
             return "";
         });
-        view.navigate(uiHtml);
+        view.navigate(uiHtml());
         view.run();
     });
 }

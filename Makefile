@@ -15,8 +15,42 @@ endif
 
 # TODO WebAudio/WASM/Emscriptem ?
 
+define UI_HEADER_1
+	#include <regex>
+	std::string uiHtml() {
+	    std::string html = R""""(data:text/html,<!doctype html>
+	<meta charset="utf-8">
+	<style>
+endef
+define UI_HEADER_2
+	</style>
+	<script>
+	window.addEventListener('load', function() {
+endef
+define UI_HEADER_3
+	});
+	</script>
+	)"""";
+	    html = std::regex_replace(html, std::regex("%"), "%25");
+	    html = std::regex_replace(html, std::regex("\\+"), "%2b");
+	    return html;
+	}
+endef
+
+.PHONY: --UI_HEADER_1 --UI_HEADER_2 --UI_HEADER_3
+--UI_HEADER_1:
+	$(info $(UI_HEADER_1))
+--UI_HEADER_2:
+	$(info $(UI_HEADER_2))
+--UI_HEADER_3:
+	$(info $(UI_HEADER_3))
+
 build/Ui.h: ui/*
-	cat ui/template/1 ui/*.css ui/template/2 ui/*.js ui/template/3 > $@
+	make -s -- --UI_HEADER_1 >  $@
+	cat ui/*.css             >> $@
+	make -s -- --UI_HEADER_2 >> $@
+	cat ui/*.js              >> $@
+	make -s -- --UI_HEADER_3 >> $@
 
 build/Effects.h: audio/Effects.dsp
 	faust -os -cn Effects -o $@ audio/Effects.dsp
