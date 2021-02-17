@@ -3,10 +3,10 @@ FAUST_INCLUDE = $(shell faust --includedir)
 
 ifeq ($(OS), Windows_NT)
 build/groovebox.exe: ${EXECUTABLE_DEPENDENCIES}
-	copy desktop\\webview\\dll\\x64\\WebView2Loader.dll build
-	cl /I "${FAUST_INCLUDE}" /I desktop\\webview\\script /std:c++17 /EHsc /Fobuild\\ \
-		desktop\\main.cpp desktop\\webview\\script\\microsoft.web.webview2.0.9.488\\build\\native\\x64\\WebView2Loader.dll.lib \
-		/link /OUT:build\\groovebox.exe
+	copy desktop\webview\dll\x64\WebView2Loader.dll build
+	cl /I "${FAUST_INCLUDE}" /I desktop/webview/script /std:c++17 /EHsc /Fobuild\ \
+		desktop/main.cpp $(wildcard desktop/webview/script/*/build/native/x64/WebView2Loader.dll.lib) \
+		/link /OUT:build/groovebox.exe
 else
 PLATFORM_LIBRARIES = $(shell [[ "$$(uname)" == Darwin ]] && echo "-framework WebKit" || pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0)
 build/groovebox: ${EXECUTABLE_DEPENDENCIES}
@@ -14,6 +14,27 @@ build/groovebox: ${EXECUTABLE_DEPENDENCIES}
 endif
 
 # TODO WebAudio/WASM/Emscriptem ?
+
+build/Effects.h: audio/Effects.dsp
+	faust -os -cn Effects -o $@ audio/Effects.dsp
+
+desktop/webview audio/choc audio/miniaudio audio/Enfer:
+	git submodule init
+	git submodule update --recursive
+
+
+# hacky, but cross-platform method of templating Ui.h
+#
+# It works by using Make's info function as a cross-platform echo.
+# The following phony targets are "private", and to indicate that, we prefix
+# them with -- which requires some extra effort to type properly.
+
+build/Ui.h: ui/*
+	make -s -- --UI_HEADER_1 >  $@
+	cat ui/*.css             >> $@
+	make -s -- --UI_HEADER_2 >> $@
+	cat ui/*.js              >> $@
+	make -s -- --UI_HEADER_3 >> $@
 
 define UI_HEADER_1
 	#include <regex>
@@ -44,17 +65,3 @@ endef
 	$(info $(UI_HEADER_2))
 --UI_HEADER_3:
 	$(info $(UI_HEADER_3))
-
-build/Ui.h: ui/*
-	make -s -- --UI_HEADER_1 >  $@
-	cat ui/*.css             >> $@
-	make -s -- --UI_HEADER_2 >> $@
-	cat ui/*.js              >> $@
-	make -s -- --UI_HEADER_3 >> $@
-
-build/Effects.h: audio/Effects.dsp
-	faust -os -cn Effects -o $@ audio/Effects.dsp
-
-desktop/webview audio/choc audio/miniaudio audio/Enfer:
-	git submodule init
-	git submodule update --recursive
