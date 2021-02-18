@@ -5,15 +5,19 @@ struct Sequencer {
     std::array<Voice::Output, voiceCount> output;
 
     Sequencer(std::filesystem::path root) : eventQueue(), voices(), output() {
-        // load enfer sample library
+
+        /*
+         * load enfer sample library
+         */
+
         const auto media = root / "audio" / "Enfer" / "media";
         const std::array<std::filesystem::path, librarySampleCount> enferPaths {
-#define ALL(s) media/"tr808"/s, media/"tr909"/s, media/"dmx"/s, media/"dnb"/s, media/"dark"/s, media/"deep"/s, media/"tech"/s, \
+#define KITS(s) media/"tr808"/s, media/"tr909"/s, media/"dmx"/s, media/"dnb"/s, media/"dark"/s, media/"deep"/s, media/"tech"/s, \
                media/"modular"/s, media/"gabber"/s, media/"bergh"/s, media/"vermona"/s, media/"commodore"/s, media/"dmg"/s
-            ALL("kick.wav"), ALL("kick-up.wav"), ALL("kick-down.wav"), ALL("tom.wav"), ALL("snare.wav"), ALL("snare-up.wav"),
-            ALL("snare-down.wav"), ALL("clap.wav"), ALL("hat.wav"), ALL("hat-open.wav"), ALL("hat-shut.wav"), ALL("cymb.wav"),
-            ALL("fx1.wav"), ALL("fx2.wav"), ALL("fx3.wav"), ALL("fx4.wav"), ALL("synth-C3.wav"),
-#undef ALL
+            KITS("kick.wav"), KITS("kick-up.wav"), KITS("kick-down.wav"), KITS("tom.wav"), KITS("snare.wav"), KITS("snare-up.wav"),
+            KITS("snare-down.wav"), KITS("clap.wav"), KITS("hat.wav"), KITS("hat-open.wav"), KITS("hat-shut.wav"), KITS("cymb.wav"),
+            KITS("fx1.wav"), KITS("fx2.wav"), KITS("fx3.wav"), KITS("fx4.wav"), KITS("synth-C3.wav"),
+#undef KITS
         };
         for (int i = 0; i < enferPaths.size(); i++) {
             auto filename = enferPaths[i];
@@ -26,13 +30,20 @@ struct Sequencer {
             library[i].stereo = channels == 2;
             library[i].id = i;
         }
-        // setup initial sample layout (tr808, with fx1, fx2, and synth)
-        const std::array<int, voiceCount> layout { 0, 13, 26, 39, 52, 65, 78, 91, 104, 117, 130, 143, 156, 169, 208 };
+        const std::array<int, voiceCount> initialLayout { 0, 13, 26, 39, 52, 65, 78, 91, 104, 117, 130, 143, 156, 169, 208 };
         for (int i = 0; i < voiceCount; i++)
-            voices[i].use(library[layout[i]]);
-        // listen for ui bindings
+            voices[i].use(library[initialLayout[i]]);
+
+        /*
+         * event handlers
+         */
+
         eventQueue.on("auditionDown", [this](int value) {
             voices[value].prepare(keyToNote(7));
+            activeVoice = value;
+        });
+        eventQueue.on("noteDown", [this](int value) {
+            voices[activeVoice].prepare(keyToNote(value));
         });
     }
 

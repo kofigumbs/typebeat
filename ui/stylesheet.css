@@ -1,8 +1,17 @@
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
 html {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  height: 100%;
   font-size: 16px;
   font-family: 'Fira Code', monospace;
   font-feature-settings: 'ss07';
-  cursor: default;
   overflow: hidden;
   background: var(--base);
   /* github.com/morhetz/gruvbox */
@@ -15,17 +24,9 @@ html {
   --base-gradient-down: linear-gradient(145deg, #363231, #403c3a);
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
-
 body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
+  position: relative;
+  cursor: default;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
