@@ -82,7 +82,7 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
     ma_device_start(&device);
-    view(&sequencer.eventQueue);
+    view(&sequencer);
     ma_device_uninit(&device);
     ma_context_uninit(&context);
 }

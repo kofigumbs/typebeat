@@ -1,10 +1,9 @@
-struct Sequencer {
+struct Sequencer : EventQueue {
     static const int voiceCount = 15;
     static const int librarySampleCount = 221;
-    EventQueue eventQueue;
     std::array<Voice::Output, voiceCount> output;
 
-    Sequencer(std::filesystem::path root) : eventQueue(), voices(), output() {
+    Sequencer(std::filesystem::path root) : eventHandlers(), events(), voices(), output() {
 
         /*
          * load enfer sample library
@@ -38,19 +37,32 @@ struct Sequencer {
          * event handlers
          */
 
-        eventQueue.on("auditionDown", [this](int value) {
-            voices[value].prepare(keyToNote(7));
-            activeVoice = value;
-        });
-        eventQueue.on("noteDown", [this](int value) {
-            voices[activeVoice].prepare(keyToNote(value));
-        });
+        events.reset(8); // max queue size
+        eventHandlers["auditionDown"] = &Sequencer::auditionDown;
+        eventHandlers["noteDown"] = &Sequencer::noteDown;
+    }
+
+    void push(std::string method, int value) override {
+        auto f = eventHandlers.find(method);
+        if (f != eventHandlers.end())
+            events.push({ f->second, value });
     }
 
     void compute(float audio) {
-        eventQueue.evaluate();
+        std::pair<void(Sequencer::*)(int), int> pair;
+        while(events.pop(pair))
+            (this->*pair.first)(pair.second);
         for (int v = 0; v < voiceCount; v++)
             voices[v].play(output[v]);
+    }
+
+    void auditionDown(int value) {
+        voices[value].prepare(keyToNote(7));
+        activeVoice = value;
+    }
+
+    void noteDown(int value) {
+        voices[activeVoice].prepare(keyToNote(value));
     }
 
   private:
@@ -77,6 +89,8 @@ struct Sequencer {
     int activeVoice = 0;
     std::array<Voice::Sample, librarySampleCount> library;
     std::array<Voice, voiceCount> voices;
+    std::unordered_map<std::string, void(Sequencer::*)(int)> eventHandlers;
+    choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Sequencer::*)(int), int>> events;
 
     int keyToNote(int key) {
         return root + scaleOffsets[scale][key % 7] + (key/7 - 1) * 12;
