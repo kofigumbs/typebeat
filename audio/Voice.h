@@ -10,7 +10,7 @@ struct Voice {
         int id;
         bool stereo;
         ma_uint64 length;
-        float* frames;
+        std::unique_ptr<float[]> frames;
     };
 
     int volume = 7;
@@ -25,7 +25,7 @@ struct Voice {
         memory.id = -1;
         memory.stereo = false;
         memory.length = 6*SAMPLE_RATE;
-        memory.frames = new float[memory.length];
+        memory.frames = std::unique_ptr<float[]>(new float[memory.length]);
     }
 
     void prepare(int note) {

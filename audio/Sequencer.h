@@ -22,12 +22,13 @@ struct Sequencer : EventQueue {
             auto filename = enferPaths[i];
             unsigned int channels;
             unsigned int sampleRate;
-            library[i].frames = drwav_open_file_and_read_pcm_frames_f32(filename.string().c_str(), &channels, &sampleRate, &library[i].length, NULL);
-            assert(library[i].frames != NULL);
+            auto frames = drwav_open_file_and_read_pcm_frames_f32(filename.string().c_str(), &channels, &sampleRate, &library[i].length, NULL);
+            assert(frames != NULL);
             assert(sampleRate == SAMPLE_RATE);
             assert(channels == 1 || channels == 2);
-            library[i].stereo = channels == 2;
             library[i].id = i;
+            library[i].stereo = channels == 2;
+            library[i].frames = std::unique_ptr<float[]>(frames);
         }
         const std::array<int, voiceCount> initialLayout { 0, 13, 26, 39, 52, 65, 78, 91, 104, 117, 130, 143, 156, 169, 208 };
         for (int i = 0; i < voiceCount; i++)
