@@ -9,7 +9,7 @@ struct Sequencer : EventQueue {
          * load enfer sample library
          */
 
-        const auto media = root / "audio" / "Enfer" / "media";
+        const auto media = root / "vendor" / "Enfer" / "media";
         const std::array<std::filesystem::path, librarySampleCount> enferPaths {
 #define KITS(s) media/"tr808"/s, media/"tr909"/s, media/"dmx"/s, media/"dnb"/s, media/"dark"/s, media/"deep"/s, media/"tech"/s, \
                media/"modular"/s, media/"gabber"/s, media/"bergh"/s, media/"vermona"/s, media/"commodore"/s, media/"dmg"/s

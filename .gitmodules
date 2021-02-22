@@ -1,12 +1,12 @@
-[submodule "desktop/webview"]
-	path = desktop/webview
+[submodule "vendor/webview"]
+	path = vendor/webview
 	url = https://github.com/webview/webview
-[submodule "audio/miniaudio"]
-	path = audio/miniaudio
+[submodule "vendor/miniaudio"]
+	path = vendor/miniaudio
 	url = https://github.com/dr-soft/miniaudio
-[submodule "audio/Enfer"]
-	path = audio/Enfer
+[submodule "vendor/Enfer"]
+	path = vendor/Enfer
 	url = https://github.com/neauoire/Enfer
-[submodule "audio/choc"]
-	path = audio/choc
+[submodule "vendor/choc"]
+	path = vendor/choc
 	url = https://github.com/kofigumbs/choc
