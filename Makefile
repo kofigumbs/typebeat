@@ -1,10 +1,10 @@
 ifeq ($(OS), Windows_NT)
 	EXE=.exe
-	CC=cl /std:c++17 /EHsc /c /Fo
+	CC=cl -c /std:c++17 /EHsc /Fo
 	LD=copy vendor\webview\dll\x64\WebView2Loader.dll build && link $(wildcard vendor/webview/script/*/build/native/x64/WebView2Loader.dll.lib) /OUT:
 else
-	CC=g++ -std=c++17 --output=
-	LD=ld -ldl -lm -lpthread $(shell [[ "$$(uname)" == Darwin ]] && echo "-framework WebKit" || pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0) --output=
+	CC=g++ -c -std=c++17 --output=
+	LD=g++ -ldl -lm -lpthread $(shell [[ "$$(uname)" == Darwin ]] && echo "-framework WebKit" || pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0) --output=
 endif
 
 # TODO WebAudio/WASM/Emscriptem ?
