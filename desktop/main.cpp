@@ -1,6 +1,6 @@
 #include <filesystem>
-#include "webview/webview.h"
-#include "../audio/lib.h"
+#include "../vendor/webview/webview.h"
+#include "../audio/audio.h"
 #include "../build/Ui.h"
 
 #ifdef _WIN32

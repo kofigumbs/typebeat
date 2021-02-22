@@ -7,17 +7,17 @@
 #define MINIAUDIO_IMPLEMENTATION
 #define MA_NO_ENCODING
 #define MA_NO_GENERATION
-#include "miniaudio/miniaudio.h"
+#include "../vendor/miniaudio/miniaudio.h"
 
 #define SAMPLE_RATE 44100
 #include "faust/dsp/dsp.h"
 #include "faust/gui/meta.h"
 #include "faust/gui/UI.h"
 
-#include "choc/containers/choc_SingleReaderSingleWriterFIFO.h"
+#include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
+#include "audio.h"
 #include "Voice.h"
-#include "EventQueue.h"
 #include "Sequencer.h"
 
 struct one_sample_dsp : dsp {

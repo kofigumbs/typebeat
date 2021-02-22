@@ -1,23 +1,24 @@
 ifeq ($(OS), Windows_NT)
-	PRODUCT=build/groovebox.exe
-	CC=cl
-	CFLAGS=/std:c++17 /I vendor/webview/script /EHsc /Fobuild\ $(wildcard vendor/webview/script/*/build/native/x64/WebView2Loader.dll.lib) /link /OUT:$(PRODUCT)
-	CDEPS=build/WebView2Loader.dll
-build/WebView2Loader.dll:
-	copy vendor\webview\dll\x64\WebView2Loader.dll build
+	EXE=.exe
+	CC=cl /std:c++17 /EHsc /c /Fo
+	LD=copy vendor\webview\dll\x64\WebView2Loader.dll build && link $(wildcard vendor/webview/script/*/build/native/x64/WebView2Loader.dll.lib) /OUT:
 else
-	PRODUCT=groovebox
-	CC=g++
-	CFLAGS=-std=c++17 -ldl -lm -lpthread -o $(PRODUCT) $(shell [[ "$$(uname)" == Darwin ]] && echo "-framework WebKit" || pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0)
+	CC=g++ -std=c++17 --output=
+	LD=ld -ldl -lm -lpthread $(shell [[ "$$(uname)" == Darwin ]] && echo "-framework WebKit" || pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0) --output=
 endif
 
 # TODO WebAudio/WASM/Emscriptem ?
 
-.DEFAULT_GOAL = $(PRODUCT)
-$(PRODUCT): build/ audio/ vendor/ desktop/main.cpp build/Effects.h build/Ui.h $(CDEPS)
-	$(CC) desktop/main.cpp -I vendor -I "$(shell faust --includedir)" $(CFLAGS)
+build/groovebox${EXE}: build/audio.o build/groovebox.o
+	$(LD)$@ $^
 
-build/Effects.h: build/ audio/Effects.dsp
+build/groovebox.o: audio/audio.h build/Effects.h build/Ui.h desktop/main.cpp | vendor
+	$(CC)$@ -I vendor/webview/script desktop/main.cpp
+
+build/audio.o: audio build/Effects.h | vendor
+	$(CC)$@ -I "$(shell faust --includedir)" audio/audio.cpp
+
+build/Effects.h: audio/Effects.dsp | build
 	faust -os -cn Effects -o $@ audio/Effects.dsp
 
 build:
@@ -32,7 +33,7 @@ vendor:
 # It works by using Make's info function as a cross-platform echo.
 # The following phony targets are "private", and to indicate that, we prefix
 # them with -- which requires some extra effort to type properly.
-build/Ui.h: build/ ui/
+build/Ui.h: ui | build
 	make -s -- --UI_HEADER_1 >  $@
 	cat ui/*.css             >> $@
 	make -s -- --UI_HEADER_2 >> $@
