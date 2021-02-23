@@ -2,20 +2,24 @@
  * elements
  */
 
-for (let row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
+let right = '';
+for (let row of [ 'YUIOP', 'HJKL;', 'NM,./' ]) {
   const keys = Array.from(row).map(cap => `
     <div class='key'>
+      <div class='box'></div>
       <div class='cap'>${cap}</div>
-      <div class='symbol'>${bindingsByModifier.get(cap)?.symbol || ''}</div>
-      <div class='mode'>${bindingsByModifier.get(cap)?.mode || ''}</div>
     </div>
   `);
-  document.body.innerHTML += `<div class='row'>${keys.join('')}</div>`;
+  right += `<div class='row'>${keys.join('')}</div>`;
 }
+document.body.innerHTML += `
+  <div class='screen'><canvas class='illustrations'></canvas></div>
+  <div class='keys'>${right}</div>
+`;
 
-const elementsByCap = new Map();
+const keysByCap = new Map();
 for (let element of document.querySelectorAll('.key'))
-  elementsByCap.set(element.querySelector('.cap').innerText, element);
+  keysByCap.set(element.querySelector('.cap').innerText, element);
 
 
 /*
@@ -30,9 +34,9 @@ const modifier = {
     return this;
   },
 
-  get mode() {
-    const [mode] = this.down;
-    return mode;
+  get current() {
+    const [current] = this.down;
+    return current;
   },
 };
 
@@ -48,14 +52,13 @@ const handleDocumentKey = event => {
   if (!cap)
     return;
   const down = event.type === 'keydown';
-  elementsByCap.get(cap).classList.toggle('down', down);
   if (bindingsByModifier.has(cap)) {
-    const mode = modifier.toggle(cap, down).mode;
-    for (let [cap, binding] of bindingsByModifier)
-      elementsByCap.get(cap)?.classList.toggle('hidden', !!mode && mode !== cap);
+    const mode = modifier.toggle(cap, down).current;
+    // TODO focus illustration
   }
   else {
-    const handler = bindingsByModifier.get(modifier.mode).actions.get(cap);
+    keysByCap.get(cap).classList.toggle('down', down);
+    const handler = bindingsByModifier.get(modifier.current).actions.get(cap);
     if (handler)
       down ? handler.onDown?.() : handler.onUp?.();
   }

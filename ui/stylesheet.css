@@ -1,3 +1,11 @@
+:root {
+  --base: #ebdbb2;
+  --text: #7c5f64;
+  --accent: #d65d0e;
+  --border-width: 3px;
+  --border-radius: 1rem;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -10,26 +18,37 @@ html {
   flex-direction: column;
   height: 100%;
   font-size: 16px;
-  font-family: 'Fira Code', monospace;
-  font-feature-settings: 'ss07';
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;
   overflow: hidden;
   background: var(--base);
-  /* github.com/morhetz/gruvbox */
-  --base: #3c3836;
-  --text: #9e9c9b;
-  --accent: #d65d0e;
-  /* neumorphism.io/#3c3836 */
-  --base-shadow-up: 5px 5px 10px #33302e, -5px -5px 10px #45403e;
-  --base-shadow-down: 1px 1px 2px #33302e, -1px -1px 2px #45403e;
-  --base-gradient-down: linear-gradient(145deg, #363231, #403c3a);
 }
 
 body {
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
   cursor: default;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.screen {
+  position: relative;
+  width: 20rem;
+  height: 10rem;
+  margin: 0 3rem;
+  border: solid var(--border-width) var(--text);
+  border-radius: var(--border-radius);
+}
+
+.illustrations {
+  position: absolute;
+  top: -2rem;
+  left: -3rem;
+  width: calc(100% + 6rem);
+  height: calc(100% + 4rem);
 }
 
 .row {
@@ -47,59 +66,38 @@ body {
   margin-left: 3rem;
 }
 
+.keys {
+  margin-right: .5rem;
+}
+
 .key {
-  opacity: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 3.5rem;
   height: 3.5rem;
   margin: .5rem;
-  border-radius: .5rem;
   color: var(--text);
   background: var(--base);
-  box-shadow: var(--base-shadow-up);
+  border-radius: var(--border-radius);
   position: relative;
-  transition: all .15s ease;
-}
-
-.key:nth-child(6) {
-  margin-left: 4.5rem;
 }
 
 .key.down {
-  opacity: 1;
-  background: var(--base-gradient-down);
-  box-shadow: var(--base-shadow-down);
+  color: var(--base);
+  background: var(--text);
 }
 
-.key.hidden {
-  opacity: .1;
-  box-shadow: var(--base-shadow-down);
+.key .box {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: solid var(--border-width) var(--text);
+  border-radius: var(--border-radius);
+  box-sizing: border-box;
 }
 
 .key .cap {
-  position: absolute;
-  right: .5rem;
-  bottom: .5rem;
-  opacity: .6;
-}
-
-.key .symbol {
-  position: absolute;
-  top: .5rem;
-  left: .5rem;
-}
-
-.key .mode {
-  position: absolute;
-  left: 3.5rem;
-  bottom: .5rem;
-  width: 8rem;
-  opacity: 0;
-  color: var(--accent);
+  font-style: italic;
   font-weight: 700;
-  transition: all .15s ease;
-}
-
-.key.down:not(.hidden) .mode {
-  left: 4rem;
-  opacity: 1;
 }
