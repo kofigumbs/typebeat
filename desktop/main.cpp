@@ -1,7 +1,6 @@
 #include <filesystem>
 #include "../vendor/webview/webview.h"
 #include "../audio/audio.h"
-#include "../build/Ui.h"
 
 #ifdef _WIN32
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
@@ -26,7 +25,7 @@ int main(int argc, char* argv[]) {
             );
             return "";
         });
-        view.navigate(uiHtml());
+        view.navigate("file:///" + (root / "ui" / "index.html").string());
         view.run();
     });
 }
