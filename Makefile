@@ -9,13 +9,13 @@ endif
 
 # TODO WebAudio/WASM/Emscriptem ?
 
-build/groovebox${EXE}: build/audio.o build/groovebox.o
+build/groovebox${EXE}: build/audio.o build/desktop.o
 	$(LD)$@ $^
 
-build/groovebox.o: audio/audio.h build/Effects.h desktop/main.cpp | vendor
+build/desktop.o: vendor audio/audio.h desktop/main.cpp | build
 	$(CC)$@ -I vendor/webview/script desktop/main.cpp
 
-build/audio.o: audio build/Effects.h | vendor
+build/audio.o: vendor audio build/Effects.h
 	$(CC)$@ -I "$(shell faust --includedir)" audio/audio.cpp
 
 build/Effects.h: audio/Effects.dsp | build
