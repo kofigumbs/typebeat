@@ -6,20 +6,26 @@ let right = '';
 for (let row of [ 'YUIOP', 'HJKL;', 'NM,./' ]) {
   const keys = Array.from(row).map(cap => `
     <div class='key'>
-      <div class='box'></div>
       <div class='cap'>${cap}</div>
     </div>
   `);
   right += `<div class='row'>${keys.join('')}</div>`;
 }
 document.body.innerHTML += `
-  <div class='screen'><canvas class='illustrations'></canvas></div>
+  <div class='screen'><canvas class='scene'></canvas></div>
   <div class='keys'>${right}</div>
 `;
 
 const keysByCap = new Map();
 for (let element of document.querySelectorAll('.key'))
   keysByCap.set(element.querySelector('.cap').innerText, element);
+
+const illustration = new Zdog.Illustration({ element: '.scene', resize: true });
+illustration.addChild(scene);
+(function render() {
+  illustration.updateRenderGraph();
+  requestAnimationFrame(render);
+})();
 
 
 /*

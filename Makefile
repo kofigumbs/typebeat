@@ -21,7 +21,7 @@ build/audio.o: vendor audio build/Effects.h
 build/Effects.h: audio/Effects.dsp | build
 	faust -os -cn Effects -o $@ audio/Effects.dsp
 
-ui/zdog.js:
+build/zdog.js: | build
 	curl https://unpkg.com/zdog@1/dist/zdog.dist.min.js -sSL > $@
 
 build:

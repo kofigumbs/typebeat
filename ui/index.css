@@ -1,26 +1,17 @@
-:root {
-  --base: #ebdbb2;
-  --text: #7c5f64;
-  --accent: #d65d0e;
-  --border-width: 3px;
-  --border-radius: 1rem;
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-}
-
 html {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   height: 100%;
+  margin: 0;
+  padding: 0;
   font-size: 16px;
   font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;
   overflow: hidden;
-  background: var(--base);
+  background: var(--bg1);
+  --border-width: .4rem;
+  --border-radius: .5rem;
 }
 
 body {
@@ -28,6 +19,8 @@ body {
   align-items: center;
   justify-content: center;
   flex-direction: row;
+  margin: 0;
+  padding: 0;
   cursor: default;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
@@ -39,16 +32,16 @@ body {
   width: 20rem;
   height: 10rem;
   margin: 0 3rem;
-  border: solid var(--border-width) var(--text);
+  border: solid var(--border-width) var(--dark-gray);
   border-radius: var(--border-radius);
 }
 
-.illustrations {
+.scene {
   position: absolute;
-  top: -2rem;
-  left: -3rem;
-  width: calc(100% + 6rem);
-  height: calc(100% + 4rem);
+  top: -4rem;
+  left: -4rem;
+  width: calc(100% + 8rem);
+  height: calc(100% + 8rem);
 }
 
 .row {
@@ -77,24 +70,16 @@ body {
   width: 3.5rem;
   height: 3.5rem;
   margin: .5rem;
-  color: var(--text);
-  background: var(--base);
+  color: var(--dark-gray);
+  background: var(--bg1);
+  border: solid var(--border-width) var(--dark-gray);
   border-radius: var(--border-radius);
-  position: relative;
+  box-sizing: border-box;
 }
 
 .key.down {
-  color: var(--base);
-  background: var(--text);
-}
-
-.key .box {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border: solid var(--border-width) var(--text);
-  border-radius: var(--border-radius);
-  box-sizing: border-box;
+  color: var(--bg1);
+  background: var(--dark-gray);
 }
 
 .key .cap {
