@@ -78,8 +78,7 @@ body {
 }
 
 .key.down {
-  color: var(--bg1);
-  background: var(--dark-gray);
+  background: var(--bg2);
 }
 
 .key .cap {
