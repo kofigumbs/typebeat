@@ -4,9 +4,6 @@
 [submodule "vendor/miniaudio"]
 	path = vendor/miniaudio
 	url = https://github.com/dr-soft/miniaudio
-[submodule "vendor/Enfer"]
-	path = vendor/Enfer
-	url = https://github.com/neauoire/Enfer
 [submodule "vendor/choc"]
 	path = vendor/choc
 	url = https://github.com/kofigumbs/choc
