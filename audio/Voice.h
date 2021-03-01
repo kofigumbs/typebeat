@@ -19,7 +19,7 @@ struct Voice {
     int resonance;
     int delay;
     int reverb;
-    int octave = 3;
+    int octave = 5;
 
     Voice() {
         memory.id = -1;
@@ -30,7 +30,7 @@ struct Voice {
 
     void prepare(int note) {
         note = note + octave * 12;
-        increment = pow(2.0f, note / 12.0f) / pow(2.0f, 36 / 12.0f);
+        increment = pow(2.0f, note / 12.0f) / pow(2.0f, 69 / 12.0f);
         position = 0;
         active = true;
     }
