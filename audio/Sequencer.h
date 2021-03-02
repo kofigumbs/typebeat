@@ -52,6 +52,8 @@ struct Sequencer : EventHandler {
   private:
     void selectVoice(int value) {
         selectedVoice = value;
+        if (!playing)
+            auditionDown(value);
     }
 
     void noteDown(int value) {
