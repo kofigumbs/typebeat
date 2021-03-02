@@ -14,16 +14,16 @@ theme.start();
 const bindKeys = (caps, f) => Array.from(caps, (cap, i) => [cap, f(i)]);
 
 const bindingsByCap = new Map([
-  ['Q', { mode: 'Sample', actions: new Map([
-  ])}],
-  ['W', { mode: 'Osc.', actions: new Map([
-  ])}],
-  ['E', { mode: 'LFO', actions: new Map([
-  ])}],
-  ['R', { mode: 'Select', actions: new Map([
+  ['Q', { mode: 'Pick', actions: new Map([
     ...bindKeys('NM,./HJKL;YUIOP', i => ({
       onDown: () => $send('selectVoice', i),
     })),
+  ])}],
+  ['W', { mode: 'In-A', actions: new Map([
+  ])}],
+  ['E', { mode: 'In-B', actions: new Map([
+  ])}],
+  ['R', { mode: 'LFO', actions: new Map([
   ])}],
   ['T', { mode: 'Note', actions: new Map([
     ...bindKeys('NM,./HJKL;YUIOP', i => ({
@@ -35,24 +35,24 @@ const bindingsByCap = new Map([
   ])}],
   ['S', { mode: 'Filter', actions: new Map([
   ])}],
-  ['D', { mode: 'Hold', actions: new Map([
+  ['D', { mode: 'Env.', actions: new Map([
   ])}],
   ['F', { mode: 'FX', actions: new Map([
   ])}],
   ['G', { mode: 'Tape', actions: new Map([
   ])}],
-  ['Z', { mode: 'File', actions: new Map([
+  ['Z', { mode: 'Proj.', actions: new Map([
   ])}],
-  ['X', { mode: '_', actions: new Map([
+  ['X', { mode: 'Song', actions: new Map([
   ])}],
-  ['C', { mode: '_', actions: new Map([
-  ])}],
-  ['V', { mode: '_', actions: new Map([
-  ])}],
-  ['B', { mode: 'Mute', actions: new Map([
+  ['V', { mode: 'Mute', actions: new Map([
     ...bindKeys('NM,./HJKL;YUIOP', i => ({
       onDown: () => $send('mute', i),
     })),
+  ])}],
+  ['C', { mode: 'Chain', actions: new Map([
+  ])}],
+  ['B', { mode: 'Fill', actions: new Map([
   ])}],
   [undefined, { actions: new Map([
       ...bindKeys('NM,./HJKL;YUIOP', i => ({
@@ -71,7 +71,7 @@ for (const row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
   const keys = Array.from(row).map(cap => (
     bindingsByCap.has(cap)
       ? `<div class="key" data-cap="${cap}">${Tare.html(bindingsByCap.get(cap).mode)}</div>`
-      : `<div class="key" data-cap="${cap}"><div class="box"></div></div>`
+      : `<div class="key" data-cap="${cap}"><div class="cover"></div><div class="pulse"></div></div>`
   ));
   document.body.innerHTML += `<div class="row">${keys.join('')}</div>`;
 }
@@ -125,9 +125,9 @@ const handleDocumentKey = event => {
     }
     if (down) {
       const key = document.querySelector(`[data-cap="${cap}"]`);
-      key.classList.remove('pulse');
+      key.classList.remove('pressed');
       void key.offsetWidth; // trigger a DOM reflow
-      key.classList.add('pulse');
+      key.classList.add('pressed');
     }
   }
 };

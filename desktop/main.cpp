@@ -20,8 +20,8 @@ int main(int argc, char* argv[]) {
     char* playbackDeviceName = argc < 3 ? captureDeviceName : argv[2];
     run(root, nullptr, nullptr, [root](EventHandler* eventHandler) {
         webview::webview view(true, nullptr);
-        view.set_size(1280, 340, WEBVIEW_HINT_MIN);
-        view.set_size(1280, 340, WEBVIEW_HINT_NONE);
+        view.set_size(1200, 400, WEBVIEW_HINT_MIN);
+        view.set_size(1200, 430, WEBVIEW_HINT_NONE);
         view.bind("$send", [eventHandler](std::string data) -> std::string {
             eventHandler->onSend(stringArgument(data), std::stoi(data.substr(data.find_last_of(",") + 1)));
             return "";
