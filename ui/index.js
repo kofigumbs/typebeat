@@ -4,7 +4,7 @@
 
 const bindKeys = (caps, f) => Array.from(caps, (cap, i) => [cap, f(i)]);
 
-const bindingsByModifier = new Map([
+const bindingsByCap = new Map([
   ['Q', { mode: 'Sample', actions: new Map([
   ])}],
   ['W', { mode: 'Osc.', actions: new Map([
@@ -57,11 +57,10 @@ const bindingsByModifier = new Map([
 
 for (const row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
   const keys = Array.from(row).map(cap => (
-    bindingsByModifier.has(cap)
-      ? `<div class="key mode" data-cap="${cap}">${Tare.html(bindingsByModifier.get(cap).mode)}</div>`
+    bindingsByCap.has(cap)
+      ? `<div class="key mode" data-cap="${cap}">${Tare.html(bindingsByCap.get(cap).mode)}</div>`
       : `<div class="key play" data-cap="${cap}"></div>`
   ));
-    
   document.body.innerHTML += `<div class="row">${keys.join('')}</div>`;
 }
 
@@ -99,7 +98,7 @@ const handleDocumentKey = event => {
   if (!cap)
     return;
   const down = event.type === 'keydown';
-  if (bindingsByModifier.has(cap)) {
+  if (bindingsByCap.has(cap)) {
     const mode = modifier.toggle(cap, down).current;
     for (const key of modes) {
       key.classList.toggle('bold', !!mode && key.dataset.cap === mode);
@@ -107,7 +106,13 @@ const handleDocumentKey = event => {
     }
   }
   else {
-    const handler = bindingsByModifier.get(modifier.current).actions.get(cap);
+    const handler = bindingsByCap.get(modifier.current).actions.get(cap);
+    if (down) {
+      const element = document.querySelector(`[data-cap="${cap}"]`);
+      element.classList.remove('pulse');
+      void element.offsetWidth; // trigger a DOM reflow
+      element.classList.add('pulse');
+    }
     if (handler)
       down ? handler.onDown?.() : handler.onUp?.();
   }

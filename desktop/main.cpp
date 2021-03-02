@@ -16,8 +16,8 @@ int main(int argc, char* argv[]) {
     char* playbackDeviceName = argc < 3 ? captureDeviceName : argv[2];
     run(root, nullptr, nullptr, [root](EventQueue* eventQueue) {
         webview::webview view(true, nullptr);
-        view.set_size(920, 340, WEBVIEW_HINT_MIN);
-        view.set_size(920, 340, WEBVIEW_HINT_NONE);
+        view.set_size(1280, 340, WEBVIEW_HINT_MIN);
+        view.set_size(1280, 340, WEBVIEW_HINT_NONE);
         view.bind("$push", [eventQueue](std::string data) -> std::string {
             eventQueue->push(
                 data.substr(data.find_first_of("\"") + 1, data.find_last_of("\"") - 2),
@@ -25,6 +25,12 @@ int main(int argc, char* argv[]) {
             );
             return "";
         });
+#ifdef WEBVIEW_COCOA
+        auto window = (id) view.window();
+        objc_msgSend(window, sel_registerName("setHasShadow:"), 1);
+        objc_msgSend(window, sel_registerName("center"));
+        objc_msgSend(window, sel_registerName("makeFirstResponder:"), objc_msgSend(window, sel_registerName("contentView")));
+#endif
         view.navigate("file:///" + (root / "ui" / "index.html").string());
         view.run();
     });
