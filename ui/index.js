@@ -2,30 +2,18 @@
  * elements
  */
 
-let right = '';
-for (let row of [ 'YUIOP', 'HJKL;', 'NM,./' ]) {
-  const keys = Array.from(row).map(cap => `
-    <div class='key'>
-      <div class='cap'>${cap}</div>
-    </div>
-  `);
-  right += `<div class='row'>${keys.join('')}</div>`;
+for (const row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
+  const keys = Array.from(row).map(cap => (
+    bindingsByModifier.has(cap)
+      ? `<div class="key mode" data-cap="${cap}">${Tare.html(bindingsByModifier.get(cap).mode)}</div>`
+      : `<div class="key play" data-cap="${cap}"></div>`
+  ));
+    
+  document.body.innerHTML += `<div class="row">${keys.join('')}</div>`;
 }
-document.body.innerHTML += `
-  <div class='screen'><canvas class='scene'></canvas></div>
-  <div class='keys'>${right}</div>
-`;
 
-const keysByCap = new Map();
-for (let element of document.querySelectorAll('.key'))
-  keysByCap.set(element.querySelector('.cap').innerText, element);
-
-const illustration = new Zdog.Illustration({ element: '.scene', resize: true });
-illustration.addChild(scene);
-(function render() {
-  illustration.updateRenderGraph();
-  requestAnimationFrame(render);
-})();
+const modes = document.querySelectorAll('.mode');
+const plays = document.querySelectorAll('.play');
 
 
 /*
@@ -60,10 +48,12 @@ const handleDocumentKey = event => {
   const down = event.type === 'keydown';
   if (bindingsByModifier.has(cap)) {
     const mode = modifier.toggle(cap, down).current;
-    // TODO focus illustration
+    for (const key of modes) {
+      key.classList.toggle('bold', !!mode && key.dataset.cap === mode);
+      key.classList.toggle('thin', !!mode && key.dataset.cap !== mode);
+    }
   }
   else {
-    keysByCap.get(cap).classList.toggle('down', down);
     const handler = bindingsByModifier.get(modifier.current).actions.get(cap);
     if (handler)
       down ? handler.onDown?.() : handler.onUp?.();

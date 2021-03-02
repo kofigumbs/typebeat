@@ -7,3 +7,6 @@
 [submodule "vendor/choc"]
 	path = vendor/choc
 	url = https://github.com/kofigumbs/choc
+[submodule "vendor/tare"]
+	path = vendor/tare
+	url = https://github.com/kofigumbs/tare

@@ -9,7 +9,6 @@ html {
   font-size: 16px;
   font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;
   overflow: hidden;
-  background: var(--bg1);
   --border-width: .4rem;
   --border-radius: .5rem;
 }
@@ -18,30 +17,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-direction: row;
+  flex-direction: column;
   margin: 0;
   padding: 0;
   cursor: default;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-}
-
-.screen {
-  position: relative;
-  width: 20rem;
-  height: 10rem;
-  margin: 0 3rem;
-  border: solid var(--border-width) var(--dark-gray);
-  border-radius: var(--border-radius);
-}
-
-.scene {
-  position: absolute;
-  top: -4rem;
-  left: -4rem;
-  width: calc(100% + 8rem);
-  height: calc(100% + 8rem);
 }
 
 .row {
@@ -52,36 +34,49 @@ body {
 }
 
 .row:nth-child(1) {
-  margin-left: -3rem;
+  margin-left: -1.5rem;
 }
 
 .row:nth-child(3) {
-  margin-left: 3rem;
-}
-
-.keys {
-  margin-right: .5rem;
+  margin-left: 1.5rem;
 }
 
 .key {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 3.5rem;
-  height: 3.5rem;
-  margin: .5rem;
-  color: var(--dark-gray);
-  background: var(--bg1);
-  border: solid var(--border-width) var(--dark-gray);
-  border-radius: var(--border-radius);
-  box-sizing: border-box;
+  width: 5rem;
+  height: 3rem;
+  padding: .75rem;
+  border: solid 1px white;
 }
 
-.key.down {
-  background: var(--bg2);
+.play {
+  background: black;
 }
 
-.key .cap {
-  font-style: italic;
-  font-weight: 700;
+.key:nth-child(6) {
+  margin-left: 3rem;
+}
+
+[data-tare] {
+  width: 100%;
+  height: 100%;
+}
+
+[data-tare-character] + [data-tare-character] {
+  margin-left: 2px;
+}
+
+[data-tare-character] * {
+  border-width: 3px;
+  transition: border-width .1s ease;
+}
+
+.thin [data-tare-character] * {
+  border-width: 1px;
+}
+
+.bold [data-tare-character] * {
+  border-width: 6px;
 }

@@ -7,7 +7,7 @@ const bindingsByModifier = new Map([
     ]),
   }],
   ['W', {
-    mode: 'Oscillator',
+    mode: 'Osc.',
     actions: new Map([
     ]),
   }],
@@ -31,7 +31,7 @@ const bindingsByModifier = new Map([
     ]),
   }],
   ['A', {
-    mode: 'Sequence',
+    mode: 'Seq.',
     actions: new Map([
     ]),
   }],
@@ -41,12 +41,12 @@ const bindingsByModifier = new Map([
     ]),
   }],
   ['D', {
-    mode: 'Envelope',
+    mode: 'Hold',
     actions: new Map([
     ]),
   }],
   ['F', {
-    mode: 'Effects',
+    mode: 'FX',
     actions: new Map([
     ]),
   }],
@@ -56,7 +56,7 @@ const bindingsByModifier = new Map([
     ]),
   }],
   ['Z', {
-    mode: 'Project',
+    mode: 'File',
     actions: new Map([
     ]),
   }],
