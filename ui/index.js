@@ -20,12 +20,15 @@ const bindingsByCap = new Map([
   ])}],
   ['E', { mode: 'LFO', actions: new Map([
   ])}],
-  ['R', { mode: '_', actions: new Map([
+  ['R', { mode: 'Select', actions: new Map([
+    ...bindKeys('NM,./HJKL;YUIOP', i => ({
+      onDown: () => $send('selectVoice', i),
+    })),
   ])}],
   ['T', { mode: 'Note', actions: new Map([
     ...bindKeys('NM,./HJKL;YUIOP', i => ({
-      onDown: () => $push('noteDown', i),
-      onUp: () => $push('noteUp', i),
+      onDown: () => $send('noteDown', i),
+      onUp: () => $send('noteUp', i),
     })),
   ])}],
   ['A', { mode: 'Seq.', actions: new Map([
@@ -48,13 +51,13 @@ const bindingsByCap = new Map([
   ])}],
   ['B', { mode: 'Mute', actions: new Map([
     ...bindKeys('NM,./HJKL;YUIOP', i => ({
-      onDown: () => $push('mute', i),
+      onDown: () => $send('mute', i),
     })),
   ])}],
   [undefined, { actions: new Map([
       ...bindKeys('NM,./HJKL;YUIOP', i => ({
-        onDown: () => $push('auditionDown', i),
-        onUp: () => $push('auditionUp', i),
+        onDown: () => $send('auditionDown', i),
+        onUp: () => $send('auditionUp', i),
       })),
   ])}],
 ]);
@@ -67,14 +70,14 @@ const bindingsByCap = new Map([
 for (const row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
   const keys = Array.from(row).map(cap => (
     bindingsByCap.has(cap)
-      ? `<div class="key mode" data-cap="${cap}">${Tare.html(bindingsByCap.get(cap).mode)}</div>`
-      : `<div class="key play" data-cap="${cap}"></div>`
+      ? `<div class="key" data-cap="${cap}">${Tare.html(bindingsByCap.get(cap).mode)}</div>`
+      : `<div class="key" data-cap="${cap}"><div class="box"></div></div>`
   ));
   document.body.innerHTML += `<div class="row">${keys.join('')}</div>`;
 }
 
-const modes = document.querySelectorAll('.mode');
-const plays = document.querySelectorAll('.play');
+const keysOnLeft = Array.from("ZXCVBASDFGQWERT").map(cap => document.querySelector(`[data-cap="${cap}"]`));
+const keysOnRight = Array.from("NM,./HJKL;YUIOP").map(cap => document.querySelector(`[data-cap="${cap}"]`));
 
 
 /*
@@ -109,24 +112,35 @@ const handleDocumentKey = event => {
   const down = event.type === 'keydown';
   if (bindingsByCap.has(cap)) {
     const mode = modifier.toggle(cap, down).current;
-    for (const key of modes) {
+    for (const key of keysOnLeft) {
       key.classList.toggle('bold', !!mode && key.dataset.cap === mode);
       key.classList.toggle('thin', !!mode && key.dataset.cap !== mode);
     }
   }
   else {
-    const handler = bindingsByCap.get(modifier.current).actions.get(cap);
-    if (down) {
-      const element = document.querySelector(`[data-cap="${cap}"]`);
-      element.classList.remove('pulse');
-      void element.offsetWidth; // trigger a DOM reflow
-      element.classList.add('pulse');
+    try {
+      const handler = bindingsByCap.get(modifier.current).actions.get(cap);
+      down ? handler.onDown() : handler.onUp();
+    } catch {
     }
-    if (handler)
-      down ? handler.onDown?.() : handler.onUp?.();
+    if (down) {
+      const key = document.querySelector(`[data-cap="${cap}"]`);
+      key.classList.remove('pulse');
+      void key.offsetWidth; // trigger a DOM reflow
+      key.classList.add('pulse');
+    }
   }
 };
 
 document.addEventListener('keydown', handleDocumentKey);
 document.addEventListener('keyup', handleDocumentKey);
 document.addEventListener('keypress', event => event.preventDefault());
+
+(async function loop() {
+  try {
+    const selectedVoice = await $receive("selectedVoice");
+    keysOnRight.forEach((key, i) => key.classList.toggle('selected', i === selectedVoice));
+  } catch {
+  }
+  requestAnimationFrame(loop)
+})();

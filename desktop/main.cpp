@@ -2,6 +2,10 @@
 #include "../vendor/webview/webview.h"
 #include "../audio/audio.h"
 
+std::string stringArgument(std::string s) {
+    return s.substr(s.find_first_of("\"") + 1, s.find_last_of("\"") - 2);
+}
+
 #ifdef _WIN32
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     int argc = __argc;
@@ -14,16 +18,16 @@ int main(int argc, char* argv[]) {
         .parent_path(); // project directory
     char* captureDeviceName = argc < 2 ? nullptr : argv[1];
     char* playbackDeviceName = argc < 3 ? captureDeviceName : argv[2];
-    run(root, nullptr, nullptr, [root](EventQueue* eventQueue) {
+    run(root, nullptr, nullptr, [root](EventHandler* eventHandler) {
         webview::webview view(true, nullptr);
         view.set_size(1280, 340, WEBVIEW_HINT_MIN);
         view.set_size(1280, 340, WEBVIEW_HINT_NONE);
-        view.bind("$push", [eventQueue](std::string data) -> std::string {
-            eventQueue->push(
-                data.substr(data.find_first_of("\"") + 1, data.find_last_of("\"") - 2),
-                std::stoi(data.substr(data.find_last_of(",") + 1))
-            );
+        view.bind("$send", [eventHandler](std::string data) -> std::string {
+            eventHandler->onSend(stringArgument(data), std::stoi(data.substr(data.find_last_of(",") + 1)));
             return "";
+        });
+        view.bind("$receive", [eventHandler](std::string data) -> std::string {
+            return std::to_string(eventHandler->onReceive(stringArgument(data)));
         });
 #ifdef WEBVIEW_COCOA
         auto window = (id) view.window();
