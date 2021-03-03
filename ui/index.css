@@ -74,14 +74,15 @@ body {
 }
 
 .label {
-  width: 100%;
+  width: fit-content;
   height: 1.5rem;
+  align-self: flex-start;
   color: var(--background);
   box-sizing: border-box;
   transition-property: border-bottom-color, color;
 }
 
-.label.submenu {
+.label.title {
   border-bottom: solid 2px var(--background);
 }
 

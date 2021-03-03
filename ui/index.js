@@ -25,7 +25,7 @@ const bind = (caps, f) => Array.from(caps, (cap, i) => [cap, f(i)]);
 const bindingsByModifier = new Map([
   ['Q', { actions: new Map([
     ...bind(capsOnRight, i => ({
-      onDown: () => $send('selectVoice', i),
+      onDown: () => window.$send?.('selectVoice', i),
       label: () => i === state.selectedVoice && 'active',
     })),
   ])}],
@@ -37,8 +37,8 @@ const bindingsByModifier = new Map([
   ])}],
   ['T', { mode: 'Note', actions: new Map([
     ...bind(capsOnRight, i => ({
-      onDown: () => $send('noteDown', i),
-      onUp: () => $send('noteUp', i),
+      onDown: () => window.$send?.('noteDown', i),
+      onUp: () => window.$send?.('noteUp', i),
     })),
   ])}],
   ['A', { mode: 'Seq.', actions: new Map([
@@ -48,10 +48,10 @@ const bindingsByModifier = new Map([
   ['D', { mode: 'Env.', actions: new Map([
   ])}],
   ['F', { mode: 'FX', actions: new Map([
-    ...bind('YUIOP', i => ({
+    ...bind('YUIOPN', i => ({
       onDown: () => state.submenuFx = i,
-      submenu: () => (state.submenuFx ?? 0) === i,
-      label: () => ['pan', 'delay', 'reverb', 'chorus', 'distort'][i],
+      title: () => (state.submenuFx ?? 0) === i,
+      label: () => ['pan', 'delay', 'reverb', 'chorus', 'distort', 'volume'][i],
     })),
   ])}],
   ['G', { mode: 'Tape', actions: new Map([
@@ -62,7 +62,7 @@ const bindingsByModifier = new Map([
   ])}],
   ['V', { mode: 'Mute', actions: new Map([
     ...bind(capsOnRight, i => ({
-      onDown: () => $send('mute', i),
+      onDown: () => window.$send?.('mute', i),
     })),
   ])}],
   ['C', { mode: 'Chain', actions: new Map([
@@ -71,8 +71,8 @@ const bindingsByModifier = new Map([
   ])}],
   [undefined, { actions: new Map([
     ...bind(capsOnRight, i => ({
-      onDown: () => $send('auditionDown', i),
-      onUp: () => $send('auditionUp', i),
+      onDown: () => window.$send?.('auditionDown', i),
+      onUp: () => window.$send?.('auditionUp', i),
     })),
   ])}],
 ]);
@@ -170,13 +170,13 @@ document.addEventListener('keypress', event => event.preventDefault());
 
 let savedState;
 (async function loop() {
-  state.selectedVoice = await window?.$receive("selectedVoice");
+  state.selectedVoice = await window.$receive?.("selectedVoice");
   if (savedState !== (savedState = JSON.stringify(state))) {
     const binding = bindingsByModifier.get(state.modifier);
     keysOnRight.forEach((key, i) => {
       const action = binding.actions.get(key.dataset.cap);
-      labels[i].ariaLabel = action?.label?.() || '';
-      labels[i].classList.toggle('submenu', !!(action?.submenu?.()));
+      labels[i].ariaLabel = action?.label?.() ?? '';
+      labels[i].classList.toggle('title', !!(action?.title?.()));
       minipads[i].classList.toggle('active', i === state.selectedVoice);
     });
   }
