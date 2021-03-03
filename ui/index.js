@@ -1,3 +1,8 @@
+const state = {}; // globally mutable 🙈
+const capsOnLeft = 'ZXCVBASDFGQWERT';
+const capsOnRight = 'NM,./HJKL;YUIOP';
+
+
 /*
  * theme
  */
@@ -12,15 +17,6 @@ theme.onLoad = () => {
 
 
 /*
- * global state
- */
-
-const g = {}; // mutable 🙈
-const capsOnLeft = 'ZXCVBASDFGQWERT';
-const capsOnRight = 'NM,./HJKL;YUIOP';
-
-
-/*
  * bindings
  */
 
@@ -30,7 +26,7 @@ const bindingsByModifier = new Map([
   ['Q', { actions: new Map([
     ...bind(capsOnRight, i => ({
       onDown: () => $send('selectVoice', i),
-      label: () => i === g.selectedVoice && 'active',
+      label: () => i === state.selectedVoice && 'active',
     })),
   ])}],
   ['W', { mode: 'In-A', actions: new Map([
@@ -126,7 +122,7 @@ const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`)
 const modifiersDown = new Set();
 const modifierToggle = (element, keep) => {
   keep ? modifiersDown.add(element) : modifiersDown.delete(element);
-  [g.modifier] = modifiersDown;
+  [state.modifier] = modifiersDown;
 };
 
 const capsByEventCode = new Map([
@@ -144,14 +140,11 @@ const handleDocumentKey = event => {
   if (bindingsByModifier.has(cap)) {
     modifierToggle(cap, down);
     for (const key of keysOnLeft)
-      key.classList.toggle('hold', !!g.modifier && key.dataset.cap === g.modifier);
+      key.classList.toggle('hold', !!state.modifier && key.dataset.cap === state.modifier);
   }
   else {
-    try {
-      const handler = bindingsByModifier.get(g.modifier).actions.get(cap);
-      down ? handler.onDown() : handler.onUp();
-    } catch {
-    }
+    const handler = bindingsByModifier.get(state.modifier).actions.get(cap);
+    down ? handler?.onDown?.() : handler?.onUp?.();
     if (down) {
       const key = keysOnRight.find(key => cap === key.dataset.cap);
       key.classList.remove('pulse');
@@ -170,20 +163,16 @@ document.addEventListener('keypress', event => event.preventDefault());
  * draw loop
  */
 
-let save;
+let savedState;
 (async function loop() {
-  try {
-    const lastSave = save;
-    g.selectedVoice = await $receive("selectedVoice");
-    if (lastSave !== (save = JSON.stringify(g))) {
-      const binding = bindingsByModifier.get(g.modifier);
-      keysOnRight.forEach((key, i) => {
-        const action = binding.actions.get(key.dataset.cap);
-        labels[i].ariaLabel = action?.label?.() || '';
-        minipads[i].classList.toggle('selected', i === g.selectedVoice);
-      });
-    }
-  } catch {
+  state.selectedVoice = await window?.$receive("selectedVoice");
+  if (savedState !== (savedState = JSON.stringify(state))) {
+    const binding = bindingsByModifier.get(state.modifier);
+    keysOnRight.forEach((key, i) => {
+      const action = binding.actions.get(key.dataset.cap);
+      labels[i].ariaLabel = action?.label?.() || '';
+      minipads[i].classList.toggle('selected', i === state.selectedVoice);
+    });
   }
   requestAnimationFrame(loop)
 })();
