@@ -12,7 +12,7 @@ html {
   height: 100%;
   overflow: hidden;
   font-size: 16px;
-  font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  font-family: 'Fira Code',SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
   background: var(--background);
 }
 
@@ -44,8 +44,8 @@ body {
   width: 4.5rem;
   height: 4.5rem;
   padding: .75rem;
-  border: solid 1px var(--background);
-  transition-property: background, border;
+  margin: 1px;
+  transition-property: background;
 }
 
 .key.pad {
@@ -60,7 +60,7 @@ body {
   width: 1rem;
   height: 0;
   padding-bottom: 1rem;
-  border: solid 1px var(--background);
+  margin: 1px;
   background: var(--f_high);
   transition-property: background, border;
 }
@@ -69,28 +69,18 @@ body {
   background: var(--b_inv);
 }
 
-.bold .minipad {
+.hold .minipad {
   background: var(--f_med);
 }
 
 .label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 100%;
-  height: 1.5rem;
   color: var(--background);
-  border-width: 2px;
-  border-top-style: solid;
-  border-bottom-style: solid;
-  border-color: var(--background);
-  overflow: hidden;
-  transition-property: height, border-width, border-color, color;
+  transition-property: border-bottom-color, color;
 }
 
-.label:empty {
-  height: 0;
-  border-width: 1px;
+.label.selected {
+  border-bottom: solid 2px var(--background);
 }
 
 @keyframes pulse {
@@ -114,17 +104,13 @@ body {
 
 [data-tare-character] * {
   border-color: var(--f_high);
-  border-width: 3px;
+  border-width: 2px;
   transition-property: border-width, border-color;
   pointer-events: none;
 }
 
-.thin [data-tare-character] * {
-  border-width: 1px;
-}
-
-.bold [data-tare-character] * {
-  border-width: 6px;
+.hold [data-tare-character] * {
+  border-width: 5px;
   border-color: var(--f_med);
 }
 

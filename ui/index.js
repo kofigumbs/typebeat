@@ -78,21 +78,20 @@ for (const row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
   const keys = Array.from(row).map(cap => {
     if (cap === 'Q')
       return `
-        <div class="key minimap" data-cap="${cap}">
+        <div class="key" data-cap="${cap}">
           ${`<div class="minirow">${'<div class="minipad"></div>'.repeat(5)}</div>`.repeat(3)}
         </div>
       `;
     else if (bindingsByModifier.has(cap))
       return `
-        <div class="key modifier" data-cap="${cap}">
+        <div class="key" data-cap="${cap}">
           ${Tare.html(bindingsByModifier.get(cap).mode)}
         </div>
       `;
     else
       return `
         <div class="key pad" data-cap="${cap}">
-          <div class="overlay"></div>
-          <div class="label"></div>
+          <typed-label class="label" aria-label=""></typed-label>
         </div>
       `;
   });
@@ -107,18 +106,10 @@ const keysOnRight = Array.from("NM,./HJKL;YUIOP").map(cap => document.querySelec
  * events
  */
 
-const modifier = {
-  down: new Set(),
-
-  toggle(element, keep) {
-    keep ? this.down.add(element) : this.down.delete(element);
-    return this;
-  },
-
-  get current() {
-    const [current] = this.down;
-    return current;
-  },
+const modifiersDown = new Set();
+const modifierToggle = (element, keep) => {
+  keep ? modifiersDown.add(element) : modifiersDown.delete(element);
+  [g.modifier] = modifiersDown;
 };
 
 const capsByEventCode = new Map([
@@ -134,15 +125,13 @@ const handleDocumentKey = event => {
     return;
   const down = event.type === 'keydown';
   if (bindingsByModifier.has(cap)) {
-    const mode = modifier.toggle(cap, down).current;
-    for (const key of keysOnLeft) {
-      key.classList.toggle('bold', !!mode && key.dataset.cap === mode);
-      key.classList.toggle('thin', !!mode && key.dataset.cap !== mode);
-    }
+    modifierToggle(cap, down);
+    for (const key of keysOnLeft)
+      key.classList.toggle('hold', !!g.modifier && key.dataset.cap === g.modifier);
   }
   else {
     try {
-      const handler = bindingsByModifier.get(modifier.current).actions.get(cap);
+      const handler = bindingsByModifier.get(g.modifier).actions.get(cap);
       down ? handler.onDown() : handler.onUp();
     } catch {
     }
@@ -164,18 +153,23 @@ document.addEventListener('keypress', event => event.preventDefault());
  * draw loop
  */
 
-const minipads = document.querySelectorAll('.minipad');
-const padOrder = [10, 11, 12, 13, 14, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4];
+const labels = keysOnRight.map(key => key.querySelector('typed-label'));
+const minipads = Array.from(document.querySelectorAll('.minipad'))
+  .map((_, i, a) => a[[10, 11, 12, 13, 14, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4][i]]); // reorder to start at bottom left
 
+let save;
 (async function loop() {
   try {
+    const lastSave = save;
     g.selectedVoice = await $receive("selectedVoice");
-    keysOnRight.forEach((key, i) => {
-      const mode = modifier.current;
-      const binding = bindingsByModifier.get(mode).actions.get(key.dataset.cap);
-      key.querySelector('.label').innerText = binding && binding.label && binding.label() || '';
-      minipads[padOrder[i]].classList.toggle('selected', i === g.selectedVoice);
-    });
+    if (lastSave !== (save = JSON.stringify(g))) {
+      const binding = bindingsByModifier.get(g.modifier);
+      keysOnRight.forEach((key, i) => {
+        const action = binding.actions.get(key.dataset.cap);
+        labels[i].ariaLabel = action?.label?.() || '';
+        minipads[i].classList.toggle('selected', i === g.selectedVoice);
+      });
+    }
   } catch {
   }
   requestAnimationFrame(loop)
