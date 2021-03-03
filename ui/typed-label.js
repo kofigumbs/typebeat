@@ -4,6 +4,7 @@ customElements.define('typed-label', class extends HTMLElement {
   }
 
   connectedCallback() {
+    this._innerText = ''; // cache to avoid extra DOM reflows
     this._timeoutIds = [];
   }
 
@@ -13,11 +14,10 @@ customElements.define('typed-label', class extends HTMLElement {
       return;
     this._timeoutIds.forEach(clearTimeout);
     this._timeoutIds = [];
-    const innerText = this.innerText;
     let shared = 0;
-    while (shared < innerText.length && shared < newValue.length && innerText[shared] === newValue[shared])
+    while (shared < this._innerText.length && shared < newValue.length && this._innerText[shared] === newValue[shared])
       shared++;
-    for (const char of innerText.substring(shared))
+    for (const char of this._innerText.substring(shared))
       this._type(s => s.slice(0, -1));
     for (const char of newValue.substring(shared))
       this._type(s => s + char);
@@ -26,9 +26,8 @@ customElements.define('typed-label', class extends HTMLElement {
   _type(callback) {
     this._timeoutIds.push(
       setTimeout(
-        () => this.innerText = callback(this.innerText),
-        40*this._timeoutIds.length + 20*Math.random()
-      )
+        () => this.innerText = this._innerText = callback(this._innerText),
+        40*this._timeoutIds.length + 20*Math.random())
     );
   }
 });

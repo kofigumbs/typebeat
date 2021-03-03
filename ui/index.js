@@ -12,16 +12,23 @@ theme.onLoad = () => {
 
 
 /*
- * bindings
+ * global state
  */
 
-const g = {}; // global mutable state 🙈
+const g = {}; // mutable 🙈
+const capsOnLeft = 'ZXCVBASDFGQWERT';
+const capsOnRight = 'NM,./HJKL;YUIOP';
+
+
+/*
+ * bindings
+ */
 
 const bind = (caps, f) => Array.from(caps, (cap, i) => [cap, f(i)]);
 
 const bindingsByModifier = new Map([
   ['Q', { actions: new Map([
-    ...bind('NM,./HJKL;YUIOP', i => ({
+    ...bind(capsOnRight, i => ({
       onDown: () => $send('selectVoice', i),
       label: () => i === g.selectedVoice && 'active',
     })),
@@ -33,7 +40,7 @@ const bindingsByModifier = new Map([
   ['R', { mode: 'LFO', actions: new Map([
   ])}],
   ['T', { mode: 'Note', actions: new Map([
-    ...bind('NM,./HJKL;YUIOP', i => ({
+    ...bind(capsOnRight, i => ({
       onDown: () => $send('noteDown', i),
       onUp: () => $send('noteUp', i),
     })),
@@ -53,7 +60,7 @@ const bindingsByModifier = new Map([
   ['X', { mode: 'Song', actions: new Map([
   ])}],
   ['V', { mode: 'Mute', actions: new Map([
-    ...bind('NM,./HJKL;YUIOP', i => ({
+    ...bind(capsOnRight, i => ({
       onDown: () => $send('mute', i),
     })),
   ])}],
@@ -62,7 +69,7 @@ const bindingsByModifier = new Map([
   ['B', { mode: 'Fill', actions: new Map([
   ])}],
   [undefined, { actions: new Map([
-    ...bind('NM,./HJKL;YUIOP', i => ({
+    ...bind(capsOnRight, i => ({
       onDown: () => $send('auditionDown', i),
       onUp: () => $send('auditionUp', i),
     })),
@@ -74,32 +81,42 @@ const bindingsByModifier = new Map([
  * elements
  */
 
-for (const row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
-  const keys = Array.from(row).map(cap => {
-    if (cap === 'Q')
-      return `
-        <div class="key" data-cap="${cap}">
-          ${`<div class="minirow">${'<div class="minipad"></div>'.repeat(5)}</div>`.repeat(3)}
-        </div>
-      `;
-    else if (bindingsByModifier.has(cap))
-      return `
-        <div class="key" data-cap="${cap}">
-          ${Tare.html(bindingsByModifier.get(cap).mode)}
-        </div>
-      `;
-    else
-      return `
-        <div class="key pad" data-cap="${cap}">
-          <typed-label class="label" aria-label=""></typed-label>
-        </div>
-      `;
-  });
-  document.body.innerHTML += `<div class="row">${keys.join('')}</div>`;
-}
+const mapJoin = (iterable, f) => Array.from(iterable).map(f).join('');
 
-const keysOnLeft = Array.from("ZXCVBASDFGQWERT").map(cap => document.querySelector(`[data-cap="${cap}"]`));
-const keysOnRight = Array.from("NM,./HJKL;YUIOP").map(cap => document.querySelector(`[data-cap="${cap}"]`));
+document.body.innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], row => `
+  <div class="row">
+    ${mapJoin(row, cap => {
+      if (cap === 'Q')
+        return `
+          <div class="key" data-cap="${cap}">
+            ${mapJoin(capsOnRight.match(/.{1,5}/g).reverse(), minirow => `
+              <div class="minirow">
+                ${mapJoin(minirow, c => `<div class="minipad" data-cap="${c}"></div>`)}
+              </div>`
+            )}
+          </div>
+        `;
+      else if (bindingsByModifier.has(cap))
+        return `
+          <div class="key" data-cap="${cap}">
+            ${Tare.html(bindingsByModifier.get(cap).mode)}
+          </div>
+        `;
+      else
+        return `
+          <div class="key pad" data-cap="${cap}">
+            <typed-label class="label" aria-label=""></typed-label>
+          </div>
+        `;
+    })}
+  </div>
+`);
+
+const findElements = (caps, f) => Array.from(caps).map(cap => document.querySelector(f(cap)));
+const keysOnLeft = findElements(capsOnLeft, cap => `.key[data-cap="${cap}"]`);
+const keysOnRight = findElements(capsOnRight, cap => `.key[data-cap="${cap}"]`);
+const labels = findElements(capsOnRight, cap => `.key[data-cap="${cap}"] .label`);
+const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`);
 
 
 /*
@@ -136,7 +153,7 @@ const handleDocumentKey = event => {
     } catch {
     }
     if (down) {
-      const key = document.querySelector(`[data-cap="${cap}"]`);
+      const key = keysOnRight.find(key => cap === key.dataset.cap);
       key.classList.remove('pulse');
       void key.offsetWidth; // trigger a DOM reflow
       key.classList.add('pulse');
@@ -152,10 +169,6 @@ document.addEventListener('keypress', event => event.preventDefault());
 /*
  * draw loop
  */
-
-const labels = keysOnRight.map(key => key.querySelector('typed-label'));
-const minipads = Array.from(document.querySelectorAll('.minipad'))
-  .map((_, i, a) => a[[10, 11, 12, 13, 14, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4][i]]); // reorder to start at bottom left
 
 let save;
 (async function loop() {
