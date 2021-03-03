@@ -11,12 +11,15 @@ theme.start();
  * bindings
  */
 
-const bindKeys = (caps, f) => Array.from(caps, (cap, i) => [cap, f(i)]);
+const g = {}; // global mutable state 🙈
 
-const bindingsByCap = new Map([
-  ['Q', { mode: 'Pick', actions: new Map([
-    ...bindKeys('NM,./HJKL;YUIOP', i => ({
+const bind = (caps, f) => Array.from(caps, (cap, i) => [cap, f(i)]);
+
+const bindingsByModifier = new Map([
+  ['Q', { actions: new Map([
+    ...bind('NM,./HJKL;YUIOP', i => ({
       onDown: () => $send('selectVoice', i),
+      label: () => i === g.selectedVoice && 'active',
     })),
   ])}],
   ['W', { mode: 'In-A', actions: new Map([
@@ -26,7 +29,7 @@ const bindingsByCap = new Map([
   ['R', { mode: 'LFO', actions: new Map([
   ])}],
   ['T', { mode: 'Note', actions: new Map([
-    ...bindKeys('NM,./HJKL;YUIOP', i => ({
+    ...bind('NM,./HJKL;YUIOP', i => ({
       onDown: () => $send('noteDown', i),
       onUp: () => $send('noteUp', i),
     })),
@@ -46,7 +49,7 @@ const bindingsByCap = new Map([
   ['X', { mode: 'Song', actions: new Map([
   ])}],
   ['V', { mode: 'Mute', actions: new Map([
-    ...bindKeys('NM,./HJKL;YUIOP', i => ({
+    ...bind('NM,./HJKL;YUIOP', i => ({
       onDown: () => $send('mute', i),
     })),
   ])}],
@@ -55,10 +58,10 @@ const bindingsByCap = new Map([
   ['B', { mode: 'Fill', actions: new Map([
   ])}],
   [undefined, { actions: new Map([
-      ...bindKeys('NM,./HJKL;YUIOP', i => ({
-        onDown: () => $send('auditionDown', i),
-        onUp: () => $send('auditionUp', i),
-      })),
+    ...bind('NM,./HJKL;YUIOP', i => ({
+      onDown: () => $send('auditionDown', i),
+      onUp: () => $send('auditionUp', i),
+    })),
   ])}],
 ]);
 
@@ -68,14 +71,31 @@ const bindingsByCap = new Map([
  */
 
 for (const row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
-  const keys = Array.from(row).map(cap => (
-    bindingsByCap.has(cap)
-      ? `<div class="key" data-cap="${cap}">${Tare.html(bindingsByCap.get(cap).mode)}</div>`
-      : `<div class="key" data-cap="${cap}"><div class="cover"></div><div class="pulse"></div></div>`
-  ));
+  const keys = Array.from(row).map(cap => {
+    if (cap === 'Q')
+      return `
+        <div class="key minimap" data-cap="${cap}">
+          ${`<div class="minirow">${'<div class="minipad"></div>'.repeat(5)}</div>`.repeat(3)}
+        </div>
+      `;
+    else if (bindingsByModifier.has(cap))
+      return `
+        <div class="key modifier" data-cap="${cap}">
+          ${Tare.html(bindingsByModifier.get(cap).mode)}
+        </div>
+      `;
+    else
+      return `
+        <div class="key pad" data-cap="${cap}">
+          <div class="overlay"></div>
+          <div class="label"></div>
+        </div>
+      `;
+  });
   document.body.innerHTML += `<div class="row">${keys.join('')}</div>`;
 }
 
+const minipads = document.querySelectorAll('.minipad');
 const keysOnLeft = Array.from("ZXCVBASDFGQWERT").map(cap => document.querySelector(`[data-cap="${cap}"]`));
 const keysOnRight = Array.from("NM,./HJKL;YUIOP").map(cap => document.querySelector(`[data-cap="${cap}"]`));
 
@@ -110,7 +130,7 @@ const handleDocumentKey = event => {
   if (!cap)
     return;
   const down = event.type === 'keydown';
-  if (bindingsByCap.has(cap)) {
+  if (bindingsByModifier.has(cap)) {
     const mode = modifier.toggle(cap, down).current;
     for (const key of keysOnLeft) {
       key.classList.toggle('bold', !!mode && key.dataset.cap === mode);
@@ -119,15 +139,15 @@ const handleDocumentKey = event => {
   }
   else {
     try {
-      const handler = bindingsByCap.get(modifier.current).actions.get(cap);
+      const handler = bindingsByModifier.get(modifier.current).actions.get(cap);
       down ? handler.onDown() : handler.onUp();
     } catch {
     }
     if (down) {
       const key = document.querySelector(`[data-cap="${cap}"]`);
-      key.classList.remove('pressed');
+      key.classList.remove('pulse');
       void key.offsetWidth; // trigger a DOM reflow
-      key.classList.add('pressed');
+      key.classList.add('pulse');
     }
   }
 };
@@ -136,10 +156,22 @@ document.addEventListener('keydown', handleDocumentKey);
 document.addEventListener('keyup', handleDocumentKey);
 document.addEventListener('keypress', event => event.preventDefault());
 
+
+/*
+ * draw loop
+ */
+
+const padOrder = [10, 11, 12, 13, 14, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4];
+
 (async function loop() {
   try {
-    const selectedVoice = await $receive("selectedVoice");
-    keysOnRight.forEach((key, i) => key.classList.toggle('selected', i === selectedVoice));
+    g.selectedVoice = await $receive("selectedVoice");
+    keysOnRight.forEach((key, i) => {
+      const mode = modifier.current;
+      const binding = bindingsByModifier.get(mode).actions.get(key.dataset.cap);
+      key.querySelector('.label').innerText = binding && binding.label && binding.label() || '';
+      minipads[padOrder[i]].classList.toggle('selected', i === g.selectedVoice);
+    });
   } catch {
   }
   requestAnimationFrame(loop)

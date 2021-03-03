@@ -25,61 +25,79 @@ body {
   user-select: none;
 }
 
-.row {
+.row, .minirow {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: row;
 }
 
-.row:nth-of-type(1) {
-  margin-left: -3rem;
-}
-
-.row:nth-of-type(3) {
-  margin-left: 3rem;
-}
-
 .key {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   width: 4.5rem;
   height: 4.5rem;
   padding: .75rem;
   border: solid 1px var(--background);
-  position: relative;
 }
 
-.cover, .pulse {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+.minipad {
+  width: 1rem;
+  height: 0;
+  padding-bottom: 1rem;
+  border: solid 1px var(--background);
+  background: var(--f_med);
+  transition: background .1s ease;
 }
 
-.cover {
+.bold .minipad {
+  background: var(--f_high);
+}
+
+.minipad.selected {
+  background: var(--b_inv);
+}
+
+.key.pad {
   background: var(--f_high);
   transition: background .1s ease;
 }
 
-.selected .cover {
-  background: var(--f_low);
+.key.pad.pulse {
+  animation: pulse .4s ease;
 }
 
-.pressed .pulse {
-  animation: pulse .4s ease;
+.label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 1.5rem;
+  color: var(--background);
+  border-width: 2px;
+  border-top-style: solid;
+  border-bottom-style: solid;
+  border-color: var(--background);
+  overflow: hidden;
+  transition: height .1s ease, border-width .1s ease;
+}
+
+.label:empty {
+  height: 0;
+  border-width: 1px;
 }
 
 @keyframes pulse {
   from { background: var(--b_inv); }
-  to { background: transparent; }
+  to { background: var(--f_high); }
 }
 
-.key:nth-of-type(6) {
-  margin-left: 3rem;
-}
+
+/*
+ * tare
+ */
 
 [data-tare] {
   width: 100%;
@@ -103,4 +121,29 @@ body {
 
 .bold [data-tare-character] * {
   border-width: 6px;
+}
+
+
+/*
+ * spacing
+ */
+
+.row:nth-of-type(1) {
+  margin-left: -3rem;
+}
+
+.row:nth-of-type(3) {
+  margin-left: 3rem;
+}
+
+.key:nth-of-type(6) {
+  margin-left: 3rem;
+}
+
+.minirow:nth-of-type(1) {
+  margin-left: -.5rem;
+}
+
+.minirow:nth-of-type(3) {
+  margin-left: .5rem;
 }
