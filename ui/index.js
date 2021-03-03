@@ -5,6 +5,10 @@
 const theme = new Theme();
 theme.install();
 theme.start();
+theme.onLoad = () => {
+  for (const [name, value] of Object.entries(theme.active))
+    document.documentElement.style.setProperty(`--${name}`, value);
+};
 
 
 /*
@@ -95,7 +99,6 @@ for (const row of [ 'QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./' ]) {
   document.body.innerHTML += `<div class="row">${keys.join('')}</div>`;
 }
 
-const minipads = document.querySelectorAll('.minipad');
 const keysOnLeft = Array.from("ZXCVBASDFGQWERT").map(cap => document.querySelector(`[data-cap="${cap}"]`));
 const keysOnRight = Array.from("NM,./HJKL;YUIOP").map(cap => document.querySelector(`[data-cap="${cap}"]`));
 
@@ -161,6 +164,7 @@ document.addEventListener('keypress', event => event.preventDefault());
  * draw loop
  */
 
+const minipads = document.querySelectorAll('.minipad');
 const padOrder = [10, 11, 12, 13, 14, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4];
 
 (async function loop() {

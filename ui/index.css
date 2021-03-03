@@ -1,3 +1,7 @@
+* {
+  transition: .1s ease;
+}
+
 html {
   display: flex;
   align-items: center;
@@ -41,6 +45,15 @@ body {
   height: 4.5rem;
   padding: .75rem;
   border: solid 1px var(--background);
+  transition-property: background, border;
+}
+
+.key.pad {
+  background: var(--f_med);
+}
+
+.key.pad.pulse {
+  animation: pulse .4s ease;
 }
 
 .minipad {
@@ -48,25 +61,16 @@ body {
   height: 0;
   padding-bottom: 1rem;
   border: solid 1px var(--background);
-  background: var(--f_med);
-  transition: background .1s ease;
-}
-
-.bold .minipad {
   background: var(--f_high);
+  transition-property: background, border;
 }
 
 .minipad.selected {
   background: var(--b_inv);
 }
 
-.key.pad {
-  background: var(--f_high);
-  transition: background .1s ease;
-}
-
-.key.pad.pulse {
-  animation: pulse .4s ease;
+.bold .minipad {
+  background: var(--f_med);
 }
 
 .label {
@@ -81,7 +85,7 @@ body {
   border-bottom-style: solid;
   border-color: var(--background);
   overflow: hidden;
-  transition: height .1s ease, border-width .1s ease;
+  transition-property: height, border-width, border-color, color;
 }
 
 .label:empty {
@@ -91,7 +95,7 @@ body {
 
 @keyframes pulse {
   from { background: var(--b_inv); }
-  to { background: var(--f_high); }
+  to { background: var(--f_med); }
 }
 
 
@@ -111,7 +115,7 @@ body {
 [data-tare-character] * {
   border-color: var(--f_high);
   border-width: 3px;
-  transition: border-width .1s ease;
+  transition-property: border-width, border-color;
   pointer-events: none;
 }
 
@@ -121,6 +125,7 @@ body {
 
 .bold [data-tare-character] * {
   border-width: 6px;
+  border-color: var(--f_med);
 }
 
 
