@@ -48,6 +48,11 @@ const bindingsByModifier = new Map([
   ['D', { mode: 'Env.', actions: new Map([
   ])}],
   ['F', { mode: 'FX', actions: new Map([
+    ...bind('YUIOP', i => ({
+      onDown: () => state.submenuFx = i,
+      submenu: () => (state.submenuFx ?? 0) === i,
+      label: () => ['pan', 'delay', 'reverb', 'chorus', 'distort'][i],
+    })),
   ])}],
   ['G', { mode: 'Tape', actions: new Map([
   ])}],
@@ -171,7 +176,8 @@ let savedState;
     keysOnRight.forEach((key, i) => {
       const action = binding.actions.get(key.dataset.cap);
       labels[i].ariaLabel = action?.label?.() || '';
-      minipads[i].classList.toggle('selected', i === state.selectedVoice);
+      labels[i].classList.toggle('submenu', !!(action?.submenu?.()));
+      minipads[i].classList.toggle('active', i === state.selectedVoice);
     });
   }
   requestAnimationFrame(loop)
