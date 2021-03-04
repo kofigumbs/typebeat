@@ -25,15 +25,15 @@ const bind = (caps, f) => Array.from(caps, (cap, i) => [cap, f(i)]);
 const bindingsByModifier = new Map([
   ['Q', { actions: new Map([
     ...bind(capsOnRight, i => ({
+      label: () => i === state.activeVoice ? 'active' : '',
       onDown: () => window.$send?.('selectVoice', i),
-      label: () => i === state.selectedVoice && 'active',
     })),
   ])}],
-  ['W', { mode: 'In-A', actions: new Map([
+  ['W', { mode: 'Src-A', actions: new Map([
   ])}],
-  ['E', { mode: 'In-B', actions: new Map([
+  ['E', { mode: 'Src-B', actions: new Map([
   ])}],
-  ['R', { mode: 'LFO', actions: new Map([
+  ['R', { mode: 'Poly', actions: new Map([
   ])}],
   ['T', { mode: 'Note', actions: new Map([
     ...bind(capsOnRight, i => ({
@@ -48,26 +48,49 @@ const bindingsByModifier = new Map([
   ['D', { mode: 'Env.', actions: new Map([
   ])}],
   ['F', { mode: 'FX', actions: new Map([
-    ...bind('YUIOPN', i => ({
-      onDown: () => state.submenuFx = i,
-      title: () => (state.submenuFx ?? 0) === i,
-      label: () => ['pan', 'delay', 'reverb', 'chorus', 'distort', 'volume'][i],
+    ...bind('YUIOPNM', i => ({
+      label: () => ['chorus', 'distort', 'crush', 'delay', 'reverb', 'volume', 'pan'][i],
+      title: () => (state.fxTitle ?? 0) === i,
+      onDown: () => state.fxTitle = i,
     })),
+    ['H', {
+      label: () => '-10',
+      onDown: () => window.$send?.('nudgeParameter', (state.fxTitle << 4) | 0),
+    }],
+    ['J', {
+      label: () => '-1',
+      onDown: () => window.$send?.('nudgeParameter', (state.fxTitle << 4) | 1),
+    }],
+    ['K', {
+      label: () => state.parameters[state.fxTitle ?? 0],
+      title: () => true,
+    }],
+    ['L', {
+      label: () => '+1',
+      onDown: () => window.$send?.('nudgeParameter', (state.fxTitle << 4) | 2),
+    }],
+    [';', {
+      label: () => '+10',
+      onDown: () => window.$send?.('nudgeParameter', (state.fxTitle << 4) | 3),
+    }],
+    ['/', {
+      label: () => 'FILL',
+    }],
   ])}],
   ['G', { mode: 'Tape', actions: new Map([
   ])}],
-  ['Z', { mode: 'Proj.', actions: new Map([
+  ['Z', { mode: 'File', actions: new Map([
   ])}],
   ['X', { mode: 'Song', actions: new Map([
+  ])}],
+  ['C', { mode: 'LFO', actions: new Map([
   ])}],
   ['V', { mode: 'Mute', actions: new Map([
     ...bind(capsOnRight, i => ({
       onDown: () => window.$send?.('mute', i),
     })),
   ])}],
-  ['C', { mode: 'Chain', actions: new Map([
-  ])}],
-  ['B', { mode: 'Fill', actions: new Map([
+  ['B', { mode: 'Hold', actions: new Map([
   ])}],
   [undefined, { actions: new Map([
     ...bind(capsOnRight, i => ({
@@ -161,24 +184,33 @@ const handleDocumentKey = event => {
 
 document.addEventListener('keydown', handleDocumentKey);
 document.addEventListener('keyup', handleDocumentKey);
-document.addEventListener('keypress', event => event.preventDefault());
+document.addEventListener('keypress', event => {
+  event.preventDefault();
+  if (event.code === 'KeyR' && (event.ctrlKey || event.metaKey))
+    window.location.reload();
+});
 
 
 /*
  * draw loop
  */
 
+const all = (length, f) => Promise.all(Array.from({ length }, (_, i) => f(i)));
+
 let savedState;
 (async function loop() {
-  state.selectedVoice = await window.$receive?.("selectedVoice");
+  state.activeVoice = await window.$receive?.('activeVoice');
+  state.parameters = await all(7, i => window.$receive?.(`parameter:${i}`));
   if (savedState !== (savedState = JSON.stringify(state))) {
     const binding = bindingsByModifier.get(state.modifier);
-    keysOnRight.forEach((key, i) => {
+    for (let i = 0; i < keysOnRight.length; i++) {
+      const key = keysOnRight[i];
       const action = binding.actions.get(key.dataset.cap);
       labels[i].ariaLabel = action?.label?.() ?? '';
-      labels[i].classList.toggle('title', !!(action?.title?.()));
-      minipads[i].classList.toggle('active', i === state.selectedVoice);
-    });
+      if (!!state.modifier)
+        labels[i].classList.toggle('title', !!(action?.title?.()));
+      minipads[i].classList.toggle('active', i === state.activeVoice);
+    };
   }
   requestAnimationFrame(loop)
 })();

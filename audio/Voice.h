@@ -1,31 +1,25 @@
 struct Voice {
+    static const int parameterCount = 7;
+
     struct Output {
-        // eventually cast to a float*, so fields should only be floats
         float l;
         float r;
-        float controls;
     };
 
     struct Sample {
-        int id;
         bool stereo;
         ma_uint64 length;
         std::unique_ptr<float[]> frames;
     };
 
-    int volume = 7;
-    int pan = 7;
-    int filter = 7;
-    int resonance;
-    int delay;
-    int reverb;
     int octave = 5;
+    std::array<int, parameterCount> parameters;
 
-    Voice() {
-        memory.id = -1;
+    Voice() : parameters() {
         memory.stereo = false;
         memory.length = 6*SAMPLE_RATE;
         memory.frames = std::unique_ptr<float[]>(new float[memory.length]);
+        parameters.fill(25);
     }
 
     void prepare(int note) {
@@ -62,7 +56,6 @@ struct Voice {
             active = false;
             output.l = output.r = 0;
         }
-        output.controls = volume | pan << 4 | filter << 8 | resonance << 12 | delay << 16 | reverb << 20;
     }
 
   private:
@@ -84,3 +77,5 @@ struct Voice {
         return sample->frames[sample->stereo ? 2*i + 1 : i];
     }
 };
+
+const int Voice::parameterCount;

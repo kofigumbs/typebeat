@@ -16,13 +16,10 @@ build/desktop.o: vendor audio/audio.h desktop/main.cpp | build
 	$(CC)$@ -I vendor/webview/script desktop/main.cpp
 
 build/audio.o: vendor audio build/Effects.h
-	$(CC)$@ -I "$(shell faust --includedir)" audio/audio.cpp
+	$(CC)$@ -I "$(shell faust --includedir)" -I audio/faust audio/audio.cpp
 
-build/Effects.h: audio/Effects.dsp | build
-	faust -os -cn Effects -o $@ audio/Effects.dsp
-
-build/zdog.js: | build
-	curl https://unpkg.com/zdog@1/dist/zdog.dist.min.js -sSL > $@
+build/Effects.h: audio/faust/Effects.dsp | build
+	faust -os -cn Effects -o $@ $<
 
 build:
 	mkdir build

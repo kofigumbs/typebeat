@@ -9,8 +9,7 @@ customElements.define('typed-label', class extends HTMLElement {
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
-    oldValue = oldValue || '';
-    if (oldValue === newValue)
+    if ((oldValue ?? '') === newValue)
       return;
     this._timeoutIds.forEach(clearTimeout);
     this._timeoutIds = [];

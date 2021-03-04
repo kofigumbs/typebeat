@@ -20,21 +20,17 @@
 #include "Voice.h"
 #include "Sequencer.h"
 
+std::unique_ptr<Sequencer> sequencer;
 struct one_sample_dsp : dsp {
     void compute(int count, FAUSTFLOAT** inputs_aux, FAUSTFLOAT** outputs_aux) {}
 };
 #include "../build/Effects.h"
 
-struct UserData {
-    Sequencer* sequencer;
-    Effects* effects;
-};
-
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
-    auto userData = (UserData*) device->pUserData;
+    auto effects = (Effects*) device->pUserData;
     for (int frame = 0; frame < frameCount; frame++) {
-        userData->sequencer->compute(((float*) input)[frame]);
-        userData->effects->compute((float*) userData->sequencer->output.data(), ((float*) output) + frame*device->playback.channels, nullptr, nullptr);
+        sequencer->compute(((float*) input)[frame]);
+        effects->compute((float*) sequencer->output.data(), ((float*) output) + frame*device->playback.channels, nullptr, nullptr);
     }
 }
 
@@ -61,28 +57,27 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
         assert(playbackDeviceId != nullptr);
     }
 
-    Sequencer sequencer(root);
-    Effects effects {};
+    sequencer = std::make_unique<Sequencer>(root);
+    auto effects = std::make_unique<Effects>();
 
-    assert(sizeof(sequencer.output) == effects.getNumInputs() * sizeof(float));
-    effects.init(SAMPLE_RATE);
-    UserData userData { &sequencer, &effects };
+    assert(sizeof(sequencer->output) == effects->getNumInputs() * sizeof(float));
+    effects->init(SAMPLE_RATE);
 
     ma_device device;
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
     deviceConfig.capture.channels = 1;
     deviceConfig.capture.format = ma_format_f32;
     deviceConfig.capture.pDeviceID = captureDeviceId;
-    deviceConfig.playback.channels = effects.getNumOutputs();
+    deviceConfig.playback.channels = effects->getNumOutputs();
     deviceConfig.playback.format = ma_format_f32;
     deviceConfig.playback.pDeviceID = playbackDeviceId;
     deviceConfig.sampleRate = SAMPLE_RATE;
     deviceConfig.dataCallback = callback;
-    deviceConfig.pUserData = &userData;
+    deviceConfig.pUserData = effects.get();
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
     ma_device_start(&device);
-    view(&sequencer);
+    view(sequencer.get());
     ma_device_uninit(&device);
     ma_context_uninit(&context);
 }

@@ -2,7 +2,7 @@ struct Sequencer : EventHandler {
     static const int voiceCount = 15;
     std::array<Voice::Output, voiceCount> output;
 
-    Sequencer(std::filesystem::path root) : voices(), output(), receivePointers(), sendCallbacks(), sendMessages() {
+    Sequencer(std::filesystem::path root) : voices(), output(), receiveCallbacks(), sendCallbacks(), sendMessages() {
         /*
          * load enfer sample library
          */
@@ -14,7 +14,6 @@ struct Sequencer : EventHandler {
             assert(frames != NULL);
             assert(sampleRate == SAMPLE_RATE);
             assert(channels == 1 || channels == 2);
-            library[i].id = i;
             library[i].stereo = channels == 2;
             library[i].frames = std::unique_ptr<float[]>(frames);
             voices[i].use(library[i]);
@@ -24,10 +23,14 @@ struct Sequencer : EventHandler {
          * handle events
          */
         sendMessages.reset(8); // max queue size
-        sendCallbacks["noteDown"] = &Sequencer::noteDown;
-        sendCallbacks["selectVoice"] = &Sequencer::selectVoice;
-        sendCallbacks["auditionDown"] = &Sequencer::auditionDown;
-        receivePointers["selectedVoice"] = &selectedVoice;
+        sendCallbacks["noteDown"] = &Sequencer::onNoteDown;
+        sendCallbacks["selectVoice"] = &Sequencer::onSelectVoice;
+        sendCallbacks["auditionDown"] = &Sequencer::onAuditionDown;
+        sendCallbacks["nudgeParameter"] = &Sequencer::onNudgeParameter;
+        // receive callbacks use lambdas since they are not run on the audio thread, and thus allowed to allocate
+        receiveCallbacks["activeVoice"] = [this](){ return activeVoice; };
+        for (int i = 0; i < Voice::parameterCount; i++)
+            receiveCallbacks["parameter:" + std::to_string(i)] = [this, i](){ return getParameter(activeVoice, i); };
     }
 
     void onSend(std::string name, int value) override {
@@ -37,8 +40,8 @@ struct Sequencer : EventHandler {
     }
 
     int onReceive(std::string name) override {
-        auto p = receivePointers.find(name);
-        return p != receivePointers.end() ? *(p->second) : 0;
+        auto f = receiveCallbacks.find(name);
+        return f != receiveCallbacks.end() ? f->second() : 0;
     }
 
     void compute(float audio) {
@@ -49,19 +52,35 @@ struct Sequencer : EventHandler {
             voices[v].play(output[v]);
     }
 
+    int getParameter(int voice, int id) {
+        return voices[voice].parameters[id];
+    }
+
   private:
-    void selectVoice(int value) {
-        selectedVoice = value;
+    void onSelectVoice(int value) {
+        activeVoice = value;
         if (!playing)
-            auditionDown(value);
+            onAuditionDown(value);
     }
 
-    void noteDown(int value) {
-        voices[selectedVoice].prepare(keyToNote(value));
+    void onNoteDown(int value) {
+        voices[activeVoice].prepare(keyToNote(value));
     }
 
-    void auditionDown(int value) {
+    void onAuditionDown(int value) {
         voices[value].prepare(9);
+    }
+
+    void onNudgeParameter(int value) {
+        int id = std::clamp(value >> 4, 0, Voice::parameterCount);
+        int offset;
+        switch (value & 15) {
+            case 0: offset = -10; break;
+            case 1: offset =  -1; break;
+            case 2: offset =   1; break;
+            case 3: offset =  10; break;
+        }
+        voices[activeVoice].parameters[id] = std::clamp(getParameter(activeVoice, id) + offset, 0, 50);
     }
 
     const std::array<std::array<int, 7>, 12> scaleOffsets {
@@ -84,10 +103,10 @@ struct Sequencer : EventHandler {
     int tempo = 120;
     int root = 0;
     int scale = 0;
-    int selectedVoice = 0;
+    int activeVoice = 0;
     std::array<Voice::Sample, voiceCount> library;
     std::array<Voice, voiceCount> voices;
-    std::unordered_map<std::string, int*> receivePointers;
+    std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
     std::unordered_map<std::string, void(Sequencer::*)(int)> sendCallbacks;
     choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Sequencer::*)(int), int>> sendMessages;
 
