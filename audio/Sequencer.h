@@ -24,11 +24,16 @@ struct Sequencer : EventHandler {
          */
         sendMessages.reset(8); // max queue size
         sendCallbacks["noteDown"] = &Sequencer::onNoteDown;
-        sendCallbacks["selectVoice"] = &Sequencer::onSelectVoice;
         sendCallbacks["auditionDown"] = &Sequencer::onAuditionDown;
+        sendCallbacks["selectVoice"] = &Sequencer::onSelectVoice;
         sendCallbacks["nudgeParameter"] = &Sequencer::onNudgeParameter;
         // receive callbacks use lambdas since they are not run on the audio thread, and thus allowed to allocate
         receiveCallbacks["activeVoice"] = [this](){ return activeVoice; };
+        receiveCallbacks["transpose"] = [this](){ return transpose; };
+        receiveCallbacks["scale"] = [this](){ return scale; };
+        receiveCallbacks["naturalNote"] = [this](){ return voices[activeVoice].naturalNote; };
+        for (int i = 0; i < voiceCount; i++)
+            receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
         for (int i = 0; i < Voice::parameterCount; i++)
             receiveCallbacks["parameter:" + std::to_string(i)] = [this, i](){ return getParameter(activeVoice, i); };
     }
@@ -57,18 +62,18 @@ struct Sequencer : EventHandler {
     }
 
   private:
-    void onSelectVoice(int value) {
-        activeVoice = value;
-        if (!playing)
-            onAuditionDown(value);
+    void onAuditionDown(int value) {
+        voices[value].prepare(voices[value].naturalNote);
     }
 
     void onNoteDown(int value) {
         voices[activeVoice].prepare(keyToNote(value));
     }
 
-    void onAuditionDown(int value) {
-        voices[value].prepare(9);
+    void onSelectVoice(int value) {
+        activeVoice = value;
+        if (!playing)
+            onAuditionDown(value);
     }
 
     void onNudgeParameter(int value) {
@@ -101,7 +106,7 @@ struct Sequencer : EventHandler {
     bool playing = false;
     bool armed = false;
     int tempo = 120;
-    int root = 0;
+    int transpose = 0;
     int scale = 0;
     int activeVoice = 0;
     std::array<Voice::Sample, voiceCount> library;
@@ -111,6 +116,6 @@ struct Sequencer : EventHandler {
     choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Sequencer::*)(int), int>> sendMessages;
 
     int keyToNote(int key) {
-        return root + scaleOffsets[scale][key % 7] + (key/7 - 1) * 12;
+        return transpose + scaleOffsets[scale][key % 7] + (voices[activeVoice].octave + key/7 - 1) * 12;
     }
 };

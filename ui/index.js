@@ -26,6 +26,7 @@ const bindingsByModifier = new Map([
   ['Q', { actions: new Map([
     ...bind(capsOnRight, i => ({
       label: () => i === state.activeVoice ? 'active' : '',
+      title: () => i === state.activeVoice,
       onDown: () => window.$send?.('selectVoice', i),
     })),
   ])}],
@@ -37,6 +38,8 @@ const bindingsByModifier = new Map([
   ])}],
   ['T', { mode: 'Note', actions: new Map([
     ...bind(capsOnRight, i => ({
+      label: () => `${["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][state.notes[i] % 12]}${(state.notes[i]/12-1)|0}`,
+      title: () => state.notes[i] === state.naturalNote,
       onDown: () => window.$send?.('noteDown', i),
       onUp: () => window.$send?.('noteUp', i),
     })),
@@ -186,7 +189,7 @@ document.addEventListener('keydown', handleDocumentKey);
 document.addEventListener('keyup', handleDocumentKey);
 document.addEventListener('keypress', event => {
   event.preventDefault();
-  if (event.code === 'KeyR' && (event.ctrlKey || event.metaKey))
+  if (event.key === 'r' && (event.ctrlKey || event.metaKey))
     window.location.reload();
 });
 
@@ -200,6 +203,10 @@ const all = (length, f) => Promise.all(Array.from({ length }, (_, i) => f(i)));
 let savedState;
 (async function loop() {
   state.activeVoice = await window.$receive?.('activeVoice');
+  state.transpose = await window.$receive?.('transpose');
+  state.scale = await window.$receive?.('scale');
+  state.naturalNote = await window.$receive?.('naturalNote');
+  state.notes = await all(15, i => window.$receive?.(`note:${i}`));
   state.parameters = await all(7, i => window.$receive?.(`parameter:${i}`));
   if (savedState !== (savedState = JSON.stringify(state))) {
     const binding = bindingsByModifier.get(state.modifier);

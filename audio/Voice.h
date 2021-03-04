@@ -13,6 +13,7 @@ struct Voice {
     };
 
     int octave = 5;
+    int naturalNote = 69; // 440 Hz
     std::array<int, parameterCount> parameters;
 
     Voice() : parameters() {
@@ -23,8 +24,7 @@ struct Voice {
     }
 
     void prepare(int note) {
-        note = note + octave * 12;
-        increment = pow(2.0f, note / 12.0f) / pow(2.0f, 69 / 12.0f);
+        increment = pow(2.0f, note / 12.0f) / pow(2.0f, naturalNote / 12.0f);
         position = 0;
         active = true;
     }
