@@ -9,7 +9,7 @@ endif
 
 # TODO WebAudio/WASM/Emscriptem ?
 
-build/groovebox${EXE}: build/audio.o build/desktop.o
+build/typebeat${EXE}: build/audio.o build/desktop.o
 	$(LD)$@ $^
 
 build/desktop.o: vendor audio/audio.h desktop/main.cpp | build

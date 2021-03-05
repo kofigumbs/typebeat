@@ -1,3 +1,5 @@
+# Typebeat
+
 To build this project, first install these dependencies:
  - [Faust](https://github.com/grame-cncm/faust/releases)
  - [MSVC](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation?view=msvc-160) (Windows-only)
@@ -6,5 +8,5 @@ To build this project, first install these dependencies:
 Then run the following:
 ```
 make
-build/groovebox
+build/typebeat
 ```
