@@ -20,11 +20,9 @@ theme.onLoad = () => {
  * bindings
  */
 
-const bind = (caps, f) => Array.from(caps, (cap, i) => [cap, f(i)]);
-
 const bindingsByModifier = new Map([
   ['Q', { actions: new Map([
-    ...bind(capsOnRight, i => ({
+    ...Binding.group(capsOnRight, i => ({
       label: () => i === state.activeVoice ? 'active' : '',
       title: () => i === state.activeVoice,
       onDown: () => window.$send?.('selectVoice', i),
@@ -37,66 +35,48 @@ const bindingsByModifier = new Map([
   ['R', { mode: 'Poly', actions: new Map([
   ])}],
   ['T', { mode: 'Note', actions: new Map([
-    ...bind(capsOnRight, i => ({
-      label: () => `${["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][state.notes[i] % 12]}${(state.notes[i]/12-1)|0}`,
-      title: () => state.notes[i] === state.naturalNote,
+    ...Binding.group(capsOnRight, i => ({
+      label: () => `${["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][state.note[i] % 12]}${(state.note[i] / 12)|0}`,
+      title: () => state.note[i] === state.naturalNote,
       onDown: () => window.$send?.('noteDown', i),
       onUp: () => window.$send?.('noteUp', i),
     })),
   ])}],
-  ['A', { mode: 'Seq.', actions: new Map([
+  ['A', { mode: 'Step', actions: new Map([
   ])}],
-  ['S', { mode: 'Filter', actions: new Map([
+  ['S', { mode: 'EQ', actions: new Map([
+    ...Binding.titleGroup('YU', ['hi pass', 'lo pass'], state, 'eqTitle'),
+    ...Binding.titleGroup('NM,', ['freq.', 'res.', 'poles'], state, 'eqSubtitle'),
+    ...Binding.nudgeGroup(window.$send, () => 3*(state.eqTitle|0) + (state.eqSubtitle|0), state, 'eq'),
+    ...Binding.fill(),
   ])}],
   ['D', { mode: 'Env.', actions: new Map([
+    ...Binding.titleGroup('YUIO', ['attack', 'sustain', 'decay', 'release'], state, 'envTitle'),
+    ...Binding.nudgeGroup(window.$send, () => state.envTitle|0, state, 'envelope'),
+    ...Binding.fill(),
   ])}],
   ['F', { mode: 'FX', actions: new Map([
-    ...bind('YUIOPNM', i => ({
-      label: () => ['chorus', 'distort', 'crush', 'delay', 'reverb', 'volume', 'pan'][i],
-      title: () => (state.fxTitle ?? 0) === i,
-      onDown: () => state.fxTitle = i,
-    })),
-    ['H', {
-      label: () => '-10',
-      onDown: () => window.$send?.('nudgeParameter', (state.fxTitle << 4) | 0),
-    }],
-    ['J', {
-      label: () => '-1',
-      onDown: () => window.$send?.('nudgeParameter', (state.fxTitle << 4) | 1),
-    }],
-    ['K', {
-      label: () => state.parameters[state.fxTitle ?? 0],
-      title: () => true,
-    }],
-    ['L', {
-      label: () => '+1',
-      onDown: () => window.$send?.('nudgeParameter', (state.fxTitle << 4) | 2),
-    }],
-    [';', {
-      label: () => '+10',
-      onDown: () => window.$send?.('nudgeParameter', (state.fxTitle << 4) | 3),
-    }],
-    ['/', {
-      label: () => 'FILL',
-    }],
+    ...Binding.titleGroup('YUIOP', ['punch', 'distort', 'vocoder', 'chorus', 'duck'], state, 'fxTitle'),
+    ...Binding.nudgeGroup(window.$send, () => state.fxTitle|0, state, 'effect'),
+    ...Binding.fill(),
   ])}],
-  ['G', { mode: 'Tape', actions: new Map([
+  ['G', { mode: 'Mix', actions: new Map([
+    ...Binding.titleGroup('NMYUIOP', ['volume', 'pan', 'send 1', 'send 2', 'send 3', 'send 4', 'duck by'], state, 'mixTitle'),
+    ...Binding.nudgeGroup(window.$send, () => state.mixTitle|0, state, 'mix'),
+    ...Binding.fill(),
   ])}],
-  ['Z', { mode: 'File', actions: new Map([
+  ['Z', { mode: 'Song', actions: new Map([
   ])}],
-  ['X', { mode: 'Song', actions: new Map([
+  ['X', { mode: 'LFO', actions: new Map([
   ])}],
-  ['C', { mode: 'LFO', actions: new Map([
+  ['C', { mode: 'Send', actions: new Map([
   ])}],
   ['V', { mode: 'Mute', actions: new Map([
-    ...bind(capsOnRight, i => ({
-      onDown: () => window.$send?.('mute', i),
-    })),
   ])}],
-  ['B', { mode: 'Hold', actions: new Map([
+  ['B', { mode: 'Fun', actions: new Map([
   ])}],
   [undefined, { actions: new Map([
-    ...bind(capsOnRight, i => ({
+    ...Binding.group(capsOnRight, i => ({
       onDown: () => window.$send?.('auditionDown', i),
       onUp: () => window.$send?.('auditionUp', i),
     })),
@@ -175,7 +155,7 @@ const handleDocumentKey = event => {
   }
   else {
     const handler = bindingsByModifier.get(state.modifier).actions.get(cap);
-    down ? handler?.onDown?.() : handler?.onUp?.();
+    down ? handler?.onDown() : handler?.onUp();
     if (down) {
       const key = keysOnRight.find(key => cap === key.dataset.cap);
       key.classList.remove('pulse');
@@ -206,16 +186,19 @@ let savedState;
   state.transpose = await window.$receive?.('transpose');
   state.scale = await window.$receive?.('scale');
   state.naturalNote = await window.$receive?.('naturalNote');
-  state.notes = await all(15, i => window.$receive?.(`note:${i}`));
-  state.parameters = await all(7, i => window.$receive?.(`parameter:${i}`));
+  state.note = await all(15, i => window.$receive?.(`note:${i}`));
+  state.eq = await all(6, i => window.$receive?.(`eq:${i}`));
+  state.envelope = await all(4, i => window.$receive?.(`envelope:${i}`));
+  state.mix = await all(7, i => window.$receive?.(`mix:${i}`));
+  state.effect = await all(7, i => window.$receive?.(`effect:${i}`));
   if (savedState !== (savedState = JSON.stringify(state))) {
     const binding = bindingsByModifier.get(state.modifier);
     for (let i = 0; i < keysOnRight.length; i++) {
       const key = keysOnRight[i];
       const action = binding.actions.get(key.dataset.cap);
-      labels[i].ariaLabel = action?.label?.() ?? '';
+      labels[i].ariaLabel = action?.label() ?? '';
       if (!!state.modifier)
-        labels[i].classList.toggle('title', !!(action?.title?.()));
+        labels[i].classList.toggle('title', !!(action?.title()));
       minipads[i].classList.toggle('active', i === state.activeVoice);
     };
   }

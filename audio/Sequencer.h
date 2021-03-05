@@ -26,7 +26,10 @@ struct Sequencer : EventHandler {
         sendCallbacks["noteDown"] = &Sequencer::onNoteDown;
         sendCallbacks["auditionDown"] = &Sequencer::onAuditionDown;
         sendCallbacks["selectVoice"] = &Sequencer::onSelectVoice;
-        sendCallbacks["nudgeParameter"] = &Sequencer::onNudgeParameter;
+        sendCallbacks["nudge:eq"] = &Sequencer::onNudgeEq;
+        sendCallbacks["nudge:envelope"] = &Sequencer::onNudgeEnvelope;
+        sendCallbacks["nudge:effect"] = &Sequencer::onNudgeEffect;
+        sendCallbacks["nudge:mix"] = &Sequencer::onNudgeMix;
         // receive callbacks use lambdas since they are not run on the audio thread, and thus allowed to allocate
         receiveCallbacks["activeVoice"] = [this](){ return activeVoice; };
         receiveCallbacks["transpose"] = [this](){ return transpose; };
@@ -34,8 +37,14 @@ struct Sequencer : EventHandler {
         receiveCallbacks["naturalNote"] = [this](){ return voices[activeVoice].naturalNote; };
         for (int i = 0; i < voiceCount; i++)
             receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
-        for (int i = 0; i < Voice::parameterCount; i++)
-            receiveCallbacks["parameter:" + std::to_string(i)] = [this, i](){ return getParameter(activeVoice, i); };
+        for (int i = 0; i < voices[activeVoice].eq.size(); i++)
+            receiveCallbacks["eq:" + std::to_string(i)] = [this, i](){ return getEq(activeVoice, i); };
+        for (int i = 0; i < voices[activeVoice].envelope.size(); i++)
+            receiveCallbacks["envelope:" + std::to_string(i)] = [this, i](){ return getEnvelope(activeVoice, i); };
+        for (int i = 0; i < voices[activeVoice].effect.size(); i++)
+            receiveCallbacks["effect:" + std::to_string(i)] = [this, i](){ return getEffect(activeVoice, i); };
+        for (int i = 0; i < voices[activeVoice].mix.size(); i++)
+            receiveCallbacks["mix:" + std::to_string(i)] = [this, i](){ return getMix(activeVoice, i); };
     }
 
     void onSend(std::string name, int value) override {
@@ -57,8 +66,20 @@ struct Sequencer : EventHandler {
             voices[v].play(output[v]);
     }
 
-    int getParameter(int voice, int id) {
-        return voices[voice].parameters[id];
+    int getEq(int voice, int id) {
+        return voices[voice].eq[id];
+    }
+
+    int getEnvelope(int voice, int id) {
+        return voices[voice].envelope[id];
+    }
+
+    int getEffect(int voice, int id) {
+        return voices[voice].effect[id];
+    }
+
+    int getMix(int voice, int id) {
+        return voices[voice].mix[id];
     }
 
   private:
@@ -76,8 +97,25 @@ struct Sequencer : EventHandler {
             onAuditionDown(value);
     }
 
-    void onNudgeParameter(int value) {
-        int id = std::clamp(value >> 4, 0, Voice::parameterCount);
+    void onNudgeEq(int value) {
+        nudge(value, voices[activeVoice].eq);
+    }
+
+    void onNudgeEnvelope(int value) {
+        nudge(value, voices[activeVoice].envelope);
+    }
+
+    void onNudgeEffect(int value) {
+        nudge(value, voices[activeVoice].effect);
+    }
+
+    void onNudgeMix(int value) {
+        nudge(value, voices[activeVoice].mix);
+    }
+
+    template <size_t T>
+    void nudge(int value, std::array<int, T>& destination) {
+        int id = std::clamp(value >> 4, 0, (int) destination.size());
         int offset;
         switch (value & 15) {
             case 0: offset = -10; break;
@@ -85,7 +123,7 @@ struct Sequencer : EventHandler {
             case 2: offset =   1; break;
             case 3: offset =  10; break;
         }
-        voices[activeVoice].parameters[id] = std::clamp(getParameter(activeVoice, id) + offset, 0, 50);
+        destination[id] = std::clamp(destination[id] + offset, 0, 50);
     }
 
     const std::array<std::array<int, 7>, 12> scaleOffsets {
@@ -116,6 +154,6 @@ struct Sequencer : EventHandler {
     choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Sequencer::*)(int), int>> sendMessages;
 
     int keyToNote(int key) {
-        return transpose + scaleOffsets[scale][key % 7] + (voices[activeVoice].octave + key/7 - 1) * 12;
+        return transpose + scaleOffsets[scale][key % 7] + (voices[activeVoice].octave + key/7) * 12;
     }
 };

@@ -1,6 +1,4 @@
 struct Voice {
-    static const int parameterCount = 7;
-
     struct Output {
         float l;
         float r;
@@ -12,15 +10,21 @@ struct Voice {
         std::unique_ptr<float[]> frames;
     };
 
-    int octave = 5;
+    int octave = 4;
     int naturalNote = 69; // 440 Hz
-    std::array<int, parameterCount> parameters;
+    std::array<int, 6> eq;
+    std::array<int, 4> envelope;
+    std::array<int, 5> effect;
+    std::array<int, 7> mix;
 
-    Voice() : parameters() {
+    Voice() : eq(), envelope(), effect(), mix() {
+        eq[3] = 50; // lpf cutoff frequency
+        envelope[1] = 50; // sustain
+        mix[0] = 25; // volume
+        mix[1] = 25; // pan
         memory.stereo = false;
         memory.length = 6*SAMPLE_RATE;
         memory.frames = std::unique_ptr<float[]>(new float[memory.length]);
-        parameters.fill(25);
     }
 
     void prepare(int note) {
@@ -77,5 +81,3 @@ struct Voice {
         return sample->frames[sample->stereo ? 2*i + 1 : i];
     }
 };
-
-const int Voice::parameterCount;
