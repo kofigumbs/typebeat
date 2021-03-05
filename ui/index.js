@@ -36,7 +36,7 @@ const bindingsByModifier = new Map([
   ])}],
   ['T', { mode: 'Note', actions: new Map([
     ...Binding.group(capsOnRight, i => ({
-      label: () => `${["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][state.note[i] % 12]}${(state.note[i] / 12)|0}`,
+      label: () => `${["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][state.note[i] % 12]}${(state.note[i] / 12 - 1)|0}`,
       title: () => state.note[i] === state.naturalNote,
       onDown: () => window.$send?.('noteDown', i),
       onUp: () => window.$send?.('noteUp', i),
