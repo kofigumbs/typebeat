@@ -89,7 +89,6 @@ const bindingsByModifier = new Map([
  */
 
 const mapJoin = (iterable, f) => Array.from(iterable).map(f).join('');
-
 document.body.innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], row => `
   <div class="row">
     ${mapJoin(row, cap => {
@@ -178,19 +177,18 @@ document.addEventListener('keypress', event => {
  * draw loop
  */
 
+let savedState;
 const all = (length, f) => Promise.all(Array.from({ length }, (_, i) => f(i)));
 
-let savedState;
 (async function loop() {
   state.activeVoice = await window.$receive?.('activeVoice');
-  state.transpose = await window.$receive?.('transpose');
-  state.scale = await window.$receive?.('scale');
+  state.scale       = await window.$receive?.('scale');
   state.naturalNote = await window.$receive?.('naturalNote');
-  state.note = await all(15, i => window.$receive?.(`note:${i}`));
-  state.eq = await all(6, i => window.$receive?.(`eq:${i}`));
-  state.envelope = await all(4, i => window.$receive?.(`envelope:${i}`));
-  state.mix = await all(7, i => window.$receive?.(`mix:${i}`));
-  state.effect = await all(7, i => window.$receive?.(`effect:${i}`));
+  state.note     = await all(15, i => window.$receive?.(`note:${i}`));
+  state.eq       = await all(6,  i => window.$receive?.(`eq:${i}`));
+  state.envelope = await all(4,  i => window.$receive?.(`envelope:${i}`));
+  state.mix      = await all(7,  i => window.$receive?.(`mix:${i}`));
+  state.effect   = await all(5,  i => window.$receive?.(`effect:${i}`));
   if (savedState !== (savedState = JSON.stringify(state))) {
     const binding = bindingsByModifier.get(state.modifier);
     for (let i = 0; i < keysOnRight.length; i++) {

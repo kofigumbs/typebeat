@@ -1,13 +1,21 @@
 #include <filesystem>
+#include <regex>
 #include "../vendor/webview/webview.h"
 #include "../audio/audio.h"
 
-std::string stringArgument(std::string s) {
-    return s.substr(s.find_first_of("\"") + 1, s.find_last_of("\"") - 2);
+std::vector<std::string> getArguments(std::string json) {
+    std::vector<std::string> arguments;
+    std::regex stringOrInt("[a-zA-Z:0-9]+");
+    std::smatch match; 
+    while(regex_search(json, match, stringOrInt)) {
+        arguments.push_back(match.str());
+        json = match.suffix();
+    }
+    return arguments;
 }
 
 #ifdef _WIN32
-int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     int argc = __argc;
     char** argv = __argv;
 #else
@@ -22,12 +30,14 @@ int main(int argc, char* argv[]) {
         webview::webview view(true, nullptr);
         view.set_size(1200, 400, WEBVIEW_HINT_MIN);
         view.set_size(1200, 430, WEBVIEW_HINT_NONE);
-        view.bind("$send", [eventHandler](std::string data) -> std::string {
-            eventHandler->onSend(stringArgument(data), std::stoi(data.substr(data.find_last_of(",") + 1)));
+        view.bind("$send", [eventHandler](std::string json) -> std::string {
+            auto arguments = getArguments(json);
+            eventHandler->onSend(arguments[0], std::stoi(arguments[1]));
             return "";
         });
-        view.bind("$receive", [eventHandler](std::string data) -> std::string {
-            return std::to_string(eventHandler->onReceive(stringArgument(data)));
+        view.bind("$receive", [eventHandler](std::string json) -> std::string {
+            auto arguments = getArguments(json);
+            return std::to_string(eventHandler->onReceive(arguments[0]));
         });
 #ifdef WEBVIEW_COCOA
         auto window = (id) view.window();
