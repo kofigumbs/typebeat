@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!--
+  On Mac, generate the logo PNG with the following:
+
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
+        --screenshot --window-size=400,204 file:///Users/.../typebeat/logo/index.html
+-->
+<meta charset="utf-8">
+<link rel="stylesheet" href="../vendor/FiraCode/distr/fira_code.css">
+<link rel="stylesheet" href="../ui/index.css">
+<style>
+  .logo {
+    zoom: 2;
+    display: flex;
+    flex-direction: row;
+  }
+</style>
+<body>
+  <div class="logo">
+    <div class="key type"></div>
+    <div class="key pad"><div class="label title">beat</div></div>
+  </div>
+  <script src="../vendor/Themes/scripts/lib/theme.js"></script>
+  <script src="../vendor/tare/dist/tare.min.js"></script>
+  <script>
+    const theme = new Theme();
+    theme.install();
+    theme.start();
+    document.querySelector('.type').innerHTML = Tare.html("Type");
+  </script>
+</body>

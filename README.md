@@ -1,4 +1,6 @@
-# Typebeat
+<p align="center">
+  <img src="./logo/screenshot.png" alt="Typebeat logo" width="200" />
+</p>
 
 To build this project, first install these dependencies:
  - [Faust](https://github.com/grame-cncm/faust/releases)
