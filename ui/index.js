@@ -50,14 +50,14 @@ const bindingsByModifier = new Map([
     ...Binding.nudgeGroup(window.$send, () => 3*(state.eqTitle|0) + (state.eqSubtitle|0), state, 'eq'),
     ...Binding.fill(),
   ])}],
-  ['D', { mode: 'Env.', actions: new Map([
-    ...Binding.titleGroup('YUIO', ['attack', 'sustain', 'decay', 'release'], state, 'envTitle'),
-    ...Binding.nudgeGroup(window.$send, () => state.envTitle|0, state, 'envelope'),
+  ['D', { mode: 'ADSR', actions: new Map([
+    ...Binding.titleGroup('YUIO', ['attack', 'decay', 'sustain', 'release'], state, 'adsrTitle'),
+    ...Binding.nudgeGroup(window.$send, () => state.adsrTitle|0, state, 'adsr'),
     ...Binding.fill(),
   ])}],
   ['F', { mode: 'FX', actions: new Map([
-    ...Binding.titleGroup('YUIOP', ['punch', 'distort', 'vocoder', 'chorus', 'duck'], state, 'fxTitle'),
-    ...Binding.nudgeGroup(window.$send, () => state.fxTitle|0, state, 'effect'),
+    ...Binding.titleGroup('YUIOP', ['comp.', 'distort', 'vocoder', 'chorus', 'duck'], state, 'fxTitle'),
+    ...Binding.nudgeGroup(window.$send, () => state.fxTitle|0, state, 'fx'),
     ...Binding.fill(),
   ])}],
   ['G', { mode: 'Mix', actions: new Map([
@@ -73,7 +73,7 @@ const bindingsByModifier = new Map([
   ])}],
   ['V', { mode: 'Mute', actions: new Map([
   ])}],
-  ['B', { mode: 'Fun', actions: new Map([
+  ['B', { mode: 'Live', actions: new Map([
   ])}],
   [undefined, { actions: new Map([
     ...Binding.group(capsOnRight, i => ({
@@ -184,11 +184,11 @@ const all = (length, f) => Promise.all(Array.from({ length }, (_, i) => f(i)));
   state.activeVoice = await window.$receive?.('activeVoice');
   state.scale       = await window.$receive?.('scale');
   state.naturalNote = await window.$receive?.('naturalNote');
-  state.note     = await all(15, i => window.$receive?.(`note:${i}`));
-  state.eq       = await all(6,  i => window.$receive?.(`eq:${i}`));
-  state.envelope = await all(4,  i => window.$receive?.(`envelope:${i}`));
-  state.mix      = await all(7,  i => window.$receive?.(`mix:${i}`));
-  state.effect   = await all(5,  i => window.$receive?.(`effect:${i}`));
+  state.note = await all(15, i => window.$receive?.(`note:${i}`));
+  state.eq   = await all(6,  i => window.$receive?.(`eq:${i}`));
+  state.adsr = await all(4,  i => window.$receive?.(`adsr:${i}`));
+  state.mix  = await all(7,  i => window.$receive?.(`mix:${i}`));
+  state.fx   = await all(5,  i => window.$receive?.(`fx:${i}`));
   if (savedState !== (savedState = JSON.stringify(state))) {
     const binding = bindingsByModifier.get(state.modifier);
     for (let i = 0; i < keysOnRight.length; i++) {

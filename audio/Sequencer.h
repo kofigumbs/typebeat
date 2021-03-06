@@ -27,8 +27,8 @@ struct Sequencer : EventHandler {
         sendCallbacks["auditionDown"] = &Sequencer::onAuditionDown;
         sendCallbacks["selectVoice"] = &Sequencer::onSelectVoice;
         sendCallbacks["nudge:eq"] = &Sequencer::onNudgeEq;
-        sendCallbacks["nudge:envelope"] = &Sequencer::onNudgeEnvelope;
-        sendCallbacks["nudge:effect"] = &Sequencer::onNudgeEffect;
+        sendCallbacks["nudge:adsr"] = &Sequencer::onNudgeAdsr;
+        sendCallbacks["nudge:fx"] = &Sequencer::onNudgeFx;
         sendCallbacks["nudge:mix"] = &Sequencer::onNudgeMix;
         // receive callbacks use lambdas since they are not run on the audio thread, and thus allowed to allocate
         receiveCallbacks["activeVoice"] = [this](){ return activeVoice; };
@@ -39,10 +39,10 @@ struct Sequencer : EventHandler {
             receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
         for (int i = 0; i < voices[activeVoice].eq.size(); i++)
             receiveCallbacks["eq:" + std::to_string(i)] = [this, i](){ return getEq(activeVoice, i); };
-        for (int i = 0; i < voices[activeVoice].envelope.size(); i++)
-            receiveCallbacks["envelope:" + std::to_string(i)] = [this, i](){ return getEnvelope(activeVoice, i); };
-        for (int i = 0; i < voices[activeVoice].effect.size(); i++)
-            receiveCallbacks["effect:" + std::to_string(i)] = [this, i](){ return getEffect(activeVoice, i); };
+        for (int i = 0; i < voices[activeVoice].adsr.size(); i++)
+            receiveCallbacks["adsr:" + std::to_string(i)] = [this, i](){ return getAdsr(activeVoice, i); };
+        for (int i = 0; i < voices[activeVoice].fx.size(); i++)
+            receiveCallbacks["fx:" + std::to_string(i)] = [this, i](){ return getFx(activeVoice, i); };
         for (int i = 0; i < voices[activeVoice].mix.size(); i++)
             receiveCallbacks["mix:" + std::to_string(i)] = [this, i](){ return getMix(activeVoice, i); };
     }
@@ -70,12 +70,12 @@ struct Sequencer : EventHandler {
         return voices[voice].eq[id];
     }
 
-    int getEnvelope(int voice, int id) {
-        return voices[voice].envelope[id];
+    int getAdsr(int voice, int id) {
+        return voices[voice].adsr[id];
     }
 
-    int getEffect(int voice, int id) {
-        return voices[voice].effect[id];
+    int getFx(int voice, int id) {
+        return voices[voice].fx[id];
     }
 
     int getMix(int voice, int id) {
@@ -101,12 +101,12 @@ struct Sequencer : EventHandler {
         nudge(value, voices[activeVoice].eq);
     }
 
-    void onNudgeEnvelope(int value) {
-        nudge(value, voices[activeVoice].envelope);
+    void onNudgeAdsr(int value) {
+        nudge(value, voices[activeVoice].adsr);
     }
 
-    void onNudgeEffect(int value) {
-        nudge(value, voices[activeVoice].effect);
+    void onNudgeFx(int value) {
+        nudge(value, voices[activeVoice].fx);
     }
 
     void onNudgeMix(int value) {

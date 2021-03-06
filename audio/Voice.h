@@ -13,13 +13,13 @@ struct Voice {
     int octave = 4;
     int naturalNote = 69; // 440 Hz
     std::array<int, 6> eq;
-    std::array<int, 4> envelope;
-    std::array<int, 5> effect;
+    std::array<int, 4> adsr;
+    std::array<int, 5> fx;
     std::array<int, 7> mix;
 
-    Voice() : eq(), envelope(), effect(), mix() {
+    Voice() : eq(), adsr(), fx(), mix() {
         eq[3] = 50; // lpf cutoff frequency
-        envelope[1] = 50; // sustain
+        adsr[2] = 50; // sustain
         mix[0] = 25; // volume
         mix[1] = 25; // pan
         memory.stereo = false;

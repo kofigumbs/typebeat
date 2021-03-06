@@ -3,7 +3,7 @@ import("stdfaust.lib");
 process = par(i, 15, processVoice(i)) :> sp.stereoize(_);
 
 processVoice(voice) = pan(panAmount) : sp.stereoize(*(volumeAmount)) with {
-	volumeAmount = getAmount(mix, voice, 0) : si.smoo;
+	volumeAmount = getAmount(mix, voice, 0) : *(2) : si.smoo;
 	panAmount    = getAmount(mix, voice, 1), -1, 1 : it.interpolate_linear : si.smoo;
 };
 
@@ -28,6 +28,6 @@ reverb = sp.stereoize(*(fixedgain)) : re.stereo_freeverb(combfeed, allpassfeed, 
 getAmount(f, voice, id) = f(voice, id, ba.time) / 50;
 
 eq = ffunction(int getEq (int, int, int), "foreign.h", "");
-envelope = ffunction(int getEnvelope (int, int, int), "foreign.h", "");
-effect = ffunction(int getEffect (int, int, int), "foreign.h", "");
+adsr = ffunction(int getAdsr (int, int, int), "foreign.h", "");
+fx = ffunction(int getFx (int, int, int), "foreign.h", "");
 mix = ffunction(int getMix (int, int, int), "foreign.h", "");
