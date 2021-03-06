@@ -8,5 +8,5 @@ To build this project, first install these dependencies:
 Then run the following:
 ```
 make
-build/typebeat
+build/Typebeat
 ```

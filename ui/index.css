@@ -12,7 +12,7 @@ html {
   height: 100%;
   overflow: hidden;
   font-size: 16px;
-  font-family: 'Fira Code',SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  font-family: 'Fira Code';
   background: var(--background);
 }
 

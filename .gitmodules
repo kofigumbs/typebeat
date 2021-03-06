@@ -13,3 +13,6 @@
 [submodule "vendor/Themes"]
 	path = vendor/Themes
 	url = https://github.com/hundredrabbits/Themes
+[submodule "vendor/FiraCode"]
+	path = vendor/FiraCode
+	url = https://github.com/tonsky/FiraCode
