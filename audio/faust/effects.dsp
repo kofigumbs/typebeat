@@ -3,8 +3,8 @@ import("stdfaust.lib");
 process = par(i, 15, processVoice(i)) :> sp.stereoize(_);
 
 processVoice(voice) = pan(panAmount) : sp.stereoize(*(volumeAmount)) with {
-	volumeAmount = getAmount(mix, voice, 0, 0, 2);
-	panAmount    = getAmount(mix, voice, 1, -1, 1);
+	volumeAmount = getAmount(mix, voice, 0) : si.smoo;
+	panAmount    = getAmount(mix, voice, 1), -1, 1 : it.interpolate_linear : si.smoo;
 };
 
 pan(amount, inputL, inputR) = ba.select2stereo(amount > 0,
@@ -25,7 +25,7 @@ reverb = sp.stereoize(*(fixedgain)) : re.stereo_freeverb(combfeed, allpassfeed, 
 	spatSpread = (.5)*46 : int;
 };
 
-getAmount(f, voice, id, low, high) = f(voice, id, ba.time) / 50, low, high : it.interpolate_cosine : si.smoo;
+getAmount(f, voice, id) = f(voice, id, ba.time) / 50;
 
 eq = ffunction(int getEq (int, int, int), "foreign.h", "");
 envelope = ffunction(int getEnvelope (int, int, int), "foreign.h", "");
