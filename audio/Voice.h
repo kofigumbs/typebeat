@@ -6,7 +6,7 @@ struct Voice {
 
     struct Sample {
         bool mono;
-        ma_uint64 length;
+        unsigned long length;
         std::unique_ptr<float[]> frames;
     };
 

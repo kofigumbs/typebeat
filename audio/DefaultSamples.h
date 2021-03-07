@@ -1,17 +1,16 @@
 struct DefaultSamples {
-    static const int voiceCount = 15;
-
     DefaultSamples(std::filesystem::path root) {
-        for (int i = 0; i < voiceCount; i++) {
-            auto filename = root / "default-samples" / (std::to_string(i+1) + ".wav");
+        std::string filename;
+        int i = 0;
+        while (getFilename(root, filename, i++)) {
             unsigned int channels;
             unsigned int sampleRate;
-            auto frames = drwav_open_file_and_read_pcm_frames_f32(filename.string().c_str(), &channels, &sampleRate, &data[i].length, NULL);
+            ma_uint64 length;
+            auto frames = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &length, NULL);
             assert(frames != NULL);
             assert(sampleRate == SAMPLE_RATE);
             assert(channels == 1 || channels == 2);
-            data[i].mono = channels == 1;
-            data[i].frames = std::unique_ptr<float[]>(frames);
+            data.push_back({ channels == 1, length, std::unique_ptr<float[]>(frames) });
         }
     }
 
@@ -20,5 +19,11 @@ struct DefaultSamples {
     }
 
   private:
-    std::array<Voice::Sample, voiceCount> data;
+    std::vector<Voice::Sample> data;
+
+    bool getFilename(std::filesystem::path root, std::string& filename, int i) {
+        auto basename = i < 10 ? "0" + std::to_string(i) : std::to_string(i);
+        filename = (root / "default-samples" / (basename + ".wav")).string();
+        return std::filesystem::exists(filename);
+    }
 };
