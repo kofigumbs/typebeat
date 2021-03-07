@@ -42,7 +42,7 @@ const bindingsByModifier = new Map([
       onUp: () => window.$send?.('noteUp', i),
     })),
   ])}],
-  ['A', { mode: 'Step', actions: new Map([
+  ['A', { mode: 'Loop', actions: new Map([
   ])}],
   ['S', { mode: 'EQ', actions: new Map([
     ...Binding.titleGroup('YU', ['hi pass', 'lo pass'], state, 'eqTitle'),

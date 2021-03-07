@@ -1,35 +1,18 @@
-struct Sequencer : EventHandler {
+struct Controller : EventHandler {
     static const int voiceCount = 15;
     std::array<Voice::Output, voiceCount> output;
 
-    Sequencer(std::filesystem::path root) : voices(), output(), receiveCallbacks(), sendCallbacks(), sendMessages() {
-        /*
-         * load enfer sample library
-         */
-        for (int i = 0; i < voiceCount; i++) {
-            auto filename = root / "default-samples" / (std::to_string(i+1) + ".wav");
-            unsigned int channels;
-            unsigned int sampleRate;
-            auto frames = drwav_open_file_and_read_pcm_frames_f32(filename.string().c_str(), &channels, &sampleRate, &library[i].length, NULL);
-            assert(frames != NULL);
-            assert(sampleRate == SAMPLE_RATE);
-            assert(channels == 1 || channels == 2);
-            library[i].stereo = channels == 2;
-            library[i].frames = std::unique_ptr<float[]>(frames);
-            voices[i].use(library[i]);
-        }
-
-        /*
-         * handle events
-         */
+    Controller(DefaultSamples* defaultSamples) : voices(), output(), receiveCallbacks(), sendCallbacks(), sendMessages() {
+        for (int i = 0; i < voiceCount; i++)
+            voices[i].use(defaultSamples->get(i));
         sendMessages.reset(8); // max queue size
-        sendCallbacks["noteDown"] = &Sequencer::onNoteDown;
-        sendCallbacks["auditionDown"] = &Sequencer::onAuditionDown;
-        sendCallbacks["selectVoice"] = &Sequencer::onSelectVoice;
-        sendCallbacks["nudge:eq"] = &Sequencer::onNudgeEq;
-        sendCallbacks["nudge:adsr"] = &Sequencer::onNudgeAdsr;
-        sendCallbacks["nudge:fx"] = &Sequencer::onNudgeFx;
-        sendCallbacks["nudge:mix"] = &Sequencer::onNudgeMix;
+        sendCallbacks["noteDown"] = &Controller::onNoteDown;
+        sendCallbacks["auditionDown"] = &Controller::onAuditionDown;
+        sendCallbacks["selectVoice"] = &Controller::onSelectVoice;
+        sendCallbacks["nudge:eq"] = &Controller::onNudgeEq;
+        sendCallbacks["nudge:adsr"] = &Controller::onNudgeAdsr;
+        sendCallbacks["nudge:fx"] = &Controller::onNudgeFx;
+        sendCallbacks["nudge:mix"] = &Controller::onNudgeMix;
         // receive callbacks use lambdas since they are not run on the audio thread, and thus allowed to allocate
         receiveCallbacks["activeVoice"] = [this](){ return activeVoice; };
         receiveCallbacks["transpose"] = [this](){ return transpose; };
@@ -59,7 +42,7 @@ struct Sequencer : EventHandler {
     }
 
     void compute(float audio) {
-        std::pair<void(Sequencer::*)(int), int> pair;
+        std::pair<void(Controller::*)(int), int> pair;
         while(sendMessages.pop(pair))
             (this->*pair.first)(pair.second);
         for (int v = 0; v < voiceCount; v++)
@@ -117,7 +100,7 @@ struct Sequencer : EventHandler {
     void nudge(int value, std::array<int, T>& destination) {
         int id = std::clamp(value >> 4, 0, (int) destination.size());
         int offset;
-        switch (value & 15) {
+        switch (value & 0xf) {
             case 0: offset = -10; break;
             case 1: offset =  -1; break;
             case 2: offset =   1; break;
@@ -147,11 +130,10 @@ struct Sequencer : EventHandler {
     int transpose = 0;
     int scale = 0;
     int activeVoice = 0;
-    std::array<Voice::Sample, voiceCount> library;
     std::array<Voice, voiceCount> voices;
     std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
-    std::unordered_map<std::string, void(Sequencer::*)(int)> sendCallbacks;
-    choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Sequencer::*)(int), int>> sendMessages;
+    std::unordered_map<std::string, void(Controller::*)(int)> sendCallbacks;
+    choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Controller::*)(int), int>> sendMessages;
 
     int keyToNote(int key) {
         return transpose + scaleOffsets[scale][key % 7] + (voices[activeVoice].octave + key/7) * 12;

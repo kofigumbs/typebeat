@@ -18,9 +18,10 @@
 
 #include "audio.h"
 #include "Voice.h"
-#include "Sequencer.h"
+#include "DefaultSamples.h"
+#include "Controller.h"
 
-std::unique_ptr<Sequencer> sequencer;
+std::unique_ptr<Controller> controller;
 struct one_sample_dsp : dsp {
     void compute(int count, FAUSTFLOAT** inputs_aux, FAUSTFLOAT** outputs_aux) {}
 };
@@ -29,8 +30,8 @@ struct one_sample_dsp : dsp {
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
     auto effects = (Effects*) device->pUserData;
     for (int frame = 0; frame < frameCount; frame++) {
-        sequencer->compute(((float*) input)[frame]);
-        effects->compute((float*) sequencer->output.data(), ((float*) output) + frame*device->playback.channels, nullptr, nullptr);
+        controller->compute(((float*) input)[frame]);
+        effects->compute((float*) controller->output.data(), ((float*) output) + frame*device->playback.channels, nullptr, nullptr);
     }
 }
 
@@ -57,10 +58,11 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
         assert(playbackDeviceId != nullptr);
     }
 
-    sequencer = std::make_unique<Sequencer>(root);
+    auto defaultSamples = std::make_unique<DefaultSamples>(root);
+    controller = std::make_unique<Controller>(defaultSamples.get());
     auto effects = std::make_unique<Effects>();
 
-    assert(sizeof(sequencer->output) == effects->getNumInputs() * sizeof(float));
+    assert(sizeof(controller->output) == effects->getNumInputs() * sizeof(float));
     effects->init(SAMPLE_RATE);
 
     ma_device device;
@@ -77,7 +79,7 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
     ma_device_start(&device);
-    view(sequencer.get());
+    view(controller.get());
     ma_device_uninit(&device);
     ma_context_uninit(&context);
 }

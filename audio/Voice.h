@@ -34,13 +34,13 @@ struct Voice {
     }
 
     void useMemory() {
-        use(memory);
+        use(&memory);
     }
 
-    void use(const Sample& newSample) {
-        if (sample != &newSample) {
+    void use(const Sample* newSample) {
+        if (sample != newSample) {
             active = false;
-            sample = &newSample;
+            sample = newSample;
         }
     }
 

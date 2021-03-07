@@ -1,15 +1,15 @@
 int getEq(int voice, int id, int) {
-    return sequencer->getEq(voice, id);
+    return controller->getEq(voice, id);
 }
 
 int getAdsr(int voice, int id, int) {
-    return sequencer->getAdsr(voice, id);
+    return controller->getAdsr(voice, id);
 }
 
 int getFx(int voice, int id, int) {
-    return sequencer->getFx(voice, id);
+    return controller->getFx(voice, id);
 }
 
 int getMix(int voice, int id, int) {
-    return sequencer->getMix(voice, id);
+    return controller->getMix(voice, id);
 }
