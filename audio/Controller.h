@@ -6,6 +6,8 @@ struct Controller : EventHandler {
         for (int i = 0; i < voiceCount; i++)
             voices[i].use(defaultSamples->get(i));
         sendMessages.reset(8); // max queue size
+        sendCallbacks["play"] = &Controller::onPlay;
+        sendCallbacks["arm"] = &Controller::onArm;
         sendCallbacks["noteDown"] = &Controller::onNoteDown;
         sendCallbacks["auditionDown"] = &Controller::onAuditionDown;
         sendCallbacks["selectVoice"] = &Controller::onSelectVoice;
@@ -14,6 +16,8 @@ struct Controller : EventHandler {
         sendCallbacks["nudge:fx"] = &Controller::onNudgeFx;
         sendCallbacks["nudge:mix"] = &Controller::onNudgeMix;
         // receive callbacks use lambdas since they are not run on the audio thread, and thus allowed to allocate
+        receiveCallbacks["playing"] = [this](){ return playing; };
+        receiveCallbacks["armed"] = [this](){ return armed; };
         receiveCallbacks["activeVoice"] = [this](){ return activeVoice; };
         receiveCallbacks["transpose"] = [this](){ return transpose; };
         receiveCallbacks["scale"] = [this](){ return scale; };
@@ -28,25 +32,6 @@ struct Controller : EventHandler {
             receiveCallbacks["fx:" + std::to_string(i)] = [this, i](){ return getFx(activeVoice, i); };
         for (int i = 0; i < voices[activeVoice].mix.size(); i++)
             receiveCallbacks["mix:" + std::to_string(i)] = [this, i](){ return getMix(activeVoice, i); };
-    }
-
-    void onSend(std::string name, int value) override {
-        auto f = sendCallbacks.find(name);
-        if (f != sendCallbacks.end())
-            sendMessages.push({ f->second, value });
-    }
-
-    int onReceive(std::string name) override {
-        auto f = receiveCallbacks.find(name);
-        return f != receiveCallbacks.end() ? f->second() : 0;
-    }
-
-    void compute(float audio) {
-        std::pair<void(Controller::*)(int), int> pair;
-        while(sendMessages.pop(pair))
-            (this->*pair.first)(pair.second);
-        for (int v = 0; v < voiceCount; v++)
-            voices[v].play(output[v]);
     }
 
     int getEq(int voice, int id) {
@@ -65,13 +50,67 @@ struct Controller : EventHandler {
         return voices[voice].mix[id];
     }
 
+    void onSend(std::string name, int value) override {
+        auto f = sendCallbacks.find(name);
+        if (f != sendCallbacks.end())
+            sendMessages.push({ f->second, value });
+    }
+
+    int onReceive(std::string name) override {
+        auto f = receiveCallbacks.find(name);
+        return f != receiveCallbacks.end() ? f->second() : 0;
+    }
+
+    void compute(float audio) {
+        std::pair<void(Controller::*)(int), int> pair;
+        while(sendMessages.pop(pair))
+            (this->*pair.first)(pair.second);
+        for (int v = 0; v < voiceCount; v++)
+            voices[v].play(step, armed, output[v]);
+    }
+
   private:
-    void onAuditionDown(int value) {
-        voices[value].prepare(voices[value].naturalNote);
+    const std::array<std::array<int, 7>, 12> scaleOffsets {
+        0, 2, 4, 5, 7, 9, 11,
+        0, 2, 3, 5, 7, 8, 10,
+        0, 2, 3, 5, 7, 9, 10,
+        0, 1, 3, 5, 7, 8, 10,
+        0, 2, 4, 6, 7, 9, 11,
+        0, 2, 4, 5, 7, 9, 10,
+        0, 1, 3, 5, 6, 8, 10,
+        0, 2, 3, 5, 7, 8, 11,
+        0, 2, 4, 5, 7, 8, 11,
+        0, 2, 3, 5, 7, 9, 11,
+        0, 2, 3, 5, 7, 8, 10,
+        0, 2, 4, 5, 7, 8, 10,
+    };
+
+    bool playing = false;
+    bool armed = false;
+    int tempo = 120;
+    int transpose = 0;
+    int scale = 0;
+    int activeVoice = 0;
+    std::array<Voice, voiceCount> voices;
+    std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
+    std::unordered_map<std::string, void(Controller::*)(int)> sendCallbacks;
+    choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Controller::*)(int), int>> sendMessages;
+
+    void play(int) {
+        playing = !playing;
+        framePosition = -1;
+    }
+
+    void arm(int) {
+        armed = !armed;
     }
 
     void onNoteDown(int value) {
         voices[activeVoice].prepare(keyToNote(value));
+    }
+
+    void onAuditionDown(int value) {
+        voices[value].prepare(voices[value].naturalNote);
     }
 
     void onSelectVoice(int value) {
@@ -108,32 +147,6 @@ struct Controller : EventHandler {
         }
         destination[id] = std::clamp(destination[id] + offset, 0, 50);
     }
-
-    const std::array<std::array<int, 7>, 12> scaleOffsets {
-        0, 2, 4, 5, 7, 9, 11,
-        0, 2, 3, 5, 7, 8, 10,
-        0, 2, 3, 5, 7, 9, 10,
-        0, 1, 3, 5, 7, 8, 10,
-        0, 2, 4, 6, 7, 9, 11,
-        0, 2, 4, 5, 7, 9, 10,
-        0, 1, 3, 5, 6, 8, 10,
-        0, 2, 3, 5, 7, 8, 11,
-        0, 2, 4, 5, 7, 8, 11,
-        0, 2, 3, 5, 7, 9, 11,
-        0, 2, 3, 5, 7, 8, 10,
-        0, 2, 4, 5, 7, 8, 10,
-    };
-
-    bool playing = false;
-    bool armed = false;
-    int tempo = 120;
-    int transpose = 0;
-    int scale = 0;
-    int activeVoice = 0;
-    std::array<Voice, voiceCount> voices;
-    std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
-    std::unordered_map<std::string, void(Controller::*)(int)> sendCallbacks;
-    choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Controller::*)(int), int>> sendMessages;
 
     int keyToNote(int key) {
         return transpose + scaleOffsets[scale][key % 7] + (voices[activeVoice].octave + key/7) * 12;

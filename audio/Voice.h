@@ -10,14 +10,20 @@ struct Voice {
         std::unique_ptr<float[]> frames;
     };
 
+    struct Step {
+        int active;
+        int key;
+    };
+
     int octave = 4;
     int naturalNote = 69; // 440 Hz
     std::array<int, 6> eq;
     std::array<int, 4> adsr;
     std::array<int, 5> fx;
     std::array<int, 7> mix;
+    std::array<Step, 8> sequence;
 
-    Voice() : eq(), adsr(), fx(), mix() {
+    Voice() : eq(), adsr(), fx(), mix(), sequence() {
         eq[3] = 50; // lo pass cut
         adsr[2] = 50; // sustain
         mix[0] = 25; // volume
