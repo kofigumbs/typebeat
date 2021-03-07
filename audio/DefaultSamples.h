@@ -8,8 +8,8 @@ struct DefaultSamples {
             ma_uint64 length;
             auto frames = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &length, NULL);
             assert(frames != NULL);
-            assert(sampleRate == SAMPLE_RATE);
             assert(channels == 1 || channels == 2);
+            assert(sampleRate == SAMPLE_RATE);
             data.push_back({ channels == 1, length, std::unique_ptr<float[]>(frames) });
         }
     }

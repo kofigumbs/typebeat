@@ -126,6 +126,45 @@ const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`)
 
 
 /*
+ * sync
+ */
+
+const all = (length, f) => Promise.all(Array.from({ length }, (_, i) => f(i)));
+const sync = async () => {
+  state.playing     = await window.$receive?.('playing');
+  state.activeVoice = await window.$receive?.('activeVoice');
+  state.scale       = await window.$receive?.('scale');
+  state.naturalNote = await window.$receive?.('naturalNote');
+  state.note = await all(15, i => window.$receive?.(`note:${i}`));
+  state.eq   = await all(6,  i => window.$receive?.(`eq:${i}`));
+  state.adsr = await all(4,  i => window.$receive?.(`adsr:${i}`));
+  state.mix  = await all(7,  i => window.$receive?.(`mix:${i}`));
+  state.fx   = await all(5,  i => window.$receive?.(`fx:${i}`));
+  const binding = bindingsByModifier.get(state.modifier);
+  for (let i = 0; i < keysOnRight.length; i++) {
+    const key = keysOnRight[i];
+    const action = binding.actions.get(key.dataset.cap);
+    labels[i].ariaLabel = action?.label() ?? '';
+    if (!!state.modifier)
+      labels[i].classList.toggle('title', !!(action?.title()));
+    minipads[i].classList.toggle('active', i === state.activeVoice);
+  };
+  if (state.playing)
+    requestSync();
+};
+
+let nextSyncId;
+const clearNextSyncIdAndSync = () => {
+  nextSyncId = null;
+  sync();
+};
+const requestSync = () => {
+  if (!nextSyncId)
+    nextSyncId = requestAnimationFrame(clearNextSyncIdAndSync);
+};
+
+
+/*
  * events
  */
 
@@ -162,6 +201,7 @@ const handleDocumentKey = event => {
       key.classList.add('pulse');
     }
   }
+  requestSync();
 };
 
 document.addEventListener('keydown', handleDocumentKey);
@@ -172,33 +212,4 @@ document.addEventListener('keypress', event => {
     window.location.reload();
 });
 
-
-/*
- * draw loop
- */
-
-let savedState;
-const all = (length, f) => Promise.all(Array.from({ length }, (_, i) => f(i)));
-
-(async function loop() {
-  state.activeVoice = await window.$receive?.('activeVoice');
-  state.scale       = await window.$receive?.('scale');
-  state.naturalNote = await window.$receive?.('naturalNote');
-  state.note = await all(15, i => window.$receive?.(`note:${i}`));
-  state.eq   = await all(6,  i => window.$receive?.(`eq:${i}`));
-  state.adsr = await all(4,  i => window.$receive?.(`adsr:${i}`));
-  state.mix  = await all(7,  i => window.$receive?.(`mix:${i}`));
-  state.fx   = await all(5,  i => window.$receive?.(`fx:${i}`));
-  if (savedState !== (savedState = JSON.stringify(state))) {
-    const binding = bindingsByModifier.get(state.modifier);
-    for (let i = 0; i < keysOnRight.length; i++) {
-      const key = keysOnRight[i];
-      const action = binding.actions.get(key.dataset.cap);
-      labels[i].ariaLabel = action?.label() ?? '';
-      if (!!state.modifier)
-        labels[i].classList.toggle('title', !!(action?.title()));
-      minipads[i].classList.toggle('active', i === state.activeVoice);
-    };
-  }
-  requestAnimationFrame(loop)
-})();
+sync();

@@ -18,7 +18,7 @@ struct Voice {
     std::array<int, 7> mix;
 
     Voice() : eq(), adsr(), fx(), mix() {
-        eq[3] = 50; // lpf cutoff frequency
+        eq[3] = 50; // lo pass cut
         adsr[2] = 50; // sustain
         mix[0] = 25; // volume
         mix[1] = 25; // pan
