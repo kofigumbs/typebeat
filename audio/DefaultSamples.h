@@ -10,7 +10,7 @@ struct DefaultSamples {
             assert(frames != NULL);
             assert(sampleRate == SAMPLE_RATE);
             assert(channels == 1 || channels == 2);
-            data[i].stereo = channels == 2;
+            data[i].mono = channels == 1;
             data[i].frames = std::unique_ptr<float[]>(frames);
         }
     }

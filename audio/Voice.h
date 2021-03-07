@@ -5,7 +5,7 @@ struct Voice {
     };
 
     struct Sample {
-        bool stereo;
+        bool mono;
         ma_uint64 length;
         std::unique_ptr<float[]> frames;
     };
@@ -22,15 +22,15 @@ struct Voice {
         adsr[2] = 50; // sustain
         mix[0] = 25; // volume
         mix[1] = 25; // pan
-        memory.stereo = false;
+        memory.mono = true;
         memory.length = 6*SAMPLE_RATE;
         memory.frames = std::unique_ptr<float[]>(new float[memory.length]);
     }
 
     void prepare(int note) {
-        increment = pow(2.0f, note / 12.0f) / pow(2.0f, naturalNote / 12.0f);
-        position = 0;
         active = true;
+        position = 0;
+        increment = pow(2.0f, note / 12.0f) / pow(2.0f, naturalNote / 12.0f);
     }
 
     void useMemory() {
@@ -74,10 +74,10 @@ struct Voice {
     }
 
     float leftChannelAt(int i) {
-        return sample->frames[sample->stereo ? 2*i : i];
+        return sample->frames[sample->mono ? i : 2*i];
     }
 
     float rightChannelAt(int i) {
-        return sample->frames[sample->stereo ? 2*i + 1 : i];
+        return sample->frames[sample->mono ? i : 2*i + 1];
     }
 };
