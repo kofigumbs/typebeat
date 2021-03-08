@@ -4,7 +4,7 @@ process = par(i, 15, processVoice(i)) :> sp.stereoize(_);
 
 processVoice(voice) = pan(panAmount) : sp.stereoize(*(volumeAmount)) with {
 	volumeAmount = getAmount(mix, voice, 0) : *(2) : si.smoo;
-	panAmount    = getAmount(mix, voice, 1), -1, 1 : it.interpolate_linear : si.smoo;
+	panAmount    = getAmount(mix, voice, 5), -1, 1 : it.interpolate_linear : si.smoo;
 };
 
 pan(amount, inputL, inputR) = ba.select2stereo(amount > 0,

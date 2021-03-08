@@ -11,6 +11,7 @@ struct Controller : EventHandler {
         sendCallbacks["noteDown"] = &Controller::onNoteDown;
         sendCallbacks["auditionDown"] = &Controller::onAuditionDown;
         sendCallbacks["selectVoice"] = &Controller::onSelectVoice;
+        sendCallbacks["nudge:tempo"] = &Controller::onNudgeTempo;
         sendCallbacks["nudge:eq"] = &Controller::onNudgeEq;
         sendCallbacks["nudge:adsr"] = &Controller::onNudgeAdsr;
         sendCallbacks["nudge:fx"] = &Controller::onNudgeFx;
@@ -18,6 +19,8 @@ struct Controller : EventHandler {
         // receive callbacks use lambdas since they are not run on the audio thread, and thus allowed to allocate
         receiveCallbacks["playing"] = [this](){ return playing; };
         receiveCallbacks["armed"] = [this](){ return armed; };
+        receiveCallbacks["beat"] = [this](){ return beat; };
+        receiveCallbacks["tempo"] = [this](){ return tempo; };
         receiveCallbacks["activeVoice"] = [this](){ return activeVoice; };
         receiveCallbacks["transpose"] = [this](){ return transpose; };
         receiveCallbacks["scale"] = [this](){ return scale; };
@@ -62,11 +65,27 @@ struct Controller : EventHandler {
     }
 
     void compute(float audio) {
+        // beat
+        bool newBeat;
+        if (playing) {
+            framesSinceLastBeat++;
+            if (framesSinceLastBeat >= beatDuration()) {
+                beat++;
+                framesSinceLastBeat = 0;
+                newBeat = true;
+            }
+        }
+        // handle sent messages
         std::pair<void(Controller::*)(int), int> pair;
         while(sendMessages.pop(pair))
             (this->*pair.first)(pair.second);
-        for (int v = 0; v < voiceCount; v++)
-            voices[v].play(step, armed, output[v]);
+        // play tracks
+        for (int v = 0; v < voiceCount; v++) {
+            auto step = voices[v].sequence[beat % voices[v].sequence.size()];
+            if (newBeat && step.active)
+                voices[v].prepare(step.note);
+            voices[v].play(output[v]);
+        }
     }
 
   private:
@@ -88,6 +107,8 @@ struct Controller : EventHandler {
     bool playing = false;
     bool armed = false;
     int tempo = 120;
+    int beat = -1;
+    int framesSinceLastBeat = 0;
     int transpose = 0;
     int scale = 0;
     int activeVoice = 0;
@@ -96,27 +117,32 @@ struct Controller : EventHandler {
     std::unordered_map<std::string, void(Controller::*)(int)> sendCallbacks;
     choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Controller::*)(int), int>> sendMessages;
 
-    void play(int) {
+    void onPlay(int) {
         playing = !playing;
-        framePosition = -1;
+        beat = -1;
+        framesSinceLastBeat = std::ceil(beatDuration());
     }
 
-    void arm(int) {
+    void onArm(int) {
         armed = !armed;
     }
 
     void onNoteDown(int value) {
-        voices[activeVoice].prepare(keyToNote(value));
+        prepareVoice(activeVoice, keyToNote(value));
     }
 
     void onAuditionDown(int value) {
-        voices[value].prepare(voices[value].naturalNote);
+        prepareVoice(value, voices[value].naturalNote);
     }
 
     void onSelectVoice(int value) {
         activeVoice = value;
         if (!playing)
             onAuditionDown(value);
+    }
+
+    void onNudgeTempo(int value) {
+        tempo = std::clamp(tempo + nudgeOffset(value), 1, 999);
     }
 
     void onNudgeEq(int value) {
@@ -135,20 +161,37 @@ struct Controller : EventHandler {
         nudge(value, voices[activeVoice].mix);
     }
 
-    template <size_t T>
-    void nudge(int value, std::array<int, T>& destination) {
-        int id = std::clamp(value >> 4, 0, (int) destination.size());
-        int offset;
-        switch (value & 0xf) {
-            case 0: offset = -10; break;
-            case 1: offset =  -1; break;
-            case 2: offset =   1; break;
-            case 3: offset =  10; break;
+    void prepareVoice(int v, int note) {
+        voices[v].prepare(note);
+        if (armed && playing) {
+            int quantizedBeat = beat + (framesSinceLastBeat > (beatDuration()/2));
+            Voice::Step& step = voices[v].sequence[quantizedBeat % voices[v].sequence.size()];
+            step.active = true;
+            step.note = note;
         }
-        destination[id] = std::clamp(destination[id] + offset, 0, 50);
+    }
+
+    float beatDuration() {
+        return SAMPLE_RATE * 60.f / tempo;
     }
 
     int keyToNote(int key) {
         return transpose + scaleOffsets[scale][key % 7] + (voices[activeVoice].octave + key/7) * 12;
+    }
+
+    template <size_t T>
+    void nudge(int value, std::array<int, T>& destination) {
+        int id = std::clamp(value >> 4, 0, (int) destination.size());
+        destination[id] = std::clamp(destination[id] + nudgeOffset(value), 0, 50);
+    }
+
+    int nudgeOffset(int value) {
+        switch (value & 0xf) {
+            case 0:  return -10;
+            case 1:  return  -1;
+            case 2:  return   1;
+            case 3:  return  10;
+            default: return   0;
+        }
     }
 };

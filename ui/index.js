@@ -43,31 +43,40 @@ const bindingsByModifier = new Map([
     })),
   ])}],
   ['A', { mode: 'Loop', actions: new Map([
+    ...Binding.tabs('YUI', state, 'loop', ['page', 'zoom', 'length']),
+    ...Binding.buttons('HJL;', () => ['-4', '-1', '+1', '+4'], i => {}),
   ])}],
   ['S', { mode: 'EQ', actions: new Map([
-    ...Binding.titleGroup('YU', ['hi pass', 'lo pass'], state, 'eqTitle'),
-    ...Binding.titleGroup('NM,', ['freq.', 'res.', 'poles'], state, 'eqSubtitle'),
-    ...Binding.nudgeGroup(window.$send, () => 3*(state.eqTitle|0) + (state.eqSubtitle|0), state, 'eq'),
-    ...Binding.fill(),
+    ...Binding.tabs('YUIOP', state, 'eqBand', ['hi pass', 'mid 1', 'mid 2', 'mid 3', 'lo pass']),
+    ...Binding.tabs('NM', state, 'eqFilter', ['freq.', 'res.']),
+    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => {}),
+    ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['D', { mode: 'ADSR', actions: new Map([
-    ...Binding.titleGroup('YUIO', ['attack', 'decay', 'sustain', 'release'], state, 'adsrTitle'),
-    ...Binding.nudgeGroup(window.$send, () => state.adsrTitle|0, state, 'adsr'),
-    ...Binding.fill(),
+    ...Binding.tabs('YUIO', state, 'adsr', ['attack', 'decay', 'sustain', 'release']),
+    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => {}),
+    ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['F', { mode: 'FX', actions: new Map([
-    ...Binding.titleGroup('YUIOP', ['comp.', 'distort', 'vocoder', 'chorus', 'duck'], state, 'fxTitle'),
-    ...Binding.nudgeGroup(window.$send, () => state.fxTitle|0, state, 'fx'),
-    ...Binding.fill(),
+    ...Binding.tabs('YUIOP', state, 'fx', ['comp.', 'distort', 'vocoder', 'chorus', 'duck']),
+    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => {}),
+    ['K', Binding.title(() => state.fx[state.tab.fx]) ],
+    ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['G', { mode: 'Mix', actions: new Map([
-    ...Binding.titleGroup('NMYUIOP', ['volume', 'pan', 'send 1', 'send 2', 'send 3', 'send 4', 'duck by'], state, 'mixTitle'),
-    ...Binding.nudgeGroup(window.$send, () => state.mixTitle|0, state, 'mix'),
-    ...Binding.fill(),
+    ...Binding.tabs('YUIOPNM', state, 'mix', ['volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape']),
+    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => window.$send?.('nudge:mix', state.tab.mix << 4 | i)),
+    ['K', Binding.title(() => state.mix[state.tab.mix]) ],
+    ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['Z', { mode: 'Song', actions: new Map([
+    ...Binding.tabs('Y', state, 'song', ['tempo']),
+    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => window.$send?.('nudge:tempo', i)),
+    ['K', Binding.title(() => state.tempo) ],
+    ['N', Binding.toggle('play', () => state.playing, () => window.$send?.('play')) ],
+    ['M', Binding.toggle('arm', () => state.armed, () => window.$send?.('arm')) ],
   ])}],
-  ['X', { mode: 'LFO', actions: new Map([
+  ['X', { mode: 'Auto', actions: new Map([
   ])}],
   ['C', { mode: 'Send', actions: new Map([
   ])}],
@@ -131,12 +140,14 @@ const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`)
 
 const all = (length, f) => Promise.all(Array.from({ length }, (_, i) => f(i)));
 const sync = async () => {
+  state.tempo       = await window.$receive?.('tempo');
   state.playing     = await window.$receive?.('playing');
+  state.armed       = await window.$receive?.('armed');
   state.activeVoice = await window.$receive?.('activeVoice');
   state.scale       = await window.$receive?.('scale');
   state.naturalNote = await window.$receive?.('naturalNote');
   state.note = await all(15, i => window.$receive?.(`note:${i}`));
-  state.eq   = await all(6,  i => window.$receive?.(`eq:${i}`));
+  state.eq   = await all(10, i => window.$receive?.(`eq:${i}`));
   state.adsr = await all(4,  i => window.$receive?.(`adsr:${i}`));
   state.mix  = await all(7,  i => window.$receive?.(`mix:${i}`));
   state.fx   = await all(5,  i => window.$receive?.(`fx:${i}`));

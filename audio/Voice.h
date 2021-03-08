@@ -12,12 +12,12 @@ struct Voice {
 
     struct Step {
         int active;
-        int key;
+        int note;
     };
 
     int octave = 4;
     int naturalNote = 69; // 440 Hz
-    std::array<int, 6> eq;
+    std::array<int, 10> eq;
     std::array<int, 4> adsr;
     std::array<int, 5> fx;
     std::array<int, 7> mix;
@@ -27,7 +27,7 @@ struct Voice {
         eq[3] = 50; // lo pass cut
         adsr[2] = 50; // sustain
         mix[0] = 25; // volume
-        mix[1] = 25; // pan
+        mix[5] = 25; // pan
         memory.mono = true;
         memory.length = 6*SAMPLE_RATE;
         memory.frames = std::unique_ptr<float[]>(new float[memory.length]);

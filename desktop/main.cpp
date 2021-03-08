@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
         view.set_size(1200, 430, WEBVIEW_HINT_NONE);
         view.bind("$send", [eventHandler](std::string json) -> std::string {
             auto arguments = getArguments(json);
-            eventHandler->onSend(arguments[0], std::stoi(arguments[1]));
+            eventHandler->onSend(arguments[0], arguments.size() == 1 ? 0 : std::stoi(arguments[1]));
             return "";
         });
         view.bind("$receive", [eventHandler](std::string json) -> std::string {
