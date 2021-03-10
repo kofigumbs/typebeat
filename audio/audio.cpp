@@ -18,7 +18,7 @@
 
 #include "audio.h"
 #include "Voice.h"
-#include "DefaultSamples.h"
+#include "Media.h"
 #include "Controller.h"
 
 std::unique_ptr<Controller> controller;
@@ -58,8 +58,8 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
         assert(playbackDeviceId != nullptr);
     }
 
-    auto defaultSamples = std::make_unique<DefaultSamples>(root);
-    controller = std::make_unique<Controller>(defaultSamples.get());
+    auto media = std::make_unique<Media>(root);
+    controller = std::make_unique<Controller>(media.get());
     auto effects = std::make_unique<Effects>();
 
     assert(sizeof(controller->output) == effects->getNumInputs() * sizeof(float));

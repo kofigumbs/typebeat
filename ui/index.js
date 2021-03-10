@@ -64,7 +64,7 @@ const bindingsByModifier = new Map([
     ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['G', { mode: 'Mix', actions: new Map([
-    ...Binding.tabs('YUIOPNM', state, 'mix', ['volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape']),
+    ...Binding.tabs('YUIOPNM,', state, 'mix', ['volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape']),
     ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => window.$send?.('nudge:mix', state.tab.mix << 4 | i)),
     ['K', Binding.title(() => state.mix[state.tab.mix]) ],
     ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],

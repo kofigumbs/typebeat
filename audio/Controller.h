@@ -2,9 +2,9 @@ struct Controller : EventHandler {
     static const int voiceCount = 15;
     std::array<Voice::Output, voiceCount> output;
 
-    Controller(DefaultSamples* defaultSamples) : voices(), output(), receiveCallbacks(), sendCallbacks(), sendMessages() {
+    Controller(Media* media) : voices(), output(), receiveCallbacks(), sendCallbacks(), sendMessages() {
         for (int i = 0; i < voiceCount; i++)
-            voices[i].use(defaultSamples->get(i));
+            voices[i].use(media->get(i));
         sendMessages.reset(8); // max queue size
         sendCallbacks["play"] = &Controller::onPlay;
         sendCallbacks["arm"] = &Controller::onArm;
