@@ -15,8 +15,8 @@ build/Typebeat${EXE}: build/audio.o build/desktop.o
 build/desktop.o: .git/modules audio/audio.h desktop/main.cpp | build
 	$(CC)$@ -I vendor/webview/script desktop/main.cpp
 
-build/audio.o: .git/modules audio build/Effects.h
-	$(CC)$@ -I "$(shell faust --includedir)" -I audio/faust audio/audio.cpp
+build/audio.o: .git/modules audio audio/faust build/Effects.h
+	$(CC)$@ -I "$(shell faust --includedir)" audio/audio.cpp
 
 build/Effects.h: audio/faust/Effects.dsp | build
 	faust -os -cn Effects -o $@ $<

@@ -16,22 +16,25 @@
 
 #include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
-#include "audio.h"
-#include "Voice.h"
-#include "Media.h"
-#include "Controller.h"
+#include "./audio.h"
+#include "./Destinations.h"
+#include "./Voice.h"
+#include "./Media.h"
+#include "./Controller.h"
 
-std::unique_ptr<Controller> controller;
-struct one_sample_dsp : dsp {
-    void compute(int count, FAUSTFLOAT** inputs_aux, FAUSTFLOAT** outputs_aux) {}
-};
+#include "./faust/one_sample_dsp.h"
 #include "../build/Effects.h"
 
+struct UserData {
+    Controller* controller;
+    Effects* effects;
+};
+
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
-    auto effects = (Effects*) device->pUserData;
+    auto userData = (UserData*) device->pUserData;
     for (int frame = 0; frame < frameCount; frame++) {
-        controller->compute(((float*) input)[frame]);
-        effects->compute((float*) controller->output.data(), ((float*) output) + frame*device->playback.channels, nullptr, nullptr);
+        userData->controller->render(((float*) input)[frame]);
+        userData->effects->render((float*) userData->controller->output.data(), ((float*) output) + frame*device->playback.channels);
     }
 }
 
@@ -59,11 +62,13 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     }
 
     auto media = std::make_unique<Media>(root);
-    controller = std::make_unique<Controller>(media.get());
+    auto destinations = std::make_unique<Destinations>();
     auto effects = std::make_unique<Effects>();
-
+    auto controller = std::make_unique<Controller>(media.get(), destinations.get());
     assert(sizeof(controller->output) == effects->getNumInputs() * sizeof(float));
-    effects->init(SAMPLE_RATE);
+
+    effects->prepare(destinations.get());
+    UserData userData { controller.get(), effects.get() };
 
     ma_device device;
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
@@ -75,7 +80,7 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     deviceConfig.playback.pDeviceID = playbackDeviceId;
     deviceConfig.sampleRate = SAMPLE_RATE;
     deviceConfig.dataCallback = callback;
-    deviceConfig.pUserData = effects.get();
+    deviceConfig.pUserData = &userData;
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
     ma_device_start(&device);

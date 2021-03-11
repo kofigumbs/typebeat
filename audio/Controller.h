@@ -2,7 +2,7 @@ struct Controller : EventHandler {
     static const int voiceCount = 15;
     std::array<Voice::Output, voiceCount> output;
 
-    Controller(Media* media) : voices(), output(), receiveCallbacks(), sendCallbacks(), sendMessages() {
+    Controller(Media* media, Destinations* destinations) : output(), voices(), receiveCallbacks(), sendCallbacks(), sendMessages() {
         for (int i = 0; i < voiceCount; i++)
             voices[i].use(media->get(i));
         sendMessages.reset(8); // max queue size
@@ -64,7 +64,7 @@ struct Controller : EventHandler {
         return f != receiveCallbacks.end() ? f->second() : 0;
     }
 
-    void compute(float audio) {
+    void render(float audio) {
         // beat
         bool newBeat;
         if (playing) {
@@ -84,7 +84,7 @@ struct Controller : EventHandler {
             auto step = voices[v].sequence[beat % voices[v].sequence.size()];
             if (newBeat && step.active)
                 voices[v].prepare(step.note);
-            voices[v].play(output[v]);
+            voices[v].render(output[v]);
         }
     }
 

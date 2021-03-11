@@ -50,7 +50,7 @@ struct Voice {
         }
     }
 
-    void play(Output& output) {
+    void render(Output& output) {
         auto i = int(position);
         if (active && position == i && position < sample->length) {
             output.l = leftChannelAt(i);
