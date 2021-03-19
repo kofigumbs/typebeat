@@ -25,53 +25,55 @@ const bindingsByModifier = new Map([
     ...Binding.group(capsOnRight, i => ({
       label: () => i === state.activeVoice ? 'active' : '',
       title: () => i === state.activeVoice,
-      onDown: () => window.$send?.('selectVoice', i),
+      onDown: () => window.$send?.('activateVoice', i),
     })),
   ])}],
-  ['W', { mode: 'Src-A', actions: new Map([
+  ['W', { mode: 'Source', actions: new Map([
   ])}],
-  ['E', { mode: 'Src-B', actions: new Map([
+  ['E', { mode: 'Chop', actions: new Map([
   ])}],
   ['R', { mode: 'Poly', actions: new Map([
   ])}],
   ['T', { mode: 'Note', actions: new Map([
     ...Binding.group(capsOnRight, i => ({
-      label: () => `${["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][state.note[i] % 12]}${(state.note[i] / 12 - 1)|0}`,
-      title: () => state.note[i] === state.naturalNote,
+      label: () => `${["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][state[`note:${i}`] % 12]}${(state[`note:${i}`] / 12 - 1)|0}`,
+      title: () => state[`note:${i}`] === state.naturalNote,
       onDown: () => window.$send?.('noteDown', i),
       onUp: () => window.$send?.('noteUp', i),
     })),
   ])}],
   ['A', { mode: 'Loop', actions: new Map([
-    ...Binding.tabs('YUI', state, 'loop', ['page', 'zoom', 'length']),
+    ...Binding.oneOf('YUI', state, 'loop', ['page', 'zoom', 'length']),
     ...Binding.buttons('HJL;', () => ['-4', '-1', '+1', '+4'], i => {}),
   ])}],
   ['S', { mode: 'EQ', actions: new Map([
-    ...Binding.tabs('YUIOP', state, 'eqBand', ['hi pass', 'mid 1', 'mid 2', 'mid 3', 'lo pass']),
-    ...Binding.tabs('NM', state, 'eqFilter', ['freq.', 'res.']),
+    ...Binding.oneOf('YUIOP', state, 'eqBand', ['hi pass', 'mid 1', 'mid 2', 'mid 3', 'lo pass']),
+    ...Binding.oneOf('NM', state, 'eqFilter', ['freq.', 'res.']),
     ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => {}),
+    ['K', Binding.title(() => state[`${state.eqBand}:${state.eqFilter}`]) ],
     ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['D', { mode: 'ADSR', actions: new Map([
-    ...Binding.tabs('YUIO', state, 'adsr', ['attack', 'decay', 'sustain', 'release']),
+    ...Binding.oneOf('YUIO', state, 'adsr', ['attack', 'decay', 'sustain', 'release']),
     ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => {}),
+    ['K', Binding.title(() => state[state.adsr]) ],
     ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['F', { mode: 'FX', actions: new Map([
-    ...Binding.tabs('YUIOP', state, 'fx', ['comp.', 'distort', 'vocoder', 'chorus', 'duck']),
+    ...Binding.oneOf('YUIOP', state, 'fx', ['comp.', 'distort', 'vocoder', 'chorus', 'duck']),
     ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => {}),
-    ['K', Binding.title(() => state.fx[state.tab.fx]) ],
+    ['K', Binding.title(() => state[state.fx]) ],
     ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['G', { mode: 'Mix', actions: new Map([
-    ...Binding.tabs('YUIOPNM,', state, 'mix', ['volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape']),
-    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => window.$send?.('nudge:mix', state.tab.mix << 4 | i)),
-    ['K', Binding.title(() => state.mix[state.tab.mix]) ],
+    ...Binding.oneOf('YUIOPNM,', state, 'mix', ['volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape']),
+    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => window.$send?.(state.mix, i)),
+    ['K', Binding.title(() => state[state.mix]) ],
     ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['Z', { mode: 'Song', actions: new Map([
-    ...Binding.tabs('Y', state, 'song', ['tempo']),
-    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => window.$send?.('nudge:tempo', i)),
+    ...Binding.oneOf('Y', state, 'song', ['tempo']),
+    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => window.$send?.(state.song, i)),
     ['K', Binding.title(() => state.tempo) ],
     ['N', Binding.toggle('play', () => state.playing, () => window.$send?.('play')) ],
     ['M', Binding.toggle('arm', () => state.armed, () => window.$send?.('arm')) ],
@@ -138,19 +140,17 @@ const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`)
  * sync
  */
 
-const all = (length, f) => Promise.all(Array.from({ length }, (_, i) => f(i)));
+const foreignFields = [
+  'activeVoice',
+  'scale', 'tempo', 'playing', 'armed',
+  'naturalNote',
+  'volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape',
+  ...keysOnRight.map((_, i) => `note:${i}`),
+  ...keysOnRight.map((_, i) => `mute:${i}`),
+];
 const sync = async () => {
-  state.tempo       = await window.$receive?.('tempo');
-  state.playing     = await window.$receive?.('playing');
-  state.armed       = await window.$receive?.('armed');
-  state.activeVoice = await window.$receive?.('activeVoice');
-  state.scale       = await window.$receive?.('scale');
-  state.naturalNote = await window.$receive?.('naturalNote');
-  state.note = await all(15, i => window.$receive?.(`note:${i}`));
-  state.eq   = await all(10, i => window.$receive?.(`eq:${i}`));
-  state.adsr = await all(4,  i => window.$receive?.(`adsr:${i}`));
-  state.mix  = await all(7,  i => window.$receive?.(`mix:${i}`));
-  state.fx   = await all(5,  i => window.$receive?.(`fx:${i}`));
+  for (const field of foreignFields)
+    state[field] = await window.$receive?.(field)
   const binding = bindingsByModifier.get(state.modifier);
   for (let i = 0; i < keysOnRight.length; i++) {
     const key = keysOnRight[i];

@@ -17,17 +17,9 @@ struct Voice {
 
     int octave = 4;
     int naturalNote = 69; // 440 Hz
-    std::array<int, 10> eq;
-    std::array<int, 4> adsr;
-    std::array<int, 5> fx;
-    std::array<int, 7> mix;
     std::array<Step, 8> sequence;
 
-    Voice() : eq(), adsr(), fx(), mix(), sequence() {
-        eq[3] = 50; // lo pass cut
-        adsr[2] = 50; // sustain
-        mix[0] = 25; // volume
-        mix[5] = 25; // pan
+    Voice() : sequence() {
         memory.mono = true;
         memory.length = 6*SAMPLE_RATE;
         memory.frames = std::unique_ptr<float[]>(new float[memory.length]);

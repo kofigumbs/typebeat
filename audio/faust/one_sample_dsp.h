@@ -1,16 +1,16 @@
 struct one_sample_dsp : dsp {
     struct get_nentries : UI {
-        int track;
+        int voice;
         Destinations* destinations;
 
         get_nentries(Destinations* destinations) : destinations(destinations) {}
 
         void openTabBox(const char* label) override {
-            track = std::stoi(label);
+            voice = std::stoi(label);
         }
 
         void addNumEntry(const char* label, FAUSTFLOAT* zone, FAUSTFLOAT init, FAUSTFLOAT min, FAUSTFLOAT max, FAUSTFLOAT step) override {
-            destinations->add(track, std::string(label), zone, min, max);
+            destinations->add(voice, std::string(label), zone, min, max);
         }
 
         void openHorizontalBox(const char* label) override {}

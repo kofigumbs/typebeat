@@ -3,12 +3,12 @@ class Binding {
     return '';
   }
 
-  static tabs(caps, state, name, labels) {
-    state.tab = { ...(state.tab ?? {}), [name]: 0 };
+  static oneOf(caps, state, name, labels) {
+    state[name] = labels[0];
     return Binding.group(caps, i => ({
       label: () => labels[i],
-      title: () => state.tab[name] === i,
-      onDown: () => state.tab[name] = i,
+      title: () => state[name] === labels[i],
+      onDown: () => state[name] = labels[i],
     }));
   }
 
