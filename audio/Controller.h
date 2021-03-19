@@ -2,7 +2,8 @@ struct Controller : EventHandler {
     static const int voiceCount = 15;
     std::array<Voice::Output, voiceCount> output;
 
-    Controller(Media* media, Destinations* destinations) : output(), destinations(destinations), voices(), receiveCallbacks(), sendCallbacks(), sendMessages(), destinationMessages() {
+    Controller(std::filesystem::path root, Destinations* d) : output(), destinations(d), voices(), receiveCallbacks(), sendCallbacks(), sendMessages(), destinationMessages() {
+        media = std::make_unique<Media>(root);
         for (int i = 0; i < voiceCount; i++)
             voices[i].use(media->get(i));
         sendMessages.reset(8); // max queue size
@@ -23,6 +24,8 @@ struct Controller : EventHandler {
         receiveCallbacks["naturalNote"] = [this](){ return voices[activeVoice].naturalNote; };
         for (int i = 0; i < voiceCount; i++)
             receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
+        for (const auto& name : destinations->names)
+            receiveCallbacks[name] = [this, name](){ return destinations->get(activeVoice, name)->read(); };
     }
 
     void onSend(std::string name, int value) override {
@@ -36,12 +39,7 @@ struct Controller : EventHandler {
     }
 
     int onReceive(std::string name) override {
-        if (receiveCallbacks.count(name))
-            return receiveCallbacks[name]();
-        auto destination = destinations->get(activeVoice, name);
-        if (destination != nullptr)
-            return destination->get();
-        return 0;
+        return receiveCallbacks.count(name) ? receiveCallbacks[name]() : 0;
     }
 
     void render(float audio) {
@@ -62,7 +60,7 @@ struct Controller : EventHandler {
         // handle destination messages
         std::pair<Destinations::Entry*, int> destination;
         while(destinationMessages.pop(destination))
-            destination.first->set(destination.first->get() + nudge(destination.second));
+            destination.first->write(destination.first->read() + nudge(destination.second));
         // render voices
         for (int v = 0; v < voiceCount; v++) {
             auto step = voices[v].sequence[beat % voices[v].sequence.size()];
@@ -97,6 +95,7 @@ struct Controller : EventHandler {
     int scale = 0;
     int activeVoice = 0;
     Destinations* destinations;
+    std::unique_ptr<Media> media;
     std::array<Voice, voiceCount> voices;
     std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
     std::unordered_map<std::string, void(Controller::*)(int)> sendCallbacks;

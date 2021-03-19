@@ -4,18 +4,21 @@ struct Destinations {
         float min;
         float max;
 
-        float get() {
+        float read() {
             return *zone;
         }
 
-        void set(float value) {
+        void write(float value) {
             *zone = std::clamp(value, min, max);
         }
     };
 
-    Destinations() : entries() {}
+    std::set<std::string> names;
+
+    Destinations() : names(), entries() {}
 
     void add(int voice, std::string name, float* zone, float min, float max) {
+        names.insert(name);
         while (voice >= entries.size())
             entries.push_back({});
         entries[voice][name] = { zone, min, max };

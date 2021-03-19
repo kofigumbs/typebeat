@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cassert>
 #include <filesystem>
+#include <set>
 #include <unordered_map>
 
 #define MINIAUDIO_IMPLEMENTATION
@@ -12,7 +13,6 @@
 #define SAMPLE_RATE 44100
 #include "faust/dsp/dsp.h"
 #include "faust/gui/meta.h"
-#include "faust/gui/UI.h"
 
 #include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
@@ -22,6 +22,7 @@
 #include "./Media.h"
 #include "./Controller.h"
 
+#include "./faust/UI.h"
 #include "./faust/one_sample_dsp.h"
 #include "../build/Effects.h"
 
@@ -61,13 +62,10 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
         assert(playbackDeviceId != nullptr);
     }
 
-    auto media = std::make_unique<Media>(root);
-    auto destinations = std::make_unique<Destinations>();
     auto effects = std::make_unique<Effects>();
-    auto controller = std::make_unique<Controller>(media.get(), destinations.get());
+    effects->prepare();
+    auto controller = std::make_unique<Controller>(root, effects->destinations.get());
     assert(sizeof(controller->output) == effects->getNumInputs() * sizeof(float));
-
-    effects->prepare(destinations.get());
     UserData userData { controller.get(), effects.get() };
 
     ma_device device;
