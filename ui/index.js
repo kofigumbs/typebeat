@@ -1,6 +1,12 @@
-const state = {}; // globally mutable 🙈
-const capsOnLeft = 'ZXCVBASDFGQWERT';
-const capsOnRight = 'NM,./HJKL;YUIOP';
+const state = new State({
+  defaults: [['modifier', undefined]],
+  receive: window.$receive || (() => {}),
+});
+
+const bindings = new Bindings({
+  state,
+  send: window.$send || (() => {}),
+});
 
 
 /*
@@ -17,101 +23,11 @@ theme.onLoad = () => {
 
 
 /*
- * bindings
- */
-
-const bindingsByModifier = new Map([
-  ['Q', { actions: new Map([
-    ...Binding.group(capsOnRight, i => ({
-      label: () => i === state.activeVoice ? 'active' : '',
-      title: () => i === state.activeVoice,
-      onDown: () => window.$send?.('activateVoice', i),
-    })),
-  ])}],
-  ['W', { mode: 'Source', actions: new Map([
-  ])}],
-  ['E', { mode: 'Chop', actions: new Map([
-  ])}],
-  ['R', { mode: 'Poly', actions: new Map([
-  ])}],
-  ['T', { mode: 'Note', actions: new Map([
-    ...Binding.group(capsOnRight, i => ({
-      label: () => `${["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][state[`note:${i}`] % 12]}${(state[`note:${i}`] / 12 - 1)|0}`,
-      title: () => state[`note:${i}`] === state.naturalNote,
-      onDown: () => window.$send?.('noteDown', i),
-      onUp: () => window.$send?.('noteUp', i),
-    })),
-  ])}],
-  ['A', { mode: 'Loop', actions: new Map([
-    ...Binding.group('HJL;', i => ({
-      label: () => ['zoom -', 'page -', 'page +', 'zoom +'][i],
-      onDown: () => window.$send('view', i),
-    })),
-    ...Binding.group('NM,.', i => ({
-      label: () => {
-        const step = `${(state.viewStart + i) % state.resolution + 1}/${state.resolution}`;
-        switch (state[`view:${i}`]) {
-          case 0: return '';
-          case 1: return `${step} _`;
-          case 2: return `${step} █`;
-        }
-      },
-      onDown: () => window.$send('stepSequence', i),
-    })),
-    ['K', Binding.title(() => `bar ${((state.viewStart/state.resolution)|0) + 1}/${state.bars}`) ],
-  ])}],
-  ['S', { mode: 'EQ', actions: new Map([
-    ...Binding.oneOf('YUIOP', state, 'eqBand', ['hi pass', 'mid 1', 'mid 2', 'mid 3', 'lo pass']),
-    ...Binding.oneOf('NM', state, 'eqFilter', ['freq.', 'res.']),
-    ...Binding.nudge('HJL;', 10, i => {}),
-    ['K', Binding.title(() => state[`${state.eqBand}:${state.eqFilter}`]) ],
-    ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
-  ])}],
-  ['D', { mode: 'ADSR', actions: new Map([
-    ...Binding.oneOf('YUIO', state, 'adsr', ['attack', 'decay', 'sustain', 'release']),
-    ...Binding.nudge('HJL;', 10, i => {}),
-    ['K', Binding.title(() => state[state.adsr]) ],
-    ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
-  ])}],
-  ['F', { mode: 'FX', actions: new Map([
-    ...Binding.oneOf('YUIOP', state, 'fx', ['comp.', 'distort', 'vocoder', 'chorus', 'duck']),
-    ...Binding.nudge('HJL;', 10, i => {}),
-    ['K', Binding.title(() => state[state.fx]) ],
-    ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
-  ])}],
-  ['G', { mode: 'Mix', actions: new Map([
-    ...Binding.oneOf('YUIOPNM,', state, 'mix', ['volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape']),
-    ...Binding.nudge('HJL;', 10, i => window.$send?.(state.mix, i)),
-    ['K', Binding.title(() => state[state.mix]) ],
-    ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
-  ])}],
-  ['Z', { mode: 'Song', actions: new Map([
-    ...Binding.oneOf('Y', state, 'song', ['tempo']),
-    ...Binding.nudge('HJL;', 10, i => window.$send?.(state.song, i)),
-    ['K', Binding.title(() => state.tempo) ],
-    ['N', Binding.toggle('play', () => state.playing, () => window.$send?.('play')) ],
-    ['M', Binding.toggle('arm', () => state.armed, () => window.$send?.('arm')) ],
-  ])}],
-  ['X', { mode: 'Auto', actions: new Map([
-  ])}],
-  ['C', { mode: 'Send', actions: new Map([
-  ])}],
-  ['V', { mode: 'Mute', actions: new Map([
-  ])}],
-  ['B', { mode: 'Tape', actions: new Map([
-  ])}],
-  [undefined, { actions: new Map([
-    ...Binding.group(capsOnRight, i => ({
-      onDown: () => window.$send?.('auditionDown', i),
-      onUp: () => window.$send?.('auditionUp', i),
-    })),
-  ])}],
-]);
-
-
-/*
  * elements
  */
+
+const capsOnLeft = 'ZXCVBASDFGQWERT';
+const capsOnRight = 'NM,./HJKL;YUIOP';
 
 const mapJoin = (iterable, f) => Array.from(iterable).map(f).join('');
 document.body.innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], row => `
@@ -127,10 +43,10 @@ document.body.innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], r
             )}
           </div>
         `;
-      else if (bindingsByModifier.has(cap))
+      else if (bindings.has(cap))
         return `
           <div class="key" data-cap="${cap}">
-            ${Tare.html(bindingsByModifier.get(cap).mode)}
+            ${Tare.html(bindings.get(cap).mode)}
           </div>
         `;
       else
@@ -154,26 +70,15 @@ const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`)
  * sync
  */
 
-const foreignFields = [
-  'activeVoice',
-  'scale', 'tempo', 'playing', 'armed',
-  'naturalNote',
-  'bars', 'resolution', 'viewStart', 'view:0', 'view:1', 'view:2', 'view:3',
-  'volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape',
-  ...keysOnRight.map((_, i) => `note:${i}`),
-  ...keysOnRight.map((_, i) => `mute:${i}`),
-];
 const sync = async () => {
-  for (const field of foreignFields)
-    state[field] = await window.$receive?.(field)
-  const binding = bindingsByModifier.get(state.modifier);
+  const binding = bindings.get(state.modifier);
   for (let i = 0; i < keysOnRight.length; i++) {
     const key = keysOnRight[i];
     const action = binding.actions.get(key.dataset.cap);
-    labels[i].ariaLabel = action?.label() ?? '';
+    labels[i].ariaLabel = await action?.label() ?? '';
     if (!!state.modifier)
-      labels[i].classList.toggle('title', !!(action?.title()));
-    minipads[i].classList.toggle('active', i === state.activeVoice);
+      labels[i].classList.toggle('title', !!(await action?.title()));
+    minipads[i].classList.toggle('active', i === await state.activeVoice);
   };
   if (state.playing)
     requestSync();
@@ -212,13 +117,13 @@ const handleDocumentKey = event => {
   if (!cap)
     return;
   const down = event.type === 'keydown';
-  if (bindingsByModifier.has(cap)) {
+  if (bindings.has(cap)) {
     modifierToggle(cap, down);
     for (const key of keysOnLeft)
       key.classList.toggle('hold', !!state.modifier && key.dataset.cap === state.modifier);
   }
   else {
-    const handler = bindingsByModifier.get(state.modifier).actions.get(cap);
+    const handler = bindings.get(state.modifier).actions.get(cap);
     down ? handler?.onDown() : handler?.onUp();
     if (down) {
       const key = keysOnRight.find(key => cap === key.dataset.cap);
