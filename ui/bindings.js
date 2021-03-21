@@ -6,7 +6,6 @@ function Bindings({ state, send }) {
   const toggle = (label, title, onDown) => bind({ label: () => label, title, onDown });
 
   const group = (caps, f) => Array.from(caps, (cap, i) => [cap, bind(f(i))]);
-  const nudge = (caps, jump, onDown) => group(caps, i => ({ label: () => [-jump, -1, 1, '+' + jump][i], onDown: () => onDown(i) }));
   const oneOf = (caps, state, name, labels) => {
     state[name] = labels[0];
     return group(caps, i => ({
@@ -16,9 +15,16 @@ function Bindings({ state, send }) {
     }));
   };
 
+  const all = f => group('NM,./HJKL;YUIOP', f);
+  const fill = ['/', toggle('FILL', async () => await state.fill, () => {}) ];
+  const nudge = (value, onDown) => [
+    ['K', title(value) ],
+    ...group('HJL;', i => ({ label: () => ['-10', -1, 1, '+10'][i], onDown: () => onDown(i) })),
+  ];
+
   return new Map([
     ['Q', { actions: new Map([
-      ...group('NM,./HJKL;YUIOP', i => ({
+      ...all(i => ({
         label: async () => i === await state.activeVoice ? 'active' : '',
         title: async () => i === await state.activeVoice,
         onDown: () => send('activateVoice', i),
@@ -31,8 +37,13 @@ function Bindings({ state, send }) {
     ['R', { mode: 'Poly', actions: new Map([
     ])}],
     ['T', { mode: 'Note', actions: new Map([
-      ...group('NM,./HJKL;YUIOP', i => ({
-        label: async () => `${["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][await state[`note:${i}`] % 12]}${(await state[`note:${i}`] / 12 - 1)|0}`,
+      ...all(i => ({
+        label: async () => {
+          const note = await state[`note:${i}`];
+          const name = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][note % 12];
+          const octave = Math.floor(note / 12 - 1);
+          return `${name}${octave}`;
+        },
         title: async () => await state[`note:${i}`] === await state.naturalNote,
         onDown: () => send('noteDown', i),
         onUp: () => send('noteUp', i),
@@ -59,32 +70,27 @@ function Bindings({ state, send }) {
     ['S', { mode: 'EQ', actions: new Map([
       ...oneOf('YUIOP', state, 'eqBand', ['hi pass', 'mid 1', 'mid 2', 'mid 3', 'lo pass']),
       ...oneOf('NM', state, 'eqFilter', ['freq.', 'res.']),
-      ...nudge('HJL;', 10, i => {}),
-      ['K', title(async () => await state[`${await state.eqBand}:${await state.eqFilter}`]) ],
-      ['/', toggle('FILL', async () => await state.fill, () => {}) ],
+      ...nudge(async () => await state[`${await state.eqBand}:${await state.eqFilter}`], i => {}),
+      fill,
     ])}],
     ['D', { mode: 'ADSR', actions: new Map([
       ...oneOf('YUIO', state, 'adsr', ['attack', 'decay', 'sustain', 'release']),
-      ...nudge('HJL;', 10, i => {}),
-      ['K', title(async () => await state[await state.adsr]) ],
-      ['/', toggle('FILL', async () => await state.fill, () => {}) ],
+      ...nudge(async () => await state[await state.adsr], i => {}),
+      fill,
     ])}],
     ['F', { mode: 'FX', actions: new Map([
       ...oneOf('YUIOP', state, 'fx', ['comp.', 'distort', 'vocoder', 'chorus', 'duck']),
-      ...nudge('HJL;', 10, i => {}),
-      ['K', title(async () => await state[await state.fx]) ],
-      ['/', toggle('FILL', async () => await state.fill, () => {}) ],
+      ...nudge(async () => await state[await state.fx], i => {}),
+      fill,
     ])}],
     ['G', { mode: 'Mix', actions: new Map([
       ...oneOf('YUIOPNM,', state, 'mix', ['volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape']),
-      ...nudge('HJL;', 10, i => send(state.mix, i)),
-      ['K', title(async () => await state[await state.mix]) ],
-      ['/', toggle('FILL', async () => await state.fill, () => {}) ],
+      ...nudge(async () => await state[await state.mix], i => send(state.mix, i)),
+      fill,
     ])}],
     ['Z', { mode: 'Song', actions: new Map([
       ...oneOf('Y', state, 'song', ['tempo']),
-      ...nudge('HJL;', 10, async i => send(await state.song, i)),
-      ['K', title(async () => await state.tempo) ],
+      ...nudge(async () => await state[await state.song], async i => send(await state.song, i)),
       ['N', toggle('play', async () => await state.playing, () => send('play')) ],
       ['M', toggle('arm', async () => await state.armed, () => send('arm')) ],
     ])}],
@@ -97,7 +103,7 @@ function Bindings({ state, send }) {
     ['B', { mode: 'Tape', actions: new Map([
     ])}],
     [undefined, { actions: new Map([
-      ...group('NM,./HJKL;YUIOP', i => ({
+      ...all(i => ({
         onDown: () => send('auditionDown', i),
         onUp: () => send('auditionUp', i),
       })),
