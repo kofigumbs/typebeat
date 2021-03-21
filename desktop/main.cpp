@@ -5,7 +5,7 @@
 
 std::vector<std::string> getArguments(std::string json) {
     std::vector<std::string> arguments;
-    std::regex stringOrInt("[a-zA-Z:0-9]+");
+    std::regex stringOrInt("[a-zA-Z:0-9\\-]+");
     std::smatch match; 
     while(regex_search(json, match, stringOrInt)) {
         arguments.push_back(match.str());

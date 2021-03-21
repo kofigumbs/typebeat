@@ -2,21 +2,25 @@ struct Controller : EventHandler {
     static const int voiceCount = 15;
     std::array<Voice::Output, voiceCount> output;
 
-    Controller(std::filesystem::path root, Destinations* d) : output(), destinations(d), voices(), receiveCallbacks(), sendCallbacks(), sendMessages(), destinationMessages() {
+    Controller(std::filesystem::path root, Destinations* d) : output(), destinations(d), voices(), sequences(), receiveCallbacks(), sendCallbacks(), sendMessages(), destinationMessages() {
         media = std::make_unique<Media>(root);
         for (int i = 0; i < voiceCount; i++)
             voices[i].use(media->get(i));
         sendMessages.reset(8); // max queue size
-        sendCallbacks["play"] = &Controller::onPlay;
-        sendCallbacks["arm"] = &Controller::onArm;
-        sendCallbacks["noteDown"] = &Controller::onNoteDown;
         sendCallbacks["auditionDown"] = &Controller::onAuditionDown;
         sendCallbacks["activateVoice"] = &Controller::onActivateVoice;
+        sendCallbacks["noteDown"] = &Controller::onNoteDown;
+        sendCallbacks["view"] = &Controller::onView;
+        sendCallbacks["stepSequence"] = &Controller::onStepSequence;
+        sendCallbacks["play"] = &Controller::onPlay;
+        sendCallbacks["arm"] = &Controller::onArm;
         sendCallbacks["tempo"] = &Controller::onTempo;
         // receive callbacks use lambdas since they are not run on the audio thread, and thus allowed to allocate
         receiveCallbacks["playing"] = [this](){ return playing; };
         receiveCallbacks["armed"] = [this](){ return armed; };
-        receiveCallbacks["beat"] = [this](){ return beat; };
+        receiveCallbacks["bars"] = [this](){ return sequences[activeVoice].bars(); };
+        receiveCallbacks["viewStart"] = [this](){ return sequences[activeVoice].viewStart(); };
+        receiveCallbacks["resolution"] = [this](){ return sequences[activeVoice].resolution; };
         receiveCallbacks["tempo"] = [this](){ return tempo; };
         receiveCallbacks["activeVoice"] = [this](){ return activeVoice; };
         receiveCallbacks["transpose"] = [this](){ return transpose; };
@@ -24,6 +28,8 @@ struct Controller : EventHandler {
         receiveCallbacks["naturalNote"] = [this](){ return voices[activeVoice].naturalNote; };
         for (int i = 0; i < voiceCount; i++)
             receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
+        for (int i = 0; i < 4; i++)
+            receiveCallbacks["view:" + std::to_string(i)] = [this, i](){ return sequences[activeVoice].view(i); };
         for (const auto& name : destinations->names)
             receiveCallbacks[name] = [this, name](){ return destinations->get(activeVoice, name)->read(); };
     }
@@ -43,14 +49,14 @@ struct Controller : EventHandler {
     }
 
     void render(float audio) {
-        // beat
-        bool newBeat;
+        // step
+        bool newStep;
         if (playing) {
-            framesSinceLastBeat++;
-            if (framesSinceLastBeat >= beatDuration()) {
-                beat++;
-                framesSinceLastBeat = 0;
-                newBeat = true;
+            framesSinceLastStep++;
+            if (framesSinceLastStep >= stepDuration()) {
+                step++;
+                framesSinceLastStep = 0;
+                newStep = true;
             }
         }
         // handle send messages
@@ -63,9 +69,9 @@ struct Controller : EventHandler {
             destination.first->write(destination.first->read() + nudge(destination.second));
         // render voices
         for (int v = 0; v < voiceCount; v++) {
-            auto step = voices[v].sequence[beat % voices[v].sequence.size()];
-            if (newBeat && step.active)
-                voices[v].prepare(step.note);
+            int sequenceNote;
+            if (newStep && sequences[v].at(step, sequenceNote))
+                voices[v].prepare(sequenceNote);
             voices[v].render(output[v]);
         }
     }
@@ -89,39 +95,53 @@ struct Controller : EventHandler {
     bool playing = false;
     bool armed = false;
     int tempo = 120;
-    int beat = -1;
-    int framesSinceLastBeat = 0;
+    int step = -1;
+    int framesSinceLastStep = 0;
     int transpose = 0;
     int scale = 0;
     int activeVoice = 0;
     Destinations* destinations;
     std::unique_ptr<Media> media;
     std::array<Voice, voiceCount> voices;
+    std::array<Sequence, voiceCount> sequences;
     std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
     std::unordered_map<std::string, void(Controller::*)(int)> sendCallbacks;
     choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Controller::*)(int), int>> sendMessages;
     choc::fifo::SingleReaderSingleWriterFIFO<std::pair<Destinations::Entry*, int>> destinationMessages;
 
-    void onPlay(int) {
-        playing = !playing;
-        beat = -1;
-        framesSinceLastBeat = std::ceil(beatDuration());
-    }
-
-    void onArm(int) {
-        armed = !armed;
+    void onAuditionDown(int value) {
+        prepareVoice(value, voices[value].naturalNote);
     }
 
     void onNoteDown(int value) {
         prepareVoice(activeVoice, keyToNote(value));
     }
 
-    void onAuditionDown(int value) {
-        prepareVoice(value, voices[value].naturalNote);
-    }
-
     void onActivateVoice(int value) {
         activeVoice = value;
+    }
+
+    void onView(int value) {
+        switch (value) {
+            case 0: return sequences[activeVoice].zoomOut();
+            case 1: return sequences[activeVoice].movePage(-1);
+            case 2: return sequences[activeVoice].movePage(1);
+            case 3: return sequences[activeVoice].zoomIn();
+        }
+    }
+
+    void onStepSequence(int value) {
+        sequences[activeVoice].toggle(value);
+    }
+
+    void onPlay(int) {
+        playing = !playing;
+        step = -1;
+        framesSinceLastStep = std::ceil(stepDuration());
+    }
+
+    void onArm(int) {
+        armed = !armed;
     }
 
     void onTempo(int value) {
@@ -130,16 +150,12 @@ struct Controller : EventHandler {
 
     void prepareVoice(int v, int note) {
         voices[v].prepare(note);
-        if (armed && playing) {
-            int quantizedBeat = beat + (framesSinceLastBeat > (beatDuration()/2));
-            Voice::Step& step = voices[v].sequence[quantizedBeat % voices[v].sequence.size()];
-            step.active = true;
-            step.note = note;
-        }
+        if (armed && playing)
+            sequences[activeVoice].record(step + (framesSinceLastStep > (stepDuration()/2)), note);
     }
 
-    float beatDuration() {
-        return SAMPLE_RATE * 60.f / tempo;
+    float stepDuration() {
+        return SAMPLE_RATE * 240.f / tempo / Sequence::maxResolution;
     }
 
     int keyToNote(int key) {

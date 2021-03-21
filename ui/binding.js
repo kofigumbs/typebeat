@@ -12,8 +12,8 @@ class Binding {
     }));
   }
 
-  static buttons(caps, labels, onDown) {
-    return Binding.group(caps, i => ({ label: () => labels()[i], onDown: () => onDown(i) }));
+  static nudge(caps, jump, onDown) {
+    return Binding.group(caps, i => ({ label: () => [-jump, -1, 1, '+' + jump][i], onDown: () => onDown(i) }));
   }
 
   static group(caps, f) {

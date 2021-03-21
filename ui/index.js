@@ -43,37 +43,51 @@ const bindingsByModifier = new Map([
     })),
   ])}],
   ['A', { mode: 'Loop', actions: new Map([
-    ...Binding.oneOf('YUI', state, 'loop', ['page', 'zoom', 'length']),
-    ...Binding.buttons('HJL;', () => ['-4', '-1', '+1', '+4'], i => {}),
+    ...Binding.group('HJL;', i => ({
+      label: () => ['zoom -', 'page -', 'page +', 'zoom +'][i],
+      onDown: () => window.$send('view', i),
+    })),
+    ...Binding.group('NM,.', i => ({
+      label: () => {
+        const step = `${(state.viewStart + i) % state.resolution + 1}/${state.resolution}`;
+        switch (state[`view:${i}`]) {
+          case 0: return '';
+          case 1: return `${step} _`;
+          case 2: return `${step} █`;
+        }
+      },
+      onDown: () => window.$send('stepSequence', i),
+    })),
+    ['K', Binding.title(() => `bar ${((state.viewStart/state.resolution)|0) + 1}/${state.bars}`) ],
   ])}],
   ['S', { mode: 'EQ', actions: new Map([
     ...Binding.oneOf('YUIOP', state, 'eqBand', ['hi pass', 'mid 1', 'mid 2', 'mid 3', 'lo pass']),
     ...Binding.oneOf('NM', state, 'eqFilter', ['freq.', 'res.']),
-    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => {}),
+    ...Binding.nudge('HJL;', 10, i => {}),
     ['K', Binding.title(() => state[`${state.eqBand}:${state.eqFilter}`]) ],
     ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['D', { mode: 'ADSR', actions: new Map([
     ...Binding.oneOf('YUIO', state, 'adsr', ['attack', 'decay', 'sustain', 'release']),
-    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => {}),
+    ...Binding.nudge('HJL;', 10, i => {}),
     ['K', Binding.title(() => state[state.adsr]) ],
     ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['F', { mode: 'FX', actions: new Map([
     ...Binding.oneOf('YUIOP', state, 'fx', ['comp.', 'distort', 'vocoder', 'chorus', 'duck']),
-    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => {}),
+    ...Binding.nudge('HJL;', 10, i => {}),
     ['K', Binding.title(() => state[state.fx]) ],
     ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['G', { mode: 'Mix', actions: new Map([
     ...Binding.oneOf('YUIOPNM,', state, 'mix', ['volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape']),
-    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => window.$send?.(state.mix, i)),
+    ...Binding.nudge('HJL;', 10, i => window.$send?.(state.mix, i)),
     ['K', Binding.title(() => state[state.mix]) ],
     ['/', Binding.toggle('FILL', () => state.fill, () => {}) ],
   ])}],
   ['Z', { mode: 'Song', actions: new Map([
     ...Binding.oneOf('Y', state, 'song', ['tempo']),
-    ...Binding.buttons('HJL;', () => ['-10', '-1', '+1', '+10'], i => window.$send?.(state.song, i)),
+    ...Binding.nudge('HJL;', 10, i => window.$send?.(state.song, i)),
     ['K', Binding.title(() => state.tempo) ],
     ['N', Binding.toggle('play', () => state.playing, () => window.$send?.('play')) ],
     ['M', Binding.toggle('arm', () => state.armed, () => window.$send?.('arm')) ],
@@ -84,7 +98,7 @@ const bindingsByModifier = new Map([
   ])}],
   ['V', { mode: 'Mute', actions: new Map([
   ])}],
-  ['B', { mode: 'Live', actions: new Map([
+  ['B', { mode: 'Tape', actions: new Map([
   ])}],
   [undefined, { actions: new Map([
     ...Binding.group(capsOnRight, i => ({
@@ -144,6 +158,7 @@ const foreignFields = [
   'activeVoice',
   'scale', 'tempo', 'playing', 'armed',
   'naturalNote',
+  'bars', 'resolution', 'viewStart', 'view:0', 'view:1', 'view:2', 'view:3',
   'volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape',
   ...keysOnRight.map((_, i) => `note:${i}`),
   ...keysOnRight.map((_, i) => `mute:${i}`),

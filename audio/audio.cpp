@@ -18,6 +18,7 @@
 
 #include "./audio.h"
 #include "./Destinations.h"
+#include "./Sequence.h"
 #include "./Voice.h"
 #include "./Media.h"
 #include "./Controller.h"

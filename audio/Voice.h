@@ -10,16 +10,10 @@ struct Voice {
         std::unique_ptr<float[]> frames;
     };
 
-    struct Step {
-        int active;
-        int note;
-    };
-
     int octave = 4;
     int naturalNote = 69; // 440 Hz
-    std::array<Step, 8> sequence;
 
-    Voice() : sequence() {
+    Voice() {
         memory.mono = true;
         memory.length = 6*SAMPLE_RATE;
         memory.frames = std::unique_ptr<float[]>(new float[memory.length]);
