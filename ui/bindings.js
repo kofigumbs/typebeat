@@ -1,4 +1,4 @@
-function Bindings({ state, send }) {
+const Bindings = ({ state, send }) => {
   const noOp = () => '';
   const bind = options => Object.assign({ label: noOp, title: noOp, onDown: noOp, onUp: noOp }, options);
 
@@ -52,7 +52,7 @@ function Bindings({ state, send }) {
     ['A', { mode: 'Loop', actions: new Map([
       ...group('HJL;', i => ({
         label: () => ['zoom -', 'page -', 'page +', 'zoom +'][i],
-        onDown: () => window.$send('view', i),
+        onDown: () => send('view', i),
       })),
       ...group('NM,.', i => ({
         label: async () => {
@@ -63,7 +63,7 @@ function Bindings({ state, send }) {
             case 2: return `${step} █`;
           }
         },
-        onDown: () => window.$send('stepSequence', i),
+        onDown: () => send('stepSequence', i),
       })),
       ['K', title(async () => `bar ${((await state.viewStart / await state.resolution)|0) + 1}/${await state.bars}`) ],
     ])}],
@@ -109,4 +109,4 @@ function Bindings({ state, send }) {
       })),
     ])}],
   ]);
-}
+};

@@ -1,11 +1,14 @@
-const state = new State({
+const debug = context => (...args) => {
+  console.log(`[Typebeat] ${context}: ${args.join(', ')}`);
+  return 0;
+};
+const [state, clearCache] = State({
   defaults: [['modifier', undefined]],
-  receive: window.$receive || (() => {}),
+  receive: window.$receive ?? debug('receive'),
 });
-
-const bindings = new Bindings({
+const bindings = Bindings({
   state,
-  send: window.$send || (() => {}),
+  send: window.$send ?? debug('send'),
 });
 
 
@@ -71,6 +74,7 @@ const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`)
  */
 
 const sync = async () => {
+  clearCache();
   const binding = bindings.get(state.modifier);
   for (let i = 0; i < keysOnRight.length; i++) {
     const key = keysOnRight[i];
