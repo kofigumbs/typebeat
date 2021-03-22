@@ -16,15 +16,15 @@
 
 #include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
-#include "./audio.h"
-#include "./Destinations.h"
-#include "./Sequence.h"
-#include "./Voice.h"
-#include "./Media.h"
-#include "./Controller.h"
+#include "./audio.hpp"
+#include "./Destinations.hpp"
+#include "./Sequence.hpp"
+#include "./Voice.hpp"
+#include "./Media.hpp"
+#include "./Controller.hpp"
 
-#include "./faust/UI.h"
-#include "./faust/one_sample_dsp.h"
+#include "./faust/UI.hpp"
+#include "./faust/one_sample_dsp.hpp"
 #include "../build/Effects.h"
 
 struct UserData {

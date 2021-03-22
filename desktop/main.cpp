@@ -1,7 +1,7 @@
 #include <filesystem>
 #include <regex>
 #include "../vendor/webview/webview.h"
-#include "../audio/audio.h"
+#include "../audio/audio.hpp"
 
 std::vector<std::string> getArguments(std::string json) {
     std::vector<std::string> arguments;
