@@ -5,6 +5,13 @@ struct Sequence {
         int note = 69;
     };
 
+    enum View {
+        none,
+        empty,
+        exactlyOnStep,
+        containsSteps,
+    };
+
     static const int perPage = 4;
     static const int maxResolution = 64;
 
@@ -15,13 +22,7 @@ struct Sequence {
     }
 
     int view(int i) {
-        auto start = viewIndexToStart(i);
-        if (start >= length)
-            return 0;
-        else if (!steps[start].active)
-            return 1;
-        else
-            return 2;
+        return viewFrom(viewIndexToStart(i));
     }
 
     int viewStart() {
@@ -47,9 +48,20 @@ struct Sequence {
     }
 
     void toggle(int i) {
-        auto index = viewIndexToStart(i);
-        steps[index].active ^= true;
-        steps[index].skipNext = false;
+        auto start = viewIndexToStart(i);
+        switch (viewFrom(start)) {
+            case View::none:
+                return;
+            case View::empty:
+            case View::exactlyOnStep:
+                steps[start].active ^= true;
+                steps[start].skipNext = false;
+                return;
+            case View::containsSteps:
+                for (int i = start; i < start + viewLength(); i++)
+                    steps[i].active = false;
+                return;
+        }
     }
 
     void record(int position, int note) {
@@ -88,6 +100,25 @@ struct Sequence {
 
     int viewIndexToStart(int i) {
         return pageStart + i * viewLength();
+    }
+
+    View viewFrom(int start) {
+        if (start >= length)
+            return View::none;
+        int countActive = 0;
+        int lastActive = 0;
+        for (int i = start; i < start + viewLength(); i++) {
+            if (steps[i].active) {
+                countActive++;
+                lastActive = i;
+            }
+        }
+        if (countActive == 0)
+            return View::empty;
+        else if (countActive == 1 && lastActive == start)
+            return View::exactlyOnStep;
+        else
+            return View::containsSteps;
     }
 
     std::array<Step, maxResolution*16*8> steps;

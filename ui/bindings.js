@@ -61,6 +61,7 @@ const Bindings = ({ state, send }) => {
             case 0: return '';
             case 1: return `${step} _`;
             case 2: return `${step} █`;
+            case 3: return `${step} ░`;
           }
         },
         onDown: () => send('stepSequence', i),
