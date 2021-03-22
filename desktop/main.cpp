@@ -24,9 +24,7 @@ int main(int argc, char* argv[]) {
     auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
         .parent_path(); // project directory
-    char* captureDeviceName = argc < 2 ? nullptr : argv[1];
-    char* playbackDeviceName = argc < 3 ? captureDeviceName : argv[2];
-    run(root, nullptr, nullptr, [root](EventHandler* eventHandler) {
+    run(root, getenv("TYPEBEAT_INPUT_DEVICE"), getenv("TYPEBEAT_OUTPUT_DEVICE"), [root](EventHandler* eventHandler) {
         webview::webview view(true, nullptr);
         view.set_size(1200, 400, WEBVIEW_HINT_MIN);
         view.set_size(1200, 430, WEBVIEW_HINT_NONE);

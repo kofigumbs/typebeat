@@ -19,7 +19,7 @@ const Bindings = ({ state, send }) => {
   const fill = ['/', toggle('FILL', async () => await state.fill, () => {}) ];
   const nudge = (value, onDown) => [
     ['K', title(value) ],
-    ...group('HJL;', i => ({ label: () => ['-10', -1, 1, '+10'][i], onDown: () => onDown(i) })),
+    ...group('HJL;', i => ({ label: () => ['-10', '-1', '+1', '+10'][i], onDown: () => onDown(i) })),
   ];
 
   return new Map([

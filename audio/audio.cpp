@@ -35,12 +35,12 @@ struct UserData {
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
     auto userData = (UserData*) device->pUserData;
     for (int frame = 0; frame < frameCount; frame++) {
-        userData->controller->render(((float*) input)[frame]);
+        userData->controller->render(((float*) input)[frame*device->capture.channels]);
         userData->effects->render((float*) userData->controller->output.data(), ((float*) output) + frame*device->playback.channels);
     }
 }
 
-void run(std::filesystem::path root, char* captureDeviceName, char* playbackDeviceName, std::function<void(EventHandler*)> view) {
+void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceName, std::function<void(EventHandler*)> view) {
     ma_context context;
     ma_device_id* captureDeviceId = nullptr;
     ma_device_id* playbackDeviceId = nullptr;
@@ -50,15 +50,15 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     ma_device_info* playbackDeviceInfo;
     assert(ma_context_init(NULL, 0, NULL, &context) == MA_SUCCESS);
     assert(ma_context_get_devices(&context, &playbackDeviceInfo, &playbackDeviceCount,  &captureDeviceInfo, &captureDeviceCount) == MA_SUCCESS);
-    if (captureDeviceName != nullptr) {
+    if (inputDeviceName != nullptr) {
         for (int i = 0; i < captureDeviceCount; ++i)
-            if (strcmp(captureDeviceName, captureDeviceInfo[i].name) == 0)
+            if (strcmp(inputDeviceName, captureDeviceInfo[i].name) == 0)
                 captureDeviceId = &captureDeviceInfo[i].id;
         assert(captureDeviceId != nullptr);
     }
-    if (playbackDeviceName != nullptr) {
+    if (outputDeviceName != nullptr) {
         for (int i = 0; i < playbackDeviceCount; ++i)
-            if (strcmp(playbackDeviceName, playbackDeviceInfo[i].name) == 0)
+            if (strcmp(outputDeviceName, playbackDeviceInfo[i].name) == 0)
                 playbackDeviceId = &playbackDeviceInfo[i].id;
         assert(playbackDeviceId != nullptr);
     }
@@ -66,6 +66,7 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     auto effects = std::make_unique<Effects>();
     effects->prepare();
     auto controller = std::make_unique<Controller>(root, effects->destinations.get());
+    assert(effects->getNumOutputs() == 2);
     assert(sizeof(controller->output) == effects->getNumInputs() * sizeof(float));
     UserData userData { controller.get(), effects.get() };
 
@@ -74,7 +75,7 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     deviceConfig.capture.channels = 1;
     deviceConfig.capture.format = ma_format_f32;
     deviceConfig.capture.pDeviceID = captureDeviceId;
-    deviceConfig.playback.channels = effects->getNumOutputs();
+    deviceConfig.playback.channels = 2;
     deviceConfig.playback.format = ma_format_f32;
     deviceConfig.playback.pDeviceID = playbackDeviceId;
     deviceConfig.sampleRate = SAMPLE_RATE;
@@ -82,7 +83,7 @@ void run(std::filesystem::path root, char* captureDeviceName, char* playbackDevi
     deviceConfig.pUserData = &userData;
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
-    ma_device_start(&device);
+    assert(ma_device_start(&device) == MA_SUCCESS);
     view(controller.get());
     ma_device_uninit(&device);
     ma_context_uninit(&context);
