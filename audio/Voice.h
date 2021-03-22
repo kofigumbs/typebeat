@@ -10,8 +10,14 @@ struct Voice {
         std::unique_ptr<float[]> frames;
     };
 
+    enum Source {
+        Source_sample,
+        Source_input,
+    };
+
     int octave = 4;
     int naturalNote = 69; // 440 Hz
+    Source source = Source_sample;
 
     Voice() {
         memory.mono = true;
@@ -36,7 +42,11 @@ struct Voice {
         }
     }
 
-    void render(Output& output) {
+    void render(float input, Output& output) {
+        if (source == Source_input) {
+            output.l = output.r = input;
+            return;
+        }
         auto i = int(position);
         if (active && position == i && position < sample->length) {
             output.l = leftChannelAt(i);

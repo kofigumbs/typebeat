@@ -6,10 +6,10 @@ struct Sequence {
     };
 
     enum View {
-        none,
-        empty,
-        exactlyOnStep,
-        containsSteps,
+        View_none,
+        View_empty,
+        View_exactlyOnStep,
+        View_containsSteps,
     };
 
     static const int perPage = 4;
@@ -50,14 +50,14 @@ struct Sequence {
     void toggle(int i) {
         auto start = viewIndexToStart(i);
         switch (viewFrom(start)) {
-            case View::none:
+            case View_none:
                 return;
-            case View::empty:
-            case View::exactlyOnStep:
+            case View_empty:
+            case View_exactlyOnStep:
                 steps[start].active ^= true;
                 steps[start].skipNext = false;
                 return;
-            case View::containsSteps:
+            case View_containsSteps:
                 for (int i = start; i < start + viewLength(); i++)
                     steps[i].active = false;
                 return;
@@ -104,7 +104,7 @@ struct Sequence {
 
     View viewFrom(int start) {
         if (start >= length)
-            return View::none;
+            return View_none;
         int countActive = 0;
         int lastActive = 0;
         for (int i = start; i < start + viewLength(); i++) {
@@ -114,11 +114,11 @@ struct Sequence {
             }
         }
         if (countActive == 0)
-            return View::empty;
+            return View_empty;
         else if (countActive == 1 && lastActive == start)
-            return View::exactlyOnStep;
+            return View_exactlyOnStep;
         else
-            return View::containsSteps;
+            return View_containsSteps;
     }
 
     std::array<Step, maxResolution*16*8> steps;

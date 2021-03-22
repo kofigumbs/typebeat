@@ -9,6 +9,7 @@ struct Controller : EventHandler {
         sendMessages.reset(8); // max queue size
         sendCallbacks["auditionDown"] = &Controller::onAuditionDown;
         sendCallbacks["activateVoice"] = &Controller::onActivateVoice;
+        sendCallbacks["source"] = &Controller::onSource;
         sendCallbacks["noteDown"] = &Controller::onNoteDown;
         sendCallbacks["view"] = &Controller::onView;
         sendCallbacks["stepSequence"] = &Controller::onStepSequence;
@@ -18,6 +19,7 @@ struct Controller : EventHandler {
         // receive callbacks use lambdas since they are not run on the audio thread, and thus allowed to allocate
         receiveCallbacks["playing"] = [this](){ return playing; };
         receiveCallbacks["armed"] = [this](){ return armed; };
+        receiveCallbacks["source"] = [this](){ return voices[activeVoice].source; };
         receiveCallbacks["bars"] = [this](){ return sequences[activeVoice].bars(); };
         receiveCallbacks["viewStart"] = [this](){ return sequences[activeVoice].viewStart(); };
         receiveCallbacks["resolution"] = [this](){ return sequences[activeVoice].resolution; };
@@ -48,7 +50,7 @@ struct Controller : EventHandler {
         return receiveCallbacks.count(name) ? receiveCallbacks[name]() : 0;
     }
 
-    void render(float audio) {
+    void render(float input) {
         // step
         bool newStep;
         if (playing) {
@@ -72,7 +74,7 @@ struct Controller : EventHandler {
             int sequenceNote;
             if (newStep && sequences[v].at(step, sequenceNote))
                 voices[v].prepare(sequenceNote);
-            voices[v].render(output[v]);
+            voices[v].render(input, output[v]);
         }
     }
 
@@ -113,12 +115,16 @@ struct Controller : EventHandler {
         prepareVoice(value, voices[value].naturalNote);
     }
 
-    void onNoteDown(int value) {
-        prepareVoice(activeVoice, keyToNote(value));
-    }
-
     void onActivateVoice(int value) {
         activeVoice = value;
+    }
+
+    void onSource(int value) {
+        voices[activeVoice].source = static_cast<Voice::Source>(value);
+    }
+
+    void onNoteDown(int value) {
+        prepareVoice(activeVoice, keyToNote(value));
     }
 
     void onView(int value) {

@@ -31,6 +31,8 @@ const Bindings = ({ state, send }) => {
       })),
     ])}],
     ['W', { mode: 'Source', actions: new Map([
+      ['Y', toggle('sample', async () => await state.source === 0, () => send('source', 0)) ],
+      ['U', toggle('input', async () => await state.source === 1, () => send('source', 1)) ],
     ])}],
     ['E', { mode: 'Chop', actions: new Map([
     ])}],
