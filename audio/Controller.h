@@ -151,7 +151,7 @@ struct Controller : EventHandler {
     void prepareVoice(int v, int note) {
         voices[v].prepare(note);
         if (armed && playing)
-            sequences[activeVoice].record(step + (framesSinceLastStep > (stepDuration()/2)), note);
+            sequences[v].record(step + (framesSinceLastStep > (stepDuration()/2)), note);
     }
 
     float stepDuration() {
