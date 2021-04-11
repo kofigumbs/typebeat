@@ -25,9 +25,9 @@ const Bindings = ({ state, send }) => {
   return new Map([
     ['Q', { actions: new Map([
       ...all(i => ({
-        label: async () => i === await state.activeVoice ? 'active' : '',
-        title: async () => i === await state.activeVoice,
-        onDown: () => send('activateVoice', i),
+        label: async () => i === await state.activeTrack ? 'active' : '',
+        title: async () => i === await state.activeTrack,
+        onDown: () => send('activateTrack', i),
       })),
     ])}],
     ['W', { mode: 'Source', actions: new Map([

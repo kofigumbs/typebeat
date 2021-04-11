@@ -1,9 +1,5 @@
-struct Sequence {
-    struct Step {
-        bool active;
-        bool skipNext;
-        int note = 69;
-    };
+struct Track {
+    static const int viewsPerPage = 4;
 
     enum View {
         View_none,
@@ -12,13 +8,22 @@ struct Sequence {
         View_containsSteps,
     };
 
-    static const int perPage = 4;
-    static const int maxResolution = 64;
+    struct Step {
+        bool active;
+        bool skipNext;
+        int note = 69;
+    };
 
+    int sample;
     int resolution = 4;
+    int octave = 4;
+    int naturalNote = 69; // 440 Hz
+
+    Track(mydsp_poly* d, Transport* t, EntryMap e) : dsp(d), transport(t), entryMap(e), steps() {
+    }
 
     int bars() {
-        return std::ceil(1.f * length / maxResolution);
+        return std::ceil(1.f * length / Transport::maxResolution);
     }
 
     int view(int i) {
@@ -30,7 +35,7 @@ struct Sequence {
     }
 
     void movePage(int diff) {
-        auto newPageStart = pageStart + diff * pageLength();
+        auto newPageStart = pageStart + diff * viewsPerPage * viewLength();
         if (newPageStart < length)
             pageStart = (std::max)(0, newPageStart);
     }
@@ -38,12 +43,12 @@ struct Sequence {
     void zoomOut() {
         if (resolution > 1) {
             resolution /= 2;
-            pageStart = rescale(pageStart);
+            pageStart = pageStart / viewLength() * viewLength();
         }
     }
 
     void zoomIn() {
-        if (resolution < maxResolution)
+        if (resolution < Transport::maxResolution)
             resolution *= 2;
     }
 
@@ -64,38 +69,42 @@ struct Sequence {
         }
     }
 
-    void record(int position, int note) {
-        auto quantizedPosition = rescale(position + viewLength()/2);
-        auto quantizedIndex = quantizedPosition % length;
-        steps[quantizedIndex].active = true;
-        steps[quantizedIndex].skipNext = quantizedPosition > position;
-        steps[quantizedIndex].note = note;
+    void advance() {
+        if (transport->newStep()) {
+            auto& step = steps[transport->step % length];
+            if (step.skipNext)
+                step.skipNext = false;
+            else if (step.active)
+                newVoice(step.note);
+        }
     }
 
-    bool at(int position, int& note) {
-        auto& step = steps[position % length];
-        if (step.skipNext) {
-            step.skipNext = false;
-            return false;
+    void play() {
+        play(naturalNote);
+    }
+
+    void play(int note) {
+        if (transport->playing && transport->armed) {
+            auto quantizedStep = transport->quantizedStep(resolution);
+            steps[quantizedStep % length] = {
+                .active = true,
+                .skipNext = quantizedStep >= transport->step,
+                .note = note 
+            };
         }
-        note = step.note;
-        return step.active;
+        newVoice(note);
     }
 
   private:
     int pageStart = 0;
-    int length = maxResolution*4;
-
-    int rescale(int position) {
-        return position / viewLength() * viewLength();
-    }
-
-    int pageLength() {
-        return perPage * viewLength();
-    }
+    int length = Transport::maxResolution*4;
+    mydsp_poly* dsp;
+    Transport* transport;
+    EntryMap entryMap;
+    std::array<Step, Transport::maxResolution*16*8> steps;
 
     int viewLength() {
-        return maxResolution / resolution;
+        return Transport::maxResolution / resolution;
     }
 
     int viewIndexToStart(int i) {
@@ -121,5 +130,11 @@ struct Sequence {
             return View_containsSteps;
     }
 
-    std::array<Step, maxResolution*16*8> steps;
+    void newVoice(int note) {
+        auto ui = dsp->newVoice();
+        ui->setParamValue("note", note);
+        ui->setParamValue("sample", sample);
+        for (const auto& pair : entryMap.contents)
+            ui->setParamValue(pair.first, pair.second.value);
+    }
 };

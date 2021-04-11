@@ -2,7 +2,6 @@
 #include <iostream>
 #include <cassert>
 #include <filesystem>
-#include <set>
 #include <unordered_map>
 
 #define MINIAUDIO_IMPLEMENTATION
@@ -12,31 +11,37 @@
 
 #define SAMPLE_RATE 44100
 #include "faust/dsp/dsp.h"
-#include "faust/gui/meta.h"
+#include "faust/dsp/poly-dsp.h"
+#include "faust/gui/DecoratorUI.h"
+#include "faust/gui/Soundfile.h"
 
 #include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
 #include "./audio.hpp"
-#include "./Destinations.hpp"
-#include "./Sequence.hpp"
-#include "./Voice.hpp"
-#include "./Media.hpp"
+#include "./EntryMap.hpp"
+#include "./Transport.hpp"
+#include "./Track.hpp"
 #include "./Controller.hpp"
+#include "./DefaultSamples.hpp"
 
-#include "./faust/UI.hpp"
-#include "./faust/one_sample_dsp.hpp"
-#include "../build/Effects.h"
+Soundfile* defaultsound;
+#include "../build/Insert.h"
+
+std::list<GUI*> GUI::fGuiList;
+const int voiceCount = Controller::trackCount;
 
 struct UserData {
     Controller* controller;
-    Effects* effects;
+    mydsp_poly* dsp;
 };
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
     auto userData = (UserData*) device->pUserData;
     for (int frame = 0; frame < frameCount; frame++) {
-        userData->controller->render(((float*) input)[frame*device->capture.channels]);
-        userData->effects->render((float*) userData->controller->output.data(), ((float*) output) + frame*device->playback.channels);
+        auto i = (float*) input + frame*device->capture.channels;
+        auto o = (float*) output + frame*device->playback.channels;
+        userData->controller->advance();
+        userData->dsp->compute(1, &i, &o);
     }
 }
 
@@ -63,12 +68,19 @@ void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceNa
         assert(playbackDeviceId != nullptr);
     }
 
-    auto effects = std::make_unique<Effects>();
-    effects->prepare();
-    auto controller = std::make_unique<Controller>(root, effects->destinations.get());
-    assert(effects->getNumOutputs() == 2);
-    assert(sizeof(controller->output) == effects->getNumInputs() * sizeof(float));
-    UserData userData { controller.get(), effects.get() };
+    auto insert = Insert();
+    auto entryMap = EntryMap();
+    auto defaultSamples = std::make_unique<DefaultSamples>(root / "default-samples");
+    insert.buildUserInterface(&entryMap);
+
+    auto dsp = std::make_unique<mydsp_poly>(&insert, voiceCount, true, false);
+    auto transport = std::make_unique<Transport>();
+    auto controller = std::make_unique<Controller>(Track(dsp.get(), transport.get(), entryMap));
+
+    dsp->init(SAMPLE_RATE);
+    dsp->buildUserInterface(defaultSamples.get());
+    assert(dsp->getNumOutputs() == 2);
+    UserData userData { controller.get(), dsp.get() };
 
     ma_device device;
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);

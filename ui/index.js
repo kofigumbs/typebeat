@@ -82,7 +82,7 @@ const sync = async () => {
     labels[i].ariaLabel = await action?.label() ?? '';
     if (!!state.modifier)
       labels[i].classList.toggle('title', !!(await action?.title()));
-    minipads[i].classList.toggle('active', i === await state.activeVoice);
+    minipads[i].classList.toggle('active', i === await state.activeTrack);
   };
   if (state.playing)
     requestSync();
