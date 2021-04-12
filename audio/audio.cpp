@@ -22,7 +22,7 @@
 #include "./Transport.hpp"
 #include "./Track.hpp"
 #include "./Controller.hpp"
-#include "./DefaultSamples.hpp"
+#include "./SampleFiles.hpp"
 
 Soundfile* defaultsound;
 #include "../build/Insert.h"
@@ -70,7 +70,7 @@ void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceNa
 
     auto insert = Insert();
     auto entryMap = EntryMap();
-    auto defaultSamples = std::make_unique<DefaultSamples>(root / "default-samples");
+    auto defaultSamples = std::make_unique<SampleFiles>(root / "samples");
     insert.buildUserInterface(&entryMap);
 
     auto dsp = std::make_unique<mydsp_poly>(&insert, voiceCount, true, false);

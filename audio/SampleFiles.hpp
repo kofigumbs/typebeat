@@ -1,5 +1,5 @@
-struct DefaultSamples : GenericUI {
-    DefaultSamples(std::filesystem::path dir) {
+struct SampleFiles : GenericUI {
+    SampleFiles(std::filesystem::path dir) {
         assert(Controller::trackCount <= MAX_SOUNDFILE_PARTS);
         soundfile = std::make_unique<Soundfile>();
         soundfile->fChannels = 2;
