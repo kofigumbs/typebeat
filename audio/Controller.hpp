@@ -4,13 +4,15 @@ struct Controller : EventHandler {
     Controller(Track track) : tracks(), transport(), receiveCallbacks(), sendCallbacks(), sendMessages() {
         for (int i = 0; i < trackCount; i++) {
             tracks.push_back(track);
-            tracks[i].sample = i;
+            tracks[i].id = i;
         }
         sendMessages.reset(8); // max queue size
         sendCallbacks["auditionDown"] = &Controller::onAuditionDown;
+        sendCallbacks["auditionUp"] = &Controller::onAuditionUp;
         sendCallbacks["activateTrack"] = &Controller::onActivateTrack;
         // sendCallbacks["source"] = &Controller::onSource;
         sendCallbacks["noteDown"] = &Controller::onNoteDown;
+        sendCallbacks["noteUp"] = &Controller::onNoteUp;
         sendCallbacks["view"] = &Controller::onView;
         sendCallbacks["stepSequence"] = &Controller::onStepSequence;
         sendCallbacks["play"] = &Controller::onPlay;
@@ -81,12 +83,20 @@ struct Controller : EventHandler {
         tracks[value].play();
     }
 
+    void onAuditionUp(int value) {
+        tracks[value].release();
+    }
+
     void onActivateTrack(int value) {
         activeTrack = value;
     }
 
     void onNoteDown(int value) {
         tracks[activeTrack].play(keyToNote(value));
+    }
+
+    void onNoteUp(int value) {
+        tracks[activeTrack].release(keyToNote(value));
     }
 
     void onView(int value) {

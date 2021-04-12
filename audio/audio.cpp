@@ -25,10 +25,8 @@
 #include "./SampleFiles.hpp"
 
 Soundfile* defaultsound;
-#include "../build/Insert.h"
-
 std::list<GUI*> GUI::fGuiList;
-const int voiceCount = Controller::trackCount;
+#include "../build/Insert.h"
 
 struct UserData {
     Controller* controller;
@@ -41,7 +39,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
         auto i = (float*) input + frame*device->capture.channels;
         auto o = (float*) output + frame*device->playback.channels;
         userData->controller->advance();
-        userData->dsp->compute(1, &i, &o);
+        userData->dsp->compute(1, &i, &o); // only one frame for sample-accurate controls
     }
 }
 
@@ -73,7 +71,7 @@ void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceNa
     auto defaultSamples = std::make_unique<SampleFiles>(root / "samples");
     insert.buildUserInterface(&entryMap);
 
-    auto dsp = std::make_unique<mydsp_poly>(&insert, voiceCount, true, false);
+    auto dsp = std::make_unique<mydsp_poly>(&insert, 5, true, false);
     auto transport = std::make_unique<Transport>();
     auto controller = std::make_unique<Controller>(Track(dsp.get(), transport.get(), entryMap));
 

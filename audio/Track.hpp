@@ -14,7 +14,7 @@ struct Track {
         int note = 69;
     };
 
-    int sample;
+    int id;
     int resolution = 4;
     int octave = 4;
     int naturalNote = 69; // 440 Hz
@@ -75,7 +75,7 @@ struct Track {
             if (step.skipNext)
                 step.skipNext = false;
             else if (step.active)
-                newVoice(step.note);
+                keyDown(step.note);
         }
     }
 
@@ -92,7 +92,15 @@ struct Track {
                 .note = note 
             };
         }
-        newVoice(note);
+        keyDown(note);
+    }
+
+    void release() {
+        release(naturalNote);
+    }
+
+    void release(int note) {
+        dsp->keyOff(id, note);
     }
 
   private:
@@ -130,10 +138,9 @@ struct Track {
             return View_containsSteps;
     }
 
-    void newVoice(int note) {
-        auto ui = dsp->newVoice();
-        ui->setParamValue("note", note);
-        ui->setParamValue("sample", sample);
+    void keyDown(int note) {
+        auto ui = dsp->keyOn(id, note, id); // encode sample id as velocity https://git.io/JOtNa
+        ui->setParamValue("naturalNote", naturalNote);
         for (const auto& pair : entryMap.contents)
             ui->setParamValue(pair.first, pair.second.value);
     }
