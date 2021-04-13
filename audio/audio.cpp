@@ -17,16 +17,16 @@
 
 #include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
+Soundfile* defaultsound;
+std::list<GUI*> GUI::fGuiList;
+#include "../build/Insert.h"
+
 #include "./audio.hpp"
 #include "./EntryMap.hpp"
 #include "./Transport.hpp"
 #include "./Track.hpp"
 #include "./Controller.hpp"
 #include "./SampleFiles.hpp"
-
-Soundfile* defaultsound;
-std::list<GUI*> GUI::fGuiList;
-#include "../build/Insert.h"
 
 struct UserData {
     Controller* controller;

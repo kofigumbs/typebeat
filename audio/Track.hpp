@@ -139,7 +139,8 @@ struct Track {
     }
 
     void keyDown(int note) {
-        auto ui = dsp->keyOn(id, note, id); // encode sample id as velocity https://git.io/JOtNa
+        auto ui = dsp->keyOn(id, note, 127);
+        ui->setParamValue("sampleFile", id);
         ui->setParamValue("naturalNote", naturalNote);
         for (const auto& pair : entryMap.contents)
             ui->setParamValue(pair.first, pair.second.value);
