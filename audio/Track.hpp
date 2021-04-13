@@ -14,12 +14,28 @@ struct Track {
         int note = 69;
     };
 
-    int id;
     int resolution = 4;
     int octave = 4;
-    int naturalNote = 69; // 440 Hz
 
-    Track(mydsp_poly* d, Transport* t, EntryMap e) : dsp(d), transport(t), entryMap(e), steps() {
+    Track(int i, mydsp_poly* d, Transport* t, EntryMap e) : id(i), dsp(d), transport(t), entryMap(e), steps() {
+    }
+
+    int onReceive(const std::string& name) {
+        return entryMap.contents.count(name) ? entryMap.contents[name].value : 0;
+    }
+
+    EntryMap::Entry* entry(const std::string& name) {
+        return entryMap.contents.count(name) ? &entryMap.contents[name] : nullptr;
+    }
+
+    void advance() {
+        if (transport->newStep()) {
+            auto& step = steps[transport->step % length];
+            if (step.skipNext)
+                step.skipNext = false;
+            else if (step.active)
+                keyDown(step.note);
+        }
     }
 
     int bars() {
@@ -69,18 +85,8 @@ struct Track {
         }
     }
 
-    void advance() {
-        if (transport->newStep()) {
-            auto& step = steps[transport->step % length];
-            if (step.skipNext)
-                step.skipNext = false;
-            else if (step.active)
-                keyDown(step.note);
-        }
-    }
-
     void play() {
-        play(naturalNote);
+        play(entryMap.contents["naturalNote"].value);
     }
 
     void play(int note) {
@@ -96,7 +102,7 @@ struct Track {
     }
 
     void release() {
-        release(naturalNote);
+        release(entryMap.contents["naturalNote"].value);
     }
 
     void release(int note) {
@@ -104,6 +110,7 @@ struct Track {
     }
 
   private:
+    int id;
     int pageStart = 0;
     int length = Transport::maxResolution*4;
     mydsp_poly* dsp;
@@ -141,7 +148,6 @@ struct Track {
     void keyDown(int note) {
         auto ui = dsp->keyOn(id, note, 127);
         ui->setParamValue("sampleFile", id);
-        ui->setParamValue("naturalNote", naturalNote);
         for (const auto& pair : entryMap.contents)
             ui->setParamValue(pair.first, pair.second.value);
     }

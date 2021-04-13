@@ -12,8 +12,7 @@ struct EntryMap : GenericUI {
     }
 
     void addNumEntry(const char* label, FAUSTFLOAT* zone, FAUSTFLOAT init, FAUSTFLOAT min, FAUSTFLOAT max, FAUSTFLOAT step) override {
-        auto s = std::string(label);
-        if (s.find("~"))
-            contents[s.substr(1)] = { init, min, max, step };
+        if (label[0] == '~')
+            contents[std::string(label).substr(1)] = { init, min, max, step };
     }
 };

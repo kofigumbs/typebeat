@@ -72,9 +72,7 @@ void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceNa
     insert.buildUserInterface(&entryMap);
 
     auto dsp = std::make_unique<mydsp_poly>(&insert, 5, true, false);
-    auto transport = std::make_unique<Transport>();
-    auto controller = std::make_unique<Controller>(Track(dsp.get(), transport.get(), entryMap));
-
+    auto controller = std::make_unique<Controller>(dsp.get(), entryMap);
     dsp->init(SAMPLE_RATE);
     dsp->buildUserInterface(defaultSamples.get());
     assert(dsp->getNumOutputs() == 2);

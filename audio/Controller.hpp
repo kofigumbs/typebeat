@@ -1,16 +1,15 @@
 struct Controller : EventHandler {
     static const int trackCount = 15;
+    static const int maxQueueSize = 8;
 
-    Controller(Track track) : tracks(), transport(), receiveCallbacks(), sendCallbacks(), sendMessages() {
-        for (int i = 0; i < trackCount; i++) {
-            tracks.push_back(track);
-            tracks[i].id = i;
-        }
-        sendMessages.reset(8); // max queue size
+    Controller(mydsp_poly* dsp, EntryMap entryMap) : tracks(), transport(), receiveCallbacks(), sendCallbacks(), sendMessages(), sendEntries() {
+        for (int i = 0; i < Controller::trackCount; i++)
+            tracks.push_back(Track(i, dsp, &transport, entryMap));
+        sendMessages.reset(maxQueueSize);
+        sendEntries.reset(maxQueueSize);
         sendCallbacks["auditionDown"] = &Controller::onAuditionDown;
         sendCallbacks["auditionUp"] = &Controller::onAuditionUp;
         sendCallbacks["activateTrack"] = &Controller::onActivateTrack;
-        // sendCallbacks["source"] = &Controller::onSource;
         sendCallbacks["noteDown"] = &Controller::onNoteDown;
         sendCallbacks["noteUp"] = &Controller::onNoteUp;
         sendCallbacks["view"] = &Controller::onView;
@@ -28,30 +27,37 @@ struct Controller : EventHandler {
         receiveCallbacks["activeTrack"] = [this](){ return activeTrack; };
         receiveCallbacks["transpose"] = [this](){ return transpose; };
         receiveCallbacks["scale"] = [this](){ return scale; };
-        for (int i = 0; i < trackCount; i++)
+        for (int i = 0; i < Controller::trackCount; i++)
             receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
         for (int i = 0; i < Track::viewsPerPage; i++)
             receiveCallbacks["view:" + std::to_string(i)] = [this, i](){ return tracks[activeTrack].view(i); };
     }
 
-    void onSend(std::string name, int value) override {
-        if (sendCallbacks.count(name)) {
+    void onSend(const std::string& name, int value) override {
+        if (sendCallbacks.count(name))
             sendMessages.push({ sendCallbacks[name], value });
-            return;
-        }
+        auto entry = tracks[activeTrack].entry(name);
+        if (entry != nullptr)
+            sendEntries.push({ entry, value });
     }
 
-    int onReceive(std::string name) override {
-        return receiveCallbacks.count(name) ? receiveCallbacks[name]() : 0;
+    int onReceive(const std::string& name) override {
+        if (receiveCallbacks.count(name))
+            return receiveCallbacks[name]();
+        else
+            return tracks[activeTrack].onReceive(name);
     }
 
     void advance() {
         transport.advance();
-        std::pair<void(Controller::*)(int), int> send;
-        while(sendMessages.pop(send))
-            (this->*send.first)(send.second);
-        for (auto& track : tracks)
-            track.advance();
+        std::pair<void(Controller::*)(int), int> message;
+        while(sendMessages.pop(message))
+            (this->*message.first)(message.second);
+        std::pair<EntryMap::Entry*, int> entry;
+        while(sendEntries.pop(entry))
+            nudge(entry.first->min, entry.first->max, &entry.first->value, entry.second);
+        for (int i = 0; i < Controller::trackCount; i++)
+            tracks[i].advance();
     }
 
   private:
@@ -78,6 +84,7 @@ struct Controller : EventHandler {
     std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
     std::unordered_map<std::string, void(Controller::*)(int)> sendCallbacks;
     choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Controller::*)(int), int>> sendMessages;
+    choc::fifo::SingleReaderSingleWriterFIFO<std::pair<EntryMap::Entry*, int>> sendEntries;
 
     void onAuditionDown(int value) {
         tracks[value].play();
@@ -121,20 +128,22 @@ struct Controller : EventHandler {
     }
 
     void onTempo(int value) {
-        transport.tempo = std::clamp(transport.tempo + nudge(value), 1, 999);
+        nudge(1, 999, &transport.tempo, value);
     }
 
     int keyToNote(int key) {
         return transpose + scaleOffsets[scale][key % 7] + (tracks[activeTrack].octave + key/7) * 12;
     }
 
-    int nudge(int value, int jump = 10) {
+    template <typename T>
+    void nudge(T low, T high, T* original, int value, int jump = 10) {
+        int diff = 0;
         switch (value) {
-            case 0:  return -jump;
-            case 1:  return -1;
-            case 2:  return 1;
-            case 3:  return jump;
-            default: return 0;
+            case 0: diff = -jump; break;
+            case 1: diff = -1;    break;
+            case 2: diff = 1;     break;
+            case 3: diff = jump;  break;
         }
+        *original = std::clamp(*original + diff, low, high);
     }
 };
