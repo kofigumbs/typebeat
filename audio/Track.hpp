@@ -20,12 +20,12 @@ struct Track {
     Track(int i, mydsp_poly* d, Transport* t, EntryMap e) : id(i), dsp(d), transport(t), entryMap(e), steps() {
     }
 
-    int onReceive(const std::string& name) {
-        return entryMap.contents.count(name) ? entryMap.contents[name].value : 0;
-    }
-
     EntryMap::Entry* entry(const std::string& name) {
         return entryMap.contents.count(name) ? &entryMap.contents[name] : nullptr;
+    }
+
+    int control(const std::string& name) {
+        return entryMap.contents.count(name) ? entryMap.contents[name].value : 0;
     }
 
     void advance() {

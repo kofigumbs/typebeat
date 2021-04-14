@@ -45,7 +45,7 @@ struct Controller : EventHandler {
         if (receiveCallbacks.count(name))
             return receiveCallbacks[name]();
         else
-            return tracks[activeTrack].onReceive(name);
+            return tracks[activeTrack].control(name);
     }
 
     void advance() {

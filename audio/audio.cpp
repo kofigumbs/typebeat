@@ -35,11 +35,14 @@ struct UserData {
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
     auto userData = (UserData*) device->pUserData;
+    float l, r;
+    float* o[2]{ &l, &r };
     for (int frame = 0; frame < frameCount; frame++) {
         auto i = (float*) input + frame*device->capture.channels;
-        auto o = (float*) output + frame*device->playback.channels;
         userData->controller->advance();
-        userData->dsp->compute(1, &i, &o); // only one frame for sample-accurate controls
+        userData->dsp->compute(1, &i, o); // only one frame for sample-accurate controls
+        ((float*) output)[frame*device->playback.channels] = l;
+        ((float*) output)[frame*device->playback.channels + 1] = r;
     }
 }
 
@@ -75,6 +78,7 @@ void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceNa
     auto controller = std::make_unique<Controller>(dsp.get(), entryMap);
     dsp->init(SAMPLE_RATE);
     dsp->buildUserInterface(defaultSamples.get());
+    assert(dsp->getNumInputs() == 1);
     assert(dsp->getNumOutputs() == 2);
     UserData userData { controller.get(), dsp.get() };
 
