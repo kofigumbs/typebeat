@@ -73,12 +73,12 @@ const Bindings = ({ state, send }) => {
     ['S', { mode: 'EQ', actions: new Map([
       ...oneOf('YUIOP', state, 'eqBand', ['hi pass', 'mid 1', 'mid 2', 'mid 3', 'lo pass']),
       ...oneOf('NM', state, 'eqFilter', ['freq.', 'res.']),
-      ...nudge(async () => await state[`${await state.eqBand}:${await state.eqFilter}`], i => {}),
+      ...nudge(async () => await state[`${state.eqBand}:${state.eqFilter}`], i => {}),
       fill,
     ])}],
     ['D', { mode: 'ADSR', actions: new Map([
       ...oneOf('YUIO', state, 'adsr', ['attack', 'decay', 'sustain', 'release']),
-      ...nudge(async () => await state[await state.adsr], i => {}),
+      ...nudge(async () => await state[state.adsr], i => send(state.adsr, i)),
       fill,
     ])}],
     ['F', { mode: 'FX', actions: new Map([
@@ -88,16 +88,16 @@ const Bindings = ({ state, send }) => {
     ])}],
     ['G', { mode: 'Mix', actions: new Map([
       ...oneOf('YUIOPNM,', state, 'mix', ['volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape']),
-      ...nudge(async () => await state[await state.mix], i => send(state.mix, i)),
+      ...nudge(async () => await state[state.mix], i => send(state.mix, i)),
       fill,
     ])}],
     ['Z', { mode: 'Song', actions: new Map([
       ...oneOf('Y', state, 'song', ['tempo']),
-      ...nudge(async () => await state[await state.song], async i => send(await state.song, i)),
+      ...nudge(async () => await state[state.song], async i => send(state.song, i)),
       ['N', toggle('play', async () => await state.playing, () => send('play')) ],
       ['M', toggle('arm', async () => await state.armed, () => send('arm')) ],
     ])}],
-    ['X', { mode: 'Auto', actions: new Map([
+    ['X', { mode: 'LFO', actions: new Map([
     ])}],
     ['C', { mode: 'Send', actions: new Map([
     ])}],

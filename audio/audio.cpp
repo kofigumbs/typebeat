@@ -74,7 +74,7 @@ void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceNa
     auto defaultSamples = std::make_unique<SampleFiles>(root / "samples");
     insert.buildUserInterface(&entryMap);
 
-    auto dsp = std::make_unique<mydsp_poly>(&insert, 5, true, false);
+    auto dsp = std::make_unique<mydsp_poly>(&insert, 15, false, false);
     auto controller = std::make_unique<Controller>(dsp.get(), entryMap);
     dsp->init(SAMPLE_RATE);
     dsp->buildUserInterface(defaultSamples.get());
