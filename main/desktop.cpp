@@ -6,7 +6,7 @@
 
 #include "../vendor/webview/webview.h"
 #include "../audio/include/Audio.h"
-#include "../effects/include/Effects.h"
+#include "../audio/include/Effects.h"
 
 std::vector<std::string> getArguments(std::string json) {
     std::vector<std::string> arguments;

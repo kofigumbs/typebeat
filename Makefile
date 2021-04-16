@@ -12,16 +12,16 @@ endif
 build/Typebeat${EXE}: build/audio.o build/insert.o build/desktop.o
 	$(LD)$@ $^
 
-build/desktop.o: .git/modules audio/include/Audio.h effects/include/Effects.h main/desktop.cpp | build
+build/desktop.o: .git/modules audio/include/Audio.h audio/include/Effects.h main/desktop.cpp | build
 	$(CC)$@ -I "$(shell faust --includedir)" -I vendor/webview/script main/desktop.cpp
 
-build/audio.o: .git/modules audio audio/include
+build/audio.o: .git/modules audio audio/include/Audio.h
 	$(CC)$@ -I "$(shell faust --includedir)" audio/Audio.cpp
 
 build/insert.o: build/Insert.cpp | build
 	$(CC)$@ -I "$(shell faust --includedir)" build/Insert.cpp
 
-build/Insert.cpp: effects/insert.dsp | build
+build/Insert.cpp: audio/effects/insert.dsp | build
 	faust -a minimal-effect.cpp -cn Insert -o $@ $<
 
 build:
