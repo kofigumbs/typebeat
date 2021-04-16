@@ -59,7 +59,7 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     }
 
     auto entries = Entries();
-    auto samples = std::make_unique<Samples>(root / "samples");
+    auto samples = std::make_unique<Samples>(root / "audio" / "samples");
     assert(voiceCount > 0);
     assert(insert->getNumInputs() == 2);
     assert(insert->getNumOutputs() == 2);

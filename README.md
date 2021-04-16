@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./logo/screenshot.png" alt="Typebeat logo" width="200" />
+  <img src="./ui/logo/screenshot.png" alt="Typebeat logo" width="200" />
 </p>
 
 To build this project, first install these dependencies:

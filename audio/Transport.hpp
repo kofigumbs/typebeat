@@ -34,7 +34,7 @@ struct Transport {
     }
 
   private:
-    int framesSinceLastStep = 0;
+    int framesSinceLastStep;
 
     float stepDuration(int resolution) {
         return SAMPLE_RATE * 240.f / tempo / resolution;
