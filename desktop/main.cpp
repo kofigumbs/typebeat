@@ -2,8 +2,11 @@
 #include <filesystem>
 #include <functional>
 
+#include "faust/dsp/dsp.h"
+
 #include "../vendor/webview/webview.h"
 #include "../audio/include/Audio.h"
+#include "../effects/include/Effects.h"
 
 std::vector<std::string> getArguments(std::string json) {
     std::vector<std::string> arguments;
@@ -26,11 +29,13 @@ int main(int argc, char* argv[]) {
     auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
         .parent_path(); // project directory
+    auto insert = std::unique_ptr<dsp>(createInsert());
     Audio audio {
         root,
         getenv("TYPEBEAT_INPUT_DEVICE"),
         getenv("TYPEBEAT_OUTPUT_DEVICE"),
-        getenv("TYPEBEAT_VOICES") ? std::stoi(getenv("TYPEBEAT_VOICES")) : 15
+        getenv("TYPEBEAT_VOICES") ? std::stoi(getenv("TYPEBEAT_VOICES")) : 15,
+        insert.get()
     };
     audio.start([root](Audio::EventHandler* eventHandler) {
         webview::webview view(true, nullptr);

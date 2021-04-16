@@ -9,17 +9,20 @@ endif
 
 # TODO WebAudio/WASM/Emscriptem ?
 
-build/Typebeat${EXE}: build/audio.o build/desktop.o
+build/Typebeat${EXE}: build/audio.o build/insert.o build/desktop.o
 	$(LD)$@ $^
 
 build/desktop.o: .git/modules audio/include/Audio.h desktop/main.cpp | build
-	$(CC)$@ -I vendor/webview/script desktop/main.cpp
+	$(CC)$@ -I "$(shell faust --includedir)" -I vendor/webview/script desktop/main.cpp
 
-build/audio.o: .git/modules audio audio/include build/Insert.h
+build/audio.o: .git/modules audio audio/include
 	$(CC)$@ -I "$(shell faust --includedir)" audio/Audio.cpp
 
-build/Insert.h: effects/insert.dsp | build
-	faust -cn Insert -o $@ $<
+build/insert.o: build/Insert.cpp | build
+	$(CC)$@ -I "$(shell faust --includedir)" build/Insert.cpp
+
+build/Insert.cpp: effects/insert.dsp | build
+	faust -a minimal-effect.cpp -cn Insert -o $@ $<
 
 build:
 	mkdir build

@@ -17,8 +17,6 @@
 
 #include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
-#include "../build/Insert.h"
-
 #include "./include/Audio.h"
 #include "./Entries.hpp"
 #include "./Samples.hpp"
@@ -60,14 +58,13 @@ void Audio::start(std::function<void(EventHandler*)> view) {
         assert(playbackDeviceId != nullptr);
     }
 
-    auto insert = Insert();
     auto entries = Entries();
     auto samples = std::make_unique<Samples>(root / "samples");
     assert(voiceCount > 0);
-    assert(insert.getNumInputs() == 2);
-    assert(insert.getNumOutputs() == 2);
-    insert.buildUserInterface(&entries);
-    auto voices = std::make_unique<Voices>(samples.get(), &insert, voiceCount);
+    assert(insert->getNumInputs() == 2);
+    assert(insert->getNumOutputs() == 2);
+    insert->buildUserInterface(&entries);
+    auto voices = std::make_unique<Voices>(samples.get(), insert, voiceCount);
     auto controller = std::make_unique<Controller>(voices.get(), entries);
 
     ma_device device;

@@ -8,6 +8,7 @@ struct Audio {
     char* inputDeviceName;
     char* outputDeviceName;
     int voiceCount;
+    dsp* insert;
 
     void start(std::function<void(EventHandler*)>);
 };
