@@ -1,7 +1,9 @@
-#include <filesystem>
 #include <regex>
+#include <filesystem>
+#include <functional>
+
 #include "../vendor/webview/webview.h"
-#include "../audio/audio.hpp"
+#include "../audio/include/Audio.h"
 
 std::vector<std::string> getArguments(std::string json) {
     std::vector<std::string> arguments;
@@ -24,10 +26,13 @@ int main(int argc, char* argv[]) {
     auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
         .parent_path(); // project directory
-    auto input = getenv("TYPEBEAT_INPUT_DEVICE");
-    auto output = getenv("TYPEBEAT_OUTPUT_DEVICE");
-    auto voices = getenv("TYPEBEAT_VOICES") ? std::stoi(getenv("TYPEBEAT_VOICES")) : 15;
-    run(root, input, output, voices, [root](EventHandler* eventHandler) {
+    Audio audio {
+        root,
+        getenv("TYPEBEAT_INPUT_DEVICE"),
+        getenv("TYPEBEAT_OUTPUT_DEVICE"),
+        getenv("TYPEBEAT_VOICES") ? std::stoi(getenv("TYPEBEAT_VOICES")) : 15
+    };
+    audio.start([root](Audio::EventHandler* eventHandler) {
         webview::webview view(true, nullptr);
         view.set_size(1200, 400, WEBVIEW_HINT_MIN);
         view.set_size(1200, 430, WEBVIEW_HINT_NONE);

@@ -12,11 +12,11 @@ endif
 build/Typebeat${EXE}: build/audio.o build/desktop.o
 	$(LD)$@ $^
 
-build/desktop.o: .git/modules audio/audio.hpp desktop/main.cpp | build
+build/desktop.o: .git/modules audio/include/Audio.h desktop/main.cpp | build
 	$(CC)$@ -I vendor/webview/script desktop/main.cpp
 
-build/audio.o: .git/modules audio build/Insert.h
-	$(CC)$@ -I "$(shell faust --includedir)" audio/audio.cpp
+build/audio.o: .git/modules audio audio/include build/Insert.h
+	$(CC)$@ -I "$(shell faust --includedir)" audio/Audio.cpp
 
 build/Insert.h: effects/insert.dsp | build
 	faust -cn Insert -o $@ $<

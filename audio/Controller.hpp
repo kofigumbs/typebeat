@@ -1,4 +1,4 @@
-struct Controller : EventHandler {
+struct Controller : Audio::EventHandler {
     static const int trackCount = 15;
     static const int maxQueueSize = 8;
 

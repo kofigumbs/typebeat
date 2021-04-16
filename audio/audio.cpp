@@ -2,24 +2,24 @@
 #include <iostream>
 #include <cassert>
 #include <filesystem>
+#include <functional>
 #include <unordered_map>
 
-#include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
+#define SAMPLE_RATE 44100
+#include "faust/dsp/dsp.h"
+#include "faust/gui/meta.h"
+#include "faust/gui/DecoratorUI.h"
 
 #define MINIAUDIO_IMPLEMENTATION
 #define MA_NO_ENCODING
 #define MA_NO_GENERATION
 #include "../vendor/miniaudio/miniaudio.h"
 
-#define SAMPLE_RATE 44100
-#include "faust/dsp/dsp.h"
-#include "faust/gui/meta.h"
-#include "faust/gui/MapUI.h"
-#include "faust/gui/DecoratorUI.h"
+#include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
 #include "../build/Insert.h"
 
-#include "./audio.hpp"
+#include "./include/Audio.h"
 #include "./Entries.hpp"
 #include "./Samples.hpp"
 #include "./Voices.hpp"
@@ -37,7 +37,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     }
 }
 
-void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceName, int voiceCount, std::function<void(EventHandler*)> view) {
+void Audio::start(std::function<void(EventHandler*)> view) {
     ma_context context;
     ma_device_id* captureDeviceId = nullptr;
     ma_device_id* playbackDeviceId = nullptr;
@@ -87,4 +87,4 @@ void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceNa
     view(controller.get());
     ma_device_uninit(&device);
     ma_context_uninit(&context);
-}
+};
