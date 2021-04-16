@@ -8,8 +8,8 @@ struct Voices {
         Source source;
         int note;
         int sample;
-        int position;
-        int increment;
+        float position;
+        float increment;
         Entries* entries;
         std::unique_ptr<MapUI> ui;
         std::unique_ptr<dsp> dsp;

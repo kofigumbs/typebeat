@@ -23,6 +23,7 @@ struct Controller : EventHandler {
         receiveCallbacks["bars"] = [this](){ return tracks[activeTrack].bars(); };
         receiveCallbacks["viewStart"] = [this](){ return tracks[activeTrack].viewStart(); };
         receiveCallbacks["resolution"] = [this](){ return tracks[activeTrack].resolution; };
+        receiveCallbacks["naturalNote"] = [this](){ return tracks[activeTrack].naturalNote; };
         receiveCallbacks["tempo"] = [this](){ return transport.tempo; };
         receiveCallbacks["activeTrack"] = [this](){ return activeTrack; };
         receiveCallbacks["transpose"] = [this](){ return transpose; };
