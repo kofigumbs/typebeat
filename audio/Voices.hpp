@@ -10,9 +10,18 @@ struct Voices {
         int sample;
         float position;
         float increment;
+        float* gate;
         Entries* entries;
-        std::unique_ptr<MapUI> ui;
         std::unique_ptr<dsp> dsp;
+    };
+
+    struct GateUI : GenericUI {
+        float* gate = nullptr;
+
+        void addButton(const char* label, FAUSTFLOAT* zone) override {
+            if (std::string("gate") == label)
+                gate = zone;
+        }
     };
 
     struct Buffer {
@@ -22,10 +31,11 @@ struct Voices {
 
     Voices(Samples* s, dsp* d, int count) : samples(s), players(count) {
         for (auto& p : players) {
-            p.ui.reset(new MapUI());
+            GateUI ui;
             p.dsp.reset(d->clone());
             p.dsp->init(SAMPLE_RATE);
-            p.dsp->buildUserInterface(p.ui.get());
+            p.dsp->buildUserInterface(&ui);
+            p.gate = ui.gate;
         }
     }
 
@@ -35,21 +45,21 @@ struct Voices {
         p.note = note;
         p.sample = sample;
         p.position = 0;
+        p.gate[0] = 1;
         p.increment = pow(2.0f, note / 12.0f) / pow(2.0f, naturalNote / 12.0f);
         p.entries = entries;
-        p.ui->setParamValue("gate", 1);
         nextVoice++;
     }
 
     void release(int sample, int note) {
         for (auto& p : players)
             if (p.sample == sample && p.note == note)
-                p.ui->setParamValue("gate", 0);
+                p.gate[0] = 0;
     }
 
     void run(const float input, float& outputL, float& outputR) {
         for (auto& p : players) {
-            if (!p.entries)
+            if (!p.entries || !p.gate)
                 continue;
             Buffer toDsp, fromDsp;
             run(input, toDsp, p);
