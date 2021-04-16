@@ -24,7 +24,10 @@ int main(int argc, char* argv[]) {
     auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
         .parent_path(); // project directory
-    run(root, getenv("TYPEBEAT_INPUT_DEVICE"), getenv("TYPEBEAT_OUTPUT_DEVICE"), [root](EventHandler* eventHandler) {
+    auto input = getenv("TYPEBEAT_INPUT_DEVICE");
+    auto output = getenv("TYPEBEAT_OUTPUT_DEVICE");
+    auto voices = getenv("TYPEBEAT_VOICES") ? std::stoi(getenv("TYPEBEAT_VOICES")) : 15;
+    run(root, input, output, voices, [root](EventHandler* eventHandler) {
         webview::webview view(true, nullptr);
         view.set_size(1200, 400, WEBVIEW_HINT_MIN);
         view.set_size(1200, 430, WEBVIEW_HINT_NONE);

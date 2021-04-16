@@ -2,9 +2,9 @@ struct Controller : EventHandler {
     static const int trackCount = 15;
     static const int maxQueueSize = 8;
 
-    Controller(mydsp_poly* dsp, EntryMap entryMap) : tracks(), transport(), receiveCallbacks(), sendCallbacks(), sendMessages(), sendEntries() {
+    Controller(Voices* voices, Entries entries) : tracks(), transport(), receiveCallbacks(), sendCallbacks(), sendMessages(), sendEntries() {
         for (int i = 0; i < Controller::trackCount; i++)
-            tracks.push_back(Track(i, dsp, &transport, entryMap));
+            tracks.push_back(Track(i, voices, &transport, entries));
         sendMessages.reset(maxQueueSize);
         sendEntries.reset(maxQueueSize);
         sendCallbacks["auditionDown"] = &Controller::onAuditionDown;
@@ -48,16 +48,17 @@ struct Controller : EventHandler {
             return tracks[activeTrack].control(name);
     }
 
-    void advance() {
+    void run(const float input, float& outputL, float& outputR) {
         transport.advance();
         std::pair<void(Controller::*)(int), int> message;
         while(sendMessages.pop(message))
             (this->*message.first)(message.second);
-        std::pair<EntryMap::Entry*, int> entry;
+        std::pair<Entries::Control*, int> entry;
         while(sendEntries.pop(entry))
             nudge(entry.first->min, entry.first->max, &entry.first->value, entry.second);
         for (int i = 0; i < Controller::trackCount; i++)
-            tracks[i].advance();
+            tracks[i].run(input);
+        tracks.front().voices->run(input, outputL, outputR);
     }
 
   private:
@@ -84,7 +85,7 @@ struct Controller : EventHandler {
     std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
     std::unordered_map<std::string, void(Controller::*)(int)> sendCallbacks;
     choc::fifo::SingleReaderSingleWriterFIFO<std::pair<void(Controller::*)(int), int>> sendMessages;
-    choc::fifo::SingleReaderSingleWriterFIFO<std::pair<EntryMap::Entry*, int>> sendEntries;
+    choc::fifo::SingleReaderSingleWriterFIFO<std::pair<Entries::Control*, int>> sendEntries;
 
     void onAuditionDown(int value) {
         tracks[value].play();

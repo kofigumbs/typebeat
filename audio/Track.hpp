@@ -1,5 +1,6 @@
 struct Track {
     static const int viewsPerPage = 4;
+    static const int concertPitch = 69;
 
     enum View {
         View_none,
@@ -11,24 +12,32 @@ struct Track {
     struct Step {
         bool active;
         bool skipNext;
-        int note = 69;
+        int note = concertPitch;
     };
 
     int resolution = 4;
     int octave = 4;
+    int naturalNote = concertPitch;
+    Voices* voices;
 
-    Track(int i, mydsp_poly* d, Transport* t, EntryMap e) : id(i), dsp(d), transport(t), entryMap(e), steps() {
+    Track(int s, Voices* v, Transport* t, Entries e) : sample(s), voices(v), transport(t), entries(e), steps() {
     }
 
-    EntryMap::Entry* entry(const std::string& name) {
-        return entryMap.contents.count(name) ? &entryMap.contents[name] : nullptr;
+    Entries::Control* entry(const std::string& name) {
+        for (auto& control : entries.data)
+            if (name == control.label)
+                return &control;
+        return nullptr;
     }
 
     int control(const std::string& name) {
-        return entryMap.contents.count(name) ? entryMap.contents[name].value : 0;
+        for (const auto& control : entries.data)
+            if (name == control.label)
+                return control.value;
+        return 0;
     }
 
-    void advance() {
+    void run(const float input) {
         if (transport->newStep()) {
             auto& step = steps[transport->step % length];
             if (step.skipNext)
@@ -86,7 +95,7 @@ struct Track {
     }
 
     void play() {
-        play(entryMap.contents["naturalNote"].value);
+        play(naturalNote);
     }
 
     void play(int note) {
@@ -102,20 +111,19 @@ struct Track {
     }
 
     void release() {
-        release(entryMap.contents["naturalNote"].value);
+        release(naturalNote);
     }
 
     void release(int note) {
-        dsp->keyOff(id, note);
+        voices->release(sample, note);
     }
 
   private:
-    int id;
+    int sample;
     int pageStart = 0;
     int length = Transport::maxResolution*4;
-    mydsp_poly* dsp;
     Transport* transport;
-    EntryMap entryMap;
+    Entries entries;
     std::array<Step, Transport::maxResolution*16*8> steps;
 
     int viewLength() {
@@ -146,9 +154,6 @@ struct Track {
     }
 
     void keyDown(int note) {
-        auto ui = dsp->keyOn(id, note, 127);
-        ui->setParamValue("sampleFile", id);
-        for (const auto& pair : entryMap.contents)
-            ui->setParamValue(pair.first, pair.second.value);
+        voices->allocate(Voices::Source_sample, sample, note, naturalNote, &entries);
     }
 };

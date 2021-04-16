@@ -5,4 +5,4 @@ struct EventHandler {
     virtual int onReceive(const std::string&) = 0;
 };
 
-void run(std::filesystem::path, char*, char*, std::function<void(EventHandler*)>);
+void run(std::filesystem::path, char*, char*, int, std::function<void(EventHandler*)>);

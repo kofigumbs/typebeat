@@ -4,6 +4,8 @@
 #include <filesystem>
 #include <unordered_map>
 
+#include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
+
 #define MINIAUDIO_IMPLEMENTATION
 #define MA_NO_ENCODING
 #define MA_NO_GENERATION
@@ -11,42 +13,31 @@
 
 #define SAMPLE_RATE 44100
 #include "faust/dsp/dsp.h"
-#include "faust/dsp/poly-dsp.h"
+#include "faust/gui/meta.h"
+#include "faust/gui/MapUI.h"
 #include "faust/gui/DecoratorUI.h"
-#include "faust/gui/Soundfile.h"
 
-#include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
-
-Soundfile* defaultsound;
-std::list<GUI*> GUI::fGuiList;
 #include "../build/Insert.h"
 
 #include "./audio.hpp"
-#include "./EntryMap.hpp"
+#include "./Entries.hpp"
+#include "./Samples.hpp"
+#include "./Voices.hpp"
 #include "./Transport.hpp"
 #include "./Track.hpp"
 #include "./Controller.hpp"
-#include "./SampleFiles.hpp"
-
-struct UserData {
-    Controller* controller;
-    mydsp_poly* dsp;
-};
 
 void callback(ma_device* device, void* output, const void* input, ma_uint32 frameCount) {
-    auto userData = (UserData*) device->pUserData;
-    float l, r;
-    float* o[2]{ &l, &r };
     for (int frame = 0; frame < frameCount; frame++) {
-        auto i = (float*) input + frame*device->capture.channels;
-        userData->controller->advance();
-        userData->dsp->compute(1, &i, o); // only one frame for sample-accurate controls
-        ((float*) output)[frame*device->playback.channels] = l;
-        ((float*) output)[frame*device->playback.channels + 1] = r;
+        ((Controller*) device->pUserData)->run(
+            ((float*) input)[frame*device->capture.channels],
+            ((float*) output)[frame*device->playback.channels],
+            ((float*) output)[frame*device->playback.channels + 1]
+        );
     }
 }
 
-void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceName, std::function<void(EventHandler*)> view) {
+void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceName, int voiceCount, std::function<void(EventHandler*)> view) {
     ma_context context;
     ma_device_id* captureDeviceId = nullptr;
     ma_device_id* playbackDeviceId = nullptr;
@@ -70,17 +61,14 @@ void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceNa
     }
 
     auto insert = Insert();
-    auto entryMap = EntryMap();
-    auto defaultSamples = std::make_unique<SampleFiles>(root / "samples");
-    insert.buildUserInterface(&entryMap);
-
-    auto dsp = std::make_unique<mydsp_poly>(&insert, 15, false, false);
-    auto controller = std::make_unique<Controller>(dsp.get(), entryMap);
-    dsp->init(SAMPLE_RATE);
-    dsp->buildUserInterface(defaultSamples.get());
-    assert(dsp->getNumInputs() == 1);
-    assert(dsp->getNumOutputs() == 2);
-    UserData userData { controller.get(), dsp.get() };
+    auto entries = Entries();
+    auto samples = std::make_unique<Samples>(root / "samples");
+    assert(voiceCount > 0);
+    assert(insert.getNumInputs() == 2);
+    assert(insert.getNumOutputs() == 2);
+    insert.buildUserInterface(&entries);
+    auto voices = std::make_unique<Voices>(samples.get(), &insert, voiceCount);
+    auto controller = std::make_unique<Controller>(voices.get(), entries);
 
     ma_device device;
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
@@ -92,7 +80,7 @@ void run(std::filesystem::path root, char* inputDeviceName, char* outputDeviceNa
     deviceConfig.playback.pDeviceID = playbackDeviceId;
     deviceConfig.sampleRate = SAMPLE_RATE;
     deviceConfig.dataCallback = callback;
-    deviceConfig.pUserData = &userData;
+    deviceConfig.pUserData = controller.get();
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
 
     assert(ma_device_start(&device) == MA_SUCCESS);
