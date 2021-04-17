@@ -1,6 +1,5 @@
 const debug = context => (...args) => {
   console.log(`[Typebeat] ${context}: ${args.join(', ')}`);
-  return 0;
 };
 const [state, clearCache] = State({
   defaults: [['modifier', undefined]],

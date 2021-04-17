@@ -42,11 +42,12 @@ struct Controller : Audio::EventHandler {
             sendEntries.push({ entry, value });
     }
 
-    int onReceive(const std::string& name) override {
-        if (receiveCallbacks.count(name))
-            return receiveCallbacks[name]();
-        else
-            return tracks[activeTrack].control(name);
+    bool onReceive(const std::string& name, int& value) override {
+        if (receiveCallbacks.count(name)) {
+            value = receiveCallbacks[name]();
+            return true;
+        }
+        return tracks[activeTrack].control(name, value);
     }
 
     void run(const float input, float& outputL, float& outputR) {

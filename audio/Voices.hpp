@@ -48,6 +48,7 @@ struct Voices {
         p.gate[0] = 1;
         p.increment = pow(2.0f, note / 12.0f) / pow(2.0f, naturalNote / 12.0f);
         p.entries = entries;
+        p.dsp->instanceClear();
         nextVoice++;
     }
 

@@ -30,11 +30,14 @@ struct Track {
         return nullptr;
     }
 
-    int control(const std::string& name) {
-        for (const auto& control : entries.data)
-            if (name == control.label)
-                return control.value;
-        return 0;
+    bool control(const std::string& name, int& value) {
+        for (const auto& control : entries.data) {
+            if (name == control.label) {
+                value = control.value;
+                return true;
+            }
+        }
+        return false;
     }
 
     void run(const float input) {

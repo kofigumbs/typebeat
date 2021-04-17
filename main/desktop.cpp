@@ -48,7 +48,8 @@ int main(int argc, char* argv[]) {
         });
         view.bind("$receive", [eventHandler](std::string json) -> std::string {
             auto arguments = getArguments(json);
-            return std::to_string(eventHandler->onReceive(arguments[0]));
+            int value;
+            return eventHandler->onReceive(arguments[0], value) ? std::to_string(value) : "null";
         });
 #ifdef WEBVIEW_COCOA
         auto window = (id) view.window();
