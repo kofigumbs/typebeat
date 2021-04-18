@@ -109,7 +109,7 @@ struct Controller : Audio::EventHandler {
     }
 
     void onSampleType(int value) {
-        tracks[activeTrack].sampleType = static_cast<Voices::SampleType>(value);
+        tracks[activeTrack].setSampleType(value);
     }
 
     void onNoteDown(int value) {

@@ -1,7 +1,7 @@
 struct Track {
     static const int viewsPerPage = 4;
     static const int concertPitch = 69;
-    static const int maxLiveSampleFileLength = 60*SAMPLE_RATE;
+    static const int maxLiveRecordLength = 60*SAMPLE_RATE;
 
     enum View {
         View_none,
@@ -23,7 +23,7 @@ struct Track {
     Voices* voices;
 
     Track(Voices* v, Transport* t, Samples::File* s, Entries e) : voices(v), transport(t), sampleFile(s), entries(e), steps() {
-        sampleLive.frames.reset(new float[maxLiveSampleFileLength]);
+        sampleLive.frames.reset(new float[maxLiveRecordLength]);
     }
 
     Entries::Control* entry(const std::string& name) {
@@ -38,6 +38,8 @@ struct Track {
     }
 
     void run(const float input) {
+        if (sampleType == Voices::SampleType_liveRecord && sampleLive.length < maxLiveRecordLength)
+            sampleLive.frames[sampleLive.length++] = input;
         if (transport->newStep()) {
             auto& step = steps[transport->step % length];
             if (step.skipNext)
@@ -45,6 +47,12 @@ struct Track {
             else if (step.active)
                 keyDown(step.note);
         }
+    }
+
+    void setSampleType(int value) {
+        sampleType = static_cast<Voices::SampleType>(value);
+        if (sampleType == Voices::SampleType_liveRecord)
+            sampleLive.length = 0;
     }
 
     int bars() {
