@@ -29,33 +29,32 @@ const Bindings = ({ state, send }) => {
       ...all(i => ({
         label: async () => i === await state.activeTrack ? 'active' : '',
         title: async () => i === await state.activeTrack,
-        onDown: () => send('activateTrack', i),
+        onDown: () => send('activeTrack', i),
       })),
     ])}],
-    ['W', { mode: 'Source', actions: new Map([
-      ...oneOf('YUIO', state, 'source', ['sample', 'synth 1', 'synth 2']),
+    ['W', { mode: 'Sound', actions: new Map([
+      ...oneOf('YUIO', state, 'sound', ['sample', 'synth 1', 'synth 2']),
       ...group('HJKL;', i => {
-        // TODO switch to `??=` once webkit supports it
-        state.sourceMethod = () => `${state.source.replace(' ', ':')}:${state.sourceControl}`;
-        state.sourceNudge = nudge(() => state[state.sourceMethod()], j => send(state.sourceMethod(), j));
+        const method = () => `${state.sound.replace(' ', ':')}:${state.soundControl}`;
+        const nudgeBind = nudge(() => state[method()], j => send(method(), j))[i][1];
         return {
           label: () => {
-            if (state.sourceControl !== 'type')
-              return state.sourceNudge[i][1].label();
-            else if (state.source === 'sample')
+            if (state.soundControl !== 'type')
+              return nudgeBind.label();
+            else if (state.sound === 'sample')
               return ['file', 'live ->', 'live .=', 'live |>'][i]
             else
               return ['sine', 'tri.', 'saw', 'square', 'noise'][i];
           },
           title: async () => (
-            state.sourceControl === 'type' ? i === await state['source:type'] : state.sourceNudge[i][1].title()
+            state.soundControl === 'type' ? i === await state[method()] : nudgeBind.title()
           ),
           onDown: async () => {
-            state.sourceControl === 'type' ? send(state.sourceMethod(), i) : state.sourceNudge[i][1].onDown();
+            state.soundControl === 'type' ? send(method(), i) : nudgeBind.onDown();
           },
         };
       }),
-      ...oneOf('NM,', state, 'sourceControl', ['type', 'pitch', 'level']),
+      ...oneOf('NM,', state, 'soundControl', ['type', 'pitch', 'level']),
     ])}],
     ['E', { mode: 'Chop', actions: new Map([
     ])}],

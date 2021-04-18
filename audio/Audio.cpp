@@ -61,11 +61,12 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     auto entries = Entries();
     auto samples = std::make_unique<Samples>(root / "audio" / "samples");
     assert(voiceCount > 0);
+    assert(samples->files.size() >= Controller::trackCount);
     assert(insert->getNumInputs() == 2);
     assert(insert->getNumOutputs() == 2);
     insert->buildUserInterface(&entries);
-    auto voices = std::make_unique<Voices>(samples.get(), insert, voiceCount);
-    auto controller = std::make_unique<Controller>(voices.get(), entries);
+    auto voices = std::make_unique<Voices>(insert, voiceCount);
+    auto controller = std::make_unique<Controller>(voices.get(), samples.get(), entries);
 
     ma_device device;
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);

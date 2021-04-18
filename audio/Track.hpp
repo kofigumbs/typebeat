@@ -1,6 +1,7 @@
 struct Track {
     static const int viewsPerPage = 4;
     static const int concertPitch = 69;
+    static const int maxLiveSampleFileLength = 60*SAMPLE_RATE;
 
     enum View {
         View_none,
@@ -18,9 +19,11 @@ struct Track {
     int resolution = 4;
     int octave = 4;
     int naturalNote = concertPitch;
+    Voices::SampleType sampleType = Voices::SampleType_file;
     Voices* voices;
 
-    Track(int s, Voices* v, Transport* t, Entries e) : sample(s), voices(v), transport(t), entries(e), steps() {
+    Track(Voices* v, Transport* t, Samples::File* s, Entries e) : voices(v), transport(t), sampleFile(s), entries(e), steps() {
+        sampleLive.frames.reset(new float[maxLiveSampleFileLength]);
     }
 
     Entries::Control* entry(const std::string& name) {
@@ -112,14 +115,15 @@ struct Track {
     }
 
     void release(int note) {
-        voices->release(sample, note);
+        voices->release(note, &entries);
     }
 
   private:
-    int sample;
     int pageStart = 0;
     int length = Transport::maxResolution*4;
     Transport* transport;
+    Samples::File* sampleFile;
+    Samples::File sampleLive;
     Entries entries;
     std::array<Step, Transport::maxResolution*16*8> steps;
 
@@ -151,6 +155,7 @@ struct Track {
     }
 
     void keyDown(int note) {
-        voices->allocate(Voices::Source_sample, sample, note, naturalNote, &entries);
+        auto file = sampleType == Voices::SampleType_file ? sampleFile : &sampleLive;
+        voices->allocate(sampleType, note, naturalNote, &entries, file);
     }
 };

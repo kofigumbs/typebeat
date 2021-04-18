@@ -2,36 +2,43 @@ struct Controller : Audio::EventHandler {
     static const int trackCount = 15;
     static const int maxQueueSize = 8;
 
-    Controller(Voices* voices, Entries entries) : tracks(), transport(), receiveCallbacks(), sendCallbacks(), sendMessages(), sendEntries() {
+    Controller(Voices* voices, Samples* samples, Entries entries) : tracks(), transport(), receiveCallbacks(), sendCallbacks(), sendMessages(), sendEntries() {
         for (int i = 0; i < Controller::trackCount; i++)
-            tracks.push_back(Track(i, voices, &transport, entries));
+            tracks.push_back(Track(voices, &transport, &samples->files[i], entries));
         sendMessages.reset(maxQueueSize);
         sendEntries.reset(maxQueueSize);
+        // audition
         sendCallbacks["auditionDown"] = &Controller::onAuditionDown;
         sendCallbacks["auditionUp"] = &Controller::onAuditionUp;
-        sendCallbacks["activateTrack"] = &Controller::onActivateTrack;
+        // track select
+        sendCallbacks["activeTrack"] = &Controller::onActiveTrack;
+        receiveCallbacks["activeTrack"] = [this](){ return activeTrack; };
+        // sound mode
+        sendCallbacks["sample:type"] = &Controller::onSampleType;
+        receiveCallbacks["sample:type"] = [this](){ return tracks[activeTrack].sampleType; };
+        // note mode
         sendCallbacks["noteDown"] = &Controller::onNoteDown;
         sendCallbacks["noteUp"] = &Controller::onNoteUp;
+        receiveCallbacks["naturalNote"] = [this](){ return tracks[activeTrack].naturalNote; };
+        for (int i = 0; i < Controller::trackCount; i++)
+            receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
+        // loop mode
         sendCallbacks["view"] = &Controller::onView;
         sendCallbacks["stepSequence"] = &Controller::onStepSequence;
-        sendCallbacks["play"] = &Controller::onPlay;
-        sendCallbacks["arm"] = &Controller::onArm;
-        sendCallbacks["tempo"] = &Controller::onTempo;
-        // receive callbacks use lambdas since they are not run on the audio thread, and thus allowed to allocate
-        receiveCallbacks["playing"] = [this](){ return transport.playing; };
-        receiveCallbacks["armed"] = [this](){ return transport.armed; };
         receiveCallbacks["bars"] = [this](){ return tracks[activeTrack].bars(); };
         receiveCallbacks["viewStart"] = [this](){ return tracks[activeTrack].viewStart(); };
         receiveCallbacks["resolution"] = [this](){ return tracks[activeTrack].resolution; };
-        receiveCallbacks["naturalNote"] = [this](){ return tracks[activeTrack].naturalNote; };
-        receiveCallbacks["tempo"] = [this](){ return transport.tempo; };
-        receiveCallbacks["activeTrack"] = [this](){ return activeTrack; };
-        receiveCallbacks["transpose"] = [this](){ return transpose; };
-        receiveCallbacks["scale"] = [this](){ return scale; };
-        for (int i = 0; i < Controller::trackCount; i++)
-            receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
         for (int i = 0; i < Track::viewsPerPage; i++)
             receiveCallbacks["view:" + std::to_string(i)] = [this, i](){ return tracks[activeTrack].view(i); };
+        // song mode
+        sendCallbacks["play"] = &Controller::onPlay;
+        sendCallbacks["arm"] = &Controller::onArm;
+        sendCallbacks["tempo"] = &Controller::onTempo;
+        receiveCallbacks["playing"] = [this](){ return transport.playing; };
+        receiveCallbacks["armed"] = [this](){ return transport.armed; };
+        receiveCallbacks["tempo"] = [this](){ return transport.tempo; };
+        receiveCallbacks["scale"] = [this](){ return scale; };
+        receiveCallbacks["transpose"] = [this](){ return transpose; };
     }
 
     void onSend(const std::string& name, int value) override {
@@ -97,8 +104,12 @@ struct Controller : Audio::EventHandler {
         tracks[value].release();
     }
 
-    void onActivateTrack(int value) {
+    void onActiveTrack(int value) {
         activeTrack = value;
+    }
+
+    void onSampleType(int value) {
+        tracks[activeTrack].sampleType = static_cast<Voices::SampleType>(value);
     }
 
     void onNoteDown(int value) {

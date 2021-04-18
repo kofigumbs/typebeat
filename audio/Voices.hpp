@@ -1,17 +1,19 @@
 struct Voices {
-    enum Source {
-        Source_sample,
-        Source_input,
+    enum SampleType {
+        SampleType_file,
+        SampleType_liveThrough,
+        SampleType_liveRecord,
+        SampleType_livePlay,
     };
 
     struct Player {
-        Source source;
-        int sample;
+        SampleType sampleType;
         float position;
         float increment;
         float* note;
         float* gate;
         Entries* entries;
+        Samples::File* file;
         std::unique_ptr<dsp> dsp;
     };
 
@@ -36,7 +38,7 @@ struct Voices {
         float r = 0;
     };
 
-    Voices(Samples* s, dsp* d, int count) : samples(s), players(count) {
+    Voices(dsp* d, int count) : players(count) {
         ButtonSearchUI ui;
         for (auto& p : players) {
             p.dsp.reset(d->clone());
@@ -46,21 +48,21 @@ struct Voices {
         }
     }
 
-    void allocate(Source source, int sample, int note, int naturalNote, Entries* entries) {
+    void allocate(SampleType sampleType, int note, int naturalNote, Entries* entries, Samples::File* file) {
         auto& p = players[nextVoice++ % players.size()];
-        p.dsp->instanceClear();
-        p.source = source;
-        p.sample = sample;
+        p.sampleType = sampleType;
         p.position = 0;
         p.increment = pow(2.0f, note / 12.0f) / pow(2.0f, naturalNote / 12.0f);
         *p.note = note;
         *p.gate = 1;
         p.entries = entries;
+        p.file = file;
+        p.dsp->instanceClear();
     }
 
-    void release(int sample, int note) {
+    void release(int note, Entries* entries) {
         for (auto& p : players)
-            if (p.sample == sample && *p.note == note)
+            if (*p.note == note && p.entries == entries)
                 *p.gate = 0;
     }
 
@@ -84,38 +86,44 @@ struct Voices {
 
   private:
     int nextVoice = 0;
-    Samples* samples;
     std::vector<Player> players;
 
     void run(const float input, Buffer& output, Player& p) {
-        if (p.source == Source_input) {
-            output.l = output.r = input;
-            return;
+        switch (p.sampleType) {
+            case SampleType_file:
+            case SampleType_livePlay:
+                playFile(output, p);
+                return;
+            case SampleType_liveThrough:
+            case SampleType_liveRecord:
+                output.l = output.r = input;
+                return;
         }
-        samples->get(p.sample, [&](auto length, auto frames) {
-            auto i = int(p.position);
-            if (p.position == i && p.position < length) {
-                output.l = left(i, frames);
-                output.r = right(i, frames);
-                p.position += p.increment;
-            }
-            else if (i + 1 < length) {
-                output.l = interpolate(p.position-i, left(i, frames), left(i + 1, frames));
-                output.r = interpolate(p.position-i, right(i, frames), right(i + 1, frames));
-                p.position += p.increment;
-            }
-        });
+    }
+
+    void playFile(Buffer& output, Player& p) {
+        auto i = int(p.position);
+        if (p.position == i && p.position < p.file->length) {
+            output.l = left(i, p.file);
+            output.r = right(i, p.file);
+            p.position += p.increment;
+        }
+        else if (i + 1 < p.file->length) {
+            output.l = interpolate(p.position-i, left(i, p.file), left(i+1, p.file));
+            output.r = interpolate(p.position-i, right(i, p.file), right(i+1, p.file));
+            p.position += p.increment;
+        }
     }
 
     float interpolate(float x, float a, float b) {
         return a + x*(b - a);
     }
 
-    float left(int i, float* frames) {
-        return frames[2*i];
+    float left(int i, Samples::File* file) {
+        return file->frames[file->stereo ? 2*i : i];
     }
 
-    float right(int i, float* frames) {
-        return frames[2*i + 1];
+    float right(int i, Samples::File* file) {
+        return file->frames[file->stereo ? 2*i+1 : i];
     }
 };

@@ -16,9 +16,9 @@ release     = nentry("release",        1, 0, 50, 1) : smooth;
 volume      = nentry("volume",        25, 0, 50, 1) : smooth;
 pan         = nentry("pan",           25, 0, 50, 1) : smooth;
 
-process = source : envelope : mix;
+process = sound : envelope : mix;
 
-source = sample, synth1, synth2 :> _, _ with {
+sound = sample, synth1, synth2 :> _, _ with {
 	sample = sp.stereoize(*(sampleLevel/50));
 	synth1 = synth(synth1Pitch, synth1Level);
 	synth2 = synth(synth2Pitch, synth2Level);

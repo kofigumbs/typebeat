@@ -1,4 +1,12 @@
 struct Samples {
+    struct File {
+        bool stereo;
+        ma_uint64 length;
+        std::unique_ptr<float[]> frames;
+    };
+
+    std::vector<File> files;
+
     Samples(std::filesystem::path directory) {
         std::string filename;
         int i = 0;
@@ -6,15 +14,7 @@ struct Samples {
             read(filename);
     }
 
-    template <typename F>
-    void get(int i, F&& f) {
-        auto& sample = data[i];
-        f(sample.first, sample.second.get());
-    }
-
   private:
-    std::vector<std::pair<int, std::unique_ptr<float[]>>> data;
-
     bool hasFile(std::filesystem::path directory, std::string& filename, int i) {
         filename = directory / ((i < 10 ? "0" : "") + std::to_string(i) + ".wav");
         return std::filesystem::exists(filename);
@@ -26,8 +26,12 @@ struct Samples {
         ma_uint64 length;
         auto frames = drwav_open_file_and_read_pcm_frames_f32(filename.c_str(), &channels, &sampleRate, &length, NULL);
         assert(frames != NULL);
-        assert(channels == 2);
+        assert(channels == 1 || channels == 2);
         assert(sampleRate == SAMPLE_RATE);
-        data.push_back({ length, std::unique_ptr<float[]>(frames) });
+        files.push_back({
+            .stereo = channels == 2,
+            .length = length,
+            .frames = std::unique_ptr<float[]>(frames)
+        });
     }
 };
