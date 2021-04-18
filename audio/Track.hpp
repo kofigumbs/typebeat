@@ -24,20 +24,14 @@ struct Track {
     }
 
     Entries::Control* entry(const std::string& name) {
-        for (auto& control : entries.data)
-            if (name == control.label)
-                return &control;
-        return nullptr;
+        return entries.find(name);
     }
 
     bool control(const std::string& name, int& value) {
-        for (const auto& control : entries.data) {
-            if (name == control.label) {
-                value = control.value;
-                return true;
-            }
-        }
-        return false;
+        auto control = entries.find(name);
+        if (control != nullptr)
+            value = control->value;
+        return control != nullptr;
     }
 
     void run(const float input) {

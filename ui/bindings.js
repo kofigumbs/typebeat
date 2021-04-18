@@ -55,7 +55,7 @@ const Bindings = ({ state, send }) => {
           },
         };
       }),
-      ...oneOf('NM,', state, 'sourceControl', ['type', 'level', 'pitch']),
+      ...oneOf('NM,', state, 'sourceControl', ['type', 'pitch', 'level']),
     ])}],
     ['E', { mode: 'Chop', actions: new Map([
     ])}],

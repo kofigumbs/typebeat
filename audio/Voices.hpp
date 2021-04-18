@@ -6,21 +6,28 @@ struct Voices {
 
     struct Player {
         Source source;
-        int note;
         int sample;
         float position;
         float increment;
+        float* note;
         float* gate;
         Entries* entries;
         std::unique_ptr<dsp> dsp;
     };
 
-    struct GateUI : GenericUI {
-        float* gate = nullptr;
+    struct ButtonSearchUI : GenericUI {
+        std::string target;
+        float* result;
 
-        void addButton(const char* label, FAUSTFLOAT* zone) override {
-            if (std::string("gate") == label)
-                gate = zone;
+        void addButton(const char* label, float* zone) override {
+            if (target == label)
+                result = zone;
+        }
+
+        void find(const std::string t, float*& destination, dsp* dsp) {
+            target = t;
+            dsp->buildUserInterface(this);
+            destination = result;
         }
     };
 
@@ -30,32 +37,31 @@ struct Voices {
     };
 
     Voices(Samples* s, dsp* d, int count) : samples(s), players(count) {
+        ButtonSearchUI ui;
         for (auto& p : players) {
-            GateUI ui;
             p.dsp.reset(d->clone());
             p.dsp->init(SAMPLE_RATE);
-            p.dsp->buildUserInterface(&ui);
-            p.gate = ui.gate;
+            ui.find("gate", p.gate, p.dsp.get());
+            ui.find("note", p.note, p.dsp.get());
         }
     }
 
     void allocate(Source source, int sample, int note, int naturalNote, Entries* entries) {
-        auto& p = players[nextVoice % players.size()];
+        auto& p = players[nextVoice++ % players.size()];
+        p.dsp->instanceClear();
         p.source = source;
-        p.note = note;
         p.sample = sample;
         p.position = 0;
-        p.gate[0] = 1;
         p.increment = pow(2.0f, note / 12.0f) / pow(2.0f, naturalNote / 12.0f);
+        *p.note = note;
+        *p.gate = 1;
         p.entries = entries;
-        p.dsp->instanceClear();
-        nextVoice++;
     }
 
     void release(int sample, int note) {
         for (auto& p : players)
-            if (p.sample == sample && p.note == note)
-                p.gate[0] = 0;
+            if (p.sample == sample && *p.note == note)
+                *p.gate = 0;
     }
 
     void run(const float input, float& outputL, float& outputR) {

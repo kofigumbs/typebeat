@@ -7,8 +7,6 @@ struct Entries : GenericUI {
         float step;
     };
 
-    std::vector<Control> data;
-
     Entries() : data() {
     }
 
@@ -22,10 +20,17 @@ struct Entries : GenericUI {
      * the values in `data`.
      */
     void addNumEntry(const char* label, FAUSTFLOAT* zone, FAUSTFLOAT init, FAUSTFLOAT min, FAUSTFLOAT max, FAUSTFLOAT step) override {
-        if (writeIndex < 0)
+        if (writeIndex == -1)
             data.push_back({ label, init, min, max, step });
         else
             *zone = data[writeIndex++].value;
+    }
+
+    Entries::Control* find(const std::string& name) {
+        for (auto& control : data)
+            if (name == control.label)
+                return &control;
+        return nullptr;
     }
 
     void prepareToWrite() {
@@ -34,4 +39,5 @@ struct Entries : GenericUI {
 
   private:
     int writeIndex = -1;
+    std::vector<Control> data;
 };
