@@ -17,7 +17,7 @@ struct Controller : Audio::EventHandler {
         sendCallbacks["sample:type"] = &Controller::onSampleType;
         sendCallbacks["synth:1:type"] = &Controller::onSynth1Type;
         sendCallbacks["synth:2:type"] = &Controller::onSynth2Type;
-        receiveCallbacks["sample:type"] = [this](){ return tracks[activeTrack].sampleType; };
+        receiveCallbacks["sample:type"] = [this](){ return static_cast<int>(tracks[activeTrack].sampleType); };
         // note mode
         sendCallbacks["noteDown"] = &Controller::onNoteDown;
         sendCallbacks["noteUp"] = &Controller::onNoteUp;

@@ -3,11 +3,11 @@ struct Track {
     static const int concertPitch = 69;
     static const int maxLiveRecordLength = 60*SAMPLE_RATE;
 
-    enum View {
-        View_none,
-        View_empty,
-        View_exactlyOnStep,
-        View_containsSteps,
+    enum class View {
+        none,
+        empty,
+        exactlyOnStep,
+        containsSteps,
     };
 
     struct Step {
@@ -19,7 +19,7 @@ struct Track {
     int resolution = 4;
     int octave = 4;
     int naturalNote = concertPitch;
-    Voices::SampleType sampleType = Voices::SampleType_file;
+    Voices::SampleType sampleType = Voices::SampleType::file;
     Voices* voices;
 
     Track(Voices* v, Transport* t, Samples::File* s, Entries e) : voices(v), transport(t), sampleFile(s), entries(e), steps() {
@@ -38,7 +38,7 @@ struct Track {
     }
 
     void run(const float input) {
-        if (sampleType == Voices::SampleType_liveRecord && sampleLive.length < maxLiveRecordLength)
+        if (sampleType == Voices::SampleType::liveRecord && sampleLive.length < maxLiveRecordLength)
             sampleLive.frames[sampleLive.length++] = input;
         if (transport->newStep()) {
             auto& step = steps[transport->step % length];
@@ -51,7 +51,7 @@ struct Track {
 
     void setSampleType(int value) {
         sampleType = static_cast<Voices::SampleType>(value);
-        if (sampleType == Voices::SampleType_liveRecord)
+        if (sampleType == Voices::SampleType::liveRecord)
             sampleLive.length = 0;
     }
 
@@ -60,7 +60,7 @@ struct Track {
     }
 
     int view(int i) {
-        return viewFrom(viewIndexToStart(i));
+        return static_cast<int>(viewFrom(viewIndexToStart(i)));
     }
 
     int viewStart() {
@@ -88,14 +88,14 @@ struct Track {
     void toggle(int i) {
         auto start = viewIndexToStart(i);
         switch (viewFrom(start)) {
-            case View_none:
+            case View::none:
                 return;
-            case View_empty:
-            case View_exactlyOnStep:
+            case View::empty:
+            case View::exactlyOnStep:
                 steps[start].active ^= true;
                 steps[start].skipNext = false;
                 return;
-            case View_containsSteps:
+            case View::containsSteps:
                 for (int i = start; i < start + viewLength(); i++)
                     steps[i].active = false;
                 return;
@@ -145,7 +145,7 @@ struct Track {
 
     View viewFrom(int start) {
         if (start >= length)
-            return View_none;
+            return View::none;
         int countActive = 0;
         int lastActive = 0;
         for (int i = start; i < start + viewLength(); i++) {
@@ -155,15 +155,15 @@ struct Track {
             }
         }
         if (countActive == 0)
-            return View_empty;
+            return View::empty;
         else if (countActive == 1 && lastActive == start)
-            return View_exactlyOnStep;
+            return View::exactlyOnStep;
         else
-            return View_containsSteps;
+            return View::containsSteps;
     }
 
     void keyDown(int note) {
-        auto file = sampleType == Voices::SampleType_file ? sampleFile : &sampleLive;
+        auto file = sampleType == Voices::SampleType::file ? sampleFile : &sampleLive;
         voices->allocate(sampleType, note, naturalNote, &entries, file);
     }
 };

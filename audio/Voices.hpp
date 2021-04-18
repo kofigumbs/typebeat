@@ -1,9 +1,9 @@
 struct Voices {
-    enum SampleType {
-        SampleType_file,
-        SampleType_liveThrough,
-        SampleType_liveRecord,
-        SampleType_livePlay,
+    enum class SampleType {
+        file,
+        liveThrough,
+        liveRecord,
+        livePlay,
     };
 
     struct Player {
@@ -90,12 +90,12 @@ struct Voices {
 
     void run(const float input, Buffer& output, Player& p) {
         switch (p.sampleType) {
-            case SampleType_file:
-            case SampleType_livePlay:
+            case SampleType::file:
+            case SampleType::livePlay:
                 playFile(output, p);
                 return;
-            case SampleType_liveThrough:
-            case SampleType_liveRecord:
+            case SampleType::liveThrough:
+            case SampleType::liveRecord:
                 output.l = output.r = input;
                 return;
         }

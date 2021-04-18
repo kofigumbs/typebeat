@@ -25,7 +25,7 @@ sound = sample, synth1, synth2 :> _, _ with {
 	synth1 = frequency(synth1Pitch) : oscilator(synth1Type) : *(synth1Level/50) <: _, _;
 	synth2 = frequency(synth2Pitch) : oscilator(synth2Type) : *(synth2Level/50) <: _, _;
 	frequency = /(10) : +(note) : ba.midikey2hz;
-	oscilator = ba.selectmulti(1, (os.oscsin, os.sawtooth, os.sawtooth, os.square, (no.noise, !)));
+	oscilator = ba.selectmulti(1, (os.oscsin, os.triangle, os.sawtooth, os.square, (no.noise, !)));
 };
 
 adsr = sp.stereoize(*(en.adsr(attack/20, decay/20, sustain/50, release/20, gate)));
