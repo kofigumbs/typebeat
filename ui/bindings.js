@@ -34,6 +34,7 @@ const Bindings = ({ state, send }) => {
     ])}],
     ['W', { mode: 'Sound', actions: new Map([
       ...oneOf('YUIO', state, 'sound', ['sample', 'synth 1', 'synth 2']),
+      ...oneOf('NM,', state, 'soundControl', ['type', 'pitch', 'level']),
       ...group('HJKL;', i => {
         const method = () => `${state.sound.replace(' ', ':')}:${state.soundControl}`;
         const nudgeBind = nudge(() => state[method()], j => send(method(), j))[i][1];
@@ -54,7 +55,6 @@ const Bindings = ({ state, send }) => {
           },
         };
       }),
-      ...oneOf('NM,', state, 'soundControl', ['type', 'pitch', 'level']),
     ])}],
     ['E', { mode: 'Chop', actions: new Map([
     ])}],

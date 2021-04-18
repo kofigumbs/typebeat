@@ -15,6 +15,8 @@ struct Controller : Audio::EventHandler {
         receiveCallbacks["activeTrack"] = [this](){ return activeTrack; };
         // sound mode
         sendCallbacks["sample:type"] = &Controller::onSampleType;
+        sendCallbacks["synth:1:type"] = &Controller::onSynth1Type;
+        sendCallbacks["synth:2:type"] = &Controller::onSynth2Type;
         receiveCallbacks["sample:type"] = [this](){ return tracks[activeTrack].sampleType; };
         // note mode
         sendCallbacks["noteDown"] = &Controller::onNoteDown;
@@ -42,8 +44,10 @@ struct Controller : Audio::EventHandler {
     }
 
     void onSend(const std::string& name, int value) override {
-        if (sendCallbacks.count(name))
+        if (sendCallbacks.count(name)) {
             sendMessages.push({ sendCallbacks[name], value });
+            return;
+        }
         auto entry = tracks[activeTrack].entry(name);
         if (entry != nullptr)
             sendEntries.push({ entry, value });
@@ -110,6 +114,14 @@ struct Controller : Audio::EventHandler {
 
     void onSampleType(int value) {
         tracks[activeTrack].setSampleType(value);
+    }
+
+    void onSynth1Type(int value) {
+        tracks[activeTrack].entry("synth:1:type")->value = value;
+    }
+
+    void onSynth2Type(int value) {
+        tracks[activeTrack].entry("synth:2:type")->value = value;
     }
 
     void onNoteDown(int value) {
