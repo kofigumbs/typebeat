@@ -15,12 +15,12 @@ synth2Pitch = nentry("synth2:pitch",  0, -120, 120, 10) : smooth;
 synth2Level = nentry("synth2:level",  0,    0,  50, 10) : smooth;
 lowFreq     = nentry("low:freq",      0,    0,  50, 10) : smooth;
 lowRes      = nentry("low:res",       0,  	0,  50, 10) : smooth;
-mid1Freq    = nentry("mid1:freq",     0,    0,  50, 10) : smooth;
-mid1Res     = nentry("mid1:res",      0,  -25,  25, 10) : smooth;
-mid2Freq    = nentry("mid2:freq",     0,    0,  50, 10) : smooth;
-mid2Res     = nentry("mid2:res",      0,  -25,  25, 10) : smooth;
-mid3Freq    = nentry("mid3:freq",     0,    0,  50, 10) : smooth;
-mid3Res     = nentry("mid3:res",      0,  -25,  25, 10) : smooth;
+band1Freq   = nentry("band1:freq",    0,  -25,  25, 10) : smooth;
+band1Res    = nentry("band1:res",     0,  -25,  25, 10) : smooth;
+band2Freq   = nentry("band2:freq",    0,  -25,  25, 10) : smooth;
+band2Res    = nentry("band2:res",     0,  -25,  25, 10) : smooth;
+band3Freq   = nentry("band3:freq",    0,  -25,  25, 10) : smooth;
+band3Res    = nentry("band3:res",     0,  -25,  25, 10) : smooth;
 highFreq    = nentry("high:freq",    50,    0,  50, 10) : smooth;
 highRes     = nentry("high:res",      0,    0,  50, 10) : smooth;
 attack      = nentry("attack",        0,    0,  50, 10) : smooth;
@@ -45,9 +45,12 @@ adsr = sp.stereoize(*(sampleEnvelope)), sp.stereoize(*(envelope)), sp.stereoize(
 	envelope = en.adsr(attack/20, decay/20, sustain/50, release/20, gate);
 };
 
-eq = sp.stereoize(low : high) with {
-	low = ba.bypass1(lowFreq == 0, wa.highpass2(ba.midikey2hz(lowFreq*2 + 10), lowRes, 0));
-	high = ba.bypass1(highFreq == 50, wa.lowpass2(ba.midikey2hz(highFreq*2), highRes, 0));
+eq = sp.stereoize(low : band1 : band2 : band3 : high) with {
+	low = ba.bypass_fade(1, lowFreq == 0, wa.highpass2(ba.midikey2hz(lowFreq*2 + 10), lowRes, 0));
+	band1 = ba.bypass_fade(1, (band1Freq == 0) & (band1Res == 0), wa.peaking2(band1Freq/2 + 36, band1Res/2, 4, 0));
+	band2 = ba.bypass_fade(1, (band2Freq == 0) & (band2Res == 0), wa.peaking2(band2Freq/2 + 60, band2Res/2, 4, 0));
+	band3 = ba.bypass_fade(1, (band3Freq == 0) & (band3Res == 0), wa.peaking2(band3Freq/2 + 74, band3Res/2, 4, 0));
+	high = ba.bypass_fade(1, highFreq == 50, wa.lowpass2(ba.midikey2hz(highFreq*2), highRes, 0));
 };
 
 mix(inputL, inputR) = panned : sp.stereoize(*(volume/25)) with {

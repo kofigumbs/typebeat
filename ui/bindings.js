@@ -95,7 +95,7 @@ const Bindings = ({ state, send }) => {
       ['K', title(async () => `bar ${((await state.viewStart / await state.resolution)|0) + 1}/${await state.bars}`) ],
     ])}],
     ['S', { mode: 'EQ', actions: new Map([
-      ...oneOf('YUIOP', state, 'eqBand', ['low', 'mid 1', 'mid 2', 'mid 3', 'high']),
+      ...oneOf('YUIOP', state, 'eqBand', ['low', 'band 1', 'band 2', 'band 3', 'high']),
       ...oneOf('NM', state, 'eqFilter', ['freq.', 'res.']),
       ...nudge(() => state[method(state.eqBand, state.eqFilter)], i => send(method(state.eqBand, state.eqFilter), i)),
     ])}],
