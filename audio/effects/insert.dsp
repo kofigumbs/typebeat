@@ -3,19 +3,20 @@ import("stdfaust.lib");
 note = button("note");
 gate = button("gate");
 
+synth1Type = nentry("synth:1:type", 0, 0, 4, 1);
+synth2Type = nentry("synth:2:type", 0, 0, 4, 1);
+adsrSample = nentry("adsrSample",   0, 0, 1, 0);
+
 samplePitch = nentry("sample:pitch",  0, -120, 120, 10) : smooth;
 sampleLevel = nentry("sample:level", 50,    0,  50, 10) : smooth;
-synth1Type  = nentry("synth:1:type",  0,    0,   4,  1) : smooth;
 synth1Pitch = nentry("synth:1:pitch", 0, -120, 120, 10) : smooth;
 synth1Level = nentry("synth:1:level", 0,    0,  50, 10) : smooth;
-synth2Type  = nentry("synth:2:type",  0,    0,   4,  1) : smooth;
 synth2Pitch = nentry("synth:2:pitch", 0, -120, 120, 10) : smooth;
 synth2Level = nentry("synth:2:level", 0,    0,  50, 10) : smooth;
 attack      = nentry("attack",        0,    0,  50, 10) : smooth;
 decay       = nentry("decay",         0,    0,  50, 10) : smooth;
 sustain     = nentry("sustain",      50,    0,  50, 10) : smooth;
 release     = nentry("release",       1,    0,  50, 10) : smooth;
-adsrSample  = nentry("adsrSample",    0,    0,   1,  0) : smooth;
 volume      = nentry("volume",       25,    0,  50, 10) : smooth;
 pan         = nentry("pan",           0,  -25,  25, 10) : smooth;
 

@@ -67,7 +67,7 @@ struct Controller : Audio::EventHandler {
         std::pair<Entries::Control*, int> entry;
         while(sendEntries.pop(entry)) {
             if (entry.first->step == 0)
-                entry.first->value = entry.first->value == 0;
+                entry.first->value = !entry.first->value;
             else if (entry.first->step == 1)
                 entry.first->value = std::clamp((float) entry.second, entry.first->min, entry.first->max);
             else

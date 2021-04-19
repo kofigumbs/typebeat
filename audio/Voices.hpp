@@ -7,6 +7,7 @@ struct Voices {
     };
 
     struct Player {
+        int age = 0;
         SampleType sampleType;
         float position;
         float increment;
@@ -49,15 +50,18 @@ struct Voices {
     }
 
     void allocate(SampleType sampleType, int note, int naturalNote, Entries* entries, Samples::File* file) {
-        auto& p = players[nextVoice++ % players.size()];
-        p.sampleType = sampleType;
-        p.position = 0;
-        p.increment = pow(2.0f, note / 12.0f) / pow(2.0f, naturalNote / 12.0f);
-        *p.note = note;
-        *p.gate = 1;
-        p.entries = entries;
-        p.file = file;
-        p.dsp->instanceClear();
+        auto p = bestPlayer(note, entries);
+        for (auto& q : players)
+            q.age++;
+        p->age = 0;
+        p->sampleType = sampleType;
+        p->position = 0;
+        p->increment = pow(2.0f, note / 12.0f) / pow(2.0f, naturalNote / 12.0f);
+        *p->note = note;
+        *p->gate = 1;
+        p->entries = entries;
+        p->file = file;
+        p->dsp->instanceClear();
     }
 
     void release(int note, Entries* entries) {
@@ -68,7 +72,7 @@ struct Voices {
 
     void run(const float input, float& outputL, float& outputR) {
         for (auto& p : players) {
-            if (!p.entries || !p.gate)
+            if (p.entries == nullptr)
                 continue;
             Buffer toDsp, fromDsp;
             run(input, toDsp, p);
@@ -87,6 +91,30 @@ struct Voices {
   private:
     int nextVoice = 0;
     std::vector<Player> players;
+
+    Player* bestPlayer(int note, Entries* entries) {
+        Player* best;
+        int bestScore = -1;
+        for (auto& p : players) {
+            auto pScore = score(note, entries, p);
+            if (pScore > bestScore) {
+                best = &p;
+                bestScore = pScore;
+            }
+        }
+        return best;
+    }
+
+    int score(int note, Entries* entries, const Player& p) {
+        if (p.entries == nullptr)
+            return 10000;
+        else if (*p.note == note && p.entries == entries)
+            return 1000;
+        else if (p.position >= p.file->length && *p.gate == 0)
+            return 100;
+        else
+            return std::min(p.age, 99);
+    }
 
     void run(const float input, Buffer& output, Player& p) {
         switch (p.sampleType) {
