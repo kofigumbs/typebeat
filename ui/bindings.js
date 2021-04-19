@@ -1,4 +1,6 @@
 const Bindings = ({ state, send }) => {
+  const method = (...parts) => parts.join(':').replace(/[^\w:]/, '');
+
   const noOp = () => '';
   const bind = options => Object.assign({ label: noOp, title: noOp, onDown: noOp, onUp: noOp }, options);
 
@@ -36,22 +38,22 @@ const Bindings = ({ state, send }) => {
       ...oneOf('YUIO', state, 'sound', ['sample', 'synth 1', 'synth 2']),
       ...oneOf('NM,', state, 'soundControl', ['type', 'pitch', 'level']),
       ...group('HJKL;', i => {
-        const method = () => `${state.sound.replace(' ', ':')}:${state.soundControl}`;
-        const nudgeBind = nudge(() => state[method()], j => send(method(), j))[i][1];
+        const soundMethod = () => method(state.sound, state.soundControl);
+        const soundNudge = nudge(() => state[soundMethod()], j => send(soundMethod(), j))[i][1];
         return {
           label: () => {
             if (state.soundControl !== 'type')
-              return nudgeBind.label();
+              return soundNudge.label();
             else if (state.sound === 'sample')
               return ['file', 'live ->', 'live .=', 'live |>'][i]
             else
               return ['sine', 'tri.', 'saw', 'square', 'noise'][i];
           },
           title: async () => (
-            state.soundControl === 'type' ? i === await state[method()] : nudgeBind.title()
+            state.soundControl === 'type' ? i === await state[soundMethod()] : soundNudge.title()
           ),
           onDown: async () => {
-            state.soundControl === 'type' ? send(method(), i) : nudgeBind.onDown();
+            state.soundControl === 'type' ? send(soundMethod(), i) : soundNudge.onDown();
           },
         };
       }),
@@ -63,12 +65,12 @@ const Bindings = ({ state, send }) => {
     ['T', { mode: 'Note', actions: new Map([
       ...all(i => ({
         label: async () => {
-          const note = await state[`note:${i}`];
+          const note = await state[method('note', i)];
           const name = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][note % 12];
           const octave = Math.floor(note / 12 - 1);
           return `${name}${octave}`;
         },
-        title: async () => await state[`note:${i}`] === await state.naturalNote,
+        title: async () => await state[method('note', i)] === await state.naturalNote,
         onDown: () => send('noteDown', i),
         onUp: () => send('noteUp', i),
       })),
@@ -93,9 +95,9 @@ const Bindings = ({ state, send }) => {
       ['K', title(async () => `bar ${((await state.viewStart / await state.resolution)|0) + 1}/${await state.bars}`) ],
     ])}],
     ['S', { mode: 'EQ', actions: new Map([
-      ...oneOf('YUIOP', state, 'eqBand', ['hi pass', 'mid 1', 'mid 2', 'mid 3', 'lo pass']),
+      ...oneOf('YUIOP', state, 'eqBand', ['low', 'mid 1', 'mid 2', 'mid 3', 'high']),
       ...oneOf('NM', state, 'eqFilter', ['freq.', 'res.']),
-      ...nudge(async () => await state[`${state.eqBand}:${state.eqFilter}`], i => {}),
+      ...nudge(() => state[method(state.eqBand, state.eqFilter)], i => send(method(state.eqBand, state.eqFilter), i)),
     ])}],
     ['D', { mode: 'ADSR', actions: new Map([
       ...oneOf('YUIO', state, 'adsr', ['attack', 'decay', 'sustain', 'release']),
