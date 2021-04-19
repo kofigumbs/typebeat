@@ -15,8 +15,6 @@ struct Controller : Audio::EventHandler {
         receiveCallbacks["activeTrack"] = [this](){ return activeTrack; };
         // sound mode
         sendCallbacks["sample:type"] = &Controller::onSampleType;
-        sendCallbacks["synth:1:type"] = &Controller::onSynth1Type;
-        sendCallbacks["synth:2:type"] = &Controller::onSynth2Type;
         receiveCallbacks["sample:type"] = [this](){ return static_cast<int>(tracks[activeTrack].sampleType); };
         // note mode
         sendCallbacks["noteDown"] = &Controller::onNoteDown;
@@ -67,8 +65,14 @@ struct Controller : Audio::EventHandler {
         while(sendMessages.pop(message))
             (this->*message.first)(message.second);
         std::pair<Entries::Control*, int> entry;
-        while(sendEntries.pop(entry))
-            nudge(entry.first->min, entry.first->max, &entry.first->value, entry.second);
+        while(sendEntries.pop(entry)) {
+            if (entry.first->step == 0)
+                entry.first->value = entry.first->value == 0;
+            else if (entry.first->step == 1)
+                entry.first->value = std::clamp((float) entry.second, entry.first->min, entry.first->max);
+            else
+                nudge(entry.first->min, entry.first->max, &entry.first->value, entry.second, entry.first->step);
+        }
         for (int i = 0; i < Controller::trackCount; i++)
             tracks[i].run(input);
         tracks.front().voices->run(input, outputL, outputR);
@@ -116,14 +120,6 @@ struct Controller : Audio::EventHandler {
         tracks[activeTrack].setSampleType(value);
     }
 
-    void onSynth1Type(int value) {
-        tracks[activeTrack].entry("synth:1:type")->value = value;
-    }
-
-    void onSynth2Type(int value) {
-        tracks[activeTrack].entry("synth:2:type")->value = value;
-    }
-
     void onNoteDown(int value) {
         tracks[activeTrack].play(keyToNote(value));
     }
@@ -154,7 +150,7 @@ struct Controller : Audio::EventHandler {
     }
 
     void onTempo(int value) {
-        nudge(1, 999, &transport.tempo, value);
+        nudge(1, 999, &transport.tempo, value, 10);
     }
 
     int keyToNote(int key) {
@@ -162,7 +158,7 @@ struct Controller : Audio::EventHandler {
     }
 
     template <typename T>
-    void nudge(T low, T high, T* original, int value, int jump = 10) {
+    void nudge(T low, T high, T* original, int value, int jump) {
         int diff = 0;
         switch (value) {
             case 0: diff = -jump; break;

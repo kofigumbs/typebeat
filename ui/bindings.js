@@ -100,6 +100,7 @@ const Bindings = ({ state, send }) => {
     ['D', { mode: 'ADSR', actions: new Map([
       ...oneOf('YUIO', state, 'adsr', ['attack', 'decay', 'sustain', 'release']),
       ...nudge(async () => await state[state.adsr], i => send(state.adsr, i)),
+      ['N', toggle('sample', async () => await state.adsrSample, () => send('adsrSample')) ],
     ])}],
     ['F', { mode: 'FX', actions: new Map([
       ...oneOf('YUIOP', state, 'fx', ['comp.', 'distort', 'vocoder', 'chorus', 'duck']),
