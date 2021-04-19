@@ -1,3 +1,3 @@
 // vim: set ft=cpp:
 #include "faust/dsp/dsp.h"
-dsp* createInsert();
+dsp* create_insert();

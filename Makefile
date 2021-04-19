@@ -18,11 +18,11 @@ build/desktop.o: .git/modules audio/include/Audio.h audio/include/Effects.h main
 build/audio.o: .git/modules audio audio/include/Audio.h
 	$(CC)$@ -I "$(shell faust --includedir)" audio/Audio.cpp
 
-build/insert.o: build/Insert.cpp | build
-	$(CC)$@ -I "$(shell faust --includedir)" build/Insert.cpp
+build/%.o: build/%.cpp | build
+	$(CC)$@ -I "$(shell faust --includedir)" $<
 
-build/Insert.cpp: audio/effects/insert.dsp | build
-	faust -a minimal-effect.cpp -cn Insert -o $@ $<
+build/%.cpp: audio/effects/%.dsp | build
+	faust -a minimal-effect.cpp -cn _$(basename $(notdir $@)) -o $@ $<
 
 build:
 	mkdir build

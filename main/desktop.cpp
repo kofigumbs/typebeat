@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
     auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
         .parent_path(); // project directory
-    auto insert = std::unique_ptr<dsp>(createInsert());
+    auto insert = std::unique_ptr<dsp>(create_insert());
     Audio audio {
         root,
         getenv("TYPEBEAT_INPUT_DEVICE"),

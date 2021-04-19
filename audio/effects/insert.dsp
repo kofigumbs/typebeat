@@ -22,10 +22,10 @@ process = sound : adsr : mix;
 
 sound = sample, synth1, synth2 :> _, _ with {
 	sample = sp.stereoize(*(sampleLevel/50));
-	synth1 = frequency(synth1Pitch) : oscilator(synth1Type) : *(synth1Level/50) <: _, _;
-	synth2 = frequency(synth2Pitch) : oscilator(synth2Type) : *(synth2Level/50) <: _, _;
+	synth1 = frequency(synth1Pitch) : oscillator(synth1Type) : *(synth1Level/50) <: _, _;
+	synth2 = frequency(synth2Pitch) : oscillator(synth2Type) : *(synth2Level/50) <: _, _;
 	frequency = /(10) : +(note) : ba.midikey2hz;
-	oscilator = ba.selectmulti(1, (os.oscsin, os.triangle, os.sawtooth, os.square, (no.noise, !)));
+	oscillator = ba.selectmulti(1, (os.oscsin, os.triangle, os.sawtooth, os.square, (no.noise, !)));
 };
 
 adsr = sp.stereoize(*(en.adsr(attack/20, decay/20, sustain/50, release/20, gate)));
