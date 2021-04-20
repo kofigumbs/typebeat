@@ -36,13 +36,13 @@ pan         = nentry("pan",           0,  -25,  25, 10) : smooth;
 process = sound :> eq : mix;
 
 sound = sample, synth1, synth2, synth3 with {
-	sample = sp.stereoize(pitchShift : *(sampleLevel/50 * ba.if(holdSample, envelope, 1)));
+	sample = sp.stereoize(pitchShift : *(sampleLevel/75 * ba.if(holdSample, envelope, 1)));
 	pitchShift = ba.bypass_fade(1, samplePitch == 0, ef.transpose(1000, 10, samplePitch/10));
-	synth1 = frequency(synth1Pitch/10) : oscillator(synth1Type) : *(synth1Level/70 * envelope) <: _, _;
-	synth2 = frequency(synth2Pitch/10) : oscillator(synth2Type) : *(synth2Level/70 * envelope) <: _, _;
-	synth3 = frequency(synth3Pitch/10) : oscillator(synth3Type) : *(synth3Level/70 * envelope) <: _, _;
+	synth1 = frequency(synth1Pitch/10) : oscillator(synth1Type) : *(synth1Level/120 * envelope) <: _, _;
+	synth2 = frequency(synth2Pitch/10) : oscillator(synth2Type) : *(synth2Level/120 * envelope) <: _, _;
+	synth3 = frequency(synth3Pitch/10) : oscillator(synth3Type) : *(synth3Level/120 * envelope) <: _, _;
 	frequency = _/10 + note : ba.midikey2hz;
-	oscillator = ba.selectmulti(1, (os.oscsin, os.triangle, os.sawtooth, os.square, (no.noise/3, !)));
+	oscillator = ba.selectmulti(1, (os.oscsin, os.triangle, os.sawtooth/2, os.square/2, (no.noise/2, !)));
 };
 
 eq = sp.stereoize(low : band1 : band2 : band3 : high) with {

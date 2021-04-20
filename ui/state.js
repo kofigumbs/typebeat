@@ -1,6 +1,6 @@
 const State = ({ receive, defaults }) => {
   const local = new Map(defaults);
-  const cache = new Map(defaults);
+  const cache = new Map();
   return [
     new Proxy({}, {
       get: function(target, prop) {
