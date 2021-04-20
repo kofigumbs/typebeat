@@ -22,7 +22,7 @@ struct Track {
     Voices::SampleType sampleType = Voices::SampleType::file;
     Voices* voices;
 
-    Track(Voices* v, Transport* t, Samples::File* s, Entries e) : voices(v), transport(t), sampleFile(s), entries(e), steps() {
+    Track(Voices* v, Song* s, Samples::File* f, Entries e) : voices(v), song(s), sampleFile(f), entries(e), steps() {
         sampleLive.frames.reset(new float[maxLiveRecordLength]);
     }
 
@@ -40,8 +40,8 @@ struct Track {
     void run(const float input) {
         if (sampleType == Voices::SampleType::liveRecord && sampleLive.length < maxLiveRecordLength)
             sampleLive.frames[sampleLive.length++] = input;
-        if (transport->newStep()) {
-            auto& step = steps[transport->step % length];
+        if (song->newStep()) {
+            auto& step = steps[song->step % length];
             if (step.skipNext)
                 step.skipNext = false;
             else if (step.active)
@@ -56,7 +56,7 @@ struct Track {
     }
 
     int bars() {
-        return std::ceil(1.f * length / Transport::maxResolution);
+        return std::ceil(1.f * length / Song::maxResolution);
     }
 
     int view(int i) {
@@ -81,7 +81,7 @@ struct Track {
     }
 
     void zoomIn() {
-        if (resolution < Transport::maxResolution)
+        if (resolution < Song::maxResolution)
             resolution *= 2;
     }
 
@@ -107,11 +107,11 @@ struct Track {
     }
 
     void play(int note) {
-        if (transport->playing && transport->armed) {
-            auto quantizedStep = transport->quantizedStep(resolution);
+        if (song->playing && song->armed) {
+            auto quantizedStep = song->quantizedStep(resolution);
             steps[quantizedStep % length] = {
                 .active = true,
-                .skipNext = quantizedStep >= transport->step,
+                .skipNext = quantizedStep >= song->step,
                 .note = note 
             };
         }
@@ -128,15 +128,15 @@ struct Track {
 
   private:
     int pageStart = 0;
-    int length = Transport::maxResolution*4;
-    Transport* transport;
+    int length = Song::maxResolution*4;
+    Song* song;
     Samples::File* sampleFile;
     Samples::File sampleLive;
     Entries entries;
-    std::array<Step, Transport::maxResolution*16*8> steps;
+    std::array<Step, Song::maxResolution*16*8> steps;
 
     int viewLength() {
-        return Transport::maxResolution / resolution;
+        return Song::maxResolution / resolution;
     }
 
     int viewIndexToStart(int i) {

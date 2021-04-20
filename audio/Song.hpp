@@ -1,10 +1,26 @@
-struct Transport {
+struct Song {
     static const int maxResolution = 64;
+    constexpr static const std::array<std::array<int, 7>, 12> scaleOffsets {
+        0, 2, 4, 5, 7, 9, 11,
+        0, 2, 3, 5, 7, 8, 10,
+        0, 2, 3, 5, 7, 9, 10,
+        0, 1, 3, 5, 7, 8, 10,
+        0, 2, 4, 6, 7, 9, 11,
+        0, 2, 4, 5, 7, 9, 10,
+        0, 1, 3, 5, 6, 8, 10,
+        0, 2, 3, 5, 7, 8, 11,
+        0, 2, 4, 5, 7, 8, 11,
+        0, 2, 3, 5, 7, 9, 11,
+        0, 2, 3, 5, 7, 8, 10,
+        0, 2, 4, 5, 7, 8, 10,
+    };
 
     bool playing = false;
     bool armed = false;
     int tempo = 120;
     int step = -1;
+    int transpose = 0;
+    int scale = 0;
 
     void togglePlay() {
         playing = !playing;
@@ -31,6 +47,10 @@ struct Transport {
         auto scaledStep = step / scale * scale;
         auto snapToNext = (step - scaledStep)*stepDuration(maxResolution) + framesSinceLastStep > stepDuration(resolution)/2;
         return scaledStep + scale*snapToNext;
+    }
+
+    int keyToNote(int octave, int key) {
+        return transpose + scaleOffsets[scale][key % 7] + (octave + key/7) * 12;
     }
 
   private:

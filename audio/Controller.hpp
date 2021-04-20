@@ -2,9 +2,9 @@ struct Controller : Audio::EventHandler {
     static const int trackCount = 15;
     static const int maxQueueSize = 8;
 
-    Controller(Voices* voices, Samples* samples, Entries entries) : tracks(), transport(), receiveCallbacks(), sendCallbacks(), sendMessages(), sendEntries() {
+    Controller(Voices* voices, Samples* samples, Entries entries) : tracks(), song(), receiveCallbacks(), sendCallbacks(), sendMessages(), sendEntries() {
         for (int i = 0; i < Controller::trackCount; i++)
-            tracks.push_back(Track(voices, &transport, &samples->files[i], entries));
+            tracks.push_back(Track(voices, &song, &samples->files[i], entries));
         sendMessages.reset(maxQueueSize);
         sendEntries.reset(maxQueueSize);
         // audition
@@ -35,11 +35,11 @@ struct Controller : Audio::EventHandler {
         sendCallbacks["arm"] = &Controller::onArm;
         sendCallbacks["tempo"] = &Controller::onTempo;
         sendCallbacks["tempoTaps"] = &Controller::onTempoTaps;
-        receiveCallbacks["playing"] = [this](){ return transport.playing; };
-        receiveCallbacks["armed"] = [this](){ return transport.armed; };
-        receiveCallbacks["tempo"] = [this](){ return transport.tempo; };
-        receiveCallbacks["scale"] = [this](){ return scale; };
-        receiveCallbacks["transpose"] = [this](){ return transpose; };
+        receiveCallbacks["playing"] = [this](){ return song.playing; };
+        receiveCallbacks["armed"] = [this](){ return song.armed; };
+        receiveCallbacks["tempo"] = [this](){ return song.tempo; };
+        receiveCallbacks["scale"] = [this](){ return song.scale; };
+        receiveCallbacks["transpose"] = [this](){ return song.transpose; };
     }
 
     void onSend(const std::string& name, int value) override {
@@ -61,7 +61,7 @@ struct Controller : Audio::EventHandler {
     }
 
     void run(const float input, float& outputL, float& outputR) {
-        transport.advance();
+        song.advance();
         std::pair<void(Controller::*)(int), int> message;
         while(sendMessages.pop(message))
             (this->*message.first)(message.second);
@@ -80,25 +80,8 @@ struct Controller : Audio::EventHandler {
     }
 
   private:
-    const std::array<std::array<int, 7>, 12> scaleOffsets {
-        0, 2, 4, 5, 7, 9, 11,
-        0, 2, 3, 5, 7, 8, 10,
-        0, 2, 3, 5, 7, 9, 10,
-        0, 1, 3, 5, 7, 8, 10,
-        0, 2, 4, 6, 7, 9, 11,
-        0, 2, 4, 5, 7, 9, 10,
-        0, 1, 3, 5, 6, 8, 10,
-        0, 2, 3, 5, 7, 8, 11,
-        0, 2, 4, 5, 7, 8, 11,
-        0, 2, 3, 5, 7, 9, 11,
-        0, 2, 3, 5, 7, 8, 10,
-        0, 2, 4, 5, 7, 8, 10,
-    };
-
-    int transpose = 0;
-    int scale = 0;
     int activeTrack = 0;
-    Transport transport;
+    Song song;
     std::vector<Track> tracks;
     std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
     std::unordered_map<std::string, void(Controller::*)(int)> sendCallbacks;
@@ -143,23 +126,23 @@ struct Controller : Audio::EventHandler {
     }
 
     void onPlay(int) {
-        transport.togglePlay();
+        song.togglePlay();
     }
 
     void onArm(int) {
-        transport.armed = !transport.armed;
+        song.armed = !song.armed;
     }
 
     void onTempo(int value) {
-        nudge(1, 999, &transport.tempo, value, 10);
+        nudge(1, 999, &song.tempo, value, 10);
     }
 
     void onTempoTaps(int value) {
-        transport.tempo = value;
+        song.tempo = value;
     }
 
     int keyToNote(int key) {
-        return transpose + scaleOffsets[scale][key % 7] + (tracks[activeTrack].octave + key/7) * 12;
+        return song.keyToNote(tracks[activeTrack].octave, key);
     }
 
     template <typename T>

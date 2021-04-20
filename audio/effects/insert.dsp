@@ -6,7 +6,7 @@ gate = button("gate");
 synth1Type = nentry("synth1:type", 0, 0, 4, 1);
 synth2Type = nentry("synth2:type", 0, 0, 4, 1);
 synth3Type = nentry("synth3:type", 0, 0, 4, 1);
-holdSample = nentry("holdSample",   0, 0, 1, 0);
+holdSample = nentry("holdSample",  0, 0, 1, 0);
 
 sampleLevel = nentry("sample:level", 50,    0,  50, 10) : smooth;
 samplePitch = nentry("sample:pitch",  0, -120, 120, 10) : smooth;
@@ -66,5 +66,5 @@ envelope = en.adsr(attack/20, decay/20, sustain/50, release/20, gate);
 
 smooth = si.polySmooth(trigger, amount, 1) with {
 	trigger = gate : ba.peakhold(1);
-	amount = 1 - 44.1 / ma.SR;
+	amount = 1 - 44.1 / ma.SR; // https://github.com/grame-cncm/faustlibraries/blob/b54a01fa5ef0ac1f4939f78a88d318f1db85cc0a/signals.lib#L116
 };
