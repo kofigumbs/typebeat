@@ -36,7 +36,8 @@ pan         = nentry("pan",           0,  -25,  25, 10) : smooth;
 process = sound :> eq : mix;
 
 sound = sample, synth1, synth2, synth3 with {
-	sample = sp.stereoize(*(sampleLevel/50 * ba.if(holdSample, envelope, 1)));
+	sample = sp.stereoize(pitchShift : *(sampleLevel/50 * ba.if(holdSample, envelope, 1)));
+	pitchShift = ba.bypass_fade(1, samplePitch == 0, ef.transpose(1000, 10, samplePitch/10));
 	synth1 = frequency(synth1Pitch/10) : oscillator(synth1Type) : *(synth1Level/70 * envelope) <: _, _;
 	synth2 = frequency(synth2Pitch/10) : oscillator(synth2Type) : *(synth2Level/70 * envelope) <: _, _;
 	synth3 = frequency(synth3Pitch/10) : oscillator(synth3Type) : *(synth3Level/70 * envelope) <: _, _;
