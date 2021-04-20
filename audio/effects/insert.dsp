@@ -29,7 +29,7 @@ highRes     = nentry("high:res",      0,    0,  50, 10) : smooth;
 attack      = nentry("attack",        0,    0,  50, 10) : smooth;
 decay       = nentry("decay",         0,    0,  50, 10) : smooth;
 sustain     = nentry("sustain",      50,    0,  50, 10) : smooth;
-release     = nentry("release",       1,    0,  50, 10) : smooth;
+release     = nentry("release",       0,    0,  50, 10) : smooth;
 volume      = nentry("volume",       25,    0,  50, 10) : smooth;
 pan         = nentry("pan",           0,  -25,  25, 10) : smooth;
 

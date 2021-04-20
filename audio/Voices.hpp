@@ -106,14 +106,12 @@ struct Voices {
     }
 
     int score(int note, Entries* entries, const Player& p) {
+        auto age = std::min(p.age, 99);
         if (p.entries == nullptr)
-            return 10000;
-        else if (*p.note == note && p.entries == entries)
-            return 1000;
-        else if (p.position >= p.file->length && *p.gate == 0)
-            return 100;
-        else
-            return std::min(p.age, 99);
+            age *= 1000;
+        if (p.file && p.position >= p.file->length && *p.gate == 0)
+            age *= 100;
+        return age;
     }
 
     void run(const float input, Buffer& output, Player& p) {
