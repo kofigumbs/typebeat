@@ -2,7 +2,7 @@ const debug = context => (...args) => {
   console.log(`[Typebeat] ${context}: ${args.join(', ')}`);
 };
 const [state, clearCache] = State({
-  defaults: [['modifier', undefined]],
+  defaults: [['modifier', undefined], ['tempoTaps', []]],
   receive: window.$receive ?? debug('receive'),
 });
 const bindings = Bindings({
@@ -124,10 +124,11 @@ const handleDocumentKey = event => {
     modifierToggle(cap, down);
     for (const key of keysOnLeft)
       key.classList.toggle('hold', !!state.modifier && key.dataset.cap === state.modifier);
+    state.tempoTaps = [];
   }
   else {
     const handler = bindings.get(state.modifier).actions.get(cap);
-    down ? handler?.onDown() : handler?.onUp();
+    down ? handler?.onDown(event.timeStamp) : handler?.onUp(event.timeStamp);
     if (down) {
       const key = keysOnRight.find(key => cap === key.dataset.cap);
       key.classList.remove('pulse');

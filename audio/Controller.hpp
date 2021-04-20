@@ -34,6 +34,7 @@ struct Controller : Audio::EventHandler {
         sendCallbacks["play"] = &Controller::onPlay;
         sendCallbacks["arm"] = &Controller::onArm;
         sendCallbacks["tempo"] = &Controller::onTempo;
+        sendCallbacks["tempoTaps"] = &Controller::onTempoTaps;
         receiveCallbacks["playing"] = [this](){ return transport.playing; };
         receiveCallbacks["armed"] = [this](){ return transport.armed; };
         receiveCallbacks["tempo"] = [this](){ return transport.tempo; };
@@ -151,6 +152,10 @@ struct Controller : Audio::EventHandler {
 
     void onTempo(int value) {
         nudge(1, 999, &transport.tempo, value, 10);
+    }
+
+    void onTempoTaps(int value) {
+        transport.tempo = value;
     }
 
     int keyToNote(int key) {

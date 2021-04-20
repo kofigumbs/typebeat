@@ -115,6 +115,19 @@ const Bindings = ({ state, send }) => {
     ['Z', { mode: 'Song', actions: new Map([
       ...oneOf('Y', state, 'song', ['tempo']),
       ...nudge(async () => await state[state.song], async i => send(state.song, i)),
+      ['P', bind({
+        label: () => 'tap',
+        title: () => !!state.tempoTaps.length,
+        onDown: (time) => {
+          state.tempoTaps.push(time);
+          if (state.tempoTaps.length === 1)
+            return;
+          let diffs = 0;
+          for (let i = 1; i < state.tempoTaps.length; i++)
+            diffs += state.tempoTaps[i] - state.tempoTaps[i - 1];
+          send('tempoTaps', Math.round(60000 / (diffs / (state.tempoTaps.length - 1)) + 1));
+        },
+      })],
       ['N', toggle('play', async () => await state.playing, () => send('play')) ],
       ['M', toggle('arm', async () => await state.armed, () => send('arm')) ],
     ])}],
