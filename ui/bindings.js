@@ -36,7 +36,7 @@ const Bindings = ({ state, send }) => {
     ])}],
     ['W', { mode: 'Sound', actions: new Map([
       ...oneOf('YUIO', state, 'sound', ['sample', 'synth 1', 'synth 2', 'synth 3']),
-      ...oneOf('NM,', state, 'soundControl', ['type', 'level', 'pitch']),
+      ...oneOf('NM,', state, 'soundControl', ['type', 'level', 'detune']),
       ...group('HJKL;', i => {
         const soundMethod = () => method(state.sound, state.soundControl);
         const soundNudge = nudge(() => state[soundMethod()], j => send(soundMethod(), j))[i][1];
@@ -105,11 +105,9 @@ const Bindings = ({ state, send }) => {
       ['N', toggle('sample', async () => await state.holdSample, () => send('holdSample')) ],
     ])}],
     ['F', { mode: 'FX', actions: new Map([
-      ...oneOf('YUIOP', state, 'fx', ['comp.', 'distort', 'vocoder', 'chorus', 'duck']),
-      ...nudge(async () => await state[await state.fx], i => {}),
     ])}],
     ['G', { mode: 'Mix', actions: new Map([
-      ...oneOf('YUIOPNM,', state, 'mix', ['volume', 'send 1', 'send 2', 'send 3', 'send 4', 'pan', 'to duck', 'to tape']),
+      ...oneOf('YU,', state, 'mix', ['volume', 'pan']),
       ...nudge(async () => await state[state.mix], i => send(state.mix, i)),
     ])}],
     ['Z', { mode: 'Song', actions: new Map([
