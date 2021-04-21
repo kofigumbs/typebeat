@@ -56,7 +56,7 @@ struct Track {
     }
 
     int bars() {
-        return std::ceil(1.f * length / Song::maxResolution);
+        return std::ceil((float) length / Song::maxResolution);
     }
 
     int view(int i) {
@@ -83,6 +83,11 @@ struct Track {
     void zoomIn() {
         if (resolution < Song::maxResolution)
             resolution *= 2;
+    }
+
+    void adjustLength(int diff) {
+        int min = Song::maxResolution;
+        length = std::clamp(length + diff*Song::maxResolution, min, (int) steps.size());
     }
 
     void toggle(int i) {

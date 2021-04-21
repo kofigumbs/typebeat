@@ -76,9 +76,9 @@ const Bindings = ({ state, send }) => {
       })),
     ])}],
     ['A', { mode: 'Loop', actions: new Map([
-      ...group('HJL;', i => ({
-        label: () => ['zoom -', 'page -', 'page +', 'zoom +'][i],
-        onDown: () => send('view', i),
+      ...group('YUHJL;', i => ({
+        label: () => ['bars -', 'bars +','zoom -', 'page -', 'page +', 'zoom +'][i],
+        onDown: () => send(...[['bars', -1], ['bars', 1], ['zoomOut'], ['page', -1], ['page', 1], ['zoomIn']][i]),
       })),
       ...group('NM,.', i => ({
         label: async () => {

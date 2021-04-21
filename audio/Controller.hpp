@@ -23,7 +23,10 @@ struct Controller : Audio::EventHandler {
         for (int i = 0; i < Controller::trackCount; i++)
             receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
         // loop mode
-        sendCallbacks["view"] = &Controller::onView;
+        sendCallbacks["zoomOut"] = &Controller::onZoomOut;
+        sendCallbacks["zoomIn"] = &Controller::onZoomIn;
+        sendCallbacks["page"] = &Controller::onPage;
+        sendCallbacks["bars"] = &Controller::onBars;
         sendCallbacks["stepSequence"] = &Controller::onStepSequence;
         receiveCallbacks["bars"] = [this](){ return tracks[activeTrack].bars(); };
         receiveCallbacks["viewStart"] = [this](){ return tracks[activeTrack].viewStart(); };
@@ -112,13 +115,20 @@ struct Controller : Audio::EventHandler {
         tracks[activeTrack].release(keyToNote(value));
     }
 
-    void onView(int value) {
-        switch (value) {
-            case 0: return tracks[activeTrack].zoomOut();
-            case 1: return tracks[activeTrack].movePage(-1);
-            case 2: return tracks[activeTrack].movePage(1);
-            case 3: return tracks[activeTrack].zoomIn();
-        }
+    void onZoomOut(int) {
+        tracks[activeTrack].zoomOut();
+    }
+
+    void onZoomIn(int) {
+        tracks[activeTrack].zoomIn();
+    }
+
+    void onPage(int diff) {
+        tracks[activeTrack].movePage(diff);
+    }
+
+    void onBars(int value) {
+        tracks[activeTrack].adjustLength(value);
     }
 
     void onStepSequence(int value) {
