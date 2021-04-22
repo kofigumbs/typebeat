@@ -22,6 +22,14 @@ struct Controller : Audio::EventHandler {
         receiveCallbacks["naturalNote"] = [this](){ return tracks[activeTrack].naturalNote; };
         for (int i = 0; i < Controller::trackCount; i++)
             receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
+        // beat mode
+        sendCallbacks["play"] = &Controller::onPlay;
+        sendCallbacks["arm"] = &Controller::onArm;
+        sendCallbacks["tempo"] = &Controller::onTempo;
+        sendCallbacks["tempoTaps"] = &Controller::onTempoTaps;
+        receiveCallbacks["playing"] = [this](){ return song.playing; };
+        receiveCallbacks["armed"] = [this](){ return song.armed; };
+        receiveCallbacks["tempo"] = [this](){ return song.tempo; };
         // loop mode
         sendCallbacks["zoomOut"] = &Controller::onZoomOut;
         sendCallbacks["zoomIn"] = &Controller::onZoomIn;
@@ -34,15 +42,10 @@ struct Controller : Audio::EventHandler {
         for (int i = 0; i < Track::viewsPerPage; i++)
             receiveCallbacks["view:" + std::to_string(i)] = [this, i](){ return tracks[activeTrack].view(i); };
         // song mode
-        sendCallbacks["play"] = &Controller::onPlay;
-        sendCallbacks["arm"] = &Controller::onArm;
-        sendCallbacks["tempo"] = &Controller::onTempo;
-        sendCallbacks["tempoTaps"] = &Controller::onTempoTaps;
-        receiveCallbacks["playing"] = [this](){ return song.playing; };
-        receiveCallbacks["armed"] = [this](){ return song.armed; };
-        receiveCallbacks["tempo"] = [this](){ return song.tempo; };
+        sendCallbacks["root"] = &Controller::onRoot;
+        sendCallbacks["scale"] = &Controller::onScale;
+        receiveCallbacks["root"] = [this](){ return song.root; };
         receiveCallbacks["scale"] = [this](){ return song.scale; };
-        receiveCallbacks["transpose"] = [this](){ return song.transpose; };
     }
 
     void onSend(const std::string& name, int value) override {
@@ -115,6 +118,22 @@ struct Controller : Audio::EventHandler {
         tracks[activeTrack].release(keyToNote(value));
     }
 
+    void onPlay(int) {
+        song.togglePlay();
+    }
+
+    void onArm(int) {
+        song.armed = !song.armed;
+    }
+
+    void onTempo(int value) {
+        nudge(1, 999, &song.tempo, value, 10);
+    }
+
+    void onTempoTaps(int value) {
+        song.tempo = value;
+    }
+
     void onZoomOut(int) {
         tracks[activeTrack].zoomOut();
     }
@@ -135,20 +154,12 @@ struct Controller : Audio::EventHandler {
         tracks[activeTrack].toggle(value);
     }
 
-    void onPlay(int) {
-        song.togglePlay();
+    void onScale(int value) {
+        song.scale = value;
     }
 
-    void onArm(int) {
-        song.armed = !song.armed;
-    }
-
-    void onTempo(int value) {
-        nudge(1, 999, &song.tempo, value, 10);
-    }
-
-    void onTempoTaps(int value) {
-        song.tempo = value;
+    void onRoot(int value) {
+        nudge(-36, 36, &song.root, value, 12);
     }
 
     int keyToNote(int key) {
