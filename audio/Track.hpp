@@ -1,6 +1,6 @@
 struct Track {
     static const int viewsPerPage = 4;
-    static const int concertPitch = 69;
+    static const int defaultKey = 12; // 440Hz (concert pitch A) in C Major
     static const int maxLiveRecordLength = 60*SAMPLE_RATE;
 
     enum class View {
@@ -13,12 +13,12 @@ struct Track {
     struct Step {
         bool active;
         bool skipNext;
-        int note = concertPitch;
+        int key = defaultKey;
     };
 
+    bool mute = false;
     int resolution = 4;
     int octave = 4;
-    int naturalNote = concertPitch;
     Voices::SampleType sampleType = Voices::SampleType::file;
     Voices* voices;
 
@@ -44,8 +44,8 @@ struct Track {
             auto& step = steps[song->step % length];
             if (step.skipNext)
                 step.skipNext = false;
-            else if (step.active)
-                keyDown(step.note);
+            else if (step.active && !mute)
+                restartVoice(step.key);
         }
     }
 
@@ -90,7 +90,7 @@ struct Track {
         length = std::clamp(length + diff*Song::maxResolution, min, (int) steps.size());
     }
 
-    void toggle(int i) {
+    void toggleStep(int i) {
         auto start = viewIndexToStart(i);
         switch (viewFrom(start)) {
             case View::none:
@@ -108,27 +108,27 @@ struct Track {
     }
 
     void play() {
-        play(naturalNote);
+        play(defaultKey);
     }
 
-    void play(int note) {
+    void play(int key) {
         if (song->playing && song->armed) {
             auto quantizedStep = song->quantizedStep(resolution);
             steps[quantizedStep % length] = {
                 .active = true,
                 .skipNext = quantizedStep >= song->step,
-                .note = note 
+                .key = key
             };
         }
-        keyDown(note);
+        restartVoice(key);
     }
 
     void release() {
-        release(naturalNote);
+        release(defaultKey);
     }
 
-    void release(int note) {
-        voices->release(note, &entries);
+    void release(int key) {
+        voices->release(song->keyToNote(octave, key), &entries);
     }
 
   private:
@@ -167,8 +167,13 @@ struct Track {
             return View::containsSteps;
     }
 
-    void keyDown(int note) {
-        auto file = sampleType == Voices::SampleType::file ? sampleFile : &sampleLive;
-        voices->allocate(sampleType, note, naturalNote, &entries, file);
+    void restartVoice(int key) {
+        release(key);
+        voices->allocate(
+            sampleType,
+            song->keyToNote(octave, key),
+            &entries,
+            sampleType == Voices::SampleType::file ? sampleFile : &sampleLive
+        );
     }
 };

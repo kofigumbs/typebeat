@@ -71,7 +71,6 @@ const Bindings = ({ state, send }) => {
     ['T', { mode: 'Note', actions: new Map([
       ...all(i => ({
         label: async () => note(await state[method('note', i)]),
-        title: async () => await state[method('note', i)] === await state.naturalNote,
         onDown: () => send('noteDown', i),
         onUp: () => send('noteUp', i),
       })),
@@ -110,7 +109,7 @@ const Bindings = ({ state, send }) => {
             case 3: return `${step} ░`;
           }
         },
-        onDown: () => send('stepSequence', i),
+        onDown: () => send('sequence', i),
       })),
       ['K', title(async () => `bar ${((await state.viewStart / await state.resolution)|0) + 1}/${await state.bars}`) ],
     ])}],
@@ -142,6 +141,10 @@ const Bindings = ({ state, send }) => {
     ['C', { mode: 'Send', actions: new Map([
     ])}],
     ['V', { mode: 'Mute', actions: new Map([
+      ...all(i => ({
+        label: async () => await state[method('mute', i)] ? '</>' : '==',
+        onDown: () => send('mute', i),
+      })),
     ])}],
     ['B', { mode: 'Tape', actions: new Map([
     ])}],

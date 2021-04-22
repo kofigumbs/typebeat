@@ -49,14 +49,14 @@ struct Voices {
         }
     }
 
-    void allocate(SampleType sampleType, int note, int naturalNote, Entries* entries, Samples::File* file) {
+    void allocate(SampleType sampleType, int note, Entries* entries, Samples::File* file) {
         auto p = bestPlayer(note, entries);
         for (auto& q : players)
             q.age++;
         p->age = 0;
         p->sampleType = sampleType;
         p->position = 0;
-        p->increment = pow(2.0f, note / 12.0f) / pow(2.0f, naturalNote / 12.0f);
+        p->increment = pow(2.0f, note/12.0f) / pow(2.0f, 69/12.0f);
         *p->note = note;
         *p->gate = 1;
         p->entries = entries;

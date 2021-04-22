@@ -16,25 +16,24 @@ struct Controller : Audio::EventHandler {
         sendCallbacks["sample:type"] = [this](int value){ tracks[activeTrack].setSampleType(value); };
         receiveCallbacks["sample:type"] = [this](){ return static_cast<int>(tracks[activeTrack].sampleType); };
         // note mode
-        sendCallbacks["noteDown"] = [this](int value){ tracks[activeTrack].play(keyToNote(value)); };
-        sendCallbacks["noteUp"] = [this](int value){ tracks[activeTrack].release(keyToNote(value)); };
-        receiveCallbacks["naturalNote"] = [this](){ return tracks[activeTrack].naturalNote; };
+        sendCallbacks["noteDown"] = [this](int value){ tracks[activeTrack].play(value); };
+        sendCallbacks["noteUp"] = [this](int value){ tracks[activeTrack].release(value); };
         for (int i = 0; i < Controller::trackCount; i++)
-            receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return keyToNote(i); };
+            receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return song.keyToNote(tracks[activeTrack].octave, i); };
         // beat mode
-        sendCallbacks["play"] = [this](int value){ song.togglePlay(); };
-        sendCallbacks["arm"] = [this](int value){ song.armed = !song.armed; };
+        sendCallbacks["play"] = [this](int){ song.togglePlay(); };
+        sendCallbacks["arm"] = [this](int){ song.armed = !song.armed; };
         sendCallbacks["tempo"] = [this](int value){ nudge(&song.tempo, 1, 999, 10, value); };
         sendCallbacks["tempoTaps"] = [this](int value){ song.tempo = value; };
         receiveCallbacks["playing"] = [this](){ return song.playing; };
         receiveCallbacks["armed"] = [this](){ return song.armed; };
         receiveCallbacks["tempo"] = [this](){ return song.tempo; };
         // loop mode
-        sendCallbacks["zoomOut"] = [this](int value){ tracks[activeTrack].zoomOut(); };
-        sendCallbacks["zoomIn"] = [this](int value){ tracks[activeTrack].zoomIn(); };
+        sendCallbacks["zoomOut"] = [this](int){ tracks[activeTrack].zoomOut(); };
+        sendCallbacks["zoomIn"] = [this](int){ tracks[activeTrack].zoomIn(); };
         sendCallbacks["page"] = [this](int value){ tracks[activeTrack].movePage(value); };
         sendCallbacks["bars"] = [this](int value){ tracks[activeTrack].adjustLength(value); };
-        sendCallbacks["stepSequence"] = [this](int value){ tracks[activeTrack].toggle(value); };
+        sendCallbacks["sequence"] = [this](int value){ tracks[activeTrack].toggleStep(value); };
         receiveCallbacks["bars"] = [this](){ return tracks[activeTrack].bars(); };
         receiveCallbacks["viewStart"] = [this](){ return tracks[activeTrack].viewStart(); };
         receiveCallbacks["resolution"] = [this](){ return tracks[activeTrack].resolution; };
@@ -45,6 +44,10 @@ struct Controller : Audio::EventHandler {
         sendCallbacks["scale"] = [this](int value){ song.scale = value; };
         receiveCallbacks["root"] = [this](){ return song.root; };
         receiveCallbacks["scale"] = [this](){ return song.scale; };
+        // mute mode
+        sendCallbacks["mute"] = [this](int value){ tracks[value].mute ^= 1; };
+        for (int i = 0; i < Controller::trackCount; i++)
+            receiveCallbacks["mute:" + std::to_string(i)] = [this, i](){ return tracks[i].mute; };
     }
 
     void onSend(const std::string& name, int value) override {
@@ -91,10 +94,6 @@ struct Controller : Audio::EventHandler {
     std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
     std::unordered_map<std::string, std::function<void(int)>> sendCallbacks;
     choc::fifo::SingleReaderSingleWriterFIFO<std::function<void()>> sendQueue;
-
-    int keyToNote(int key) {
-        return song.keyToNote(tracks[activeTrack].octave, key);
-    }
 
     template <typename T>
     static void nudge(T* original, T low, T high, int jump, int value) {
