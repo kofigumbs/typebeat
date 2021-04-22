@@ -27,7 +27,7 @@ const Bindings = ({ state, send }) => {
   ];
 
   const note = n => {
-    const name = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][n % 12];
+    const name = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][n % 12];
     const octave = Math.floor(n / 12 - 1);
     return `${name}${octave}`;
   };
@@ -130,9 +130,9 @@ const Bindings = ({ state, send }) => {
     ])}],
     ['Z', { mode: 'Key', actions: new Map([
       ['Y', title(() => 'root')],
-      ...nudge(async () => note(await state.root + 12), i => send('root', i), 12),
+      ...nudge(async () => note(await state.root + 12), i => send('root', i), 'fifth'),
       ...group('NM,.', i => ({
-        label: () => ["major", "minor", "harm.", "melodic"][i],
+        label: () => ['major', 'minor', 'harm.', 'melodic'][i],
         title: async () => i === await state.scale,
         onDown: () => send('scale', i),
       })),

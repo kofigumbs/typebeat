@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
         root,
         getenv("TYPEBEAT_INPUT_DEVICE"),
         getenv("TYPEBEAT_OUTPUT_DEVICE"),
-        getenv("TYPEBEAT_VOICES") ? std::stoi(getenv("TYPEBEAT_VOICES")) : 15,
+        getenv("TYPEBEAT_VOICES") ? std::stoi(getenv("TYPEBEAT_VOICES")) : 8,
         insert.get()
     };
     audio.start([root](Audio::EventHandler* eventHandler) {

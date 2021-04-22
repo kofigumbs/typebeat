@@ -133,7 +133,7 @@ struct Track {
 
   private:
     int pageStart = 0;
-    int length = Song::maxResolution*4;
+    int length = Song::maxResolution;
     Song* song;
     Samples::File* sampleFile;
     Samples::File sampleLive;
