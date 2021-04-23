@@ -2,6 +2,7 @@ import("stdfaust.lib");
 
 note = button("note");
 gate = button("gate");
+live = button("live");
 
 synth1Type = nentry("synth1:type", 0, 0, 4, 1);
 synth2Type = nentry("synth2:type", 0, 0, 4, 1);
@@ -36,8 +37,9 @@ pan          = nentry("pan",           0,  -25,  25, 10) : smooth;
 process = sound :> eq : mix;
 
 sound = sample, synth1, synth2, synth3 with {
-	sample = sp.stereoize(pitchShift : *(sampleLevel/75 * ba.if(holdSample, envelope, 1)));
-	pitchShift = ba.bypass_fade(1, sampleDetune == 0, ef.transpose(1000, 10, sampleDetune/10));
+	sample = sp.stereoize(sampleTranspose : *(sampleLevel/75 * ba.if(holdSample, envelope, 1)));
+	sampleTranspose = ba.bypass_fade(1, sampleOffset == 0, ef.transpose(1000, 10, sampleOffset));
+	sampleOffset = live * (sampleDetune/10 + note - 69);
 	synth1 = frequency(synth1Detune/10) : oscillator(synth1Type) : *(synth1Level/120 * envelope) <: _, _;
 	synth2 = frequency(synth2Detune/10) : oscillator(synth2Type) : *(synth2Level/120 * envelope) <: _, _;
 	synth3 = frequency(synth3Detune/10) : oscillator(synth3Type) : *(synth3Level/120 * envelope) <: _, _;

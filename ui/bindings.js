@@ -18,12 +18,12 @@ const Bindings = ({ state, send }) => {
   };
 
   const all = f => group('NM,./HJKL;YUIOP', f);
-  const nudge = (value, onDown, jump = 10) => [
-    ['H', bind({ label: () => `-${jump}`, onDown: () => onDown(0) }) ],
-    ['J', bind({ label: () => '-1',       onDown: () => onDown(1) }) ],
+  const nudge = (value, onDown) => [
+    ['H', bind({ label: () => '-10', onDown: () => onDown(0) }) ],
+    ['J', bind({ label: () => '-1',  onDown: () => onDown(1) }) ],
     ['K', title(value) ],
-    ['L', bind({ label: () => '+1',       onDown: () => onDown(2) }) ],
-    [';', bind({ label: () => `+${jump}`, onDown: () => onDown(3) }) ],
+    ['L', bind({ label: () => '+1',  onDown: () => onDown(2) }) ],
+    [';', bind({ label: () => '+10', onDown: () => onDown(3) }) ],
   ];
 
   const note = n => {
@@ -129,7 +129,11 @@ const Bindings = ({ state, send }) => {
     ])}],
     ['Z', { mode: 'Key', actions: new Map([
       ['Y', title(() => 'root')],
-      ...nudge(async () => note(await state.root + 12), i => send('root', i), 'fifth'),
+      ['K', title(async () => note(await state.root + 12)) ],
+      ...group('HJL;', i => ({
+        label: () => ['-5th', '-1/2', '+1/2', '+5th'][i],
+        onDown: () => send('root', i),
+      })),
       ...group('NM,.', i => ({
         label: () => ['major', 'minor', 'harm.', 'melodic'][i],
         title: async () => i === await state.scale,

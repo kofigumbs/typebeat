@@ -143,8 +143,6 @@ document.addEventListener('keydown', handleDocumentKey);
 document.addEventListener('keyup', handleDocumentKey);
 document.addEventListener('keypress', event => {
   event.preventDefault();
-  if (event.key === 'r' && (event.ctrlKey || event.metaKey))
-    window.location.reload();
 });
 
 sync();

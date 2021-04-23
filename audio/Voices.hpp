@@ -8,11 +8,11 @@ struct Voices {
 
     struct Player {
         int age = 0;
-        SampleType sampleType;
         float position;
         float increment;
         float* note;
         float* gate;
+        float* live;
         Entries* entries;
         Samples::File* file;
         std::unique_ptr<dsp> dsp;
@@ -46,19 +46,21 @@ struct Voices {
             p.dsp->init(SAMPLE_RATE);
             ui.find("gate", p.gate, p.dsp.get());
             ui.find("note", p.note, p.dsp.get());
+            ui.find("live", p.live, p.dsp.get());
         }
     }
 
     void allocate(SampleType sampleType, int note, Entries* entries, Samples::File* file) {
+        auto sampleDetune = entries->find("sample:detune");
         auto p = bestPlayer(note, entries);
         for (auto& q : players)
             q.age++;
         p->age = 0;
-        p->sampleType = sampleType;
         p->position = 0;
-        p->increment = pow(2.0f, note/12.0f) / pow(2.0f, 69/12.0f);
+        p->increment = pow(2, (note + sampleDetune->value/10)/12) / pow(2, 69.f/12);
         *p->note = note;
         *p->gate = 1;
+        *p->live = sampleType == SampleType::liveThrough || sampleType == SampleType::liveRecord;
         p->entries = entries;
         p->file = file;
         p->dsp->instanceClear();
@@ -115,16 +117,10 @@ struct Voices {
     }
 
     void run(const float input, Buffer& output, Player& p) {
-        switch (p.sampleType) {
-            case SampleType::file:
-            case SampleType::livePlay:
-                playFile(output, p);
-                return;
-            case SampleType::liveThrough:
-            case SampleType::liveRecord:
-                output.l = output.r = input;
-                return;
-        }
+        if (*p.live)
+            output.l = output.r = input;
+        else
+            playFile(output, p);
     }
 
     void playFile(Buffer& output, Player& p) {
