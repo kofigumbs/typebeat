@@ -14,12 +14,15 @@ struct Controller : Audio::EventHandler {
         receiveCallbacks["activeTrack"] = [this](){ return activeTrack; };
         // sound mode
         sendCallbacks["sample:type"] = [this](int value){ tracks[activeTrack].setSampleType(value); };
+        sendCallbacks["useKey"] = [this](int){ tracks[activeTrack].useKey ^= 1; };
         receiveCallbacks["sample:type"] = [this](){ return static_cast<int>(tracks[activeTrack].sampleType); };
+        receiveCallbacks["useKey"] = [this](){ return tracks[activeTrack].useKey; };
         // note mode
         sendCallbacks["noteDown"] = [this](int value){ tracks[activeTrack].play(value); };
         sendCallbacks["noteUp"] = [this](int value){ tracks[activeTrack].release(value); };
+        receiveCallbacks["lastKey"] = [this](){ return tracks[activeTrack].lastKey; };
         for (int i = 0; i < Controller::trackCount; i++)
-            receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return song.keyToNote(tracks[activeTrack].octave, i); };
+            receiveCallbacks["note:" + std::to_string(i)] = [this, i](){ return tracks[activeTrack].keyToNote(i); };
         // beat mode
         sendCallbacks["play"] = [this](int){ song.togglePlay(); };
         sendCallbacks["arm"] = [this](int){ song.armed = !song.armed; };

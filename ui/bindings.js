@@ -63,6 +63,7 @@ const Bindings = ({ state, send }) => {
           },
         };
       }),
+      ['/', toggle('use key', () => state.useKey, () => send('useKey')) ],
     ])}],
     ['E', { mode: 'Chop', actions: new Map([
     ])}],
@@ -71,15 +72,16 @@ const Bindings = ({ state, send }) => {
     ['T', { mode: 'Note', actions: new Map([
       ...all(i => ({
         label: async () => note(await state[method('note', i)]),
+        title: async () => i == await state.lastKey,
         onDown: () => send('noteDown', i),
         onUp: () => send('noteUp', i),
       })),
     ])}],
     ['A', { mode: 'Beat', actions: new Map([
       ['Y', title(() => 'tempo')],
-      ...nudge(async () => await state.tempo, async i => send('tempo', i)),
-      ['N', toggle('play', async () => await state.playing, () => send('play')) ],
-      ['M', toggle('arm', async () => await state.armed, () => send('arm')) ],
+      ...nudge(() => state.tempo, i => send('tempo', i)),
+      ['N', toggle('play', () => state.playing, () => send('play')) ],
+      ['M', toggle('arm', () => state.armed, () => send('arm')) ],
       [',', bind({
         label: () => 'tap',
         title: () => !!state.tempoTaps.length,

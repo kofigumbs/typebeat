@@ -1,6 +1,5 @@
 struct Track {
     static const int viewsPerPage = 4;
-    static const int defaultKey = 12; // 440Hz (concert pitch A) in C Major
     static const int maxLiveRecordLength = 60*SAMPLE_RATE;
 
     enum class View {
@@ -13,10 +12,12 @@ struct Track {
     struct Step {
         bool active;
         bool skipNext;
-        int key = defaultKey;
+        int key;
     };
 
     bool mute = false;
+    bool useKey = true;
+    int lastKey = 12; // 440Hz (concert pitch A) in C Major
     int resolution = 4;
     int octave = 4;
     Voices::SampleType sampleType = Voices::SampleType::file;
@@ -99,6 +100,7 @@ struct Track {
             case View::exactlyOnStep:
                 steps[start].active ^= true;
                 steps[start].skipNext = false;
+                steps[start].key = lastKey;
                 return;
             case View::containsSteps:
                 for (int i = start; i < start + viewLength(); i++)
@@ -108,10 +110,11 @@ struct Track {
     }
 
     void play() {
-        play(defaultKey);
+        play(lastKey);
     }
 
     void play(int key) {
+        lastKey = key;
         if (song->playing && song->armed) {
             auto quantizedStep = song->quantizedStep(resolution);
             steps[quantizedStep % length] = {
@@ -124,11 +127,15 @@ struct Track {
     }
 
     void release() {
-        release(defaultKey);
+        release(lastKey);
     }
 
     void release(int key) {
-        voices->release(song->keyToNote(octave, key), &entries);
+        voices->release(keyToNote(key), &entries);
+    }
+
+    int keyToNote(int key) {
+        return song->keyToNote(useKey, octave, key);
     }
 
   private:
@@ -171,7 +178,7 @@ struct Track {
         release(key);
         voices->allocate(
             sampleType,
-            song->keyToNote(octave, key),
+            keyToNote(key),
             &entries,
             sampleType == Voices::SampleType::file ? sampleFile : &sampleLive
         );

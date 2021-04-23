@@ -41,8 +41,9 @@ struct Song {
         return scaledStep + scale*snapToNext;
     }
 
-    int keyToNote(int octave, int key) {
-        return root + scaleOffsets[scale][key % 7] + (octave + key/7) * 12;
+    int keyToNote(bool useKey, int octave, int key) {
+        return (octave + key/7) * 12
+            + (useKey ? root + scaleOffsets[scale][key % 7] : scaleOffsets[0][key % 7]);
     }
 
   private:
