@@ -1,10 +1,14 @@
 #include <regex>
 #include <filesystem>
 #include <functional>
+#include <iostream>
 
 #include "faust/dsp/dsp.h"
 
+#include "../vendor/cpp-base64/base64.h"
+
 #include "../vendor/webview/webview.h"
+
 #include "../audio/include/Audio.h"
 #include "../audio/include/Effects.h"
 
@@ -50,6 +54,13 @@ int main(int argc, char* argv[]) {
             auto arguments = getArguments(json);
             int value;
             return eventHandler->onReceive(arguments[0], value) ? std::to_string(value) : "null";
+        });
+        view.bind("$drop", [eventHandler](std::string json) -> std::string {
+            auto i = std::stoi(json.substr(1, 2));
+            auto x = i < 10 ? 4 : 5;
+            auto data = base64_decode(std::string_view(json.c_str() + x, json.size() - x - 2));
+            eventHandler->load(i, data.c_str());
+            return "";
         });
 #ifdef WEBVIEW_COCOA
         auto window = (id) view.window();

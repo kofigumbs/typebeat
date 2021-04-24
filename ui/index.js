@@ -69,6 +69,33 @@ const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`)
 
 
 /*
+ * drag-and-drop
+ */
+
+for (let i = 0; i < 15; i++) {
+  keysOnRight[i].addEventListener('dragover', event => {
+    event.stopPropagation();
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  });
+  keysOnRight[i].addEventListener('drop', event => {
+    const file = event.dataTransfer.files[0];
+    if (!file?.name.match(/\.wav$/i))
+      return;
+    event.preventDefault();
+    const reader = new FileReader();
+    reader.onload = () => {
+      let start = 1;
+      while (reader.result[start-1] != ',')
+        start++;
+      (window.$drop ?? debug('drop'))(i, reader.result.substring(start));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+
+/*
  * sync
  */
 

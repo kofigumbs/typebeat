@@ -16,3 +16,6 @@
 [submodule "vendor/FiraCode"]
 	path = vendor/FiraCode
 	url = https://github.com/tonsky/FiraCode
+[submodule "vendor/cpp-base64"]
+	path = vendor/cpp-base64
+	url = https://github.com/ReneNyffenegger/cpp-base64

@@ -146,13 +146,13 @@ const Bindings = ({ state, send }) => {
     ])}],
     ['C', { mode: 'Send', actions: new Map([
     ])}],
-    ['V', { mode: 'Mute', actions: new Map([
+    ['V', { mode: 'Tape', actions: new Map([
+    ])}],
+    ['B', { mode: 'Mute', actions: new Map([
       ...all(i => ({
         label: async () => await state[method('mute', i)] ? '</>' : '==',
         onDown: () => send('mute', i),
       })),
-    ])}],
-    ['B', { mode: 'Tape', actions: new Map([
     ])}],
     [undefined, { actions: new Map([
       ...all(i => ({

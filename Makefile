@@ -9,8 +9,11 @@ endif
 
 # TODO WebAudio/WASM/Emscriptem ?
 
-build/Typebeat${EXE}: build/audio.o build/insert.o build/desktop.o
+build/Typebeat${EXE}: build/audio.o build/insert.o build/desktop.o build/base64.o
 	$(LD)$@ $^
+
+build/base64.o: .git/modules vendor/cpp-base64/base64.cpp | build
+	$(CC)$@ vendor/cpp-base64/base64.cpp
 
 build/desktop.o: .git/modules audio/include/Audio.h audio/include/Effects.h main/desktop.cpp | build
 	$(CC)$@ -I "$(shell faust --includedir)" -I vendor/webview/script main/desktop.cpp

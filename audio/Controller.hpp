@@ -2,7 +2,7 @@ struct Controller : Audio::EventHandler {
     static const int trackCount = 15;
     static const int maxQueueSize = 8;
 
-    Controller(Voices* voices, Samples* samples, Entries entries) : tracks(), song(), receiveCallbacks(), sendCallbacks(), sendQueue() {
+    Controller(Voices* voices, Samples* s, Entries entries) : samples(s), tracks(), song(), receiveCallbacks(), sendCallbacks(), sendQueue() {
         for (int i = 0; i < Controller::trackCount; i++)
             tracks.push_back(Track(voices, &song, &samples->files[i], entries));
         sendQueue.reset(maxQueueSize);
@@ -80,6 +80,12 @@ struct Controller : Audio::EventHandler {
         return tracks[activeTrack].control(name, value);
     }
 
+    void load(int i, const void* data) override {
+        // TODO
+        // call drwav_open_memory_and_read_pcm_frames_f32
+        // swap result for Tracks.sampleFile pointer
+    }
+
     void run(const float input, float& outputL, float& outputR) {
         song.advance();
         std::function<void()> message;
@@ -93,6 +99,7 @@ struct Controller : Audio::EventHandler {
   private:
     int activeTrack = 0;
     Song song;
+    Samples* samples;
     std::vector<Track> tracks;
     std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
     std::unordered_map<std::string, std::function<void(int)>> sendCallbacks;
