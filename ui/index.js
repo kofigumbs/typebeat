@@ -169,7 +169,7 @@ const handleDocumentKey = event => {
 document.addEventListener('keydown', handleDocumentKey);
 document.addEventListener('keyup', handleDocumentKey);
 document.addEventListener('keypress', event => {
-  if ((event.ctrlKey || event.metaKey) && event.key == "w" && window.$close)
+  if ((event.ctrlKey || event.metaKey) && event.key == "q" && window.$close)
     window.$close();
   event.preventDefault();
 });
