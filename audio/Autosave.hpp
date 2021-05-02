@@ -22,9 +22,9 @@ struct Autosave {
     void bind(const std::string label, bool* data)  { bind(label, data, Type::Bool);  }
     void bind(const std::string label, int* data)   { bind(label, data, Type::Int);   }
     void bind(const std::string label, float* data) { bind(label, data, Type::Float); }
-    void bind(const std::string label, Custom* c) {
-        custom.emplace_back(c);
-        bind(label, custom.back().get(), Type::Custom);
+    void bind(const std::string label, Custom* data) {
+        custom.emplace_back(data);
+        bind(label, data, Type::Custom);
     }
 
     void load() {

@@ -3,6 +3,7 @@ struct Controller : Audio::EventHandler {
     static const int maxQueueSize = 8;
 
     Controller(Autosave* a, Voices* voices, Samples* samples, Entries entries) : autosave(a), song(a), tracks(), receiveCallbacks(), sendCallbacks(), sendQueue() {
+        tracks.reserve(Controller::trackCount);
         for (int i = 0; i < Controller::trackCount; i++)
             tracks.emplace_back(i, autosave, voices, samples, &song, entries);
         autosave->load();

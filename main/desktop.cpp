@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
             eventHandler->drop(i, data.c_str());
             return "";
         });
-        view->bind("$close", [](std::string) -> std::string {
+        view->bind("$quit", [](std::string) -> std::string {
             view->terminate();
             return "";
         });
