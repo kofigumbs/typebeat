@@ -67,7 +67,7 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     auto autosave = std::make_unique<Autosave>(root / ".typebeat");
     auto samples = std::make_unique<Samples>(root / "audio" / "samples");
     assert(voiceCount > 0);
-    assert(samples->files.size() >= Controller::trackCount);
+    assert(samples->data.size() >= Controller::trackCount);
     assert(insert->getNumInputs() == 2);
     assert(insert->getNumOutputs() == 2);
     insert->buildUserInterface(&entries);

@@ -23,8 +23,8 @@ struct Track {
     Voices::SampleType sampleType = Voices::SampleType::File;
     Voices* voices;
 
-    Track(int id, Autosave* autosave, Voices* v, Samples* samples, Song* s, Entries e) : voices(v), song(s), sampleFile(&samples->files[id]), entries(e), steps() {
-        sampleLive.frames.reset(new float[maxLiveRecordLength]);
+    Track(int id, Autosave* autosave, Voices* v, Samples* samples, Song* s, Entries e) : voices(v), song(s), defaultSample(&samples->data[id]), entries(e), steps() {
+        liveSample.frames.reset(new float[maxLiveRecordLength]);
         auto prefix = "track[" + std::to_string(id) + "].";
         autosave->bind(prefix + "mute", &mute);
         autosave->bind(prefix + "useKey", &useKey);
@@ -52,25 +52,25 @@ struct Track {
                 return s.str();
             },
         });
-        entries.forEach([autosave, prefix](auto control) {
-            autosave->bind(prefix + control.label, &control.value);
+        entries.forEach([autosave, prefix](auto entry) {
+            autosave->bind(prefix + entry.label, &entry.value);
         });
     }
 
-    Entries::Control* entry(const std::string& name) {
+    Entries::Entry* entry(const std::string& name) {
         return entries.find(name);
     }
 
-    bool control(const std::string& name, int& value) {
-        auto control = entries.find(name);
-        if (control != nullptr)
-            value = control->value;
-        return control != nullptr;
+    bool entry(const std::string& name, int& value) {
+        auto entry = entries.find(name);
+        if (entry != nullptr)
+            value = entry->value;
+        return entry != nullptr;
     }
 
     void run(const float input) {
-        if (sampleType == Voices::SampleType::LiveRecord && sampleLive.length < maxLiveRecordLength)
-            sampleLive.frames[sampleLive.length++] = input;
+        if (sampleType == Voices::SampleType::LiveRecord && liveSample.length < maxLiveRecordLength)
+            liveSample.frames[liveSample.length++] = input;
         if (song->newStep()) {
             auto& step = steps[song->step % length];
             if (step.skipNext)
@@ -83,7 +83,7 @@ struct Track {
     void setSampleType(int value) {
         sampleType = static_cast<Voices::SampleType>(value);
         if (sampleType == Voices::SampleType::LiveRecord)
-            sampleLive.length = 0;
+            liveSample.length = 0;
     }
 
     int bars() {
@@ -172,8 +172,8 @@ struct Track {
     int pageStart = 0;
     int length = Song::maxResolution;
     Song* song;
-    Samples::File* sampleFile;
-    Samples::File sampleLive;
+    Samples::Sample* defaultSample;
+    Samples::Sample liveSample;
     Entries entries;
     std::array<Step, Song::maxResolution*16*8> steps;
 
@@ -210,7 +210,7 @@ struct Track {
             sampleType,
             keyToNote(key),
             &entries,
-            sampleType == Voices::SampleType::File ? sampleFile : &sampleLive
+            sampleType == Voices::SampleType::File ? defaultSample : &liveSample
         );
     }
 };

@@ -1,21 +1,21 @@
 struct Samples {
-    struct File {
+    struct Sample {
         bool stereo;
         ma_uint64 length;
         std::unique_ptr<float[]> frames;
     };
 
-    std::vector<File> files;
+    std::vector<Sample> data;
 
     Samples(std::filesystem::path directory) {
         std::string filename;
         int i = 0;
-        while (hasFile(directory, filename, i++))
+        while (hasSample(directory, filename, i++))
             read(filename);
     }
 
   private:
-    bool hasFile(std::filesystem::path directory, std::string& filename, int i) {
+    bool hasSample(std::filesystem::path directory, std::string& filename, int i) {
         filename = directory / ((i < 10 ? "0" : "") + std::to_string(i) + ".wav");
         return std::filesystem::exists(filename);
     }
@@ -28,7 +28,7 @@ struct Samples {
         assert(frames != NULL);
         assert(channels == 1 || channels == 2);
         assert(sampleRate == SAMPLE_RATE);
-        files.push_back({
+        data.push_back({
             .stereo = channels == 2,
             .length = length,
             .frames = std::unique_ptr<float[]>(frames)

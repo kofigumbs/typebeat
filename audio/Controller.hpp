@@ -80,7 +80,7 @@ struct Controller : Audio::EventHandler {
             value = receiveCallbacks[name]();
             return true;
         }
-        return tracks[activeTrack].control(name, value);
+        return tracks[activeTrack].entry(name, value);
     }
 
     void drop(int i, const void* data) override {

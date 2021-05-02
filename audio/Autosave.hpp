@@ -67,7 +67,7 @@ struct Autosave {
                 *(int*) binding.first = std::stoi(value);
                 return;
             case Type::Float:
-                *(float*) binding.first = std::stof(value);
+                *(float*) binding.first = std::stoi(value);
                 return;
             case Type::Custom:
                 ((Custom*) binding.first)->parse(value);
@@ -94,7 +94,7 @@ struct Autosave {
             case Type::Int:
                 return std::to_string(*(int*) binding.first);
             case Type::Float:
-                return std::to_string(*(float*) binding.first);
+                return std::to_string(int(*(float*) binding.first));
             case Type::Custom:
                 return ((Custom*) binding.first)->render();
         }

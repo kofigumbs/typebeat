@@ -6,7 +6,7 @@ struct Voices {
         LivePlay,
     };
 
-    struct Player {
+    struct Voice {
         int age = 0;
         float position;
         float increment;
@@ -14,7 +14,7 @@ struct Voices {
         float* gate;
         float* live;
         Entries* entries;
-        Samples::File* file;
+        Samples::Sample* sample;
         std::unique_ptr<dsp> dsp;
     };
 
@@ -39,48 +39,48 @@ struct Voices {
         float r = 0;
     };
 
-    Voices(dsp* d, int count) : players(count) {
+    Voices(dsp* d, int count) : data(count) {
         ButtonSearchUI ui;
-        for (auto& p : players) {
-            p.dsp.reset(d->clone());
-            p.dsp->init(SAMPLE_RATE);
-            ui.find("gate", p.gate, p.dsp.get());
-            ui.find("note", p.note, p.dsp.get());
-            ui.find("live", p.live, p.dsp.get());
+        for (auto& v : data) {
+            v.dsp.reset(d->clone());
+            v.dsp->init(SAMPLE_RATE);
+            ui.find("gate", v.gate, v.dsp.get());
+            ui.find("note", v.note, v.dsp.get());
+            ui.find("live", v.live, v.dsp.get());
         }
     }
 
-    void allocate(SampleType sampleType, int note, Entries* entries, Samples::File* file) {
+    void allocate(SampleType sampleType, int note, Entries* entries, Samples::Sample* sample) {
         auto sampleDetune = entries->find("sample:detune");
-        auto p = bestPlayer(note, entries);
-        for (auto& q : players)
+        auto v = bestVoice(note, entries);
+        for (auto& q : data)
             q.age++;
-        p->age = 0;
-        p->position = 0;
-        p->increment = pow(2, (note + sampleDetune->value/10)/12) / pow(2, 69.f/12);
-        *p->note = note;
-        *p->gate = 1;
-        *p->live = sampleType == SampleType::LiveThrough || sampleType == SampleType::LiveRecord;
-        p->entries = entries;
-        p->file = file;
-        p->dsp->instanceClear();
+        v->age = 0;
+        v->position = 0;
+        v->increment = pow(2, (note + sampleDetune->value/10)/12) / pow(2, 69.f/12);
+        *v->note = note;
+        *v->gate = 1;
+        *v->live = sampleType == SampleType::LiveThrough || sampleType == SampleType::LiveRecord;
+        v->entries = entries;
+        v->sample = sample;
+        v->dsp->instanceClear();
     }
 
     void release(int note, Entries* entries) {
-        for (auto& p : players)
-            if (*p.note == note && p.entries == entries)
-                *p.gate = 0;
+        for (auto& v : data)
+            if (*v.note == note && v.entries == entries)
+                *v.gate = 0;
     }
 
     void run(const float input, float& outputL, float& outputR) {
-        for (auto& p : players) {
-            if (p.entries == nullptr)
+        for (auto& v : data) {
+            if (v.entries == nullptr)
                 continue;
             Buffer toDsp, fromDsp;
-            run(input, toDsp, p);
-            p.entries->prepareToWrite();
-            p.dsp->buildUserInterface(p.entries);
-            p.dsp->compute(
+            run(input, toDsp, v);
+            v.entries->prepareToWrite();
+            v.dsp->buildUserInterface(v.entries);
+            v.dsp->compute(
                 1,
                 (float**) (float*[]) { &toDsp.l, &toDsp.r },
                 (float**) (float*[]) { &fromDsp.l, &fromDsp.r }
@@ -92,48 +92,48 @@ struct Voices {
 
   private:
     int nextVoice = 0;
-    std::vector<Player> players;
+    std::vector<Voice> data;
 
-    Player* bestPlayer(int note, Entries* entries) {
-        Player* best;
+    Voice* bestVoice(int note, Entries* entries) {
+        Voice* best;
         int bestScore = -1;
-        for (auto& p : players) {
-            auto pScore = score(note, entries, p);
+        for (auto& v : data) {
+            auto pScore = score(note, entries, v);
             if (pScore > bestScore) {
-                best = &p;
+                best = &v;
                 bestScore = pScore;
             }
         }
         return best;
     }
 
-    int score(int note, Entries* entries, const Player& p) {
-        auto age = std::min(p.age, 99);
-        if (p.entries == nullptr)
+    int score(int note, Entries* entries, const Voice& v) {
+        auto age = std::min(v.age, 99);
+        if (v.entries == nullptr)
             age *= 1000;
-        if (p.file && p.position >= p.file->length && *p.gate == 0)
+        if (v.sample && v.position >= v.sample->length && *v.gate == 0)
             age *= 100;
         return age;
     }
 
-    void run(const float input, Buffer& output, Player& p) {
-        if (*p.live)
+    void run(const float input, Buffer& output, Voice& v) {
+        if (*v.live)
             output.l = output.r = input;
         else
-            playFile(output, p);
+            playSample(output, v);
     }
 
-    void playFile(Buffer& output, Player& p) {
-        auto i = int(p.position);
-        if (p.position == i && p.position < p.file->length) {
-            output.l = left(i, p.file);
-            output.r = right(i, p.file);
-            p.position += p.increment;
+    void playSample(Buffer& output, Voice& v) {
+        auto i = int(v.position);
+        if (v.position == i && v.position < v.sample->length) {
+            output.l = left(i, v.sample);
+            output.r = right(i, v.sample);
+            v.position += v.increment;
         }
-        else if (i + 1 < p.file->length) {
-            output.l = interpolate(p.position-i, left(i, p.file), left(i+1, p.file));
-            output.r = interpolate(p.position-i, right(i, p.file), right(i+1, p.file));
-            p.position += p.increment;
+        else if (i + 1 < v.sample->length) {
+            output.l = interpolate(v.position-i, left(i, v.sample), left(i+1, v.sample));
+            output.r = interpolate(v.position-i, right(i, v.sample), right(i+1, v.sample));
+            v.position += v.increment;
         }
     }
 
@@ -141,11 +141,11 @@ struct Voices {
         return a + x*(b - a);
     }
 
-    float left(int i, Samples::File* file) {
-        return file->frames[file->stereo ? 2*i : i];
+    float left(int i, Samples::Sample* sample) {
+        return sample->frames[sample->stereo ? 2*i : i];
     }
 
-    float right(int i, Samples::File* file) {
-        return file->frames[file->stereo ? 2*i+1 : i];
+    float right(int i, Samples::Sample* sample) {
+        return sample->frames[sample->stereo ? 2*i+1 : i];
     }
 };
