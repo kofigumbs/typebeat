@@ -14,6 +14,11 @@ struct Autosave {
     Autosave(std::filesystem::path f) : filename(f), writeThread(&Autosave::run, this) {
     }
 
+    ~Autosave() {
+        running = false;
+        writeThread.join();
+    }
+
     void bind(const std::string label, bool* data)  { bind(label, data, Type::Bool);  }
     void bind(const std::string label, int* data)   { bind(label, data, Type::Int);   }
     void bind(const std::string label, float* data) { bind(label, data, Type::Float); }
@@ -39,11 +44,6 @@ struct Autosave {
 
     void save() {
         shouldWrite = true;
-    }
-
-    void stop() {
-        running = false;
-        writeThread.join();
     }
 
   private:

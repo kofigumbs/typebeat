@@ -89,7 +89,6 @@ void Audio::start(std::function<void(EventHandler*)> view) {
 
     assert(ma_device_start(&device) == MA_SUCCESS);
     view(controller.get());
-    autosave->stop();
     ma_device_uninit(&device);
     ma_context_uninit(&context);
 };
