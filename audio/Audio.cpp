@@ -1,8 +1,11 @@
 #include <array>
-#include <iostream>
 #include <cassert>
 #include <filesystem>
 #include <functional>
+#include <iostream>
+#include <regex>
+#include <sstream>
+#include <thread>
 #include <unordered_map>
 
 #define SAMPLE_RATE 44100
@@ -15,9 +18,11 @@
 #define MA_NO_GENERATION
 #include "../vendor/miniaudio/miniaudio.h"
 
+#include "../vendor/choc/text/choc_Files.h"
 #include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
 #include "./include/Audio.h"
+#include "./Autosave.hpp"
 #include "./Entries.hpp"
 #include "./Samples.hpp"
 #include "./Voices.hpp"
@@ -59,6 +64,7 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     }
 
     auto entries = Entries();
+    auto autosave = std::make_unique<Autosave>(root / ".typebeat");
     auto samples = std::make_unique<Samples>(root / "audio" / "samples");
     assert(voiceCount > 0);
     assert(samples->files.size() >= Controller::trackCount);
@@ -66,7 +72,7 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     assert(insert->getNumOutputs() == 2);
     insert->buildUserInterface(&entries);
     auto voices = std::make_unique<Voices>(insert, voiceCount);
-    auto controller = std::make_unique<Controller>(voices.get(), samples.get(), entries);
+    auto controller = std::make_unique<Controller>(autosave.get(), voices.get(), samples.get(), entries);
 
     ma_device device;
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);
@@ -83,6 +89,7 @@ void Audio::start(std::function<void(EventHandler*)> view) {
 
     assert(ma_device_start(&device) == MA_SUCCESS);
     view(controller.get());
+    autosave->stop();
     ma_device_uninit(&device);
     ma_context_uninit(&context);
 };

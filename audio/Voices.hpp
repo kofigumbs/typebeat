@@ -1,9 +1,9 @@
 struct Voices {
     enum class SampleType {
-        file,
-        liveThrough,
-        liveRecord,
-        livePlay,
+        File,
+        LiveThrough,
+        LiveRecord,
+        LivePlay,
     };
 
     struct Player {
@@ -60,7 +60,7 @@ struct Voices {
         p->increment = pow(2, (note + sampleDetune->value/10)/12) / pow(2, 69.f/12);
         *p->note = note;
         *p->gate = 1;
-        *p->live = sampleType == SampleType::liveThrough || sampleType == SampleType::liveRecord;
+        *p->live = sampleType == SampleType::LiveThrough || sampleType == SampleType::LiveRecord;
         p->entries = entries;
         p->file = file;
         p->dsp->instanceClear();

@@ -14,6 +14,12 @@ struct Song {
     int root = 0;
     int scale = 0;
 
+    Song(Autosave* autosave) {
+        autosave->bind("song.tempo", &tempo);
+        autosave->bind("song.root", &root);
+        autosave->bind("song.scale", &scale);
+    }
+
     void togglePlay() {
         playing = !playing;
         step = -1;

@@ -14,7 +14,7 @@
 
 std::vector<std::string> getArguments(std::string json) {
     std::vector<std::string> arguments;
-    std::regex stringOrInt("[a-zA-Z:0-9\\-]+");
+    std::regex stringOrInt("[a-zA-Z0-9:\\-]+");
     std::smatch match; 
     while(regex_search(json, match, stringOrInt)) {
         arguments.push_back(match.str());
@@ -59,7 +59,11 @@ int main(int argc, char* argv[]) {
             auto i = std::stoi(json.substr(1, 2));
             auto x = i < 10 ? 4 : 5;
             auto data = base64_decode(std::string_view(json.c_str() + x, json.size() - x - 2));
-            eventHandler->load(i, data.c_str());
+            eventHandler->drop(i, data.c_str());
+            return "";
+        });
+        view.bind("$close", [&view](std::string) -> std::string {
+            view.terminate();
             return "";
         });
 #ifdef WEBVIEW_COCOA

@@ -3,10 +3,10 @@ struct Track {
     static const int maxLiveRecordLength = 60*SAMPLE_RATE;
 
     enum class View {
-        none,
-        empty,
-        exactlyOnStep,
-        containsSteps,
+        None,
+        Empty,
+        ExactlyOnStep,
+        ContainsSteps,
     };
 
     struct Step {
@@ -20,11 +20,41 @@ struct Track {
     int lastKey = 12; // 440Hz (concert pitch A) in C Major
     int resolution = 4;
     int octave = 4;
-    Voices::SampleType sampleType = Voices::SampleType::file;
+    Voices::SampleType sampleType = Voices::SampleType::File;
     Voices* voices;
 
-    Track(Voices* v, Song* s, Samples::File* f, Entries e) : voices(v), song(s), sampleFile(f), entries(e), steps() {
+    Track(int id, Autosave* autosave, Voices* v, Samples* samples, Song* s, Entries e) : voices(v), song(s), sampleFile(&samples->files[id]), entries(e), steps() {
         sampleLive.frames.reset(new float[maxLiveRecordLength]);
+        auto prefix = "track[" + std::to_string(id) + "].";
+        autosave->bind(prefix + "mute", &mute);
+        autosave->bind(prefix + "useKey", &useKey);
+        autosave->bind(prefix + "resolution", &resolution);
+        autosave->bind(prefix + "octave", &octave);
+        autosave->bind(prefix + "length", &length);
+        autosave->bind(prefix + "sampleType", new Autosave::Custom {
+            .parse = [this](std::string s) { sampleType = static_cast<Voices::SampleType>(std::stoi(s)); },
+            .render = [this]() { return std::to_string(((int) sampleType)); },
+        });
+        autosave->bind(prefix + "steps", new Autosave::Custom {
+            .parse = [this](std::string s) {
+                size_t next;
+                for (int i = 0; i < steps.size() && s.size(); i++) {
+                    steps[i].active = std::stoi(s, &next);
+                    s = s.substr(next + 1);
+                    steps[i].key = std::stoi(s, &next);
+                    s = s.substr(next + 1);
+                }
+            },
+            .render = [this]() {
+                std::stringstream s;
+                for (int i = 0; i < steps.size(); i++)
+                    s << (int) steps[i].active << "," << steps[i].key << ",";
+                return s.str();
+            },
+        });
+        entries.forEach([autosave, prefix](auto control) {
+            autosave->bind(prefix + control.label, &control.value);
+        });
     }
 
     Entries::Control* entry(const std::string& name) {
@@ -39,7 +69,7 @@ struct Track {
     }
 
     void run(const float input) {
-        if (sampleType == Voices::SampleType::liveRecord && sampleLive.length < maxLiveRecordLength)
+        if (sampleType == Voices::SampleType::LiveRecord && sampleLive.length < maxLiveRecordLength)
             sampleLive.frames[sampleLive.length++] = input;
         if (song->newStep()) {
             auto& step = steps[song->step % length];
@@ -52,7 +82,7 @@ struct Track {
 
     void setSampleType(int value) {
         sampleType = static_cast<Voices::SampleType>(value);
-        if (sampleType == Voices::SampleType::liveRecord)
+        if (sampleType == Voices::SampleType::LiveRecord)
             sampleLive.length = 0;
     }
 
@@ -94,15 +124,15 @@ struct Track {
     void toggleStep(int i) {
         auto start = viewIndexToStart(i);
         switch (viewFrom(start)) {
-            case View::none:
+            case View::None:
                 return;
-            case View::empty:
-            case View::exactlyOnStep:
+            case View::Empty:
+            case View::ExactlyOnStep:
                 steps[start].active ^= true;
                 steps[start].skipNext = false;
                 steps[start].key = lastKey;
                 return;
-            case View::containsSteps:
+            case View::ContainsSteps:
                 for (int i = start; i < start + viewLength(); i++)
                     steps[i].active = false;
                 return;
@@ -157,7 +187,7 @@ struct Track {
 
     View viewFrom(int start) {
         if (start >= length)
-            return View::none;
+            return View::None;
         int countActive = 0;
         int lastActive = 0;
         for (int i = start; i < start + viewLength(); i++) {
@@ -167,11 +197,11 @@ struct Track {
             }
         }
         if (countActive == 0)
-            return View::empty;
+            return View::Empty;
         else if (countActive == 1 && lastActive == start)
-            return View::exactlyOnStep;
+            return View::ExactlyOnStep;
         else
-            return View::containsSteps;
+            return View::ContainsSteps;
     }
 
     void restartVoice(int key) {
@@ -180,7 +210,7 @@ struct Track {
             sampleType,
             keyToNote(key),
             &entries,
-            sampleType == Voices::SampleType::file ? sampleFile : &sampleLive
+            sampleType == Voices::SampleType::File ? sampleFile : &sampleLive
         );
     }
 };

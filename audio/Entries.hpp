@@ -33,6 +33,12 @@ struct Entries : GenericUI {
         return nullptr;
     }
 
+    template <typename F>
+    void forEach(F&& f) {
+        for (const auto& control : controls)
+            f(control);
+    }
+
     void prepareToWrite() {
         writeIndex = 0;
     }

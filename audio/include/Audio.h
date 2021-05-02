@@ -2,7 +2,7 @@ struct Audio {
     struct EventHandler {
         virtual void onSend(const std::string&, int) = 0;
         virtual bool onReceive(const std::string&, int&) = 0;
-        virtual void load(int, const void*) = 0;
+        virtual void drop(int, const void*) = 0;
     };
 
     std::filesystem::path root;

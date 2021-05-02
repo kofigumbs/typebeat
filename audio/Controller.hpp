@@ -2,9 +2,10 @@ struct Controller : Audio::EventHandler {
     static const int trackCount = 15;
     static const int maxQueueSize = 8;
 
-    Controller(Voices* voices, Samples* s, Entries entries) : samples(s), tracks(), song(), receiveCallbacks(), sendCallbacks(), sendQueue() {
+    Controller(Autosave* a, Voices* voices, Samples* samples, Entries entries) : autosave(a), song(a), tracks(), receiveCallbacks(), sendCallbacks(), sendQueue() {
         for (int i = 0; i < Controller::trackCount; i++)
-            tracks.push_back(Track(voices, &song, &samples->files[i], entries));
+            tracks.emplace_back(i, autosave, voices, samples, &song, entries);
+        autosave->load();
         sendQueue.reset(maxQueueSize);
         // audition
         sendCallbacks["auditionDown"] = [this](int value){ tracks[value].play(); };
@@ -57,19 +58,21 @@ struct Controller : Audio::EventHandler {
         if (sendCallbacks.count(name)) {
             const auto callback = &sendCallbacks[name];
             sendQueue.push([callback, value]() { (*callback)(value); });
-            return;
         }
-        auto entry = tracks[activeTrack].entry(name);
-        if (entry == nullptr)
-            return;
-        sendQueue.push([entry, value]() {
-            if (entry->step == 0)
-                entry->value = !entry->value;
-            else if (entry->step == 1)
-                entry->value = std::clamp((float) value, entry->min, entry->max);
-            else
-                nudge(&entry->value, entry->min, entry->max, entry->step, value);
-        });
+        else {
+            auto entry = tracks[activeTrack].entry(name);
+            if (entry == nullptr)
+                return;
+            sendQueue.push([entry, value]() {
+                if (entry->step == 0)
+                    entry->value = !entry->value;
+                else if (entry->step == 1)
+                    entry->value = std::clamp((float) value, entry->min, entry->max);
+                else
+                    nudge(&entry->value, entry->min, entry->max, entry->step, value);
+            });
+        }
+        autosave->save();
     }
 
     bool onReceive(const std::string& name, int& value) override {
@@ -80,7 +83,7 @@ struct Controller : Audio::EventHandler {
         return tracks[activeTrack].control(name, value);
     }
 
-    void load(int i, const void* data) override {
+    void drop(int i, const void* data) override {
         // TODO
         // call drwav_open_memory_and_read_pcm_frames_f32
         // swap result for Tracks.sampleFile pointer
@@ -98,8 +101,8 @@ struct Controller : Audio::EventHandler {
 
   private:
     int activeTrack = 0;
+    Autosave* autosave;
     Song song;
-    Samples* samples;
     std::vector<Track> tracks;
     std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
     std::unordered_map<std::string, std::function<void(int)>> sendCallbacks;
