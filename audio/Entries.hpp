@@ -35,7 +35,7 @@ struct Entries : GenericUI {
 
     template <typename F>
     void forEach(F&& f) {
-        for (const auto& entry : data)
+        for (auto& entry : data)
             f(entry);
     }
 

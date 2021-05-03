@@ -26,34 +26,16 @@ struct Track {
     Track(int id, Autosave* autosave, Voices* v, Samples* samples, Song* s, Entries e) : voices(v), song(s), defaultSample(&samples->data[id]), entries(e), steps() {
         liveSample.frames.reset(new float[maxLiveRecordLength]);
         auto prefix = "track[" + std::to_string(id) + "].";
-        autosave->bind(prefix + "mute", &mute);
-        autosave->bind(prefix + "useKey", &useKey);
-        autosave->bind(prefix + "resolution", &resolution);
-        autosave->bind(prefix + "octave", &octave);
-        autosave->bind(prefix + "length", &length);
-        autosave->bind(prefix + "sampleType", new Autosave::Custom {
-            .parse = [this](std::string s) { sampleType = static_cast<Voices::SampleType>(std::stoi(s)); },
-            .render = [this]() { return std::to_string(((int) sampleType)); },
-        });
-        autosave->bind(prefix + "steps", new Autosave::Custom {
-            .parse = [this](std::string s) {
-                size_t next;
-                for (int i = 0; i < steps.size() && s.size(); i++) {
-                    steps[i].active = std::stoi(s, &next);
-                    s = s.substr(next + 1);
-                    steps[i].key = std::stoi(s, &next);
-                    s = s.substr(next + 1);
-                }
-            },
-            .render = [this]() {
-                std::stringstream s;
-                for (int i = 0; i < steps.size(); i++)
-                    s << (int) steps[i].active << "," << steps[i].key << ",";
-                return s.str();
-            },
-        });
-        entries.forEach([autosave, prefix](auto entry) {
-            autosave->bind(prefix + entry.label, &entry.value);
+        autosave->bind(prefix + "mute", new Autosave::Number(mute));
+        autosave->bind(prefix + "useKey", new Autosave::Number(useKey));
+        autosave->bind(prefix + "resolution", new Autosave::Number(resolution));
+        autosave->bind(prefix + "octave", new Autosave::Number(octave));
+        autosave->bind(prefix + "length", new Autosave::Number(length));
+        autosave->bind(prefix + "sampleType", new Autosave::Number(sampleType));
+        autosave->bind(prefix + "steps:active", new Autosave::Array(steps, &Track::Step::active));
+        autosave->bind(prefix + "steps:note", new Autosave::Array(steps, &Track::Step::key));
+        entries.forEach([autosave, prefix](auto& entry) {
+            autosave->bind(prefix + entry.label, new Autosave::Number(entry.value));
         });
     }
 

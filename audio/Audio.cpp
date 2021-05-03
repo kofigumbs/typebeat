@@ -3,7 +3,6 @@
 #include <filesystem>
 #include <functional>
 #include <iostream>
-#include <regex>
 #include <sstream>
 #include <thread>
 #include <unordered_map>

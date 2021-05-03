@@ -1,102 +1,96 @@
 struct Autosave {
-    enum class Type {
-        Bool,
-        Int,
-        Float,
-        Custom,
+    struct Format {
+        void* data;
+        Format(void* d) : data(d) {
+        }
+        virtual ~Format() = default;
+        virtual void parse(std::string, size_t* end) = 0;
+        virtual std::string render() = 0;
     };
 
-    struct Custom {
-        std::function<void(std::string)> parse;
-        std::function<std::string()> render;
+    template <typename T>
+    struct Number : Format {
+        Number(T& data) : Format(&data) {
+        }
+        void parse(std::string value, size_t* end) override {
+            *(T*) data = static_cast<T>(std::stoi(value, end));
+        }
+        std::string render() override {
+            return std::to_string(static_cast<int>(*(T*) data));
+        }
     };
 
-    Autosave(std::filesystem::path f) : filename(f), writeThread(&Autosave::run, this) {
+    template <typename T, typename M, size_t N>
+    struct Array : Format {
+        M T::* member;
+        Array(std::array<T, N>& array, M T::* m) : Format(array.data()), member(m) {
+        }
+        void parse(std::string value, size_t* end) override {
+            for (int i = 0; i < N && value.size(); i++) {
+                format(i).parse(value, end);
+                value = value.substr(*end + 1);
+            }
+        }
+        std::string render() override {
+            std::stringstream s;
+            for (int i = 0; i < N; i++)
+                s << format(i).render() << ",";
+            return s.str();
+        }
+        Number<M> format(int i) {
+            return Number(((T*) data)[i].*member);
+        }
+    };
+
+    Autosave(std::filesystem::path f) : filename(f), writer(&Autosave::run, this) {
     }
 
     ~Autosave() {
         running = false;
-        writeThread.join();
+        writer.join();
     }
 
-    void bind(const std::string label, bool* data)  { bind(label, data, Type::Bool);  }
-    void bind(const std::string label, int* data)   { bind(label, data, Type::Int);   }
-    void bind(const std::string label, float* data) { bind(label, data, Type::Float); }
-    void bind(const std::string label, Custom* data) {
-        custom.emplace_back(data);
-        bind(label, data, Type::Custom);
+
+    void bind(const std::string label, Format* format) {
+        bindings[label] = std::unique_ptr<Format>(format);
     }
 
     void load() {
         if (!std::filesystem::exists(filename))
             return;
         auto content = choc::file::loadFileAsString(filename);
-        std::regex line("^([^ ]+) = ([^\n]+)\n");
-        std::smatch match; 
-        while(regex_search(content, match, line)) {
-            const auto& label = match[1].str();
-            const auto& value = match[2].str();
+        while (content.size()) {
+            auto equals = content.find('=');
+            auto newline = content.find('\n');
+            auto label = content.substr(0, equals);
+            auto value = content.substr(equals + 1, newline);
+            size_t end;
             if (bindings.count(label))
-                parse(value, bindings[label]);
-            content = match.suffix();
+                bindings[label]->parse(value, &end);
+            content = content.substr(newline + 1);
         }
     }
 
     void save() {
-        shouldWrite = true;
+        dirty = true;
     }
 
   private:
     bool running = true;
     std::filesystem::path filename;
-    std::thread writeThread;
-    std::atomic<bool> shouldWrite;
-    std::vector<std::unique_ptr<Custom>> custom;
-    std::unordered_map<std::string, std::pair<void*, Type>> bindings;
-
-    void bind(const std::string label, void* data, Type type) {
-        bindings[label] = { data, type };
-    }
-
-    void parse(const std::string& value, std::pair<void*, Type> binding) {
-        switch (binding.second) {
-            case Type::Bool:
-                *(bool*) binding.first = value == "1";
-                return;
-            case Type::Int:
-                *(int*) binding.first = std::stoi(value);
-                return;
-            case Type::Float:
-                *(float*) binding.first = std::stoi(value);
-                return;
-            case Type::Custom:
-                ((Custom*) binding.first)->parse(value);
-                return;
-        }
-    }
+    std::thread writer;
+    std::atomic<bool> dirty;
+    std::unordered_map<std::string, std::unique_ptr<Format>> bindings;
 
     void run() {
-        while (running) {
-            if (shouldWrite.exchange(false)) {
+        while (running || dirty.load()) {
+            if (dirty.exchange(false)) {
                 std::stringstream content;
                 for (const auto& binding : bindings)
-                    content << binding.first << " = " << render(binding.second) << std::endl;
+                    content << binding.first << "=" << binding.second->render() << "\n";
                 choc::file::replaceFileWithContent(filename, content.str());
             }
             std::this_thread::sleep_for(std::chrono::seconds(2));
-        }
-    }
-
-    std::string render(const std::pair<void*, Type>& binding) {
-        switch (binding.second) {
-            case Type::Bool:
-                return *(bool*) binding.first ? "1" : "0";
-            case Type::Int:
-                return std::to_string(*(int*) binding.first);
-            case Type::Float:
-                return std::to_string(int(*(float*) binding.first));
-            case Type::Custom:
-                return ((Custom*) binding.first)->render();
         }
     }
 };
