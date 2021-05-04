@@ -1,8 +1,5 @@
 struct Autosave {
     struct Format {
-        void* data;
-        Format(void* d) : data(d) {
-        }
         virtual ~Format() = default;
         virtual void parse(std::string, size_t* end) = 0;
         virtual std::string render() = 0;
@@ -10,35 +7,34 @@ struct Autosave {
 
     template <typename T>
     struct Number : Format {
-        Number(T& data) : Format(&data) {
+        T& data;
+        Number(T& d) : data(d) {
         }
         void parse(std::string value, size_t* end) override {
-            *(T*) data = static_cast<T>(std::stoi(value, end));
+            data = static_cast<T>(std::stoi(value, end));
         }
         std::string render() override {
-            return std::to_string(static_cast<int>(*(T*) data));
+            return std::to_string(static_cast<int>(data));
         }
     };
 
     template <typename T, typename M, size_t N>
     struct Array : Format {
+        std::array<T, N>& data;
         M T::* member;
-        Array(std::array<T, N>& array, M T::* m) : Format(array.data()), member(m) {
+        Array(std::array<T, N>& d, M T::* m) : data(d), member(m) {
         }
         void parse(std::string value, size_t* end) override {
             for (int i = 0; i < N && value.size(); i++) {
-                format(i).parse(value, end);
+                Number<M>(data[i].*member).parse(value, end);
                 value = value.substr(*end + 1);
             }
         }
         std::string render() override {
             std::stringstream s;
             for (int i = 0; i < N; i++)
-                s << format(i).render() << ",";
+                s << Number<M>(data[i].*member).render() << ",";
             return s.str();
-        }
-        Number<M> format(int i) {
-            return Number(((T*) data)[i].*member);
         }
     };
 
