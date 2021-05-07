@@ -123,6 +123,8 @@ struct Voices {
             output[1] = interpolate(v.position-i, right(i, v.sample), right(i+1, v.sample));
             v.position += v.increment;
         }
+        else
+            output[0] = output[1] = 0;
     }
 
     float interpolate(float x, float a, float b) {
