@@ -18,7 +18,7 @@ synth2Detune = nentry("synth2:detune", 0, -120, 120, 10) : smooth;
 synth3Level  = nentry("synth3:level",  0,    0,  50, 10) : smooth;
 synth3Detune = nentry("synth3:detune", 0, -120, 120, 10) : smooth;
 lowFreq      = nentry("low:freq",      0,    0,  50, 10) : smooth;
-lowRes       = nentry("low:res",       0,  	0,  50, 10) : smooth;
+lowRes       = nentry("low:res",       0,    0,  50, 10) : smooth;
 band1Freq    = nentry("band1:freq",    0,  -25,  25, 10) : smooth;
 band1Res     = nentry("band1:res",     0,  -25,  25, 10) : smooth;
 band2Freq    = nentry("band2:freq",    0,  -25,  25, 10) : smooth;
@@ -68,5 +68,5 @@ envelope = en.adsr(attack/20, decay/20, sustain/50, release/20, gate);
 
 smooth = si.polySmooth(trigger, amount, 1) with {
 	trigger = gate : ba.peakhold(1);
-	amount = 1 - 44.1 / ma.SR; // https://github.com/grame-cncm/faustlibraries/blob/b54a01fa5ef0ac1f4939f78a88d318f1db85cc0a/signals.lib#L116
+	amount = 1 - 44.1/ma.SR; // https://github.com/grame-cncm/faustlibraries/blob/b54a01fa5ef0ac1f4939f78a88d318f1db85cc0a/signals.lib#L116
 };
