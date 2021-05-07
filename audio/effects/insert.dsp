@@ -33,6 +33,7 @@ sustain      = nentry("sustain",      50,    0,  50, 10) : smooth;
 release      = nentry("release",       0,    0,  50, 10) : smooth;
 volume       = nentry("volume",       25,    0,  50, 10) : smooth;
 pan          = nentry("pan",           0,  -25,  25, 10) : smooth;
+reverb       = nentry("reverb",        0,    0,  50, 10) : smooth;
 
 process = sound :> eq : mix;
 
@@ -55,13 +56,12 @@ eq = sp.stereoize(low : band1 : band2 : band3 : high) with {
 	high = ba.bypass_fade(1, highFreq == 50, wa.lowpass2(ba.midikey2hz(highFreq*2 + 10), highRes, 0));
 };
 
-mix(inputL, inputR) = panned : sp.stereoize(*(volume/25)) with {
-	panned = ba.select2stereo(panAmount > 0, toLeftL, toLeftR, toRightL, toRightR);
-	panAmount = pan/25;
-	toLeftL = inputL + inputR*abs(panAmount);
-	toLeftR = inputR*(1+panAmount);
-	toRightL = inputL*(1-panAmount);
-	toRightR = inputR + inputL*panAmount;
+mix(inputL, inputR) = pre <: sp.stereoize(*(volume/25)), sp.stereoize(*(reverb/25)) with {
+	pre = ba.select2stereo((pan/25) > 0, toLeftL, toLeftR, toRightL, toRightR);
+	toLeftL = inputL + inputR*abs(pan/25);
+	toLeftR = inputR*(1 + pan/25);
+	toRightL = inputL*(1 - pan/25);
+	toRightR = inputR + inputL*pan/25;
 };
 
 envelope = en.adsr(attack/20, decay/20, sustain/50, release/20, gate);

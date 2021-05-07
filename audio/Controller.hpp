@@ -90,14 +90,14 @@ struct Controller : Audio::EventHandler {
         // swap result for Tracks.sampleFile pointer
     }
 
-    void run(const float input, float& outputL, float& outputR) {
+    void run(const float input, float* output) {
         song.advance();
         std::function<void()> message;
         while(sendQueue.pop(message))
             message();
         for (int i = 0; i < Controller::trackCount; i++)
             tracks[i].run(input);
-        tracks.front().voices->run(input, outputL, outputR);
+        tracks.front().voices->run(input, output);
     }
 
   private:

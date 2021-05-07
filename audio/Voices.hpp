@@ -34,20 +34,16 @@ struct Voices {
         }
     };
 
-    struct Buffer {
-        float l = 0;
-        float r = 0;
-    };
-
-    Voices(dsp* d, int count) : data(count) {
+    Voices(int count, dsp* insert, dsp* r) : data(count), reverb(r) {
         ButtonSearchUI ui;
         for (auto& v : data) {
-            v.dsp.reset(d->clone());
+            v.dsp.reset(insert->clone());
             v.dsp->init(SAMPLE_RATE);
             ui.find("gate", v.gate, v.dsp.get());
             ui.find("note", v.note, v.dsp.get());
             ui.find("live", v.live, v.dsp.get());
         }
+        reverb->init(SAMPLE_RATE);
     }
 
     void allocate(SampleType sampleType, int note, Entries* entries, Samples::Sample* sample) {
@@ -72,27 +68,23 @@ struct Voices {
                 *v.gate = 0;
     }
 
-    void run(const float input, float& outputL, float& outputR) {
+    void run(const float input, float* output) {
+        float sample[2], reverbSend[2];
         for (auto& v : data) {
             if (v.entries == nullptr)
                 continue;
-            Buffer toDsp, fromDsp;
-            run(input, toDsp, v);
+            play(input, sample, v);
             v.entries->prepareToWrite();
             v.dsp->buildUserInterface(v.entries);
-            v.dsp->compute(
-                1,
-                (float**) (float*[]) { &toDsp.l, &toDsp.r },
-                (float**) (float*[]) { &fromDsp.l, &fromDsp.r }
-            );
-            outputL += fromDsp.l;
-            outputR += fromDsp.r;
+            compute(v.dsp.get(), sample, { output, reverbSend });
         }
+        compute(reverb, reverbSend, { output });
     }
 
   private:
     int nextVoice = 0;
     std::vector<Voice> data;
+    dsp* reverb;
 
     Voice* bestVoice(int note, Entries* entries) {
         Voice* best;
@@ -116,23 +108,20 @@ struct Voices {
         return age;
     }
 
-    void run(const float input, Buffer& output, Voice& v) {
-        if (*v.live)
-            output.l = output.r = input;
-        else
-            playSample(output, v);
-    }
-
-    void playSample(Buffer& output, Voice& v) {
+    void play(const float input, float* output, Voice& v) {
+        if (*v.live) {
+            output[0] = output[1] = input;
+            return;
+        }
         auto i = int(v.position);
         if (v.position == i && v.position < v.sample->length) {
-            output.l = left(i, v.sample);
-            output.r = right(i, v.sample);
+            output[0] = left(i, v.sample);
+            output[1] = right(i, v.sample);
             v.position += v.increment;
         }
         else if (i + 1 < v.sample->length) {
-            output.l = interpolate(v.position-i, left(i, v.sample), left(i+1, v.sample));
-            output.r = interpolate(v.position-i, right(i, v.sample), right(i+1, v.sample));
+            output[0] = interpolate(v.position-i, left(i, v.sample), left(i+1, v.sample));
+            output[1] = interpolate(v.position-i, right(i, v.sample), right(i+1, v.sample));
             v.position += v.increment;
         }
     }
@@ -147,5 +136,26 @@ struct Voices {
 
     float right(int i, Samples::Sample* sample) {
         return sample->frames[sample->stereo ? 2*i+1 : i];
+    }
+
+    void compute(dsp* dsp, float* input, std::initializer_list<float*> outputs) {
+        float* pInput[2];
+        float* pOutput[outputs.size()*2];
+        float mixOutput[outputs.size()*2];
+        stereoPointers(input, pInput);
+        for (int i = 0; i < outputs.size(); i++)
+            stereoPointers(mixOutput + 2*i, pOutput + 2*i);
+        dsp->compute(1, pInput, pOutput);
+        int i = 0;
+        for (auto& output : outputs) {
+            output[0] += mixOutput[2*i];
+            output[1] += mixOutput[2*i + 1];
+            i++;
+        }
+    }
+
+    void stereoPointers(float* data, float** pointers) {
+        pointers[0] = data;
+        pointers[1] = data + 1;
     }
 };

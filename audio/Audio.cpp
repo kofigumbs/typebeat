@@ -33,8 +33,7 @@ void callback(ma_device* device, void* output, const void* input, ma_uint32 fram
     for (int frame = 0; frame < frameCount; frame++) {
         ((Controller*) device->pUserData)->run(
             ((float*) input)[frame*device->capture.channels],
-            ((float*) output)[frame*device->playback.channels],
-            ((float*) output)[frame*device->playback.channels + 1]
+            ((float*) output) + frame*device->playback.channels
         );
     }
 }
@@ -68,9 +67,11 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     assert(voiceCount > 0);
     assert(samples->data.size() >= Controller::trackCount);
     assert(insert->getNumInputs() == 2);
-    assert(insert->getNumOutputs() == 2);
+    assert(insert->getNumOutputs() == 4);
+    assert(reverb->getNumInputs() == 2);
+    assert(reverb->getNumOutputs() == 2);
     insert->buildUserInterface(&entries);
-    auto voices = std::make_unique<Voices>(insert, voiceCount);
+    auto voices = std::make_unique<Voices>(voiceCount, insert, reverb);
     auto controller = std::make_unique<Controller>(autosave.get(), voices.get(), samples.get(), entries);
 
     ma_device device;

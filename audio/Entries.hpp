@@ -10,6 +10,11 @@ struct Entries : GenericUI {
     Entries() : data() {
     }
 
+    void bind(const std::string& prefix, Autosave* autosave) {
+        for (auto& entry : data)
+            autosave->bind(prefix + entry.label, new Autosave::Number(entry.value));
+    }
+
     /*
      * Since the order of calls to `addNumEntry` will be stable,
      * we can use a simple vector to power our dynamic voice assigmnent.
@@ -31,12 +36,6 @@ struct Entries : GenericUI {
             if (name == entry.label)
                 return &entry;
         return nullptr;
-    }
-
-    template <typename F>
-    void forEach(F&& f) {
-        for (auto& entry : data)
-            f(entry);
     }
 
     void prepareToWrite() {
