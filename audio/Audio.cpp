@@ -67,15 +67,10 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     auto autosave = std::make_unique<Autosave>(root / ".typebeat");
     auto samples = std::make_unique<Samples>(root / "audio" / "samples");
     auto insert = std::unique_ptr<dsp>(create_insert());
-    auto reverb = std::unique_ptr<dsp>(create_reverb());
     assert(voiceCount > 0);
     assert(samples->data.size() >= Controller::trackCount);
-    assert(insert->getNumInputs() == 2);
-    assert(insert->getNumOutputs() == 4);
-    assert(reverb->getNumInputs() == 2);
-    assert(reverb->getNumOutputs() == 2);
     insert->buildUserInterface(&entries);
-    auto voices = std::make_unique<Voices>(voiceCount, insert.get(), reverb.get());
+    auto voices = std::make_unique<Voices>(voiceCount, insert.get());
     auto controller = std::make_unique<Controller>(autosave.get(), voices.get(), samples.get(), entries);
 
     ma_device device;

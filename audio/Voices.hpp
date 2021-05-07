@@ -34,7 +34,7 @@ struct Voices {
         }
     };
 
-    Voices(int count, dsp* insert, dsp* r) : data(count), reverb(r) {
+    Voices(int count, dsp* insert) : data(count) {
         ButtonSearchUI ui;
         for (auto& v : data) {
             v.dsp.reset(insert->clone());
@@ -43,7 +43,8 @@ struct Voices {
             ui.find("note", v.note, v.dsp.get());
             ui.find("live", v.live, v.dsp.get());
         }
-        reverb->init(SAMPLE_RATE);
+        reverb = createSend(create_reverb());
+        delay = createSend(create_delay());
     }
 
     void allocate(SampleType sampleType, int note, Entries* entries, Samples::Sample* sample) {
@@ -69,21 +70,30 @@ struct Voices {
     }
 
     void run(const float input, float* output) {
-        float sample[2], reverbSend[2];
+        float sample[2], reverbSend[2], delaySend[2];
         for (auto& v : data) {
             if (v.entries == nullptr)
                 continue;
             play(input, sample, v);
             v.entries->prepareToWrite();
             v.dsp->buildUserInterface(v.entries);
-            stereoCompute(v.dsp.get(), sample, { output, reverbSend });
+            stereoCompute(v.dsp, sample, { output, reverbSend, delaySend });
         }
         stereoCompute(reverb, reverbSend, { output });
+        stereoCompute(delay, delaySend, { output });
     }
 
   private:
     std::vector<Voice> data;
-    dsp* reverb;
+    std::unique_ptr<dsp> reverb;
+    std::unique_ptr<dsp> delay;
+
+    std::unique_ptr<dsp> createSend(dsp* send) {
+        send->init(SAMPLE_RATE);
+        assert(send->getNumInputs() == 2);
+        assert(send->getNumOutputs() == 2);
+        return std::unique_ptr<dsp>(send);
+    }
 
     Voice* bestVoice(int note, Entries* entries) {
         Voice* best;
@@ -139,7 +149,7 @@ struct Voices {
         return sample->frames[sample->stereo ? 2*i+1 : i];
     }
 
-    void stereoCompute(dsp* dsp, float* input, std::initializer_list<float*> outputs) {
+    void stereoCompute(std::unique_ptr<dsp>& dsp, float* input, std::initializer_list<float*> outputs) {
         float* pInput[2];
         float* pOutput[outputs.size()*2];
         float buffer[outputs.size()*2];

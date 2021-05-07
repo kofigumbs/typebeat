@@ -9,7 +9,7 @@ endif
 
 # TODO WebAudio/WASM/Emscriptem ?
 
-build/Typebeat${EXE}: build/audio.o build/insert.o build/reverb.o build/desktop.o build/base64.o
+build/Typebeat${EXE}: build/audio.o build/insert.o build/reverb.o build/delay.o build/desktop.o build/base64.o
 	$(LD)$@ $^
 
 build/base64.o: .git/modules vendor/cpp-base64/base64.cpp | build

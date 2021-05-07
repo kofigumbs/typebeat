@@ -34,8 +34,9 @@ release      = nentry("release",       0,    0,  50, 10) : smooth;
 volume       = nentry("volume",       25,    0,  50, 10) : smooth;
 pan          = nentry("pan",           0,  -25,  25, 10) : smooth;
 reverb       = nentry("reverb",        0,    0,  50, 10) : smooth;
+delay        = nentry("delay",         0,    0,  50, 10) : smooth;
 
-process = sound :> eq : mix;
+process = sound :> eq : mix <: send(volume), send(reverb), send(delay);
 
 sound = sample, synth1, synth2, synth3 with {
 	sample = sp.stereoize(sampleTranspose : *(sampleLevel/75 * ba.if(holdSample, envelope, 1)));
@@ -56,14 +57,14 @@ eq = sp.stereoize(low : band1 : band2 : band3 : high) with {
 	high = ba.bypass_fade(1, highFreq == 50, wa.lowpass2(ba.midikey2hz(highFreq*2 + 10), highRes, 0));
 };
 
-mix(inputL, inputR) = pre <: sp.stereoize(*(volume/25)), sp.stereoize(*(reverb/25)) with {
-	pre = ba.select2stereo((pan/25) > 0, toLeftL, toLeftR, toRightL, toRightR);
+mix(inputL, inputR) = ba.select2stereo(pan > 25, toLeftL, toLeftR, toRightL, toRightR) with {
 	toLeftL = inputL + inputR*abs(pan/25);
 	toLeftR = inputR*(1 + pan/25);
 	toRightL = inputL*(1 - pan/25);
 	toRightR = inputR + inputL*pan/25;
 };
 
+send(amount) = sp.stereoize(*(amount/25));
 envelope = en.adsr(attack/20, decay/20, sustain/50, release/20, gate);
 
 smooth = si.polySmooth(trigger, amount, 1) with {
