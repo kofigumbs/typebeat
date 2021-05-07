@@ -76,13 +76,12 @@ struct Voices {
             play(input, sample, v);
             v.entries->prepareToWrite();
             v.dsp->buildUserInterface(v.entries);
-            compute(v.dsp.get(), sample, { output, reverbSend });
+            stereoCompute(v.dsp.get(), sample, { output, reverbSend });
         }
-        compute(reverb, reverbSend, { output });
+        stereoCompute(reverb, reverbSend, { output });
     }
 
   private:
-    int nextVoice = 0;
     std::vector<Voice> data;
     dsp* reverb;
 
@@ -138,24 +137,23 @@ struct Voices {
         return sample->frames[sample->stereo ? 2*i+1 : i];
     }
 
-    void compute(dsp* dsp, float* input, std::initializer_list<float*> outputs) {
+    void stereoCompute(dsp* dsp, float* input, std::initializer_list<float*> outputs) {
         float* pInput[2];
         float* pOutput[outputs.size()*2];
-        float mixOutput[outputs.size()*2];
-        stereoPointers(input, pInput);
+        float buffer[outputs.size()*2];
+        stereoMap(input, pInput);
         for (int i = 0; i < outputs.size(); i++)
-            stereoPointers(mixOutput + 2*i, pOutput + 2*i);
+            stereoMap(buffer + 2*i, pOutput + 2*i);
         dsp->compute(1, pInput, pOutput);
         int i = 0;
         for (auto& output : outputs) {
-            output[0] += mixOutput[2*i];
-            output[1] += mixOutput[2*i + 1];
-            i++;
+            output[0] += buffer[2 * i++];
+            output[1] += buffer[2 * i++];
         }
     }
 
-    void stereoPointers(float* data, float** pointers) {
-        pointers[0] = data;
-        pointers[1] = data + 1;
+    void stereoMap(float* audio, float** pointers) {
+        pointers[0] = audio;
+        pointers[1] = audio + 1;
     }
 };

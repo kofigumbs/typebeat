@@ -21,6 +21,8 @@
 #include "../vendor/choc/containers/choc_SingleReaderSingleWriterFIFO.h"
 
 #include "./include/Audio.h"
+#include "./include/Effects.h"
+
 #include "./Autosave.hpp"
 #include "./Entries.hpp"
 #include "./Samples.hpp"
@@ -64,6 +66,8 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     auto entries = Entries();
     auto autosave = std::make_unique<Autosave>(root / ".typebeat");
     auto samples = std::make_unique<Samples>(root / "audio" / "samples");
+    auto insert = std::unique_ptr<dsp>(create_insert());
+    auto reverb = std::unique_ptr<dsp>(create_reverb());
     assert(voiceCount > 0);
     assert(samples->data.size() >= Controller::trackCount);
     assert(insert->getNumInputs() == 2);
@@ -71,7 +75,7 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     assert(reverb->getNumInputs() == 2);
     assert(reverb->getNumOutputs() == 2);
     insert->buildUserInterface(&entries);
-    auto voices = std::make_unique<Voices>(voiceCount, insert, reverb);
+    auto voices = std::make_unique<Voices>(voiceCount, insert.get(), reverb.get());
     auto controller = std::make_unique<Controller>(autosave.get(), voices.get(), samples.get(), entries);
 
     ma_device device;

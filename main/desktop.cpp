@@ -10,7 +10,6 @@
 #include "../vendor/webview/webview.h"
 
 #include "../audio/include/Audio.h"
-#include "../audio/include/Effects.h"
 
 std::unique_ptr<webview::webview> view;
 
@@ -38,15 +37,11 @@ int main(int argc, char* argv[]) {
     auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
         .parent_path(); // project directory
-    auto insert = std::unique_ptr<dsp>(create_insert());
-    auto reverb = std::unique_ptr<dsp>(create_reverb());
     Audio audio {
         root,
         getenv("TYPEBEAT_INPUT_DEVICE"),
         getenv("TYPEBEAT_OUTPUT_DEVICE"),
-        getenv("TYPEBEAT_VOICES") ? std::stoi(getenv("TYPEBEAT_VOICES")) : 8,
-        insert.get(),
-        reverb.get()
+        getenv("TYPEBEAT_VOICES") ? std::stoi(getenv("TYPEBEAT_VOICES")) : 8
     };
     audio.start([root](Audio::EventHandler* eventHandler) {
         view = std::make_unique<webview::webview>(true, nullptr);
