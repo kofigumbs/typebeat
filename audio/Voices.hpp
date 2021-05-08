@@ -159,8 +159,9 @@ struct Voices {
         dsp->compute(1, pInput, pOutput);
         int i = 0;
         for (auto& output : outputs) {
-            output[0] += buffer[2 * i++];
-            output[1] += buffer[2 * i++];
+            output[0] += buffer[2*i];
+            output[1] += buffer[2*i + 1];
+            i++;
         }
     }
 
