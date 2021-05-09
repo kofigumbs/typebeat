@@ -9,7 +9,7 @@ synth2Type = nentry("synth2:type", 0, 0, 4, 1);
 synth3Type = nentry("synth3:type", 0, 0, 4, 1);
 holdSample = nentry("holdSample",  0, 0, 1, 0);
 
-sampleLevel  = nentry("sample:level", 50,    0,  50, 10) : smooth;
+sampleLevel  = nentry("sample:level", 25,    0,  50, 10) : smooth;
 sampleDetune = nentry("sample:detune", 0, -120, 120, 10) : smooth;
 synth1Level  = nentry("synth1:level",  0,    0,  50, 10) : smooth;
 synth1Detune = nentry("synth1:detune", 0, -120, 120, 10) : smooth;
@@ -31,22 +31,22 @@ attack       = nentry("attack",        0,    0,  50, 10) : smooth;
 decay        = nentry("decay",         0,    0,  50, 10) : smooth;
 sustain      = nentry("sustain",      50,    0,  50, 10) : smooth;
 release      = nentry("release",       0,    0,  50, 10) : smooth;
-volume       = nentry("volume",       25,    0,  50, 10) : smooth;
 pan          = nentry("pan",           0,  -25,  25, 10) : smooth;
+volume       = nentry("volume",       50,    0,  50, 10) : smooth;
 reverb       = nentry("reverb",        0,    0,  50, 10) : smooth;
 delay        = nentry("delay",         0,    0,  50, 10) : smooth;
 
-process = sound :> eq : mix <: send(volume), send(reverb), send(delay);
+process = sound :> eq : panning <: send(volume), send(reverb), send(delay);
 
 sound = sample, synth1, synth2, synth3 with {
-	sample = sp.stereoize(sampleTranspose : *(sampleLevel/75 * ba.if(holdSample, envelope, 1)));
+	sample = sp.stereoize(sampleTranspose : *(sampleLevel/25 * ba.if(holdSample, envelope, 1)));
 	sampleTranspose = ba.bypass_fade(1, sampleOffset == 0, ef.transpose(1000, 10, sampleOffset));
 	sampleOffset = live * (sampleDetune/10 + note - 69);
-	synth1 = frequency(synth1Detune/10) : oscillator(synth1Type) : *(synth1Level/120 * envelope) <: _, _;
-	synth2 = frequency(synth2Detune/10) : oscillator(synth2Type) : *(synth2Level/120 * envelope) <: _, _;
-	synth3 = frequency(synth3Detune/10) : oscillator(synth3Type) : *(synth3Level/120 * envelope) <: _, _;
+	synth1 = frequency(synth1Detune/10) : oscillator(synth1Type) : *(synth1Level/100 * envelope) <: _, _;
+	synth2 = frequency(synth2Detune/10) : oscillator(synth2Type) : *(synth2Level/100 * envelope) <: _, _;
+	synth3 = frequency(synth3Detune/10) : oscillator(synth3Type) : *(synth3Level/100 * envelope) <: _, _;
 	frequency = _/10 + note : ba.midikey2hz;
-	oscillator = ba.selectmulti(1, (os.oscsin, os.triangle, os.sawtooth/2, os.square/2, (no.noise/2, !)));
+	oscillator = ba.selectmulti(1, (os.oscsin, os.triangle, os.sawtooth/2, os.square/2, (no.noise/4, !)));
 };
 
 eq = sp.stereoize(low : band1 : band2 : band3 : high) with {
@@ -57,14 +57,14 @@ eq = sp.stereoize(low : band1 : band2 : band3 : high) with {
 	high = ba.bypass_fade(1, highFreq == 50, wa.lowpass2(ba.midikey2hz(highFreq*2 + 10), highRes, 0));
 };
 
-mix(inputL, inputR) = ba.select2stereo(pan > 25, toLeftL, toLeftR, toRightL, toRightR) with {
+panning(inputL, inputR) = ba.select2stereo(pan > 25, toLeftL, toLeftR, toRightL, toRightR) with {
 	toLeftL = inputL + inputR*abs(pan/25);
 	toLeftR = inputR*(1 + pan/25);
 	toRightL = inputL*(1 - pan/25);
 	toRightR = inputR + inputL*pan/25;
 };
 
-send(amount) = sp.stereoize(*(amount/25));
+send(amount) = sp.stereoize(*(amount/50));
 envelope = en.adsr(attack/20, decay/20, sustain/50, release/20, gate);
 
 smooth = si.polySmooth(trigger, amount, 1) with {
