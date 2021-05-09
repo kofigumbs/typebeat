@@ -130,7 +130,7 @@ struct Track {
             auto quantizedStep = song->quantizedStep(resolution);
             steps[quantizedStep % length] = {
                 .active = true,
-                .skipNext = quantizedStep >= song->step,
+                .skipNext = quantizedStep > song->step,
                 .key = key
             };
         }

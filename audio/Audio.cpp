@@ -10,6 +10,7 @@
 #define SAMPLE_RATE 44100
 #include "faust/dsp/dsp.h"
 #include "faust/gui/meta.h"
+#include "faust/gui/MapUI.h"
 #include "faust/gui/DecoratorUI.h"
 
 #define MINIAUDIO_IMPLEMENTATION

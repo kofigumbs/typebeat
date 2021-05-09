@@ -18,33 +18,27 @@ struct Voices {
         std::unique_ptr<dsp> dsp;
     };
 
-    struct ButtonSearchUI : GenericUI {
-        std::string target;
-        float* result;
-
-        void addButton(const char* label, float* zone) override {
-            if (target == label)
-                result = zone;
-        }
-
-        void find(const std::string t, float*& destination, dsp* dsp) {
-            target = t;
-            dsp->buildUserInterface(this);
-            destination = result;
+    struct SendEffect {
+        std::unique_ptr<dsp> dsp;
+        MapUI ui;
+        float buffer[2];
+        SendEffect(class dsp* d) : dsp(d) {
+            dsp->buildUserInterface(&ui);
         }
     };
 
     Voices(int count, dsp* insert) : data(count) {
-        ButtonSearchUI ui;
         for (auto& v : data) {
+            MapUI ui;
             v.dsp.reset(insert->clone());
             v.dsp->init(SAMPLE_RATE);
-            ui.find("gate", v.gate, v.dsp.get());
-            ui.find("note", v.note, v.dsp.get());
-            ui.find("live", v.live, v.dsp.get());
+            v.dsp->buildUserInterface(&ui);
+            v.gate = ui.getParamZone("gate");
+            v.note = ui.getParamZone("note");
+            v.live = ui.getParamZone("live");
         }
-        reverb = createSend(create_reverb());
-        delay = createSend(create_delay());
+        sendEffects.emplace_back(create_reverb());
+        sendEffects.emplace_back(create_delay());
     }
 
     void allocate(SampleType sampleType, int note, Entries* entries, Samples::Sample* sample) {
@@ -70,23 +64,30 @@ struct Voices {
     }
 
     void run(const float input, float* output) {
-        float sample[2], reverbSend[2], delaySend[2];
+        float sample[2];
+        int busCount = sendEffects.size() + 1;
+        float* buses[busCount];
+        buses[0] = output;
+        for (int i = 0; i < sendEffects.size(); i++) {
+            sendEffects[i].buffer[0] = 0;
+            sendEffects[i].buffer[1] = 0;
+            buses[i+1] = sendEffects[i].buffer;
+        }
         for (auto& v : data) {
             if (v.entries == nullptr)
                 continue;
             play(input, sample, v);
             v.entries->prepareToWrite();
             v.dsp->buildUserInterface(v.entries);
-            stereoCompute(v.dsp, sample, { output, reverbSend, delaySend });
+            stereoCompute(v.dsp, sample, buses, busCount);
         }
-        stereoCompute(reverb, reverbSend, { output });
-        stereoCompute(delay, delaySend, { output });
+        for (auto& sendEffect : sendEffects)
+            stereoCompute(sendEffect.dsp, sendEffect.buffer, buses, 1);
     }
 
   private:
     std::vector<Voice> data;
-    std::unique_ptr<dsp> reverb;
-    std::unique_ptr<dsp> delay;
+    std::vector<SendEffect> sendEffects;
 
     std::unique_ptr<dsp> createSend(dsp* send) {
         send->init(SAMPLE_RATE);
@@ -149,24 +150,18 @@ struct Voices {
         return sample->frames[sample->stereo ? 2*i+1 : i];
     }
 
-    void stereoCompute(std::unique_ptr<dsp>& dsp, float* input, std::initializer_list<float*> outputs) {
-        float* pInput[2];
-        float* pOutput[outputs.size()*2];
-        float buffer[outputs.size()*2];
-        stereoMap(input, pInput);
-        for (int i = 0; i < outputs.size(); i++)
-            stereoMap(buffer + 2*i, pOutput + 2*i);
-        dsp->compute(1, pInput, pOutput);
-        int i = 0;
-        for (auto& output : outputs) {
-            output[0] += buffer[2*i];
-            output[1] += buffer[2*i + 1];
-            i++;
+    void stereoCompute(std::unique_ptr<dsp>& dsp, float* input, float** outputs, size_t outputCount) {
+        float* inputPointers[2] { &input[0], &input[1] };
+        float* outputPointers[outputCount][2];
+        float outputBuffers[outputCount][2];
+        for (int i = 0; i < outputCount; i++) {
+            outputPointers[i][0] = &outputBuffers[i][0];
+            outputPointers[i][1] = &outputBuffers[i][1];
         }
-    }
-
-    void stereoMap(float* audio, float** pointers) {
-        pointers[0] = audio;
-        pointers[1] = audio + 1;
+        dsp->compute(1, (float**) inputPointers, (float**) outputPointers);
+        for (int i = 0; i < outputCount; i++) {
+            outputs[i][0] += outputBuffers[i][0];
+            outputs[i][1] += outputBuffers[i][1];
+        }
     }
 };
