@@ -10,35 +10,34 @@ struct Voices {
         int age = 0;
         float position;
         float increment;
-        float* note;
-        float* gate;
-        float* live;
+        MapUI ui;
         Entries* entries;
         Samples::Sample* sample;
         std::unique_ptr<dsp> dsp;
     };
 
     struct SendEffect {
-        std::unique_ptr<dsp> dsp;
-        MapUI ui;
         float buffer[2];
-        SendEffect(class dsp* d) : dsp(d) {
-            dsp->buildUserInterface(&ui);
-        }
+        MapUI ui;
+        std::unique_ptr<dsp> dsp;
     };
 
-    Voices(int count, dsp* insert) : data(count) {
+    Voices(Autosave* autosave, dsp* insert, int count) : data(count) {
         for (auto& v : data) {
             MapUI ui;
             v.dsp.reset(insert->clone());
             v.dsp->init(SAMPLE_RATE);
-            v.dsp->buildUserInterface(&ui);
-            v.gate = ui.getParamZone("gate");
-            v.note = ui.getParamZone("note");
-            v.live = ui.getParamZone("live");
+            v.dsp->buildUserInterface(&v.ui);
         }
-        sendEffects.emplace_back(create_reverb());
-        sendEffects.emplace_back(create_delay());
+        for (auto dsp : { create_reverb(), create_echo() }) {
+            sendEffects.emplace_back();
+            auto& sendEffect = sendEffects.back();
+            sendEffect.dsp.reset(dsp);
+            sendEffect.dsp->init(SAMPLE_RATE);
+            sendEffect.dsp->buildUserInterface(&sendEffect.ui);
+            for (auto& entry : sendEffect.ui.getMap())
+                autosave->bind(entry.first, new Autosave::Number(*entry.second));
+        }
     }
 
     void allocate(SampleType sampleType, int note, Entries* entries, Samples::Sample* sample) {
@@ -49,40 +48,39 @@ struct Voices {
         v->age = 0;
         v->position = 0;
         v->increment = pow(2, (note + sampleDetune->value/10)/12) / pow(2, 69.f/12);
-        *v->note = note;
-        *v->gate = 1;
-        *v->live = sampleType == SampleType::LiveThrough || sampleType == SampleType::LiveRecord;
         v->entries = entries;
         v->sample = sample;
+        v->ui.setParamValue("gate", 1);
+        v->ui.setParamValue("note", note);
+        v->ui.setParamValue("live", sampleType == SampleType::LiveThrough || sampleType == SampleType::LiveRecord);
         v->dsp->instanceClear();
     }
 
     void release(int note, Entries* entries) {
         for (auto& v : data)
-            if (*v.note == note && v.entries == entries)
-                *v.gate = 0;
+            if (v.ui.getParamValue("note") == note && v.entries == entries)
+                v.ui.setParamValue("gate", 0);
     }
 
     void run(const float input, float* output) {
-        float sample[2];
-        int busCount = sendEffects.size() + 1;
-        float* buses[busCount];
-        buses[0] = output;
+        float sampleBuffer[2];
+        int sendBufferCount = sendEffects.size() + 1;
+        float* sendBuffers[sendBufferCount];
+        sendBuffers[0] = output;
         for (int i = 0; i < sendEffects.size(); i++) {
-            sendEffects[i].buffer[0] = 0;
-            sendEffects[i].buffer[1] = 0;
-            buses[i+1] = sendEffects[i].buffer;
+            sendBuffers[i+1] = sendEffects[i].buffer;
+            sendEffects[i].buffer[0] = sendEffects[i].buffer[1] = 0;
         }
         for (auto& v : data) {
             if (v.entries == nullptr)
                 continue;
-            play(input, sample, v);
+            play(input, sampleBuffer, v);
             v.entries->prepareToWrite();
             v.dsp->buildUserInterface(v.entries);
-            stereoCompute(v.dsp, sample, buses, busCount);
+            stereoCompute(v.dsp, sampleBuffer, sendBuffers, sendBufferCount);
         }
         for (auto& sendEffect : sendEffects)
-            stereoCompute(sendEffect.dsp, sendEffect.buffer, buses, 1);
+            stereoCompute(sendEffect.dsp, sendEffect.buffer, &output, 1);
     }
 
   private:
@@ -109,17 +107,17 @@ struct Voices {
         return best;
     }
 
-    int score(int note, Entries* entries, const Voice& v) {
+    int score(int note, Entries* entries, Voice& v) {
         auto age = std::min(v.age, 99);
         if (v.entries == nullptr)
             age *= 1000;
-        if (v.sample && v.position >= v.sample->length && *v.gate == 0)
+        if (v.sample && v.position >= v.sample->length && v.ui.getParamValue("gate") == 0)
             age *= 100;
         return age;
     }
 
     void play(const float input, float* output, Voice& v) {
-        if (*v.live) {
+        if (v.ui.getParamValue("live")) {
             output[0] = output[1] = input;
             return;
         }

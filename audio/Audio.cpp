@@ -71,7 +71,7 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     assert(voiceCount > 0);
     assert(samples->data.size() >= Controller::trackCount);
     insert->buildUserInterface(&entries);
-    auto voices = std::make_unique<Voices>(voiceCount, insert.get());
+    auto voices = std::make_unique<Voices>(autosave.get(), insert.get(), voiceCount);
     auto controller = std::make_unique<Controller>(autosave.get(), voices.get(), samples.get(), entries);
 
     ma_device device;

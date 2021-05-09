@@ -34,9 +34,9 @@ release      = nentry("release",       0,    0,  50, 10) : smooth;
 pan          = nentry("pan",           0,  -25,  25, 10) : smooth;
 volume       = nentry("volume",       50,    0,  50, 10) : smooth;
 reverb       = nentry("reverb",        0,    0,  50, 10) : smooth;
-delay        = nentry("delay",         0,    0,  50, 10) : smooth;
+echo         = nentry("echo",          0,    0,  50, 10) : smooth;
 
-process = sound :> eq : panning <: send(volume), send(reverb), send(delay);
+process = sound :> eq : panning <: send(volume), send(reverb), send(echo);
 
 sound = sample, synth1, synth2, synth3 with {
 	sample = sp.stereoize(sampleTranspose : *(sampleLevel/25 * ba.if(holdSample, envelope, 1)));

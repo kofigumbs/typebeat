@@ -1,12 +1,10 @@
 import("stdfaust.lib");
 
-process = sp.stereoize(*(fixedgain)) : re.stereo_freeverb(combfeed, allpassfeed, damping, spatSpread) with {
-	scaleroom   = 0.28;
-	offsetroom  = 0.7;
-	allpassfeed = 0.5;
-	scaledamp   = 0.4;
-	fixedgain   = 0.1;
-	damping     = (.5)*scaledamp;
-	combfeed    = (.5)*scaleroom + offsetroom;
-	spatSpread  = (.5)*46 : int;
+gain  = nentry("reverb:gain",  25, 0, 50, 10) : si.smoo;
+damp  = nentry("reverb:damp",  25, 0, 50, 10) : si.smoo;
+width = nentry("reverb:width", 25, 0, 50, 10);
+
+process = sp.stereoize(*(gain/50)) : re.stereo_freeverb(comb, allpass, damp/100, width) with {
+	comb = 0.23;
+	allpass = 0.5;
 };
