@@ -82,9 +82,11 @@ void Audio::start(std::function<void(EventHandler*)> view) {
     deviceConfig.dataCallback = callback;
     deviceConfig.pUserData = controller.get();
     assert(ma_device_init(NULL, &deviceConfig, &device) == MA_SUCCESS);
-
     assert(ma_device_start(&device) == MA_SUCCESS);
+    quit = [&]() {
+        ma_device_uninit(&device);
+        ma_context_uninit(&context);
+        autosave->write();
+    };
     view(controller.get());
-    ma_device_uninit(&device);
-    ma_context_uninit(&context);
 };

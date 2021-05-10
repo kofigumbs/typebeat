@@ -13,7 +13,6 @@ struct Track {
     struct Change {
         bool active;
         bool skipNext;
-        int value;
     };
 
     struct Step {
@@ -24,7 +23,7 @@ struct Track {
     bool useKey = true;
     int lastKey = 12; // 440Hz (concert pitch A) in C Major
     int resolution = 4;
-    int octave = 5;
+    int octave = 4;
     Voices::SampleType sampleType = Voices::SampleType::File;
     Entries entries;
 
@@ -45,7 +44,7 @@ struct Track {
                 new Autosave::Array(
                     sequence,
                     [key](auto& step) -> auto& { return step.keyDown[key].active; },
-                    [key](auto& step) { return new Autosave::Number(step.keyDown[key].value); }
+                    [key](auto& step) { return new Autosave::Number(step.keyDown[key].active); }
                 )
             );
         }

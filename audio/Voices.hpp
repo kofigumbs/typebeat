@@ -119,9 +119,9 @@ struct Voices {
     int score(int note, Entries* entries, Voice& v) {
         auto age = std::min(v.age, 99);
         if (v.entries == nullptr)
-            age *= 1000;
+            age += 1000;
         if (v.sample && v.position >= v.sample->length && *v.gate == 0)
-            age *= 100;
+            age += 100;
         return age;
     }
 

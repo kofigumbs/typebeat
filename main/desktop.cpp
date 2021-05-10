@@ -11,6 +11,7 @@
 
 #include "../audio/include/Audio.h"
 
+std::unique_ptr<Audio> audio;
 std::unique_ptr<webview::webview> view;
 
 std::vector<std::string> getArguments(std::string json) {
@@ -30,20 +31,23 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     char** argv = __argv;
 #else
 #include <signal.h>
-void quit(int s) { if (view.get()) view->terminate(); }
+void quit(int) {
+    if (audio->quit) audio->quit();
+    if (view.get()) view->terminate();
+}
 int main(int argc, char* argv[]) {
     signal(SIGINT, quit);
 #endif
     auto root = std::filesystem::canonical(argv[0])
         .parent_path() // build directory
         .parent_path(); // project directory
-    Audio audio {
+    audio = std::unique_ptr<Audio>(new Audio {
         root,
         getenv("TYPEBEAT_INPUT_DEVICE"),
         getenv("TYPEBEAT_OUTPUT_DEVICE"),
         getenv("TYPEBEAT_VOICES") ? std::stoi(getenv("TYPEBEAT_VOICES")) : 8
-    };
-    audio.start([root](Audio::EventHandler* eventHandler) {
+    });
+    audio->start([root](Audio::EventHandler* eventHandler) {
         view = std::make_unique<webview::webview>(true, nullptr);
         view->set_size(1200, 400, WEBVIEW_HINT_MIN);
         view->set_size(1200, 430, WEBVIEW_HINT_NONE);
@@ -65,7 +69,7 @@ int main(int argc, char* argv[]) {
             return "";
         });
         view->bind("$quit", [](std::string) -> std::string {
-            view->terminate();
+            quit(0);
             return "";
         });
 #ifdef WEBVIEW_COCOA

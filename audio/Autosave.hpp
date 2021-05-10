@@ -49,7 +49,7 @@ struct Autosave {
     Autosave(std::filesystem::path f) : filename(f) {
     }
 
-    ~Autosave() {
+    void write() {
         std::stringstream content;
         for (const auto& binding : bindings) {
             content << binding.first << "=";

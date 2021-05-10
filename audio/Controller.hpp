@@ -2,7 +2,7 @@ struct Controller : Audio::EventHandler {
     static const int trackCount = 15;
     static const int maxQueueSize = 8;
 
-    Controller(Autosave* a, Voices* v, Samples* samples) : autosave(a), voices(v), song(a), tracks(), receiveCallbacks(), sendCallbacks(), sendQueue() {
+    Controller(Autosave* autosave, Voices* v, Samples* samples) : voices(v), song(autosave), tracks(), receiveCallbacks(), sendCallbacks(), sendQueue() {
         tracks.reserve(Controller::trackCount);
         for (int i = 0; i < Controller::trackCount; i++)
             tracks.emplace_back(i, autosave, voices, samples, &song);
@@ -106,7 +106,6 @@ struct Controller : Audio::EventHandler {
 
   private:
     int activeTrack = 0;
-    Autosave* autosave;
     Voices* voices;
     Song song;
     std::vector<Track> tracks;
