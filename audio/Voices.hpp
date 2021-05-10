@@ -35,7 +35,7 @@ struct Voices {
             v.gate = ui.getParamZone("gate");
             v.live = ui.getParamZone("live");
         }
-        for (auto dsp : { create_echo(), create_reverb() }) {
+        for (auto dsp : { create_reverb(), create_echo() }) {
             assert(dsp->getNumInputs() == 2);
             assert(dsp->getNumOutputs() == 2);
             auto& sendEffect = sendEffects.emplace_back();

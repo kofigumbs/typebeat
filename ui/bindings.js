@@ -126,7 +126,7 @@ const Bindings = ({ state, send }) => {
       ...nudge(() => state[method(state.eqBand, state.eqFilter)], i => send(method(state.eqBand, state.eqFilter), i)),
     ])}],
     ['G', { mode: 'Mix', actions: new Map([
-      ...oneOf('YUIO', state, 'mix', ['volume', 'pan', 'echo', 'reverb']),
+      ...oneOf('YUIO', state, 'mix', ['volume', 'pan', 'reverb', 'echo']),
       ...nudge(async () => await state[state.mix], i => send(state.mix, i)),
     ])}],
     ['Z', { mode: 'Key', actions: new Map([
@@ -145,6 +145,9 @@ const Bindings = ({ state, send }) => {
     ['X', { mode: 'Auto', actions: new Map([
     ])}],
     ['C', { mode: 'Send', actions: new Map([
+      ...oneOf('YU', state, 'effect', ['reverb', 'echo']),
+      ...nudge(() => state[method(state.effect, state.effectControl)], i => send(method(state.effect, state.effectControl), i)),
+      ...oneOf('NM,', state, 'effectControl', ['gain', 'feed', 'space']),
     ])}],
     ['V', { mode: 'Tape', actions: new Map([
     ])}],
