@@ -103,12 +103,12 @@ const Bindings = ({ state, send }) => {
       })),
       ...group('NM,.', i => ({
         label: async () => {
-          const step = `${(await state.viewStart + i) % await state.resolution + 1}/${await state.resolution}`;
+          const n = ((await state.viewStart + i) % await state.resolution) + 1;
           switch (await state[`view:${i}`]) {
             case 0: return '';
-            case 1: return `${step} _`;
-            case 2: return `${step} █`;
-            case 3: return `${step} ░`;
+            case 1: return `${n}/${await state.resolution}`;
+            case 2: return `${n}█${await state.resolution}`;
+            case 3: return `${n}░${await state.resolution}`;
           }
         },
         onDown: () => send('sequence', i),

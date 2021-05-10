@@ -1,5 +1,5 @@
 struct Song {
-    static const int maxResolution = 64;
+    static const int maxResolution = 512;
     constexpr static const std::array<std::array<int, 7>, 4> scaleOffsets {
         0, 2, 4, 5, 7, 9, 11,
         0, 2, 3, 5, 7, 8, 10,
