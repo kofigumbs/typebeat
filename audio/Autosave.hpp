@@ -1,8 +1,8 @@
 struct Autosave {
     struct Format {
         virtual ~Format() = default;
-        virtual void parse(std::string, size_t* end) = 0;
-        virtual std::string render() = 0;
+        virtual void parse(std::string, size_t*) = 0;
+        virtual void render(std::stringstream&) = 0;
     };
 
     template <typename T>
@@ -13,28 +13,36 @@ struct Autosave {
         void parse(std::string value, size_t* end) override {
             data = static_cast<T>(std::stoi(value, end));
         }
-        std::string render() override {
-            return std::to_string(static_cast<int>(data));
+        void render(std::stringstream& s) override {
+            s << std::to_string(static_cast<int>(data));
         }
     };
 
-    template <typename T, typename M, size_t N>
+    template <typename T, size_t N>
     struct Array : Format {
         std::array<T, N>& data;
-        M T::* member;
-        Array(std::array<T, N>& d, M T::* m) : data(d), member(m) {
+        bool T::* active;
+        std::function<Format*(T&)> format;
+        template <typename F>
+        Array(std::array<T, N>& d, bool T::* a, F&& f) : data(d), active(a), format(f) {
         }
         void parse(std::string value, size_t* end) override {
-            for (int i = 0; i < N && value.size(); i++) {
-                Number<M>(data[i].*member).parse(value, end);
+            while (value.size()) {
+                auto i = std::stoi(value, end);
+                value = value.substr(*end + 1);
+                data[i].*active = true;
+                std::unique_ptr<Format>(format(data[i]))->parse(value, end);
                 value = value.substr(*end + 1);
             }
         }
-        std::string render() override {
-            std::stringstream s;
-            for (int i = 0; i < N; i++)
-                s << Number<M>(data[i].*member).render() << ",";
-            return s.str();
+        void render(std::stringstream& s) override {
+            for (int i = 0; i < N; i++) {
+                if (data[i].*active) {
+                    s << std::to_string(i) << "@";
+                    std::unique_ptr<Format>(format(data[i]))->render(s);
+                    s << ",";
+                }
+            }
         }
     };
 
@@ -59,7 +67,7 @@ struct Autosave {
             auto equals = content.find('=');
             auto newline = content.find('\n');
             auto label = content.substr(0, equals);
-            auto value = content.substr(equals + 1, newline);
+            auto value = content.substr(equals + 1, newline - equals - 1);
             size_t end;
             if (bindings.count(label))
                 bindings[label]->parse(value, &end);
@@ -82,8 +90,11 @@ struct Autosave {
         while (running || dirty.load()) {
             if (dirty.exchange(false)) {
                 std::stringstream content;
-                for (const auto& binding : bindings)
-                    content << binding.first << "=" << binding.second->render() << "\n";
+                for (const auto& binding : bindings) {
+                    content << binding.first << "=";
+                    binding.second->render(content);
+                    content << "\n";
+                }
                 choc::file::replaceFileWithContent(filename, content.str());
             }
             std::this_thread::sleep_for(std::chrono::seconds(2));

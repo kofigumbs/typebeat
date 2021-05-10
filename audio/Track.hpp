@@ -25,7 +25,7 @@ struct Track {
 
     Track(int id, Autosave* autosave, Voices* v, Samples* samples, Song* s, Entries e) : voices(v), song(s), defaultSample(&samples->data[id]), entries(e), steps() {
         liveSample.frames.reset(new float[maxLiveRecordLength]);
-        auto prefix = "track[" + std::to_string(id) + "].";
+        auto prefix = "tracks[" + std::to_string(id) + "].";
         entries.bind(prefix, autosave);
         autosave->bind(prefix + "mute", new Autosave::Number(mute));
         autosave->bind(prefix + "useKey", new Autosave::Number(useKey));
@@ -34,8 +34,7 @@ struct Track {
         autosave->bind(prefix + "octave", new Autosave::Number(octave));
         autosave->bind(prefix + "length", new Autosave::Number(length));
         autosave->bind(prefix + "sampleType", new Autosave::Number(sampleType));
-        autosave->bind(prefix + "steps:active", new Autosave::Array(steps, &Track::Step::active));
-        autosave->bind(prefix + "steps:note", new Autosave::Array(steps, &Track::Step::key));
+        autosave->bind(prefix + "steps:key", new Autosave::Array(steps, &Track::Step::active, [](auto& s) { return new Autosave::Number(s.key); }));
     }
 
     void run(const float input) {
