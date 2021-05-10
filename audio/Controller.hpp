@@ -74,7 +74,6 @@ struct Controller : Audio::EventHandler {
                     nudge(&entry->value, entry->min, entry->max, entry->step, value);
             });
         }
-        autosave->save();
     }
 
     bool onReceive(const std::string& name, int& value) override {

@@ -4,7 +4,6 @@
 #include <functional>
 #include <iostream>
 #include <sstream>
-#include <thread>
 #include <unordered_map>
 
 #define SAMPLE_RATE 44100

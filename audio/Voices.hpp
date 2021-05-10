@@ -31,9 +31,9 @@ struct Voices {
             v.dsp.reset(create_insert());
             v.dsp->init(SAMPLE_RATE);
             v.dsp->buildUserInterface(&ui);
-            v.note = ui.getParamZone("note");
-            v.gate = ui.getParamZone("gate");
-            v.live = ui.getParamZone("live");
+            assert(v.note = ui.getParamZone("note"));
+            assert(v.gate = ui.getParamZone("gate"));
+            assert(v.live = ui.getParamZone("live"));
         }
         for (auto dsp : { create_reverb(), create_echo() }) {
             assert(dsp->getNumInputs() == 2);

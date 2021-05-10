@@ -1,6 +1,6 @@
 struct Entries : GenericUI {
     struct Entry {
-        const char* label;
+        std::string label;
         float value;
         float min;
         float max;

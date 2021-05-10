@@ -1,4 +1,5 @@
 struct Track {
+    static const int keyCount = 15;
     static const int viewsPerPage = 4;
     static const int maxLiveRecordLength = 60*SAMPLE_RATE;
 
@@ -9,21 +10,25 @@ struct Track {
         ContainsSteps,
     };
 
-    struct Step {
+    struct Change {
         bool active;
         bool skipNext;
-        int key;
+        int value;
+    };
+
+    struct Step {
+        Change keyDown[keyCount];
     };
 
     bool mute = false;
     bool useKey = true;
     int lastKey = 12; // 440Hz (concert pitch A) in C Major
     int resolution = 4;
-    int octave = 4;
+    int octave = 5;
     Voices::SampleType sampleType = Voices::SampleType::File;
     Entries entries;
 
-    Track(int id, Autosave* autosave, Voices* v, Samples* samples, Song* s) : voices(v), song(s), defaultSample(&samples->data[id]), entries(v->trackEntries()), steps() {
+    Track(int id, Autosave* autosave, Voices* v, Samples* samples, Song* s) : voices(v), song(s), defaultSample(&samples->data[id]), entries(v->trackEntries()), sequence() {
         liveSample.frames.reset(new float[maxLiveRecordLength]);
         auto prefix = "tracks[" + std::to_string(id) + "].";
         entries.bind(prefix, autosave);
@@ -34,18 +39,27 @@ struct Track {
         autosave->bind(prefix + "octave", new Autosave::Number(octave));
         autosave->bind(prefix + "length", new Autosave::Number(length));
         autosave->bind(prefix + "sampleType", new Autosave::Number(sampleType));
-        autosave->bind(prefix + "steps:key", new Autosave::Array(steps, &Track::Step::active, [](auto& s) { return new Autosave::Number(s.key); }));
+        for (int key = 0; key < keyCount; key++) {
+            autosave->bind(
+                prefix + "sequence.keyDown[" + std::to_string(key) + "]",
+                new Autosave::Array(
+                    sequence,
+                    [key](auto& step) -> auto& { return step.keyDown[key].active; },
+                    [key](auto& step) { return new Autosave::Number(step.keyDown[key].value); }
+                )
+            );
+        }
     }
 
     void run(const float input) {
         if (sampleType == Voices::SampleType::LiveRecord && liveSample.length < maxLiveRecordLength)
             liveSample.frames[liveSample.length++] = input;
         if (song->newStep()) {
-            auto& step = steps[song->step % length];
-            if (step.skipNext)
-                step.skipNext = false;
-            else if (step.active && !mute)
-                restartVoice(step.key);
+            auto& step = sequence[song->step % length];
+            for (int key = 0; key < keyCount; key++) {
+                if(replay(step.keyDown[key]) && !mute)
+                    restartVoice(key);
+            }
         }
     }
 
@@ -87,7 +101,7 @@ struct Track {
 
     void adjustLength(int diff) {
         int min = Song::maxResolution;
-        length = std::clamp(length + diff*Song::maxResolution, min, (int) steps.size());
+        length = std::clamp(length + diff*Song::maxResolution, min, (int) sequence.size());
     }
 
     void toggleStep(int i) {
@@ -97,13 +111,12 @@ struct Track {
                 return;
             case View::Empty:
             case View::ExactlyOnStep:
-                steps[start].active ^= true;
-                steps[start].skipNext = false;
-                steps[start].key = lastKey;
+                sequence[start].keyDown[lastKey].active ^= true;
+                sequence[start].keyDown[lastKey].skipNext = false;
                 return;
             case View::ContainsSteps:
                 for (int i = start; i < start + viewLength(); i++)
-                    steps[i].active = false;
+                    sequence[i].keyDown[lastKey].active = false;
                 return;
         }
     }
@@ -114,14 +127,8 @@ struct Track {
 
     void play(int key) {
         lastKey = key;
-        if (song->playing && song->armed) {
-            auto quantizedStep = song->quantizedStep(resolution);
-            steps[quantizedStep % length] = {
-                .active = true,
-                .skipNext = quantizedStep > song->step,
-                .key = key
-            };
-        }
+        if (song->playing && song->armed)
+            record([this, key](auto& step) -> auto& { return step.keyDown[key]; });
         restartVoice(key);
     }
 
@@ -144,7 +151,7 @@ struct Track {
     Song* song;
     Samples::Sample* defaultSample;
     Samples::Sample liveSample;
-    std::array<Step, Song::maxResolution*16*8> steps;
+    std::array<Step, Song::maxResolution*16*8> sequence;
 
     int viewLength() {
         return Song::maxResolution / resolution;
@@ -160,7 +167,7 @@ struct Track {
         int countActive = 0;
         int lastActive = 0;
         for (int i = start; i < start + viewLength(); i++) {
-            if (steps[i].active) {
+            if (sequence[i].keyDown[lastKey].active) {
                 countActive++;
                 lastActive = i;
             }
@@ -171,6 +178,23 @@ struct Track {
             return View::ExactlyOnStep;
         else
             return View::ContainsSteps;
+    }
+
+
+    template <typename F>
+    void record(F&& f) {
+        auto quantizedStep = song->quantizedStep(resolution);
+        auto& change = f(sequence[quantizedStep % length]);
+        change.active = true;
+        change.skipNext = quantizedStep > song->step;
+    }
+
+    bool replay(Change& change) {
+        if (change.skipNext) {
+            change.skipNext = false;
+            return false;
+        }
+        return change.active;
     }
 
     void restartVoice(int key) {
