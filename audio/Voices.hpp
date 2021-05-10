@@ -23,12 +23,12 @@ struct Voices {
         std::unique_ptr<dsp> dsp;
     };
 
-    Entries entries;
+    Entries sendEntries;
 
-    Voices(Autosave* autosave, dsp* insert, int count) : data(count) {
+    Voices(Autosave* autosave, int count) : data(count) {
         for (auto& v : data) {
             MapUI ui;
-            v.dsp.reset(insert->clone());
+            v.dsp.reset(create_insert());
             v.dsp->init(SAMPLE_RATE);
             v.dsp->buildUserInterface(&ui);
             v.note = ui.getParamZone("note");
@@ -41,9 +41,15 @@ struct Voices {
             auto& sendEffect = sendEffects.emplace_back();
             sendEffect.dsp.reset(dsp);
             sendEffect.dsp->init(SAMPLE_RATE);
-            sendEffect.dsp->buildUserInterface(&entries);
+            sendEffect.dsp->buildUserInterface(&sendEntries);
         }
-        entries.bind("send.", autosave);
+        sendEntries.bind("send.", autosave);
+    }
+
+    Entries trackEntries() {
+        Entries entries;
+        data.front().dsp->buildUserInterface(&entries);
+        return entries;
     }
 
     void allocate(SampleType sampleType, int note, Entries* entries, Samples::Sample* sample) {
@@ -86,9 +92,9 @@ struct Voices {
             v.dsp->buildUserInterface(v.entries);
             stereoCompute(v.dsp, sampleBuffer, sendBuffers, sendBufferCount);
         }
-        entries.prepareToWrite();
+        sendEntries.prepareToWrite();
         for (auto& sendEffect : sendEffects) {
-            sendEffect.dsp->buildUserInterface(&entries);
+            sendEffect.dsp->buildUserInterface(&sendEntries);
             stereoCompute(sendEffect.dsp, sendEffect.buffer, &output, 1);
         }
     }

@@ -23,7 +23,7 @@ struct Track {
     Voices::SampleType sampleType = Voices::SampleType::File;
     Entries entries;
 
-    Track(int id, Autosave* autosave, Voices* v, Samples* samples, Song* s, Entries e) : voices(v), song(s), defaultSample(&samples->data[id]), entries(e), steps() {
+    Track(int id, Autosave* autosave, Voices* v, Samples* samples, Song* s) : voices(v), song(s), defaultSample(&samples->data[id]), entries(v->trackEntries()), steps() {
         liveSample.frames.reset(new float[maxLiveRecordLength]);
         auto prefix = "tracks[" + std::to_string(id) + "].";
         entries.bind(prefix, autosave);

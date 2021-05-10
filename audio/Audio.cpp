@@ -64,15 +64,12 @@ void Audio::start(std::function<void(EventHandler*)> view) {
         assert(playbackDeviceId != nullptr);
     }
 
-    auto entries = Entries();
     auto autosave = std::make_unique<Autosave>(root / ".typebeat");
     auto samples = std::make_unique<Samples>(root / "audio" / "samples");
-    auto insert = std::unique_ptr<dsp>(create_insert());
     assert(voiceCount > 0);
     assert(samples->data.size() >= Controller::trackCount);
-    insert->buildUserInterface(&entries);
-    auto voices = std::make_unique<Voices>(autosave.get(), insert.get(), voiceCount);
-    auto controller = std::make_unique<Controller>(autosave.get(), voices.get(), samples.get(), entries);
+    auto voices = std::make_unique<Voices>(autosave.get(), voiceCount);
+    auto controller = std::make_unique<Controller>(autosave.get(), voices.get(), samples.get());
 
     ma_device device;
     ma_device_config deviceConfig = ma_device_config_init(ma_device_type_duplex);

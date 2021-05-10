@@ -2,10 +2,10 @@ struct Controller : Audio::EventHandler {
     static const int trackCount = 15;
     static const int maxQueueSize = 8;
 
-    Controller(Autosave* a, Voices* v, Samples* samples, Entries entries) : autosave(a), voices(v), song(a), tracks(), receiveCallbacks(), sendCallbacks(), sendQueue() {
+    Controller(Autosave* a, Voices* v, Samples* samples) : autosave(a), voices(v), song(a), tracks(), receiveCallbacks(), sendCallbacks(), sendQueue() {
         tracks.reserve(Controller::trackCount);
         for (int i = 0; i < Controller::trackCount; i++)
-            tracks.emplace_back(i, autosave, voices, samples, &song, entries);
+            tracks.emplace_back(i, autosave, voices, samples, &song);
         autosave->load();
         sendQueue.reset(maxQueueSize);
         // audition
@@ -62,7 +62,7 @@ struct Controller : Audio::EventHandler {
         }
         else {
             Entries::Entry* entry;
-            auto found = tracks[activeTrack].entries.find(name, entry) || voices->entries.find(name, entry);
+            auto found = tracks[activeTrack].entries.find(name, entry) || voices->sendEntries.find(name, entry);
             if (!found)
                 return;
             sendQueue.push([entry, value]() {
@@ -83,7 +83,7 @@ struct Controller : Audio::EventHandler {
             return true;
         }
         Entries::Entry* entry;
-        auto found = tracks[activeTrack].entries.find(name, entry) || voices->entries.find(name, entry);
+        auto found = tracks[activeTrack].entries.find(name, entry) || voices->sendEntries.find(name, entry);
         if (found)
             value = entry->value;
         return found;
