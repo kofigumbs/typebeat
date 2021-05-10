@@ -10,7 +10,9 @@ struct Voices {
         int age = 0;
         float position;
         float increment;
-        MapUI ui;
+        float* note;
+        float* gate;
+        float* live;
         Entries* entries;
         Samples::Sample* sample;
         std::unique_ptr<dsp> dsp;
@@ -25,9 +27,13 @@ struct Voices {
 
     Voices(Autosave* autosave, dsp* insert, int count) : data(count) {
         for (auto& v : data) {
+            MapUI ui;
             v.dsp.reset(insert->clone());
             v.dsp->init(SAMPLE_RATE);
-            v.dsp->buildUserInterface(&v.ui);
+            v.dsp->buildUserInterface(&ui);
+            v.note = ui.getParamZone("note");
+            v.gate = ui.getParamZone("gate");
+            v.live = ui.getParamZone("live");
         }
         for (auto dsp : { create_echo(), create_reverb() }) {
             assert(dsp->getNumInputs() == 2);
@@ -51,16 +57,16 @@ struct Voices {
         v->increment = pow(2, (note + sampleDetune->value/10)/12) / pow(2, 69.f/12);
         v->entries = entries;
         v->sample = sample;
-        v->ui.setParamValue("gate", 1);
-        v->ui.setParamValue("note", note);
-        v->ui.setParamValue("live", sampleType == SampleType::LiveThrough || sampleType == SampleType::LiveRecord);
+        *v->gate = 1;
+        *v->note = note;
+        *v->live = sampleType == SampleType::LiveThrough || sampleType == SampleType::LiveRecord;
         v->dsp->instanceClear();
     }
 
     void release(int note, Entries* entries) {
         for (auto& v : data)
-            if (v.ui.getParamValue("note") == note && v.entries == entries)
-                v.ui.setParamValue("gate", 0);
+            if (*v.note == note && v.entries == entries)
+                *v.gate = 0;
     }
 
     void run(const float input, float* output) {
@@ -108,13 +114,13 @@ struct Voices {
         auto age = std::min(v.age, 99);
         if (v.entries == nullptr)
             age *= 1000;
-        if (v.sample && v.position >= v.sample->length && v.ui.getParamValue("gate") == 0)
+        if (v.sample && v.position >= v.sample->length && *v.gate == 0)
             age *= 100;
         return age;
     }
 
     void play(const float input, float* output, Voice& v) {
-        if (v.ui.getParamValue("live")) {
+        if (*v.live) {
             output[0] = output[1] = input;
             return;
         }
