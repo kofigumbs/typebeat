@@ -18,30 +18,31 @@ struct Voices {
 
     struct SendEffect {
         float buffer[2];
-        MapUI ui;
         std::unique_ptr<dsp> dsp;
     };
 
+    Entries entries;
+
     Voices(Autosave* autosave, dsp* insert, int count) : data(count) {
         for (auto& v : data) {
-            MapUI ui;
             v.dsp.reset(insert->clone());
             v.dsp->init(SAMPLE_RATE);
             v.dsp->buildUserInterface(&v.ui);
         }
-        for (auto dsp : { create_reverb(), create_echo() }) {
-            sendEffects.emplace_back();
-            auto& sendEffect = sendEffects.back();
+        for (auto dsp : { create_echo(), create_reverb() }) {
+            assert(dsp->getNumInputs() == 2);
+            assert(dsp->getNumOutputs() == 2);
+            auto& sendEffect = sendEffects.emplace_back();
             sendEffect.dsp.reset(dsp);
             sendEffect.dsp->init(SAMPLE_RATE);
-            sendEffect.dsp->buildUserInterface(&sendEffect.ui);
-            for (auto& entry : sendEffect.ui.getMap())
-                autosave->bind(entry.first, new Autosave::Number(*entry.second));
+            sendEffect.dsp->buildUserInterface(&entries);
         }
+        entries.bind("send.", autosave);
     }
 
     void allocate(SampleType sampleType, int note, Entries* entries, Samples::Sample* sample) {
-        auto sampleDetune = entries->find("sample:detune");
+        Entries::Entry* sampleDetune;
+        entries->find("sample:detune", sampleDetune);
         auto v = bestVoice(note, entries);
         for (auto& q : data)
             q.age++;
@@ -79,20 +80,16 @@ struct Voices {
             v.dsp->buildUserInterface(v.entries);
             stereoCompute(v.dsp, sampleBuffer, sendBuffers, sendBufferCount);
         }
-        for (auto& sendEffect : sendEffects)
+        entries.prepareToWrite();
+        for (auto& sendEffect : sendEffects) {
+            sendEffect.dsp->buildUserInterface(&entries);
             stereoCompute(sendEffect.dsp, sendEffect.buffer, &output, 1);
+        }
     }
 
   private:
     std::vector<Voice> data;
     std::vector<SendEffect> sendEffects;
-
-    std::unique_ptr<dsp> createSend(dsp* send) {
-        send->init(SAMPLE_RATE);
-        assert(send->getNumInputs() == 2);
-        assert(send->getNumOutputs() == 2);
-        return std::unique_ptr<dsp>(send);
-    }
 
     Voice* bestVoice(int note, Entries* entries) {
         Voice* best;

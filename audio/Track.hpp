@@ -21,7 +21,7 @@ struct Track {
     int resolution = 4;
     int octave = 4;
     Voices::SampleType sampleType = Voices::SampleType::File;
-    Voices* voices;
+    Entries entries;
 
     Track(int id, Autosave* autosave, Voices* v, Samples* samples, Song* s, Entries e) : voices(v), song(s), defaultSample(&samples->data[id]), entries(e), steps() {
         liveSample.frames.reset(new float[maxLiveRecordLength]);
@@ -36,17 +36,6 @@ struct Track {
         autosave->bind(prefix + "sampleType", new Autosave::Number(sampleType));
         autosave->bind(prefix + "steps:active", new Autosave::Array(steps, &Track::Step::active));
         autosave->bind(prefix + "steps:note", new Autosave::Array(steps, &Track::Step::key));
-    }
-
-    Entries::Entry* entry(const std::string& name) {
-        return entries.find(name);
-    }
-
-    bool entry(const std::string& name, int& value) {
-        auto entry = entries.find(name);
-        if (entry != nullptr)
-            value = entry->value;
-        return entry != nullptr;
     }
 
     void run(const float input) {
@@ -152,10 +141,10 @@ struct Track {
   private:
     int pageStart = 0;
     int length = Song::maxResolution;
+    Voices* voices;
     Song* song;
     Samples::Sample* defaultSample;
     Samples::Sample liveSample;
-    Entries entries;
     std::array<Step, Song::maxResolution*16*8> steps;
 
     int viewLength() {

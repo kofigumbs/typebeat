@@ -31,11 +31,14 @@ struct Entries : GenericUI {
             *zone = data[writeIndex++].value;
     }
 
-    Entries::Entry* find(const std::string& name) {
-        for (auto& entry : data)
-            if (name == entry.label)
-                return &entry;
-        return nullptr;
+    bool find(const std::string& name, Entries::Entry*& entry) {
+        for (auto& e : data) {
+            if (name == e.label) {
+                entry = &e;
+                return true;
+            }
+        }
+        return false;
     }
 
     void prepareToWrite() {

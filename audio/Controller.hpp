@@ -2,7 +2,7 @@ struct Controller : Audio::EventHandler {
     static const int trackCount = 15;
     static const int maxQueueSize = 8;
 
-    Controller(Autosave* a, Voices* voices, Samples* samples, Entries entries) : autosave(a), song(a), tracks(), receiveCallbacks(), sendCallbacks(), sendQueue() {
+    Controller(Autosave* a, Voices* v, Samples* samples, Entries entries) : autosave(a), voices(v), song(a), tracks(), receiveCallbacks(), sendCallbacks(), sendQueue() {
         tracks.reserve(Controller::trackCount);
         for (int i = 0; i < Controller::trackCount; i++)
             tracks.emplace_back(i, autosave, voices, samples, &song, entries);
@@ -61,8 +61,9 @@ struct Controller : Audio::EventHandler {
             sendQueue.push([callback, value]() { (*callback)(value); });
         }
         else {
-            auto entry = tracks[activeTrack].entry(name);
-            if (entry == nullptr)
+            Entries::Entry* entry;
+            auto found = tracks[activeTrack].entries.find(name, entry) || voices->entries.find(name, entry);
+            if (!found)
                 return;
             sendQueue.push([entry, value]() {
                 if (entry->step == 0)
@@ -81,7 +82,11 @@ struct Controller : Audio::EventHandler {
             value = receiveCallbacks[name]();
             return true;
         }
-        return tracks[activeTrack].entry(name, value);
+        Entries::Entry* entry;
+        auto found = tracks[activeTrack].entries.find(name, entry) || voices->entries.find(name, entry);
+        if (found)
+            value = entry->value;
+        return found;
     }
 
     void drop(int i, const void* data) override {
@@ -97,12 +102,13 @@ struct Controller : Audio::EventHandler {
             message();
         for (int i = 0; i < Controller::trackCount; i++)
             tracks[i].run(input);
-        tracks.front().voices->run(input, output);
+        voices->run(input, output);
     }
 
   private:
     int activeTrack = 0;
     Autosave* autosave;
+    Voices* voices;
     Song song;
     std::vector<Track> tracks;
     std::unordered_map<std::string, std::function<int()>> receiveCallbacks;
