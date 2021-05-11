@@ -23,6 +23,10 @@
 #include "./include/Audio.h"
 #include "./include/Effects.h"
 
+std::string twoDigit(int i) {
+    return (i < 10 ? "0" : "") + std::to_string(i);
+}
+
 #include "./Autosave.hpp"
 #include "./Entries.hpp"
 #include "./Samples.hpp"

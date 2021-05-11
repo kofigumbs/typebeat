@@ -16,7 +16,7 @@ struct Samples {
 
   private:
     bool hasSample(std::filesystem::path directory, std::string& filename, int i) {
-        filename = directory / ((i < 10 ? "0" : "") + std::to_string(i) + ".wav");
+        filename = directory / (twoDigit(i) + ".wav");
         return std::filesystem::exists(filename);
     }
 
