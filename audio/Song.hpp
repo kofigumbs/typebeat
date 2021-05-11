@@ -10,20 +10,20 @@ struct Song {
     bool playing = false;
     bool armed = false;
     int tempo = 120;
-    int step = -1;
+    int step = 0;
     int root = 0;
     int scale = 0;
 
     Song(Autosave* autosave) {
-        autosave->bind("song.tempo", new Autosave::Number(tempo));
-        autosave->bind("song.root", new Autosave::Number(root));
-        autosave->bind("song.scale", new Autosave::Number(scale));
+        autosave->bind("song:tempo", new Autosave::Number(tempo));
+        autosave->bind("song:root", new Autosave::Number(root));
+        autosave->bind("song:scale", new Autosave::Number(scale));
     }
 
     void togglePlay() {
         playing = !playing;
-        step = -1;
-        framesSinceLastStep = -1;
+        step = 0;
+        framesSinceLastStep = 0;
     }
 
     void advance() {
@@ -37,7 +37,7 @@ struct Song {
     }
 
     bool newStep() {
-        return playing && step >= 0 && framesSinceLastStep == 0;
+        return playing && framesSinceLastStep == 0;
     }
 
     int quantizedStep(int resolution) {
