@@ -37,7 +37,7 @@ struct Song {
     }
 
     bool newStep() {
-        return playing && framesSinceLastStep == 0;
+        return playing && step >= 0 && framesSinceLastStep == 0;
     }
 
     int quantizedStep(int resolution) {

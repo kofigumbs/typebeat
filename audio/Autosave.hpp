@@ -5,6 +5,14 @@ struct Autosave {
         virtual void render(std::stringstream&) = 0;
     };
 
+    struct Blank : Format {
+        void parse(std::string, size_t* end) {
+            *end = 0;
+        }
+        void render(std::stringstream&) {
+        }
+    };
+
     template <typename T>
     struct Number : Format {
         T& data;

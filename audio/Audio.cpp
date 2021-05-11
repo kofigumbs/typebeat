@@ -89,4 +89,5 @@ void Audio::start(std::function<void(EventHandler*)> view) {
         autosave->write();
     };
     view(controller.get());
+    quit();
 };

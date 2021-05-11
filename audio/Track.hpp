@@ -44,7 +44,7 @@ struct Track {
                 new Autosave::Array(
                     sequence,
                     [key](auto& step) -> auto& { return step.keyDown[key].active; },
-                    [key](auto& step) { return new Autosave::Number(step.keyDown[key].active); }
+                    [](auto& step) { return new Autosave::Blank(); }
                 )
             );
         }
@@ -55,10 +55,9 @@ struct Track {
             liveSample.frames[liveSample.length++] = input;
         if (song->newStep()) {
             auto& step = sequence[song->step % length];
-            for (int key = 0; key < keyCount; key++) {
+            for (int key = 0; key < keyCount; key++)
                 if(replay(step.keyDown[key]) && !mute)
                     restartVoice(key);
-            }
         }
     }
 
