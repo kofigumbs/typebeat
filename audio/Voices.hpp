@@ -35,7 +35,7 @@ struct Voices {
             assert(v.gate = ui.getParamZone("gate"));
             assert(v.live = ui.getParamZone("live"));
         }
-        for (auto dsp : { create_reverb(), create_echo() }) {
+        for (auto dsp : { create_reverb(), create_echo(), create_drive() }) {
             assert(dsp->getNumInputs() == 2);
             assert(dsp->getNumOutputs() == 2);
             auto& sendEffect = sendEffects.emplace_back();
@@ -43,6 +43,8 @@ struct Voices {
             sendEffect.dsp->init(SAMPLE_RATE);
             sendEffect.dsp->buildUserInterface(&sendEntries);
         }
+        assert(data.front().dsp->getNumInputs() == 2);
+        assert(data.front().dsp->getNumOutputs() == 2 * (sendEffects.size() + 1));
         sendEntries.bind("send.", autosave);
     }
 

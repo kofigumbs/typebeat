@@ -2,3 +2,4 @@
 dsp* create_insert();
 dsp* create_reverb();
 dsp* create_echo();
+dsp* create_drive();
