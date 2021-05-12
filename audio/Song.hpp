@@ -41,6 +41,10 @@ struct Song {
     }
 
     int quantizedStep(int resolution) {
+        return quantizedStep(step, resolution);
+    }
+
+    int quantizedStep(int step, int resolution) {
         auto scale = maxResolution / resolution;
         auto scaledStep = step / scale * scale;
         auto snapToNext = (step - scaledStep)*stepDuration(maxResolution) + framesSinceLastStep > stepDuration(resolution)/2;

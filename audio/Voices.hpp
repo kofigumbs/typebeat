@@ -52,12 +52,12 @@ struct Voices {
         return entries;
     }
 
-    void allocate(SampleType sampleType, int note, Entries* entries, Samples::Sample* sample) {
+    void start(SampleType sampleType, int note, Entries* entries, Samples::Sample* sample) {
         Entries::Entry* sampleDetune;
         entries->find("sample:detune", sampleDetune);
-        auto v = bestVoice(note, entries);
-        for (auto& q : data)
-            q.age++;
+        for (auto& v : data)
+            v.age++;
+        auto v = bestVoice();
         v->age = 0;
         v->position = 0;
         v->increment = pow(2, (note + sampleDetune->value/10)/12) / pow(2, 69.f/12);
@@ -69,7 +69,7 @@ struct Voices {
         v->dsp->instanceClear();
     }
 
-    void release(int note, Entries* entries) {
+    void stop(int note, Entries* entries) {
         for (auto& v : data)
             if (*v.note == note && v.entries == entries)
                 *v.gate = 0;
@@ -103,26 +103,21 @@ struct Voices {
     std::vector<Voice> data;
     std::vector<SendEffect> sendEffects;
 
-    Voice* bestVoice(int note, Entries* entries) {
+    Voice* bestVoice() {
         Voice* best;
         int bestScore = -1;
         for (auto& v : data) {
-            auto pScore = score(note, entries, v);
-            if (pScore > bestScore) {
+            auto score = std::min(v.age, 99);
+            if (v.entries == nullptr)
+                score += 1000;
+            if (v.sample && v.position >= v.sample->length && *v.gate == 0)
+                score += 100;
+            if (score > bestScore) {
                 best = &v;
-                bestScore = pScore;
+                bestScore = score;
             }
         }
         return best;
-    }
-
-    int score(int note, Entries* entries, Voice& v) {
-        auto age = std::min(v.age, 99);
-        if (v.entries == nullptr)
-            age += 1000;
-        if (v.sample && v.position >= v.sample->length && *v.gate == 0)
-            age += 100;
-        return age;
     }
 
     void play(const float input, float* output, Voice& v) {

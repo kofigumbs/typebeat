@@ -17,7 +17,7 @@ struct Track {
     };
 
     struct Step {
-        Change keyDown[keyCount];
+        Change key[keyCount];
     };
 
     bool mute = false;
@@ -41,11 +41,11 @@ struct Track {
         autosave->bind(prefix + "sampleType", new Autosave::Number(sampleType));
         for (int key = 0; key < keyCount; key++) {
             autosave->bind(
-                prefix + "sequence:keyDown" + twoDigit(key),
+                prefix + "sequence:key" + twoDigit(key),
                 new Autosave::Array(
                     sequence,
-                    [key](auto& step) -> auto& { return step.keyDown[key].active; },
-                    [key](auto& step) { return new Autosave::Number(step.keyDown[key].value); }
+                    [key](auto& step) -> auto& { return step.key[key].active; },
+                    [key](auto& step) { return new Autosave::Number(step.key[key].value); }
                 )
             );
         }
@@ -56,9 +56,12 @@ struct Track {
             liveSample.frames[liveSample.length++] = input;
         if (song->newStep()) {
             auto& step = sequence[song->step % length];
-            for (int key = 0; key < keyCount; key++)
-                if(replay(step.keyDown[key]) && !mute)
+            for (int key = 0; key < keyCount; key++) {
+                if (song->step - lastPlayed[key] == sequence[lastPlayed[key] % length].key[key].value)
+                    stopVoice(key);
+                if(replay(step.key[key]) && !mute)
                     restartVoice(key);
+            }
         }
     }
 
@@ -110,12 +113,13 @@ struct Track {
                 return;
             case View::Empty:
             case View::ExactlyOnStep:
-                sequence[start].keyDown[lastKey].active ^= true;
-                sequence[start].keyDown[lastKey].skipNext = false;
+                sequence[start].key[lastKey].active ^= true;
+                sequence[start].key[lastKey].skipNext = false;
+                sequence[start].key[lastKey].value = viewLength();
                 return;
             case View::ContainsSteps:
                 for (int i = start; i < start + viewLength(); i++)
-                    sequence[i].keyDown[lastKey].active = false;
+                    sequence[i].key[lastKey].active = false;
                 return;
         }
     }
@@ -127,7 +131,7 @@ struct Track {
     void play(int key) {
         lastKey = key;
         if (song->playing && song->armed)
-            record([this, key](auto& step) -> auto& { return step.keyDown[key]; });
+            record([this, key](auto& step) -> auto& { return step.key[key]; });
         restartVoice(key);
     }
 
@@ -136,7 +140,11 @@ struct Track {
     }
 
     void release(int key) {
-        voices->release(keyToNote(key), &entries);
+        if (song->playing && song->armed) {
+            auto quantizedStep = song->quantizedStep(lastPlayed[key], resolution);
+            sequence[quantizedStep % length].key[key].value = song->step - lastPlayed[key];
+        }
+        stopVoice(key);
     }
 
     int keyToNote(int key) {
@@ -150,6 +158,7 @@ struct Track {
     Song* song;
     Samples::Sample* defaultSample;
     Samples::Sample liveSample;
+    int lastPlayed[keyCount];
     std::array<Step, Song::maxResolution*16*8> sequence;
 
     int viewLength() {
@@ -166,7 +175,7 @@ struct Track {
         int countActive = 0;
         int lastActive = 0;
         for (int i = start; i < start + viewLength(); i++) {
-            if (sequence[i].keyDown[lastKey].active) {
+            if (sequence[i].key[lastKey].active) {
                 countActive++;
                 lastActive = i;
             }
@@ -197,12 +206,17 @@ struct Track {
     }
 
     void restartVoice(int key) {
-        release(key);
-        voices->allocate(
+        lastPlayed[key] = song->step;
+        stopVoice(key);
+        voices->start(
             sampleType,
             keyToNote(key),
             &entries,
             sampleType == Voices::SampleType::File ? defaultSample : &liveSample
         );
+    }
+
+    void stopVoice(int key) {
+        voices->stop(keyToNote(key), &entries);
     }
 };
