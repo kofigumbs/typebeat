@@ -9,7 +9,6 @@ struct Audio {
     char* inputDeviceName;
     char* outputDeviceName;
     int voiceCount;
-    std::function<void()> quit;
 
     void start(std::function<void(EventHandler*)>);
 };

@@ -32,7 +32,6 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 #else
 #include <signal.h>
 void quit(int) {
-    if (audio->quit) audio->quit();
     if (view.get()) view->terminate();
 }
 int main(int argc, char* argv[]) {

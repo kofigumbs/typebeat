@@ -50,17 +50,12 @@ struct Autosave {
         }
     };
 
-    Autosave(std::filesystem::path f) : filename(f) {
+    Autosave(std::filesystem::path f) : filename(f), writer(&Autosave::run, this) {
     }
 
-    void write() {
-        std::stringstream content;
-        for (const auto& binding : bindings) {
-            content << binding.first << "=";
-            binding.second->render(content);
-            content << "\n";
-        }
-        choc::file::replaceFileWithContent(filename, content.str());
+    ~Autosave() {
+        running = false;
+        writer.join();
     }
 
 
@@ -84,7 +79,29 @@ struct Autosave {
         }
     }
 
+    void trigger() {
+        dirty = true;
+    }
+
   private:
+    bool running = true;
     std::filesystem::path filename;
+    std::thread writer;
+    std::atomic<bool> dirty;
     std::unordered_map<std::string, std::unique_ptr<Format>> bindings;
+
+    void run() {
+        while (running || dirty.load()) {
+            if (dirty.exchange(false)) {
+                std::stringstream content;
+                for (const auto& binding : bindings) {
+                    content << binding.first << "=";
+                    binding.second->render(content);
+                    content << "\n";
+                }
+                choc::file::replaceFileWithContent(filename, content.str());
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
 };
