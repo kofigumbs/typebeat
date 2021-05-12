@@ -13,6 +13,7 @@ struct Track {
     struct Change {
         bool active;
         bool skipNext;
+        int value;
     };
 
     struct Step {
@@ -44,7 +45,7 @@ struct Track {
                 new Autosave::Array(
                     sequence,
                     [key](auto& step) -> auto& { return step.keyDown[key].active; },
-                    [](auto& step) { return new Autosave::Blank(); }
+                    [key](auto& step) { return new Autosave::Number(step.keyDown[key].value); }
                 )
             );
         }

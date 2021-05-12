@@ -1,15 +1,13 @@
 struct Autosave {
     struct Format {
         virtual ~Format() = default;
-        virtual void parse(std::string, size_t*) = 0;
+        virtual void parse(std::string&) = 0;
         virtual void render(std::stringstream&) = 0;
-    };
-
-    struct Blank : Format {
-        void parse(std::string, size_t* end) {
-            *end = 0;
-        }
-        void render(std::stringstream&) {
+        static int parseInt(std::string& value) {
+            size_t end;
+            int i = std::stoi(value, &end);
+            value = value.substr(end + (end < value.size()));
+            return i;
         }
     };
 
@@ -18,11 +16,11 @@ struct Autosave {
         T& data;
         Number(T& d) : data(d) {
         }
-        void parse(std::string value, size_t* end) override {
-            data = static_cast<T>(std::stoi(value, end));
+        void parse(std::string& value) override {
+            data = static_cast<T>(Format::parseInt(value));
         }
         void render(std::stringstream& s) override {
-            s << std::to_string(static_cast<int>(data));
+            s << static_cast<int>(data);
         }
     };
 
@@ -34,19 +32,17 @@ struct Autosave {
         template <typename A, typename F>
         Array(std::array<T, N>& d, A&& a, F&& f) : data(d), active(a), format(f) {
         }
-        void parse(std::string value, size_t* end) override {
+        void parse(std::string& value) override {
             while (value.size()) {
-                auto i = std::stoi(value, end);
-                value = value.substr(*end + 1);
+                auto i = Format::parseInt(value);
                 active(data[i]) = true;
-                std::unique_ptr<Format>(format(data[i]))->parse(value, end);
-                value = value.substr(*end + 1);
+                std::unique_ptr<Format>(format(data[i]))->parse(value);
             }
         }
         void render(std::stringstream& s) override {
             for (int i = 0; i < N; i++) {
                 if (active(data[i])) {
-                    s << std::to_string(i) << "@";
+                    s << i << "@";
                     std::unique_ptr<Format>(format(data[i]))->render(s);
                     s << ",";
                 }
@@ -81,10 +77,10 @@ struct Autosave {
             auto newline = content.find('\n');
             auto label = content.substr(0, equals);
             auto value = content.substr(equals + 1, newline - equals - 1);
-            size_t end;
+            auto remainingContent = content.substr(newline + 1);
             if (bindings.count(label))
-                bindings[label]->parse(value, &end);
-            content = content.substr(newline + 1);
+                bindings[label]->parse(value);
+            content = remainingContent;
         }
     }
 
