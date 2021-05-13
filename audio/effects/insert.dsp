@@ -32,7 +32,7 @@ decay        = nentry("decay",         0,    0,  50, 10) : smooth;
 sustain      = nentry("sustain",      50,    0,  50, 10) : smooth;
 release      = nentry("release",       0,    0,  50, 10) : smooth;
 pan          = nentry("pan",           0,  -25,  25, 10) : smooth;
-main         = nentry("main",       50,    0,  50, 10) : smooth;
+main         = nentry("main",         50,    0,  50, 10) : smooth;
 reverb       = nentry("reverb",        0,    0,  50, 10) : smooth;
 echo         = nentry("echo",          0,    0,  50, 10) : smooth;
 drive        = nentry("drive",         0,    0,  50, 10) : smooth;
@@ -43,19 +43,19 @@ sound = sample, synth1, synth2, synth3 with {
 	sample = sp.stereoize(sampleTranspose : *(sampleLevel/25 * ba.if(holdSample, envelope, 1)));
 	sampleTranspose = ba.bypass_fade(1, sampleOffset == 0, ef.transpose(1000, 10, sampleOffset));
 	sampleOffset = live * (sampleDetune/10 + note - 69);
-	synth1 = frequency(synth1Detune/10) : oscillator(synth1Type) : *(synth1Level/100 * envelope) <: _, _;
-	synth2 = frequency(synth2Detune/10) : oscillator(synth2Type) : *(synth2Level/100 * envelope) <: _, _;
-	synth3 = frequency(synth3Detune/10) : oscillator(synth3Type) : *(synth3Level/100 * envelope) <: _, _;
+	synth1 = frequency(synth1Detune/10) : oscillator(synth1Type) : *(synth1Level/150 * envelope) <: _, _;
+	synth2 = frequency(synth2Detune/10) : oscillator(synth2Type) : *(synth2Level/150 * envelope) <: _, _;
+	synth3 = frequency(synth3Detune/10) : oscillator(synth3Type) : *(synth3Level/150 * envelope) <: _, _;
 	frequency = _/10 + note : ba.midikey2hz;
 	oscillator = ba.selectmulti(1, (os.oscsin, os.triangle, os.sawtooth/2, os.square/2, (no.noise/4, !)));
 };
 
 eq = sp.stereoize(low : band1 : band2 : band3 : high) with {
-	low = ba.bypass_fade(1, lowFreq == 0, wa.highpass2(ba.midikey2hz(lowFreq*2 + 10), lowRes, 0));
+	low = ba.bypass_fade(1, lowFreq == 0, wa.highpass2(ba.midikey2hz(lowFreq*2 - 10), lowRes, 0));
 	band1 = ba.bypass_fade(1, (band1Freq == 0) & (band1Res == 0), wa.peaking2(band1Freq/2 + 36, band1Res/2, 4, 0));
 	band2 = ba.bypass_fade(1, (band2Freq == 0) & (band2Res == 0), wa.peaking2(band2Freq/2 + 60, band2Res/2, 4, 0));
 	band3 = ba.bypass_fade(1, (band3Freq == 0) & (band3Res == 0), wa.peaking2(band3Freq/2 + 74, band3Res/2, 4, 0));
-	high = ba.bypass_fade(1, highFreq == 50, wa.lowpass2(ba.midikey2hz(highFreq*2 + 10), highRes, 0));
+	high = ba.bypass_fade(1, highFreq == 50, wa.lowpass2(ba.midikey2hz(highFreq + 60), highRes, 0));
 };
 
 panning(inputL, inputR) = ba.select2stereo(pan > 25, toLeftL, toLeftR, toRightL, toRightR) with {
@@ -66,7 +66,7 @@ panning(inputL, inputR) = ba.select2stereo(pan > 25, toLeftL, toLeftR, toRightL,
 };
 
 send(amount) = sp.stereoize(*(amount/50));
-envelope = en.adsr(attack/20, decay/20, sustain/50, release/20, gate);
+envelope = en.adsr(attack/50, decay/50, sustain/50, release/50, gate);
 
 smooth = si.polySmooth(trigger, amount, 1) with {
 	trigger = gate : ba.peakhold(1);
