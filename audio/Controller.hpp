@@ -16,9 +16,12 @@ struct Controller : Audio::EventHandler {
         receiveCallbacks["activeTrack"] = [this](){ return activeTrack; };
         // sound mode
         sendCallbacks["sample:type"] = [this](int value){ tracks[activeTrack].setSampleType(value); };
-        sendCallbacks["useKey"] = [this](int){ tracks[activeTrack].useKey ^= 1; };
         receiveCallbacks["sample:type"] = [this](){ return static_cast<int>(tracks[activeTrack].sampleType); };
+        // poly mode
+        sendCallbacks["useKey"] = [this](int){ tracks[activeTrack].useKey ^= 1; };
+        sendCallbacks["octave"] = [this](int value){ nudge(tracks[activeTrack].octave, 2, 8, 0, value); };
         receiveCallbacks["useKey"] = [this](){ return tracks[activeTrack].useKey; };
+        receiveCallbacks["octave"] = [this](){ return tracks[activeTrack].octave; };
         // note mode
         sendCallbacks["noteDown"] = [this](int value){ tracks[activeTrack].play(value); };
         sendCallbacks["noteUp"] = [this](int value){ tracks[activeTrack].release(value); };
@@ -28,7 +31,7 @@ struct Controller : Audio::EventHandler {
         // beat mode
         sendCallbacks["play"] = [this](int){ song.togglePlay(); };
         sendCallbacks["arm"] = [this](int){ song.armed = !song.armed; };
-        sendCallbacks["tempo"] = [this](int value){ nudge(&song.tempo, 1, 999, 10, value); };
+        sendCallbacks["tempo"] = [this](int value){ nudge(song.tempo, 1, 999, 10, value); };
         sendCallbacks["tempoTaps"] = [this](int value){ song.tempo = value; };
         receiveCallbacks["playing"] = [this](){ return song.playing; };
         receiveCallbacks["armed"] = [this](){ return song.armed; };
@@ -45,7 +48,7 @@ struct Controller : Audio::EventHandler {
         for (int i = 0; i < Track::viewsPerPage; i++)
             receiveCallbacks["view:" + std::to_string(i)] = [this, i](){ return tracks[activeTrack].view(i); };
         // song mode
-        sendCallbacks["root"] = [this](int value){ nudge(&song.root, -12, 12, 7, value); };
+        sendCallbacks["root"] = [this](int value){ nudge(song.root, -12, 12, 7, value); };
         sendCallbacks["scale"] = [this](int value){ song.scale = value; };
         receiveCallbacks["root"] = [this](){ return song.root; };
         receiveCallbacks["scale"] = [this](){ return song.scale; };
@@ -71,7 +74,7 @@ struct Controller : Audio::EventHandler {
                 else if (entry->step == 1)
                     entry->value = std::clamp((float) value, entry->min, entry->max);
                 else
-                    nudge(&entry->value, entry->min, entry->max, entry->step, value);
+                    nudge(entry->value, entry->min, entry->max, entry->step, value);
             });
         }
     }
@@ -117,7 +120,7 @@ struct Controller : Audio::EventHandler {
     choc::fifo::SingleReaderSingleWriterFIFO<std::function<void()>> sendQueue;
 
     template <typename T>
-    static void nudge(T* original, T low, T high, int jump, int value) {
+    static void nudge(T& original, T low, T high, int jump, int value) {
         int diff = 0;
         switch (value) {
             case 0: diff = -jump; break;
@@ -125,6 +128,6 @@ struct Controller : Audio::EventHandler {
             case 2: diff = 1;     break;
             case 3: diff = jump;  break;
         }
-        *original = std::clamp(*original + diff, low, high);
+        original = std::clamp(original + diff, low, high);
     }
 };

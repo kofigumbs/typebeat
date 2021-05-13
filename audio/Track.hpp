@@ -23,7 +23,7 @@ struct Track {
     bool mute = false;
     bool useKey = true;
     int lastKey = 12; // 440Hz (concert pitch A) in C Major
-    int resolution = 4;
+    int resolution = 16;
     int octave = 4;
     Voices::SampleType sampleType = Voices::SampleType::File;
     Entries entries;

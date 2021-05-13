@@ -63,11 +63,14 @@ const Bindings = ({ state, send }) => {
           },
         };
       }),
-      ['/', toggle('use key', () => state.useKey, () => send('useKey')) ],
     ])}],
     ['E', { mode: 'Chop', actions: new Map([
     ])}],
     ['R', { mode: 'Poly', actions: new Map([
+      ['Y', toggle('use key', () => state.useKey, () => send('useKey')) ],
+      ['J', bind({ label: () => 'oct. -', onDown: () => send('octave', 1) }) ],
+      ['K', title(() => state.octave) ],
+      ['L', bind({ label: () => 'oct. +', onDown: () => send('octave', 2) }) ],
     ])}],
     ['T', { mode: 'Note', actions: new Map([
       ...all(i => ({
