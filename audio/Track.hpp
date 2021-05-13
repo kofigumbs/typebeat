@@ -124,6 +124,20 @@ struct Track {
         }
     }
 
+    bool canClear() {
+        for (auto& step : sequence)
+            for (int key = 0; key < keyCount; key++)
+                if (step.key[key].active)
+                    return true;
+        return false;
+    }
+
+    void clear() {
+        for (auto& step : sequence)
+            for (int key = 0; key < keyCount; key++)
+                step.key[key].active = false;
+    }
+
     void play() {
         play(lastKey);
     }

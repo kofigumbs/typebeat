@@ -42,9 +42,11 @@ struct Controller : Audio::EventHandler {
         sendCallbacks["page"] = [this](int value){ tracks[activeTrack].movePage(value); };
         sendCallbacks["bars"] = [this](int value){ tracks[activeTrack].adjustLength(value); };
         sendCallbacks["sequence"] = [this](int value){ tracks[activeTrack].toggleStep(value); };
+        sendCallbacks["clear"] = [this](int){ tracks[activeTrack].clear(); };
         receiveCallbacks["bars"] = [this](){ return tracks[activeTrack].bars(); };
         receiveCallbacks["viewStart"] = [this](){ return tracks[activeTrack].viewStart(); };
         receiveCallbacks["resolution"] = [this](){ return tracks[activeTrack].resolution; };
+        receiveCallbacks["canClear"] = [this](){ return tracks[activeTrack].canClear(); };
         for (int i = 0; i < Track::viewsPerPage; i++)
             receiveCallbacks["view:" + std::to_string(i)] = [this, i](){ return tracks[activeTrack].view(i); };
         // song mode

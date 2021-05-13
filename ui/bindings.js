@@ -116,6 +116,7 @@ const Bindings = ({ state, send }) => {
         },
         onDown: () => send('sequence', i),
       })),
+      ['P', bind({ label: () => 'clear', title: () => state.canClear, onDown: () => send('clear') }) ],
       ['K', title(async () => `bar ${((await state.viewStart / await state.resolution)|0) + 1}/${await state.bars}`) ],
     ])}],
     ['D', { mode: 'Hold', actions: new Map([
