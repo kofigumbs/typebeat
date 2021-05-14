@@ -31,6 +31,7 @@ attack       = nentry("attack",        0,    0,  50, 10) : smooth;
 decay        = nentry("decay",         0,    0,  50, 10) : smooth;
 sustain      = nentry("sustain",      50,    0,  50, 10) : smooth;
 release      = nentry("release",       0,    0,  50, 10) : smooth;
+cutoff       = nentry("cutoff",        0,    0,  50, 10) : smooth;
 pan          = nentry("pan",           0,  -25,  25, 10) : smooth;
 main         = nentry("main",         50,    0,  50, 10) : smooth;
 reverb       = nentry("reverb",        0,    0,  50, 10) : smooth;
@@ -55,7 +56,8 @@ eq = sp.stereoize(low : band1 : band2 : band3 : high) with {
 	band1 = ba.bypass_fade(1, (band1Freq == 0) & (band1Res == 0), wa.peaking2(band1Freq/2 + 36, band1Res/2, 4, 0));
 	band2 = ba.bypass_fade(1, (band2Freq == 0) & (band2Res == 0), wa.peaking2(band2Freq/2 + 60, band2Res/2, 4, 0));
 	band3 = ba.bypass_fade(1, (band3Freq == 0) & (band3Res == 0), wa.peaking2(band3Freq/2 + 74, band3Res/2, 4, 0));
-	high = ba.bypass_fade(1, highFreq == 50, wa.lowpass2(ba.midikey2hz(highFreq + 60), highRes, 0));
+	high = ba.bypass_fade(1, highCut == 50, wa.lowpass2(ba.midikey2hz(highCut + 60), highRes, 0));
+	highCut = highFreq - it.interpolate_linear(cutoff/50, 0, envelope * 50);
 };
 
 panning(inputL, inputR) = ba.select2stereo(pan > 25, toLeftL, toLeftR, toRightL, toRightR) with {

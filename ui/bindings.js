@@ -120,7 +120,7 @@ const Bindings = ({ state, send }) => {
       ['K', title(async () => `bar ${((await state.viewStart / await state.resolution)|0) + 1}/${await state.bars}`) ],
     ])}],
     ['D', { mode: 'Hold', actions: new Map([
-      ...oneOf('YUIO', state, 'hold', ['attack', 'decay', 'sustain', 'release']),
+      ...oneOf('YUIOP', state, 'hold', ['attack', 'decay', 'sustain', 'release', 'cutoff']),
       ...nudge(async () => await state[state.hold], i => send(state.hold, i)),
       ['N', toggle('sample', async () => await state.holdSample, () => send('holdSample')) ],
     ])}],
