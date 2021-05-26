@@ -18,7 +18,7 @@ build/base64.o: .git/modules vendor/cpp-base64/base64.cpp | build
 build/desktop.o: .git/modules audio/include/Audio.h main/desktop.cpp | build
 	$(CC)$@ -I "$(shell faust --includedir)" -I vendor/webview/script main/desktop.cpp
 
-build/audio.o: .git/modules audio audio/include
+build/audio.o: .git/modules audio audio/include | build
 	$(CC)$@ -I "$(shell faust --includedir)" audio/Audio.cpp
 
 build/%.o: build/%.cpp | build
