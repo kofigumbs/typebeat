@@ -1,0 +1,9 @@
+[package]
+name = "typebeat"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+anyhow = "1.0.41"
+cpal = "0.13.3"
+wry = "0.10.3"

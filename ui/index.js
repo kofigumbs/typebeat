@@ -3,11 +3,11 @@ const debug = context => (...args) => {
 };
 const [state, clearCache] = State({
   defaults: [['modifier', undefined], ['tempoTaps', []]],
-  receive: window.$receive ?? debug('receive'),
+  receive: window.rpc ? rpc.call : debug('receive'),
 });
 const bindings = Bindings({
   state,
-  send: window.$send ?? debug('send'),
+  send: window.rpc ? rpc.notify : debug('send'),
 });
 
 
@@ -66,33 +66,6 @@ const keysOnLeft = findElements(capsOnLeft, cap => `.key[data-cap="${cap}"]`);
 const keysOnRight = findElements(capsOnRight, cap => `.key[data-cap="${cap}"]`);
 const labels = findElements(capsOnRight, cap => `.key[data-cap="${cap}"] .label`);
 const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`);
-
-
-/*
- * drag-and-drop
- */
-
-for (let i = 0; i < 15; i++) {
-  keysOnRight[i].addEventListener('dragover', event => {
-    event.stopPropagation();
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
-  });
-  keysOnRight[i].addEventListener('drop', event => {
-    const file = event.dataTransfer.files[0];
-    if (!file?.name.match(/\.wav$/i))
-      return;
-    event.preventDefault();
-    const reader = new FileReader();
-    reader.onload = () => {
-      let start = 1;
-      while (reader.result[start-1] != ',')
-        start++;
-      (window.$drop ?? debug('drop'))(i, reader.result.substring(start));
-    };
-    reader.readAsDataURL(file);
-  });
-}
 
 
 /*
@@ -168,10 +141,6 @@ const handleDocumentKey = event => {
 
 document.addEventListener('keydown', handleDocumentKey);
 document.addEventListener('keyup', handleDocumentKey);
-document.addEventListener('keypress', event => {
-  if ((event.ctrlKey || event.metaKey) && event.key == 'q' && window.$quit)
-    window.$quit();
-  event.preventDefault();
-});
+document.addEventListener('keypress', event => event.preventDefault());
 
 sync();
