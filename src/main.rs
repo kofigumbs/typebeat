@@ -3,25 +3,34 @@ extern crate cpal;
 
 use anyhow::{Context, Result};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{OutputCallbackInfo, Sample, SampleRate};
+use cpal::{Sample, SampleRate};
+use std::default::Default;
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::mpsc::{channel, Receiver};
+use std::sync::Arc;
 use wry::application::event::{Event, WindowEvent};
 use wry::application::event_loop::{ControlFlow, EventLoop};
 use wry::application::window::WindowBuilder;
-use wry::webview::WebViewBuilder;
+use wry::webview::{RpcResponse, WebViewBuilder};
 
-struct Controller {
-    receiver: Receiver<String>,
+struct State {
+    tempo: AtomicU16,
 }
 
-impl Controller {
-    fn run(&self, data: &mut [f32], _info: &OutputCallbackInfo) {
-        for message in self.receiver.try_iter() {
-            println!("{}", message);
+impl Default for State {
+    fn default() -> Self {
+        State {
+            tempo: AtomicU16::new(120),
         }
-        for sample in data.iter_mut() {
-            *sample = Sample::from(&0.0);
-        }
+    }
+}
+
+fn data_callback(data: &mut [f32], state: &mut Arc<State>, receiver: &Receiver<String>) {
+    for message in receiver.try_iter() {
+        println!("{}", message);
+    }
+    for sample in data.iter_mut() {
+        *sample = Sample::from(&0.0);
     }
 }
 
@@ -32,11 +41,13 @@ fn main() -> Result<()> {
     let config = device.default_output_config()?;
     std::assert_eq!(config.channels(), 2);
     std::assert_eq!(config.sample_rate(), SampleRate(44100));
+
+    let ui_state: Arc<State> = Arc::new(Default::default());
+    let mut audio_state = Arc::clone(&ui_state);
     let (sender, receiver) = channel();
-    let controller = Controller { receiver };
     let stream = device.build_output_stream(
         &config.into(),
-        move |data, info| controller.run(data, info),
+        move |data, _| data_callback(data, &mut audio_state, &receiver),
         |_| {},
     )?;
     stream.play()?;
@@ -49,10 +60,13 @@ fn main() -> Result<()> {
         .with_title("Typebeat")
         .build(&event_loop)?;
     let _webview = WebViewBuilder::new(window)?
-        .with_url(&format!("file://{}", path.display()).to_string())?
+        .with_url(&format!("file://{}", path.display()))?
         .with_rpc_handler(move |_window, request| {
             let _result = sender.send(request.method);
-            None
+            Some(RpcResponse::new_result(
+                request.id,
+                Some(ui_state.tempo.load(Ordering::Relaxed).into()),
+            ))
         })
         .build()?;
     event_loop.run(|event, _, control_flow| match event {
