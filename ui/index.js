@@ -1,13 +1,13 @@
-const debug = context => (...args) => {
-  console.log(`[Typebeat] ${context}: ${args.join(', ')}`);
+const foreign = (context, f = console.log) => {
+  return (method, data) => f(`${context}:${method}`, data);
 };
 const [state, clearCache] = State({
   defaults: [['modifier', undefined], ['tempoTaps', []]],
-  receive: window.rpc ? rpc.call : debug('receive'),
+  receive: foreign('receive', window.rpc?.call),
 });
 const bindings = Bindings({
   state,
-  send: window.rpc ? rpc.notify : debug('send'),
+  send: foreign('send', window.rpc?.notify),
 });
 
 
