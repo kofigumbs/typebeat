@@ -1,4 +1,4 @@
-const State = ({ receive, defaults }) => {
+const State = ({ get, defaults }) => {
   const local = new Map(defaults);
   const cache = new Map();
   return [
@@ -8,7 +8,7 @@ const State = ({ receive, defaults }) => {
           return local.get(prop);
         else if (cache.has(prop))
           return cache.get(prop)
-        const value = receive(prop);
+        const value = get(prop);
         cache.set(prop, value);
         return value;
       },
