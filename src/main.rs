@@ -7,12 +7,12 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Sample, SampleRate};
 use serde::Deserialize;
 use std::sync::atomic::{AtomicBool, AtomicI16, Ordering};
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 use wry::application::event::{Event, WindowEvent};
 use wry::application::event_loop::{ControlFlow, EventLoop};
 use wry::application::window::WindowBuilder;
-use wry::webview::{RpcResponse, WebViewBuilder};
+use wry::webview::{RpcRequest, RpcResponse, WebViewBuilder};
 use wry::Value;
 
 struct State {
@@ -109,12 +109,27 @@ fn set_state(state: &State, method: Setter, data: u8) {
     }
 }
 
-fn on_audio(audio: &mut [f32], state: &State, receiver: &Receiver<(Setter, u8)>) {
+fn on_audio(state: &State, receiver: &Receiver<(Setter, u8)>, audio: &mut [f32]) {
     for (message, data) in receiver.try_iter() {
         set_state(state, message, data);
     }
     for sample in audio.iter_mut() {
         *sample = Sample::from(&0.0);
+    }
+}
+
+fn on_ui(state: &State, sender: &Sender<(Setter, u8)>, request: RpcRequest) -> Option<RpcResponse> {
+    let params = request.params?;
+    let mut message: Vec<Message> = serde_json::from_value(params).ok()?;
+    match message.pop()? {
+        Message::Get { method } => Some(RpcResponse::new_result(
+            request.id,
+            Some(get_state(&state, method)),
+        )),
+        Message::Set { method, data } => {
+            let _ = sender.send((method, data));
+            None
+        }
     }
 }
 
@@ -131,7 +146,7 @@ fn main() -> Result<()> {
     let (sender, receiver) = channel();
     let stream = device.build_output_stream(
         &config.into(),
-        move |data, _| on_audio(data, &audio_state, &receiver),
+        move |data, _| on_audio(&audio_state, &receiver, data),
         |_| {}, // error callback
     )?;
     stream.play()?;
@@ -145,20 +160,7 @@ fn main() -> Result<()> {
         .build(&event_loop)?;
     let _webview = WebViewBuilder::new(window)?
         .with_url(&format!("file://{}", path.display()))?
-        .with_rpc_handler(move |_, request| {
-            let params = request.params?;
-            let mut message: Vec<Message> = serde_json::from_value(params).ok()?;
-            match message.pop()? {
-                Message::Get { method } => Some(RpcResponse::new_result(
-                    request.id,
-                    Some(get_state(&ui_state, method)),
-                )),
-                Message::Set { method, data } => {
-                    let _ = sender.send((method, data));
-                    None
-                }
-            }
-        })
+        .with_rpc_handler(move |_, request| on_ui(&ui_state, &sender, request))
         .build()?;
     event_loop.run(|event, _, control_flow| match event {
         Event::WindowEvent {
