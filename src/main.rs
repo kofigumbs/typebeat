@@ -6,9 +6,8 @@ extern crate serde;
 
 use anyhow::{Context, Result};
 use atomic_float::AtomicF32;
-use audrey::read::Reader;
+use audrey::read::{FormatError, Reader};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::SampleRate;
 use serde::Deserialize;
 use std::sync::atomic::{AtomicBool, AtomicI16, AtomicU8, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
@@ -40,12 +39,12 @@ impl SampleFile {
         std::assert_eq!(sample_rate, 44100);
         let samples = reader
             .samples()
-            .collect::<Result<Vec<f32>, audrey::read::FormatError>>()?;
+            .collect::<Result<Vec<f32>, FormatError>>()?;
         Ok(Self { channels, samples })
     }
 
     fn sample(&self, position: usize, channel: usize) -> f32 {
-        if self.mono() {
+        if self.channels == 1 {
             self.samples[position]
         } else {
             self.samples[2 * position + channel]
@@ -54,10 +53,6 @@ impl SampleFile {
 
     fn duration(&self) -> usize {
         self.samples.len() / self.channels as usize
-    }
-
-    fn mono(&self) -> bool {
-        self.channels == 1
     }
 }
 
@@ -111,7 +106,7 @@ impl State {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(tag = "context", rename_all = "lowercase")]
+#[serde(rename_all = "camelCase", tag = "context")]
 enum Message {
     Get { method: Getter },
     Set { method: Setter, data: u8 },
@@ -225,9 +220,8 @@ fn get_state(state: &State, method: Getter) -> Value {
 }
 
 fn on_ui(state: &State, sender: &Sender<(Setter, u8)>, request: RpcRequest) -> Option<RpcResponse> {
-    let params = request.params?;
-    let mut message: Vec<Message> = serde_json::from_value(params).ok()?;
-    match message.pop()? {
+    let (message,) = serde_json::from_value(request.params?).ok()?;
+    match message {
         Message::Get { method } => Some(RpcResponse::new_result(
             request.id,
             Some(get_state(&state, method)),
@@ -245,7 +239,7 @@ fn main() -> Result<()> {
         .context("no default audio device")?;
     let config = device.default_output_config()?;
     std::assert_eq!(config.channels(), 2);
-    std::assert_eq!(config.sample_rate(), SampleRate(44100));
+    std::assert_eq!(config.sample_rate().0, 44100);
 
     let (sender, receiver) = std::sync::mpsc::channel();
     let audio_state = Arc::new(State::new()?);
