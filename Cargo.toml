@@ -5,6 +5,8 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.41"
+atomic_float = "0.1.0"
+audrey = "0.3.0"
 cpal = "0.13.3"
 serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
