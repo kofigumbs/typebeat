@@ -3,5 +3,6 @@
 </p>
 
 ```
+git submodule update --init
 cargo run
 ```
