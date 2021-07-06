@@ -1,12 +1,3 @@
-[submodule "vendor/webview"]
-	path = vendor/webview
-	url = https://github.com/webview/webview
-[submodule "vendor/miniaudio"]
-	path = vendor/miniaudio
-	url = https://github.com/mackron/miniaudio
-[submodule "vendor/choc"]
-	path = vendor/choc
-	url = https://github.com/Tracktion/choc
 [submodule "vendor/tare"]
 	path = vendor/tare
 	url = https://github.com/kofigumbs/tare
@@ -16,6 +7,3 @@
 [submodule "vendor/FiraCode"]
 	path = vendor/FiraCode
 	url = https://github.com/tonsky/FiraCode
-[submodule "vendor/cpp-base64"]
-	path = vendor/cpp-base64
-	url = https://github.com/ReneNyffenegger/cpp-base64
