@@ -3,6 +3,10 @@ name = "typebeat"
 version = "0.1.0"
 edition = "2018"
 
+[[bin]]
+name = "typebeat"
+path = "audio/main.rs"
+
 [dependencies]
 anyhow = "1.0.41"
 atomic_float = "0.1.0"
