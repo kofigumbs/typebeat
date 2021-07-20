@@ -1,14 +1,15 @@
 extern crate anyhow;
 extern crate atomic_float;
-extern crate audrey;
 extern crate cpal;
+extern crate miniaudio;
 extern crate serde;
 
 use anyhow::{Context, Result};
 use atomic_float::AtomicF32;
-use audrey::read::{FormatError, Reader};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use miniaudio::{Decoder, DecoderConfig, Format, FramesMut};
 use serde::Deserialize;
+use std::convert::TryInto;
 use std::sync::atomic::{AtomicBool, AtomicI16, AtomicU8, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
@@ -22,7 +23,6 @@ const VOICE_COUNT: u8 = 5;
 const TRACK_COUNT: u8 = 15;
 
 struct SampleFile {
-    channels: u32,
     samples: Vec<f32>,
 }
 
@@ -32,27 +32,20 @@ impl SampleFile {
         path.push("audio");
         path.push("samples");
         path.push(format!("{:02}.wav", i));
-        let mut reader = Reader::open(path)?;
-        let channels = reader.description().channel_count();
-        let sample_rate = reader.description().sample_rate();
-        std::assert!(channels == 1 || channels == 2);
-        std::assert_eq!(sample_rate, 44100);
-        let samples = reader
-            .samples()
-            .collect::<Result<Vec<f32>, FormatError>>()?;
-        Ok(Self { channels, samples })
+        let config = DecoderConfig::new(Format::F32, 2, 44100);
+        let mut decoder = Decoder::from_file(&path, Some(&config))?;
+        let mut samples = vec![0.0; (2 * decoder.length_in_pcm_frames()).try_into()?];
+        let mut frames = FramesMut::wrap(&mut samples[..], Format::F32, 2);
+        decoder.read_pcm_frames(&mut frames);
+        Ok(SampleFile { samples })
     }
 
     fn sample(&self, position: usize, channel: usize) -> f32 {
-        if self.channels == 1 {
-            self.samples[position]
-        } else {
-            self.samples[2 * position + channel]
-        }
+        self.samples[2 * position + channel]
     }
 
     fn duration(&self) -> usize {
-        self.samples.len() / self.channels as usize
+        self.samples.len() / 2 as usize
     }
 }
 
