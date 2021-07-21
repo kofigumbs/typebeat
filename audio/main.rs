@@ -153,11 +153,7 @@ fn key_down(state: &State, track_id: u8) {
     voice.increment.store(1.0, Ordering::Relaxed);
 }
 
-fn interpolate(x: f32, a: f32, b: f32) -> f32 {
-    a + x * (b - a)
-}
-
-fn on_audio(state: &State, receiver: &Receiver<(Setter, u8)>, audio: &mut [f32]) {
+fn on_audio(state: &State, receiver: &Receiver<(Setter, u8)>, audio: &mut FramesMut) {
     let messages = receiver.try_iter();
     messages.for_each(|(setter, data)| match setter {
         Setter::ActiveTrack => set(&state.active_track, data),
@@ -169,30 +165,24 @@ fn on_audio(state: &State, receiver: &Receiver<(Setter, u8)>, audio: &mut [f32])
         Setter::Root => nudge(&state.root, data, 7),
         Setter::Scale => set(&state.scale, data),
     });
-    let mut iter = audio.iter_mut();
-    while let Some((l, r)) = iter.next().zip(iter.next()) {
-        *l = 0.0;
-        *r = 0.0;
+    for frame in audio.frames_mut::<f32>() {
         for voice in state.voices.iter() {
             let track = &state.tracks[voice.track_id.load(Ordering::Relaxed) as usize];
             let position = voice.position.load(Ordering::Relaxed);
             let position_i = position.floor() as usize;
+            let position_f = position_i as f32;
             let increment = voice.increment.load(Ordering::Relaxed);
-            if position_i < track.sample_file.duration() && position_i as f32 == position {
-                *l += track.sample_file.sample(position_i, 0);
-                *r += track.sample_file.sample(position_i, 1);
+            if position_i < track.sample_file.duration() && position_f == position {
+                for (channel, sample) in frame.iter_mut().enumerate() {
+                    *sample += track.sample_file.sample(position_i, channel);
+                }
                 voice.position.fetch_add(increment, Ordering::Relaxed);
             } else if position_i + 1 < track.sample_file.duration() {
-                *l += interpolate(
-                    position - position_i as f32,
-                    track.sample_file.sample(position_i, 0),
-                    track.sample_file.sample(position_i + 1, 0),
-                );
-                *r += interpolate(
-                    position - position_i as f32,
-                    track.sample_file.sample(position_i, 1),
-                    track.sample_file.sample(position_i + 1, 1),
-                );
+                for (channel, sample) in frame.iter_mut().enumerate() {
+                    let a = track.sample_file.sample(position_i, channel);
+                    let b = track.sample_file.sample(position_i + 1, channel);
+                    *sample += a + (position - position_f) * (b - a);
+                }
                 voice.position.fetch_add(increment, Ordering::Relaxed);
             }
         }
@@ -235,9 +225,7 @@ fn main() -> Result<()> {
     device_config.playback_mut().set_format(Format::F32);
     device_config.set_sample_rate(44100);
     let mut device = Device::new(None, &device_config)?;
-    device.set_data_callback(move |_device, output, _input| {
-        on_audio(&audio_state, &receiver, output.as_samples_mut())
-    });
+    device.set_data_callback(move |_, output, _input| on_audio(&audio_state, &receiver, output));
     device.start()?;
 
     let mut path = std::env::current_dir()?;
