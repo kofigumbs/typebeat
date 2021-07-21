@@ -1,13 +1,11 @@
 extern crate anyhow;
 extern crate atomic_float;
-extern crate cpal;
 extern crate miniaudio;
 extern crate serde;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use atomic_float::AtomicF32;
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use miniaudio::{Decoder, DecoderConfig, Format, FramesMut};
+use miniaudio::{Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, FramesMut};
 use serde::Deserialize;
 use std::convert::TryInto;
 use std::sync::atomic::{AtomicBool, AtomicI16, AtomicU8, Ordering};
@@ -227,22 +225,20 @@ fn on_ui(state: &State, sender: &Sender<(Setter, u8)>, request: RpcRequest) -> O
 }
 
 fn main() -> Result<()> {
-    let device = cpal::default_host()
-        .default_output_device()
-        .context("no default audio device")?;
-    let config = device.default_output_config()?;
-    std::assert_eq!(config.channels(), 2);
-    std::assert_eq!(config.sample_rate().0, 44100);
-
     let (sender, receiver) = std::sync::mpsc::channel();
     let audio_state = Arc::new(State::new()?);
     let ui_state = Arc::clone(&audio_state);
-    let stream = device.build_output_stream(
-        &config.into(),
-        move |data, _| on_audio(&audio_state, &receiver, data),
-        |_| {}, // error callback
-    )?;
-    stream.play()?;
+    let mut device_config = DeviceConfig::new(DeviceType::Duplex);
+    device_config.capture_mut().set_channels(1);
+    device_config.capture_mut().set_format(Format::F32);
+    device_config.playback_mut().set_channels(2);
+    device_config.playback_mut().set_format(Format::F32);
+    device_config.set_sample_rate(44100);
+    let mut device = Device::new(None, &device_config)?;
+    device.set_data_callback(move |_device, output, _input| {
+        on_audio(&audio_state, &receiver, output.as_samples_mut())
+    });
+    device.start()?;
 
     let mut path = std::env::current_dir()?;
     path.push("ui");
