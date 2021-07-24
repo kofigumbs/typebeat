@@ -9,7 +9,9 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 
 use anyhow::Result;
-use miniaudio::{Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, FramesMut};
+use miniaudio::{
+    Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
+};
 use parameter::Parameter;
 use serde::Deserialize;
 use wry::application::event::{Event, WindowEvent};
@@ -50,6 +52,7 @@ impl SampleFile {
 
 struct Track {
     sample_file: SampleFile,
+    sample_type: Parameter,
 }
 
 struct Voice {
@@ -85,6 +88,7 @@ impl State {
         for i in 0..TRACK_COUNT {
             state.tracks.push(Track {
                 sample_file: SampleFile::read(i)?,
+                sample_type: Parameter::new(0.).between(0., 3.),
             });
         }
         for _ in 0..VOICE_COUNT {
@@ -96,6 +100,10 @@ impl State {
             });
         }
         Ok(state)
+    }
+
+    fn active_track(&self) -> &Track {
+        &self.tracks[self.active_track_id.get() as usize]
     }
 }
 
@@ -115,6 +123,7 @@ enum Getter {
     Tempo,
     Root,
     Scale,
+    SampleType,
 }
 
 #[derive(Deserialize, Debug)]
@@ -128,6 +137,7 @@ enum Setter {
     TempoTaps,
     Root,
     Scale,
+    SampleType,
 }
 
 fn key_down(state: &State, track_id: u8) {
@@ -147,7 +157,12 @@ fn play_sample<F: Fn(usize, &mut f32)>(voice: &Voice, frame: &mut [f32], write: 
         .set(voice.position.get() + voice.increment.get());
 }
 
-fn on_audio(state: &State, receiver: &Receiver<(Setter, u8)>, output: &mut FramesMut) {
+fn on_audio(
+    state: &State,
+    receiver: &Receiver<(Setter, u8)>,
+    input: &Frames,
+    output: &mut FramesMut,
+) {
     let messages = receiver.try_iter();
     messages.for_each(|(setter, data)| match setter {
         Setter::ActiveTrack => state.active_track_id.set(data),
@@ -158,26 +173,33 @@ fn on_audio(state: &State, receiver: &Receiver<(Setter, u8)>, output: &mut Frame
         Setter::TempoTaps => state.tempo.set(data),
         Setter::Root => state.root.nudge(data, 7.),
         Setter::Scale => state.scale.set(data),
+        Setter::SampleType => state.active_track().sample_type.set(data),
     });
-    for frame in output.frames_mut::<f32>() {
+    for (frame_in, frame_out) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
         for voice in state.voices.iter() {
             if voice.active.is_zero() {
                 continue;
             }
             let track = &state.tracks[voice.track_id.get() as usize];
-            let duration = track.sample_file.duration();
-            let position = voice.position.get();
-            let position_i = position.floor() as usize;
-            if position_i < duration && position.fract() <= f32::EPSILON {
-                play_sample(&voice, frame, |channel, sample| {
-                    *sample += track.sample_file.sample(position_i, channel);
-                });
-            } else if position_i + 1 < duration {
-                play_sample(&voice, frame, |channel, sample| {
-                    let a = track.sample_file.sample(position_i, channel);
-                    let b = track.sample_file.sample(position_i + 1, channel);
-                    *sample += a + position.trunc() * (b - a);
-                });
+            if track.sample_type.is_zero() {
+                let duration = track.sample_file.duration();
+                let position = voice.position.get();
+                let position_i = position.floor() as usize;
+                if position_i < duration && position.fract() <= f32::EPSILON {
+                    play_sample(&voice, frame_out, |channel, sample| {
+                        *sample += track.sample_file.sample(position_i, channel);
+                    });
+                } else if position_i + 1 < duration {
+                    play_sample(&voice, frame_out, |channel, sample| {
+                        let a = track.sample_file.sample(position_i, channel);
+                        let b = track.sample_file.sample(position_i + 1, channel);
+                        *sample += a + position.trunc() * (b - a);
+                    });
+                }
+            } else {
+                for sample in frame_out.iter_mut() {
+                    *sample += frame_in.iter().sum::<f32>();
+                }
             }
         }
     }
@@ -191,6 +213,7 @@ fn get_state(state: &State, method: Getter) -> Value {
         Getter::Tempo => state.tempo.get().into(),
         Getter::Root => state.root.get().into(),
         Getter::Scale => state.scale.get().into(),
+        Getter::SampleType => state.active_track().sample_type.get().into(),
     }
 }
 
@@ -219,7 +242,9 @@ fn main() -> Result<()> {
     device_config.playback_mut().set_format(Format::F32);
     device_config.set_sample_rate(44100);
     let mut device = Device::new(None, &device_config)?;
-    device.set_data_callback(move |_, output, _input| on_audio(&audio_state, &receiver, output));
+    device.set_data_callback(move |_, output, input| {
+        on_audio(&audio_state, &receiver, input, output)
+    });
     device.start()?;
 
     let mut path = std::env::current_dir()?;
