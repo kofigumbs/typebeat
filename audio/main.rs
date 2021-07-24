@@ -1,16 +1,17 @@
+mod parameter;
 extern crate anyhow;
 extern crate atomic_float;
 extern crate miniaudio;
 extern crate serde;
 
-use anyhow::Result;
-use atomic_float::AtomicF32;
-use miniaudio::{Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, FramesMut};
-use serde::Deserialize;
 use std::convert::TryInto;
-use std::sync::atomic::{AtomicBool, AtomicI16, AtomicU8, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
+
+use anyhow::Result;
+use miniaudio::{Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, FramesMut};
+use parameter::Parameter;
+use serde::Deserialize;
 use wry::application::event::{Event, WindowEvent};
 use wry::application::event_loop::{ControlFlow, EventLoop};
 use wry::application::window::WindowBuilder;
@@ -52,18 +53,19 @@ struct Track {
 }
 
 struct Voice {
-    track_id: AtomicU8,
-    position: AtomicF32,
-    increment: AtomicF32,
+    active: Parameter,
+    track_id: Parameter,
+    position: Parameter,
+    increment: Parameter,
 }
 
 struct State {
-    active_track: AtomicI16,
-    playing: AtomicBool,
-    armed: AtomicBool,
-    tempo: AtomicI16,
-    root: AtomicI16,
-    scale: AtomicI16,
+    active_track_id: Parameter,
+    playing: Parameter,
+    armed: Parameter,
+    tempo: Parameter,
+    root: Parameter,
+    scale: Parameter,
     voices: Vec<Voice>,
     tracks: Vec<Track>,
 }
@@ -71,12 +73,12 @@ struct State {
 impl State {
     fn new() -> Result<Self> {
         let mut state = State {
-            active_track: AtomicI16::new(0),
-            playing: AtomicBool::new(false),
-            armed: AtomicBool::new(false),
-            tempo: AtomicI16::new(120),
-            root: AtomicI16::new(0),
-            scale: AtomicI16::new(0),
+            active_track_id: Parameter::new(0.0).between(0, TRACK_COUNT - 1),
+            playing: Parameter::binary(false),
+            armed: Parameter::binary(false),
+            tempo: Parameter::new(120.).between(0., 999.),
+            root: Parameter::new(0.).between(-12., 12.),
+            scale: Parameter::new(0.).between(0., 4.),
             tracks: Vec::with_capacity(TRACK_COUNT.into()),
             voices: Vec::with_capacity(VOICE_COUNT.into()),
         };
@@ -87,9 +89,10 @@ impl State {
         }
         for _ in 0..VOICE_COUNT {
             state.voices.push(Voice {
-                track_id: AtomicU8::new(0),
-                position: AtomicF32::new(0.0),
-                increment: AtomicF32::new(0.0),
+                active: Parameter::binary(false),
+                track_id: Parameter::new(0.).between(0, TRACK_COUNT - 1),
+                position: Parameter::new(0.),
+                increment: Parameter::new(0.),
             });
         }
         Ok(state)
@@ -127,63 +130,54 @@ enum Setter {
     Scale,
 }
 
-fn toggle(value: &AtomicBool) {
-    value.fetch_xor(true, Ordering::Relaxed);
-}
-
-fn set(value: &AtomicI16, data: u8) {
-    value.store(data.into(), Ordering::Relaxed);
-}
-
-fn nudge(value: &AtomicI16, data: u8, jump: i16) {
-    let diff = match data {
-        0 => -jump,
-        1 => -1,
-        2 => 1,
-        3 => jump,
-        _ => 0,
-    };
-    value.fetch_add(diff, Ordering::Relaxed);
-}
-
 fn key_down(state: &State, track_id: u8) {
     let voice = &state.voices[0];
-    voice.track_id.store(track_id, Ordering::Relaxed);
-    voice.position.store(0.0, Ordering::Relaxed);
-    voice.increment.store(1.0, Ordering::Relaxed);
+    voice.active.set(1.);
+    voice.track_id.set(track_id);
+    voice.position.set(0.);
+    voice.increment.set(1.);
 }
 
-fn on_audio(state: &State, receiver: &Receiver<(Setter, u8)>, audio: &mut FramesMut) {
+fn play_sample<F: Fn(usize, &mut f32)>(voice: &Voice, frame: &mut [f32], write: F) {
+    for (channel, sample) in frame.iter_mut().enumerate() {
+        write(channel, sample);
+    }
+    voice
+        .position
+        .set(voice.position.get() + voice.increment.get());
+}
+
+fn on_audio(state: &State, receiver: &Receiver<(Setter, u8)>, output: &mut FramesMut) {
     let messages = receiver.try_iter();
     messages.for_each(|(setter, data)| match setter {
-        Setter::ActiveTrack => set(&state.active_track, data),
+        Setter::ActiveTrack => state.active_track_id.set(data),
         Setter::AuditionDown => key_down(&state, data),
-        Setter::Play => toggle(&state.playing),
-        Setter::Arm => toggle(&state.armed),
-        Setter::Tempo => nudge(&state.tempo, data, 10),
-        Setter::TempoTaps => set(&state.tempo, data),
-        Setter::Root => nudge(&state.root, data, 7),
-        Setter::Scale => set(&state.scale, data),
+        Setter::Play => state.playing.toggle(),
+        Setter::Arm => state.armed.toggle(),
+        Setter::Tempo => state.tempo.nudge(data, 10.),
+        Setter::TempoTaps => state.tempo.set(data),
+        Setter::Root => state.root.nudge(data, 7.),
+        Setter::Scale => state.scale.set(data),
     });
-    for frame in audio.frames_mut::<f32>() {
+    for frame in output.frames_mut::<f32>() {
         for voice in state.voices.iter() {
-            let track = &state.tracks[voice.track_id.load(Ordering::Relaxed) as usize];
-            let position = voice.position.load(Ordering::Relaxed);
+            if voice.active.is_zero() {
+                continue;
+            }
+            let track = &state.tracks[voice.track_id.get() as usize];
+            let duration = track.sample_file.duration();
+            let position = voice.position.get();
             let position_i = position.floor() as usize;
-            let position_f = position_i as f32;
-            let increment = voice.increment.load(Ordering::Relaxed);
-            if position_i < track.sample_file.duration() && position_f == position {
-                for (channel, sample) in frame.iter_mut().enumerate() {
+            if position_i < duration && position.fract() <= f32::EPSILON {
+                play_sample(&voice, frame, |channel, sample| {
                     *sample += track.sample_file.sample(position_i, channel);
-                }
-                voice.position.fetch_add(increment, Ordering::Relaxed);
-            } else if position_i + 1 < track.sample_file.duration() {
-                for (channel, sample) in frame.iter_mut().enumerate() {
+                });
+            } else if position_i + 1 < duration {
+                play_sample(&voice, frame, |channel, sample| {
                     let a = track.sample_file.sample(position_i, channel);
                     let b = track.sample_file.sample(position_i + 1, channel);
-                    *sample += a + (position - position_f) * (b - a);
-                }
-                voice.position.fetch_add(increment, Ordering::Relaxed);
+                    *sample += a + position.trunc() * (b - a);
+                });
             }
         }
     }
@@ -191,12 +185,12 @@ fn on_audio(state: &State, receiver: &Receiver<(Setter, u8)>, audio: &mut Frames
 
 fn get_state(state: &State, method: Getter) -> Value {
     match method {
-        Getter::ActiveTrack => state.active_track.load(Ordering::Relaxed).into(),
-        Getter::Playing => state.playing.load(Ordering::Relaxed).into(),
-        Getter::Armed => state.armed.load(Ordering::Relaxed).into(),
-        Getter::Tempo => state.tempo.load(Ordering::Relaxed).into(),
-        Getter::Root => state.root.load(Ordering::Relaxed).into(),
-        Getter::Scale => state.scale.load(Ordering::Relaxed).into(),
+        Getter::ActiveTrack => state.active_track_id.get().into(),
+        Getter::Playing => state.playing.get().into(),
+        Getter::Armed => state.armed.get().into(),
+        Getter::Tempo => state.tempo.get().into(),
+        Getter::Root => state.root.get().into(),
+        Getter::Scale => state.scale.get().into(),
     }
 }
 

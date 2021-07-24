@@ -1,5 +1,8 @@
 const Bindings = ({ state, set }) => {
-  const method = (...parts) => parts.join(':').replace(/[^\w:]/, '');
+  const method = (...parts) => parts
+    .map((part) => String(part).replace(/[^\w]/, '')) // only alphanumeric
+    .map((part, i) => i ? (part[0].toUpperCase() + part.slice(1)) : part) // camel case
+    .join('');
 
   const noOp = () => '';
   const bind = options => Object.assign({ label: noOp, title: noOp, onDown: noOp, onUp: noOp }, options);

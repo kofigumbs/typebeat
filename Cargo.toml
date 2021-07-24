@@ -10,7 +10,7 @@ path = "audio/main.rs"
 [dependencies]
 anyhow = "1.0.41"
 atomic_float = "0.1.0"
-miniaudio = { git = "https://github.com/ExPixel/miniaudio-rs", rev = "e001baa" }
+miniaudio = { git = "https://github.com/ExPixel/miniaudio-rs", rev = "e001ba" }
 serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 wry = { version = "0.11.0", default-features = false, features = [ "file-drop", "protocol", "win32" ] }
