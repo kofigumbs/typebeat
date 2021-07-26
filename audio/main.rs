@@ -1,10 +1,10 @@
 extern crate anyhow;
 extern crate crossbeam;
 extern crate miniaudio;
+extern crate num_traits;
 extern crate serde;
 
 use std::convert::TryInto;
-use std::ops::{Add, Sub};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 
@@ -13,6 +13,7 @@ use crossbeam::atomic::AtomicCell;
 use miniaudio::{
     Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
 };
+use num_traits::Num;
 use serde::Deserialize;
 use wry::application::event::{Event, WindowEvent};
 use wry::application::event_loop::{ControlFlow, EventLoop};
@@ -159,39 +160,22 @@ enum Setter {
 }
 
 enum Limit<T> {
-    UpTo(T),
+    Below(T),
     Between(T, T),
 }
 
-fn one<T: Default>() -> T
-where
-    u8: TryInto<T>,
-{
-    1_u8.try_into().unwrap_or_default()
+fn set<T: Ord + Num>(atom: &AtomicCell<T>, value: T, limit: Limit<T>) {
+    atom.store(match limit {
+        Limit::Below(max) => value.clamp(T::zero(), max - T::one()),
+        Limit::Between(min, max) => value.clamp(min, max),
+    });
 }
 
-fn set<T, U>(atom: &AtomicCell<T>, value: U, limit: Limit<T>)
-where
-    T: Default + Ord + Sub<Output = T>,
-    U: TryInto<T>,
-    u8: TryInto<T>,
-{
-    let value = value.try_into().unwrap_or_default();
-    match limit {
-        Limit::UpTo(max) => atom.store(value.min(max - one())),
-        Limit::Between(min, max) => atom.store(value.clamp(min, max)),
-    }
-}
-
-fn nudge<T>(atom: &AtomicCell<T>, value: u8, jump: T, limit: Limit<T>)
-where
-    T: Default + Copy + Ord + Add<Output = T> + Sub<Output = T>,
-    u8: TryInto<T>,
-{
+fn nudge<T: Copy + Ord + Num>(atom: &AtomicCell<T>, value: u8, jump: T, limit: Limit<T>) {
     match value {
         0 => set(atom, atom.load() - jump, limit),
-        1 => set(atom, atom.load() - one(), limit),
-        2 => set(atom, atom.load() + one(), limit),
+        1 => set(atom, atom.load() - num_traits::one(), limit),
+        2 => set(atom, atom.load() + num_traits::one(), limit),
         3 => set(atom, atom.load() + jump, limit),
         _ => {}
     }
@@ -205,8 +189,8 @@ fn key_down(state: &State, track_id: u8) {
     let voice = &state.voices[0];
     voice.active.store(true);
     voice.track_id.store(track_id);
-    voice.position.store(0.);
-    voice.increment.store(1.);
+    voice.position.store(0.0);
+    voice.increment.store(1.0);
 }
 
 fn play_sample<F: Fn(usize, &mut f32)>(voice: &Voice, frame: &mut [f32], write: F) {
@@ -226,14 +210,14 @@ fn on_audio(
 ) {
     let messages = receiver.try_iter();
     messages.for_each(|(setter, data)| match setter {
-        Setter::ActiveTrack => set(&state.active_track_id, data, Limit::UpTo(TRACK_COUNT)),
+        Setter::ActiveTrack => set(&state.active_track_id, data, Limit::Below(TRACK_COUNT)),
         Setter::AuditionDown => key_down(&state, data),
         Setter::Play => toggle(&state.playing),
         Setter::Arm => toggle(&state.armed),
         Setter::Tempo => nudge(&state.tempo, data, 10, Limit::Between(1, 999)),
-        Setter::TempoTaps => set(&state.tempo, data, Limit::Between(1, 999)),
+        Setter::TempoTaps => set(&state.tempo, data as u16, Limit::Between(1, 999)),
         Setter::Root => nudge(&state.root, data, 7, Limit::Between(-12, 12)),
-        Setter::Scale => set(&state.scale, data, Limit::UpTo(5)),
+        Setter::Scale => set(&state.scale, data, Limit::Below(5)),
         Setter::SampleType => state.active_track().sample_type.store(data.into()),
     });
     for (frame_in, frame_out) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
