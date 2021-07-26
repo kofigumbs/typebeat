@@ -1,24 +1,23 @@
-mod parameter;
 extern crate anyhow;
-extern crate atomic_float;
+extern crate crossbeam;
 extern crate miniaudio;
 extern crate serde;
 
 use std::convert::TryInto;
+use std::ops::{Add, Sub};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 
 use anyhow::Result;
+use crossbeam::atomic::AtomicCell;
 use miniaudio::{
     Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
 };
-use parameter::Parameter;
 use serde::Deserialize;
 use wry::application::event::{Event, WindowEvent};
 use wry::application::event_loop::{ControlFlow, EventLoop};
 use wry::application::window::WindowBuilder;
 use wry::webview::{RpcRequest, RpcResponse, WebViewBuilder};
-use wry::Value;
 
 const VOICE_COUNT: u8 = 5;
 const TRACK_COUNT: u8 = 15;
@@ -50,25 +49,44 @@ impl SampleFile {
     }
 }
 
+#[derive(Clone, Copy)]
+enum SampleType {
+    File,
+    Live,
+    LiveRecord,
+    LivePlay,
+}
+impl From<u8> for SampleType {
+    fn from(value: u8) -> Self {
+        let values = [
+            SampleType::File,
+            SampleType::Live,
+            SampleType::LiveRecord,
+            SampleType::LivePlay,
+        ];
+        values[(value as usize).clamp(0, values.len() - 1)]
+    }
+}
+
 struct Track {
     sample_file: SampleFile,
-    sample_type: Parameter,
+    sample_type: AtomicCell<SampleType>,
 }
 
 struct Voice {
-    active: Parameter,
-    track_id: Parameter,
-    position: Parameter,
-    increment: Parameter,
+    active: AtomicCell<bool>,
+    track_id: AtomicCell<u8>,
+    position: AtomicCell<f32>,
+    increment: AtomicCell<f32>,
 }
 
 struct State {
-    active_track_id: Parameter,
-    playing: Parameter,
-    armed: Parameter,
-    tempo: Parameter,
-    root: Parameter,
-    scale: Parameter,
+    active_track_id: AtomicCell<u8>,
+    playing: AtomicCell<bool>,
+    armed: AtomicCell<bool>,
+    tempo: AtomicCell<u16>,
+    root: AtomicCell<i8>,
+    scale: AtomicCell<u8>,
     voices: Vec<Voice>,
     tracks: Vec<Track>,
 }
@@ -76,34 +94,34 @@ struct State {
 impl State {
     fn new() -> Result<Self> {
         let mut state = State {
-            active_track_id: Parameter::new(0.0).between(0, TRACK_COUNT - 1),
-            playing: Parameter::binary(false),
-            armed: Parameter::binary(false),
-            tempo: Parameter::new(120.).between(0., 999.),
-            root: Parameter::new(0.).between(-12., 12.),
-            scale: Parameter::new(0.).between(0., 4.),
+            active_track_id: 0.into(),
+            playing: false.into(),
+            armed: false.into(),
+            tempo: 120.into(),
+            root: 0.into(),
+            scale: 0.into(),
             tracks: Vec::with_capacity(TRACK_COUNT.into()),
             voices: Vec::with_capacity(VOICE_COUNT.into()),
         };
         for i in 0..TRACK_COUNT {
             state.tracks.push(Track {
                 sample_file: SampleFile::read(i)?,
-                sample_type: Parameter::new(0.).between(0., 3.),
+                sample_type: AtomicCell::new(SampleType::File),
             });
         }
         for _ in 0..VOICE_COUNT {
             state.voices.push(Voice {
-                active: Parameter::binary(false),
-                track_id: Parameter::new(0.).between(0, TRACK_COUNT - 1),
-                position: Parameter::new(0.),
-                increment: Parameter::new(0.),
+                active: false.into(),
+                track_id: 0.into(),
+                position: 0.0.into(),
+                increment: 0.0.into(),
             });
         }
         Ok(state)
     }
 
     fn active_track(&self) -> &Track {
-        &self.tracks[self.active_track_id.get() as usize]
+        &self.tracks[self.active_track_id.load() as usize]
     }
 }
 
@@ -140,12 +158,55 @@ enum Setter {
     SampleType,
 }
 
+enum Limit<T> {
+    UpTo(T),
+    Between(T, T),
+}
+
+fn one<T: Default>() -> T
+where
+    u8: TryInto<T>,
+{
+    1_u8.try_into().unwrap_or_default()
+}
+
+fn set<T, U>(atom: &AtomicCell<T>, value: U, limit: Limit<T>)
+where
+    T: Default + Ord + Sub<Output = T>,
+    U: TryInto<T>,
+    u8: TryInto<T>,
+{
+    let value = value.try_into().unwrap_or_default();
+    match limit {
+        Limit::UpTo(max) => atom.store(value.min(max - one())),
+        Limit::Between(min, max) => atom.store(value.clamp(min, max)),
+    }
+}
+
+fn nudge<T>(atom: &AtomicCell<T>, value: u8, jump: T, limit: Limit<T>)
+where
+    T: Default + Copy + Ord + Add<Output = T> + Sub<Output = T>,
+    u8: TryInto<T>,
+{
+    match value {
+        0 => set(atom, atom.load() - jump, limit),
+        1 => set(atom, atom.load() - one(), limit),
+        2 => set(atom, atom.load() + one(), limit),
+        3 => set(atom, atom.load() + jump, limit),
+        _ => {}
+    }
+}
+
+fn toggle(atom: &AtomicCell<bool>) {
+    atom.fetch_xor(true);
+}
+
 fn key_down(state: &State, track_id: u8) {
     let voice = &state.voices[0];
-    voice.active.set(1.);
-    voice.track_id.set(track_id);
-    voice.position.set(0.);
-    voice.increment.set(1.);
+    voice.active.store(true);
+    voice.track_id.store(track_id);
+    voice.position.store(0.);
+    voice.increment.store(1.);
 }
 
 fn play_sample<F: Fn(usize, &mut f32)>(voice: &Voice, frame: &mut [f32], write: F) {
@@ -154,7 +215,7 @@ fn play_sample<F: Fn(usize, &mut f32)>(voice: &Voice, frame: &mut [f32], write: 
     }
     voice
         .position
-        .set(voice.position.get() + voice.increment.get());
+        .store(voice.position.load() + voice.increment.load());
 }
 
 fn on_audio(
@@ -165,55 +226,58 @@ fn on_audio(
 ) {
     let messages = receiver.try_iter();
     messages.for_each(|(setter, data)| match setter {
-        Setter::ActiveTrack => state.active_track_id.set(data),
+        Setter::ActiveTrack => set(&state.active_track_id, data, Limit::UpTo(TRACK_COUNT)),
         Setter::AuditionDown => key_down(&state, data),
-        Setter::Play => state.playing.toggle(),
-        Setter::Arm => state.armed.toggle(),
-        Setter::Tempo => state.tempo.nudge(data, 10.),
-        Setter::TempoTaps => state.tempo.set(data),
-        Setter::Root => state.root.nudge(data, 7.),
-        Setter::Scale => state.scale.set(data),
-        Setter::SampleType => state.active_track().sample_type.set(data),
+        Setter::Play => toggle(&state.playing),
+        Setter::Arm => toggle(&state.armed),
+        Setter::Tempo => nudge(&state.tempo, data, 10, Limit::Between(1, 999)),
+        Setter::TempoTaps => set(&state.tempo, data, Limit::Between(1, 999)),
+        Setter::Root => nudge(&state.root, data, 7, Limit::Between(-12, 12)),
+        Setter::Scale => set(&state.scale, data, Limit::UpTo(5)),
+        Setter::SampleType => state.active_track().sample_type.store(data.into()),
     });
     for (frame_in, frame_out) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
         for voice in state.voices.iter() {
-            if voice.active.is_zero() {
+            if !voice.active.load() {
                 continue;
             }
-            let track = &state.tracks[voice.track_id.get() as usize];
-            if track.sample_type.is_zero() {
-                let duration = track.sample_file.duration();
-                let position = voice.position.get();
-                let position_i = position.floor() as usize;
-                if position_i < duration && position.fract() <= f32::EPSILON {
-                    play_sample(&voice, frame_out, |channel, sample| {
-                        *sample += track.sample_file.sample(position_i, channel);
-                    });
-                } else if position_i + 1 < duration {
-                    play_sample(&voice, frame_out, |channel, sample| {
-                        let a = track.sample_file.sample(position_i, channel);
-                        let b = track.sample_file.sample(position_i + 1, channel);
-                        *sample += a + position.trunc() * (b - a);
-                    });
+            let track = &state.tracks[voice.track_id.load() as usize];
+            match track.sample_type.load() {
+                SampleType::File => {
+                    let duration = track.sample_file.duration();
+                    let position = voice.position.load();
+                    let position_i = position.floor() as usize;
+                    if position_i < duration && position.fract() <= f32::EPSILON {
+                        play_sample(&voice, frame_out, |channel, sample| {
+                            *sample += track.sample_file.sample(position_i, channel);
+                        });
+                    } else if position_i + 1 < duration {
+                        play_sample(&voice, frame_out, |channel, sample| {
+                            let a = track.sample_file.sample(position_i, channel);
+                            let b = track.sample_file.sample(position_i + 1, channel);
+                            *sample += a + position.trunc() * (b - a);
+                        });
+                    }
                 }
-            } else {
-                for sample in frame_out.iter_mut() {
-                    *sample += frame_in.iter().sum::<f32>();
+                SampleType::Live | SampleType::LiveRecord | SampleType::LivePlay => {
+                    for sample in frame_out.iter_mut() {
+                        *sample += frame_in.iter().sum::<f32>();
+                    }
                 }
             }
         }
     }
 }
 
-fn get_state(state: &State, method: Getter) -> Value {
+fn get_state(state: &State, method: Getter) -> i32 {
     match method {
-        Getter::ActiveTrack => state.active_track_id.get().into(),
-        Getter::Playing => state.playing.get().into(),
-        Getter::Armed => state.armed.get().into(),
-        Getter::Tempo => state.tempo.get().into(),
-        Getter::Root => state.root.get().into(),
-        Getter::Scale => state.scale.get().into(),
-        Getter::SampleType => state.active_track().sample_type.get().into(),
+        Getter::ActiveTrack => state.active_track_id.load().into(),
+        Getter::Playing => state.playing.load().into(),
+        Getter::Armed => state.armed.load().into(),
+        Getter::Tempo => state.tempo.load().into(),
+        Getter::Root => state.root.load().into(),
+        Getter::Scale => state.scale.load().into(),
+        Getter::SampleType => state.active_track().sample_type.load() as i32,
     }
 }
 
@@ -222,7 +286,7 @@ fn on_ui(state: &State, sender: &Sender<(Setter, u8)>, request: RpcRequest) -> O
     match message {
         Message::Get { method } => Some(RpcResponse::new_result(
             request.id,
-            Some(get_state(&state, method)),
+            Some(get_state(&state, method).into()),
         )),
         Message::Set { method, data } => {
             let _ = sender.send((method, data));
