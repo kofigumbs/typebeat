@@ -1,9 +1,9 @@
-[submodule "ui/lib/tare"]
-	path = ui/lib/tare
+[submodule "vendor/tare"]
+	path = vendor/tare
 	url = https://github.com/kofigumbs/tare
-[submodule "ui/lib/Themes"]
-	path = ui/lib/Themes
+[submodule "vendor/Themes"]
+	path = vendor/Themes
 	url = https://github.com/hundredrabbits/Themes
-[submodule "ui/lib/FiraCode"]
-	path = ui/lib/FiraCode
+[submodule "vendor/FiraCode"]
+	path = vendor/FiraCode
 	url = https://github.com/tonsky/FiraCode
