@@ -1,9 +1,3 @@
-extern crate anyhow;
-extern crate crossbeam;
-extern crate miniaudio;
-extern crate num_traits;
-extern crate serde;
-
 use std::convert::TryInto;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
