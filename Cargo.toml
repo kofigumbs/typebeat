@@ -10,6 +10,7 @@ path = "audio/main.rs"
 [dependencies]
 anyhow = "1.0"
 crossbeam = "0.8"
+libm = "0.2.1"
 miniaudio = { git = "https://github.com/ExPixel/miniaudio-rs", rev = "e001ba" }
 num-traits = "0.2"
 serde = { version = "1.0", features = [ "derive" ] }
