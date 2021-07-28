@@ -14,6 +14,8 @@ use wry::application::event_loop::{ControlFlow, EventLoop};
 use wry::application::window::WindowBuilder;
 use wry::webview::{RpcRequest, RpcResponse, WebViewBuilder};
 
+mod effects;
+
 const VOICE_COUNT: u8 = 5;
 const TRACK_COUNT: u8 = 15;
 
@@ -23,10 +25,10 @@ struct SampleFile {
 
 impl SampleFile {
     fn read(i: u8) -> Result<Self> {
-        let mut path = std::env::current_dir()?;
-        path.push("src");
-        path.push("samples");
-        path.push(format!("{:02}.wav", i));
+        let path = std::env::current_dir()?
+            .join("src")
+            .join("samples")
+            .join(format!("{:02}.wav", i));
         let config = DecoderConfig::new(Format::F32, 2, 44100);
         let mut decoder = Decoder::from_file(&path, Some(&config))?;
         let mut samples = vec![0.0; (2 * decoder.length_in_pcm_frames()).try_into()?];
