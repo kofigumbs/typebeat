@@ -24,7 +24,7 @@ struct SampleFile {
 impl SampleFile {
     fn read(i: u8) -> Result<Self> {
         let mut path = std::env::current_dir()?;
-        path.push("audio");
+        path.push("src");
         path.push("samples");
         path.push(format!("{:02}.wav", i));
         let config = DecoderConfig::new(Format::F32, 2, 44100);
@@ -289,15 +289,16 @@ fn main() -> Result<()> {
     });
     device.start()?;
 
-    let mut path = std::env::current_dir()?;
-    path.push("ui");
-    path.push("index.html");
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("Typebeat")
         .build(&event_loop)?;
+    let ui = std::env::current_dir()?
+        .join("src")
+        .join("ui")
+        .join("index.html");
     let _webview = WebViewBuilder::new(window)?
-        .with_url(&format!("file://{}", path.display()))?
+        .with_url(&format!("file://{}", ui.display()))?
         .with_rpc_handler(move |_, request| on_ui(&ui_state, &sender, request))
         .build()?;
     event_loop.run(|event, _, control_flow| match event {

@@ -26,7 +26,7 @@ fn main() -> Result<()> {
             .status()?;
     }
     let out_dir = std::env::var("OUT_DIR")?;
-    let entries = Path::new("audio/effects").read_dir()?;
+    let entries = Path::new("src/effects").read_dir()?;
     for (path, basename) in entries.flat_map(|x| dsp_file(x.ok()?)) {
         let out = Path::new(&out_dir)
             .join(&basename)

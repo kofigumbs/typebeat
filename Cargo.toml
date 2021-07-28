@@ -5,7 +5,6 @@ edition = "2018"
 
 [[bin]]
 name = "typebeat"
-path = "audio/main.rs"
 
 [dependencies]
 anyhow = "1.0"
