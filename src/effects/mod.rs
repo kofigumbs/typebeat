@@ -42,11 +42,11 @@ pub trait Meta {
 }
 
 pub trait UI<T> {
-    fn open_vertical_box(&mut self, label: &str);
-    fn close_box(&mut self);
+    fn open_vertical_box(&mut self, label: &str) {}
+    fn close_box(&mut self) {}
     fn add_button(&mut self, label: &str, param: ParamIndex);
     fn add_num_entry(&mut self, label: &str, param: ParamIndex, init: T, min: T, max: T, step: T);
-    fn declare(&mut self, param: Option<ParamIndex>, key: &str, value: &str);
+    fn declare(&mut self, param: Option<ParamIndex>, key: &str, value: &str) {}
 }
 
 include!(concat!(env!("OUT_DIR"), "/insert.rs"));
