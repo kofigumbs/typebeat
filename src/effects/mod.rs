@@ -49,6 +49,11 @@ pub trait UI<T> {
     fn declare(&mut self, param: Option<ParamIndex>, key: &str, value: &str) {}
 }
 
+pub trait Bus {
+    const INPUTS: usize;
+    const OUTPUTS: usize;
+}
+
 include!(concat!(env!("OUT_DIR"), "/insert.rs"));
 include!(concat!(env!("OUT_DIR"), "/reverb.rs"));
 include!(concat!(env!("OUT_DIR"), "/echo.rs"));

@@ -1,3 +1,5 @@
+#![feature(array_methods)]
+
 use std::borrow::Borrow;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
@@ -11,6 +13,7 @@ use wry::application::event_loop::{ControlFlow, EventLoop};
 use wry::application::window::WindowBuilder;
 use wry::webview::{RpcRequest, RpcResponse, WebViewBuilder};
 
+use effects::{Bus, FaustDsp};
 use samples::Sample;
 
 mod effects;
@@ -28,22 +31,15 @@ enum SampleType {
 }
 impl From<i32> for SampleType {
     fn from(value: i32) -> Self {
-        let values = [
-            SampleType::File,
-            SampleType::Live,
-            SampleType::LiveRecord,
-            SampleType::LivePlay,
-        ];
-        values[(value as usize).clamp(0, values.len() - 1)]
-    }
-}
-impl Default for SampleType {
-    fn default() -> Self {
-        Self::File
+        match value {
+            x if x <= 0 => SampleType::File,
+            x if x == 1 => SampleType::Live,
+            x if x == 2 => SampleType::LiveRecord,
+            _ /* x > */ => SampleType::LivePlay,
+        }
     }
 }
 
-#[derive(Default)]
 struct Track {
     file_sample: Sample,
     sample_type: AtomicCell<SampleType>,
@@ -156,17 +152,45 @@ impl AtomicI32 for AtomicCell<i32> {}
 
 trait AtomicBool: Borrow<AtomicCell<bool>> {
     fn toggle(&self) {
-        self.borrow().store(!self.borrow().load());
+        self.borrow().fetch_xor(true);
     }
 }
 impl AtomicBool for AtomicCell<bool> {}
 
-struct Player {
-    track_id: i32,
+#[derive(Default)]
+struct Cursor {
+    active: bool,
+    track_id: usize,
     position: f32,
     increment: f32,
 }
-impl Player {
+impl Cursor {
+    fn process(&mut self, track: &Track, input: &[f32], output: &mut [f32]) {
+        match track.sample_type.load() {
+            SampleType::File => {
+                let duration = track.file_sample.duration();
+                let position = self.position.floor() as usize;
+                let position_rem = self.position.fract();
+                if position < duration && position_rem == 0. {
+                    self.advance(output, |channel, sample| {
+                        *sample += track.file_sample.at(position, channel);
+                    });
+                } else if position + 1 < duration {
+                    self.advance(output, |channel, sample| {
+                        let a = track.file_sample.at(position, channel);
+                        let b = track.file_sample.at(position + 1, channel);
+                        *sample += a + position_rem * (b - a);
+                    });
+                }
+            }
+            SampleType::Live | SampleType::LiveRecord | SampleType::LivePlay => {
+                for sample in output.iter_mut() {
+                    *sample += input.iter().sum::<f32>();
+                }
+            }
+        }
+    }
+
     fn advance<F: Fn(usize, &mut f32)>(&mut self, frame: &mut [f32], write: F) {
         for (channel, sample) in frame.iter_mut().enumerate() {
             write(channel, sample);
@@ -175,16 +199,37 @@ impl Player {
     }
 }
 
+struct Player {
+    cursor: Cursor,
+    insert_effect: effects::insert,
+}
+impl Player {
+    fn process(&mut self, track: &Track, input: &[f32], output: &mut [f32]) {
+        let mut pre_buffer = [0.; effects::insert::INPUTS];
+        let mut post_buffer = [0.; effects::insert::OUTPUTS];
+        self.cursor.process(track, input, &mut pre_buffer);
+        self.insert_effect.compute(
+            1,
+            &pre_buffer.each_ref().map(std::slice::from_ref),
+            &mut post_buffer.each_mut().map(std::slice::from_mut),
+        );
+        output.copy_from_slice(&post_buffer[..2]);
+    }
+}
+
 struct Voices {
-    players: Vec<Option<Player>>,
+    players: Vec<Player>,
 }
 impl Voices {
     fn key_down(&mut self, track_id: i32) {
-        self.players[0] = Some(Player {
-            track_id,
+        let player = &mut self.players[0];
+        player.cursor = Cursor {
+            active: true,
+            track_id: track_id as usize,
             position: 0.0,
             increment: 1.0,
-        });
+        };
+        player.insert_effect.instance_clear();
     }
 }
 
@@ -210,32 +255,9 @@ impl Audio {
                 Setter::SampleType => controls.active_track().sample_type.store(data.into()),
             }
         }
-        for (frame_in, frame_out) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
-            for player in self.voices.players.iter_mut().filter_map(Option::as_mut) {
-                let track = &self.controls.tracks[player.track_id as usize];
-                match track.sample_type.load() {
-                    SampleType::File => {
-                        let duration = track.file_sample.duration();
-                        let position = player.position.floor() as usize;
-                        let position_rem = player.position.fract();
-                        if position < duration && position_rem == 0. {
-                            player.advance(frame_out, |channel, sample| {
-                                *sample += track.file_sample.at(position, channel);
-                            });
-                        } else if position + 1 < duration {
-                            player.advance(frame_out, |channel, sample| {
-                                let a = track.file_sample.at(position, channel);
-                                let b = track.file_sample.at(position + 1, channel);
-                                *sample += a + position_rem * (b - a);
-                            });
-                        }
-                    }
-                    SampleType::Live | SampleType::LiveRecord | SampleType::LivePlay => {
-                        for sample in frame_out.iter_mut() {
-                            *sample += frame_in.iter().sum::<f32>();
-                        }
-                    }
-                }
+        for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
+            for player in voices.players.iter_mut().filter(|x| x.cursor.active) {
+                player.process(&controls.tracks[player.cursor.track_id], input, output);
             }
         }
     }
@@ -243,15 +265,23 @@ impl Audio {
 
 fn main() -> Result<()> {
     let mut controls = Controls::default();
-    controls
-        .tracks
-        .resize_with(TRACK_COUNT as usize, || Track::default());
-    for (i, track) in controls.tracks.iter_mut().enumerate() {
-        track.file_sample.read_file(i)?;
+    controls.tempo.store(120);
+    for i in 0..TRACK_COUNT {
+        controls.tracks.push(Track {
+            file_sample: Sample::read_file(i)?,
+            sample_type: SampleType::File.into(),
+        });
     }
 
     let mut players = Vec::new();
-    players.resize_with(VOICE_COUNT as usize, || None);
+    players.resize_with(VOICE_COUNT as usize, || {
+        let mut insert_effect = effects::insert::new();
+        insert_effect.instance_init(44100);
+        Player {
+            cursor: Cursor::default(),
+            insert_effect,
+        }
+    });
 
     let (sender, receiver) = std::sync::mpsc::channel();
     let ui = Ui {
