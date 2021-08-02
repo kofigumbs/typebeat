@@ -1,6 +1,5 @@
 #![feature(array_methods)]
 
-use std::borrow::Borrow;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 
@@ -46,13 +45,33 @@ struct Track {
 }
 
 #[derive(Default)]
+struct Parameter<const MIN: i32, const MAX: i32>(AtomicCell<i32>);
+impl<const MIN: i32, const MAX: i32> Parameter<{ MIN }, { MAX }> {
+    fn store(&self, value: i32) {
+        self.0.store(value.clamp(MIN, MAX));
+    }
+    fn load(&self) -> i32 {
+        self.0.load()
+    }
+    fn nudge(&self, value: i32, jump: i32) {
+        match value {
+            0 => self.store(self.load() - jump),
+            1 => self.store(self.load() - 1),
+            2 => self.store(self.load() + 1),
+            3 => self.store(self.load() + jump),
+            _ => {}
+        }
+    }
+}
+
+#[derive(Default)]
 struct Controls {
-    active_track_id: AtomicCell<i32>,
+    active_track_id: Parameter<0, { TRACK_COUNT - 1 }>,
     playing: AtomicCell<bool>,
     armed: AtomicCell<bool>,
-    tempo: AtomicCell<i32>,
-    root: AtomicCell<i32>,
-    scale: AtomicCell<i32>,
+    tempo: Parameter<1, 999>,
+    root: Parameter<-12, 12>,
+    scale: Parameter<0, 4>,
     tracks: Vec<Track>,
 }
 impl Controls {
@@ -126,37 +145,6 @@ impl Ui {
     }
 }
 
-enum Keep {
-    Below(i32),
-    Between(i32, i32),
-}
-trait AtomicI32: Borrow<AtomicCell<i32>> {
-    fn set(&self, value: i32, keep: Keep) {
-        self.borrow().store(match keep {
-            Keep::Below(max) => value.clamp(0, max - 1),
-            Keep::Between(min, max) => value.clamp(min, max),
-        });
-    }
-
-    fn nudge(&self, value: i32, jump: i32, keep: Keep) {
-        match value {
-            0 => self.set(self.borrow().load() - jump, keep),
-            1 => self.set(self.borrow().load() - 1, keep),
-            2 => self.set(self.borrow().load() + 1, keep),
-            3 => self.set(self.borrow().load() + jump, keep),
-            _ => {}
-        }
-    }
-}
-impl AtomicI32 for AtomicCell<i32> {}
-
-trait AtomicBool: Borrow<AtomicCell<bool>> {
-    fn toggle(&self) {
-        self.borrow().fetch_xor(true);
-    }
-}
-impl AtomicBool for AtomicCell<bool> {}
-
 #[derive(Default)]
 struct Cursor {
     active: bool,
@@ -165,7 +153,11 @@ struct Cursor {
     increment: f32,
 }
 impl Cursor {
-    fn process(&mut self, track: &Track, input: &[f32], output: &mut [f32]) {
+    fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
+        let track = match self.active {
+            false => return,
+            true => &controls.tracks[self.track_id],
+        };
         match track.sample_type.load() {
             SampleType::File => {
                 let duration = track.file_sample.duration();
@@ -204,10 +196,10 @@ struct Player {
     insert_effect: effects::insert,
 }
 impl Player {
-    fn process(&mut self, track: &Track, input: &[f32], output: &mut [f32]) {
+    fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
         let mut pre_buffer = [0.; effects::insert::INPUTS];
         let mut post_buffer = [0.; effects::insert::OUTPUTS];
-        self.cursor.process(track, input, &mut pre_buffer);
+        self.cursor.process(controls, input, &mut pre_buffer);
         self.insert_effect.compute(
             1,
             &pre_buffer.each_ref().map(std::slice::from_ref),
@@ -231,7 +223,20 @@ impl Voices {
         };
         player.insert_effect.instance_clear();
     }
+    fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
+        for player in self.players.iter_mut() {
+            player.process(controls, input, output)
+        }
+        for player in self.players.iter_mut().filter(|x| x.cursor.active) {
+            player.process(controls, input, output);
+        }
+    }
 }
+
+trait Consume: Sized {
+    fn consume(self) {}
+}
+impl<T: Sized> Consume for T {}
 
 struct Audio {
     controls: Arc<Controls>,
@@ -240,25 +245,21 @@ struct Audio {
 }
 impl Audio {
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
-        let controls = &mut self.controls;
-        let voices = &mut self.voices;
         for (setter, data) in self.receiver.try_iter() {
             match setter {
-                Setter::ActiveTrack => controls.active_track_id.set(data, Keep::Below(TRACK_COUNT)),
-                Setter::AuditionDown => voices.key_down(data),
-                Setter::Play => controls.playing.toggle(),
-                Setter::Arm => controls.armed.toggle(),
-                Setter::Tempo => controls.tempo.nudge(data, 10, Keep::Between(1, 999)),
-                Setter::TempoTaps => controls.tempo.set(data, Keep::Between(1, 999)),
-                Setter::Root => controls.root.nudge(data, 7, Keep::Between(-12, 12)),
-                Setter::Scale => controls.scale.set(data, Keep::Below(5)),
-                Setter::SampleType => controls.active_track().sample_type.store(data.into()),
+                Setter::ActiveTrack => self.controls.active_track_id.store(data),
+                Setter::AuditionDown => self.voices.key_down(data),
+                Setter::Play => self.controls.playing.fetch_xor(true).consume(),
+                Setter::Arm => self.controls.armed.fetch_xor(true).consume(),
+                Setter::Tempo => self.controls.tempo.nudge(data, 10),
+                Setter::TempoTaps => self.controls.tempo.store(data),
+                Setter::Root => self.controls.root.nudge(data, 7),
+                Setter::Scale => self.controls.scale.store(data),
+                Setter::SampleType => self.controls.active_track().sample_type.store(data.into()),
             }
         }
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
-            for player in voices.players.iter_mut().filter(|x| x.cursor.active) {
-                player.process(&controls.tracks[player.cursor.track_id], input, output);
-            }
+            self.voices.process(&self.controls, input, output);
         }
     }
 }
