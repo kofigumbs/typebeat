@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use anyhow::Result;
 use miniaudio::{Decoder, DecoderConfig, Format, FramesMut};
 
-#[derive(Default)]
 pub struct Sample(Vec<f32>);
 
 impl Sample {

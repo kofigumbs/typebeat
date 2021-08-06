@@ -147,16 +147,16 @@ impl Ui {
 
 #[derive(Default)]
 struct Cursor {
-    active: bool,
-    track_id: usize,
+    age: usize,
     position: f32,
     increment: f32,
+    track_id: Option<usize>,
 }
 impl Cursor {
     fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
-        let track = match self.active {
-            false => return,
-            true => &controls.tracks[self.track_id],
+        let track = match self.track_id {
+            None => return,
+            Some(track_id) => &controls.tracks[track_id],
         };
         match track.sample_type.load() {
             SampleType::File => {
@@ -205,30 +205,54 @@ impl Player {
             &pre_buffer.each_ref().map(std::slice::from_ref),
             &mut post_buffer.each_mut().map(std::slice::from_mut),
         );
-        output.copy_from_slice(&post_buffer[..2]);
+        for (output_frame, buffer_frame) in output.iter_mut().zip(post_buffer) {
+            *output_frame += buffer_frame;
+        }
     }
 }
 
 struct Voices {
     players: Vec<Player>,
+    send_effects: Vec<Box<dyn Send + FaustDsp<T = f32>>>,
 }
 impl Voices {
     fn key_down(&mut self, track_id: i32) {
-        let player = &mut self.players[0];
+        for player in self.players.iter_mut() {
+            player.cursor.age += 1;
+        }
+        let mut player = self
+            .players
+            .iter_mut()
+            .max_by_key(|x| x.cursor.age)
+            .unwrap();
         player.cursor = Cursor {
-            active: true,
-            track_id: track_id as usize,
+            age: 0,
             position: 0.0,
             increment: 1.0,
+            track_id: Some(track_id as usize),
         };
         player.insert_effect.instance_clear();
     }
+
     fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
+        let mut pre_buffer = [0.; effects::insert::OUTPUTS];
+        let mut post_buffer = [0.; 2];
         for player in self.players.iter_mut() {
-            player.process(controls, input, output)
+            player.process(controls, input, &mut pre_buffer);
+            for (output_frame, buffer_frame) in output.iter_mut().zip(pre_buffer) {
+                *output_frame += buffer_frame;
+            }
         }
-        for player in self.players.iter_mut().filter(|x| x.cursor.active) {
-            player.process(controls, input, output);
+        for (i, effect) in self.send_effects.iter_mut().enumerate() {
+            let i = 2 * (i + 1);
+            effect.compute(
+                1,
+                &pre_buffer.each_ref().map(std::slice::from_ref)[i..i + 2],
+                &mut post_buffer.each_mut().map(std::slice::from_mut),
+            );
+            for (output_frame, buffer_frame) in output.iter_mut().zip(post_buffer) {
+                *output_frame += buffer_frame;
+            }
         }
     }
 }
@@ -284,6 +308,26 @@ fn main() -> Result<()> {
         }
     });
 
+    let voices = Voices {
+        players,
+        send_effects: vec![
+            Box::new(effects::reverb::new()),
+            Box::new(effects::echo::new()),
+            Box::new(effects::drive::new()),
+        ],
+    };
+    for player in voices.players.iter() {
+        assert_eq!(player.insert_effect.get_num_inputs(), 2);
+        assert_eq!(
+            voices.send_effects.len() + 1,
+            player.insert_effect.get_num_outputs() as usize / 2
+        );
+    }
+    for dsp in voices.send_effects.iter() {
+        assert_eq!(dsp.get_num_inputs(), 2);
+        assert_eq!(dsp.get_num_outputs(), 2);
+    }
+
     let (sender, receiver) = std::sync::mpsc::channel();
     let ui = Ui {
         sender,
@@ -292,7 +336,7 @@ fn main() -> Result<()> {
     let mut audio = Audio {
         receiver,
         controls: Arc::clone(&ui.controls),
-        voices: Voices { players },
+        voices,
     };
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
