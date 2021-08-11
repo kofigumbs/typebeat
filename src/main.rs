@@ -1,5 +1,6 @@
 #![feature(array_methods)]
 
+use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 
@@ -12,9 +13,11 @@ use wry::application::event_loop::{ControlFlow, EventLoop};
 use wry::application::window::WindowBuilder;
 use wry::webview::{RpcRequest, RpcResponse, WebViewBuilder};
 
-use effects::{Bus, FaustDsp};
+use bounded::Bounded;
+use effects::{Bus, FaustDsp, ParamIndex, UI};
 use samples::Sample;
 
+mod bounded;
 mod effects;
 mod samples;
 
@@ -31,117 +34,61 @@ enum SampleType {
 impl From<i32> for SampleType {
     fn from(value: i32) -> Self {
         match value {
-            x if x <= 0 => SampleType::File,
-            x if x == 1 => SampleType::Live,
-            x if x == 2 => SampleType::LiveRecord,
-            _ /* x > */ => SampleType::LivePlay,
+            i if i <= 0 => SampleType::File,
+            i if i == 1 => SampleType::Live,
+            i if i == 2 => SampleType::LiveRecord,
+            _ /* i > */ => SampleType::LivePlay,
         }
+    }
+}
+
+#[derive(Default)]
+struct EffectUi<T> {
+    buttons: HashMap<&'static str, (ParamIndex, AtomicCell<bool>)>,
+    entries: HashMap<&'static str, (ParamIndex, T, bounded::Dynamic<T>)>,
+}
+impl<T> UI<T> for EffectUi<T> {
+    fn add_button(&mut self, s: &'static str, i: ParamIndex) {
+        self.buttons.insert(s, (i, false.into()));
+    }
+    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, value: T, min: T, max: T, step: T) {
+        let entry = bounded::Dynamic {
+            atom: value.into(),
+            min,
+            max,
+        };
+        self.entries.insert(s, (i, step, entry));
     }
 }
 
 struct Track {
     file_sample: Sample,
     sample_type: AtomicCell<SampleType>,
-}
-
-#[derive(Default)]
-struct Parameter<const MIN: i32, const MAX: i32>(AtomicCell<i32>);
-impl<const MIN: i32, const MAX: i32> Parameter<{ MIN }, { MAX }> {
-    fn store(&self, value: i32) {
-        self.0.store(value.clamp(MIN, MAX));
-    }
-    fn load(&self) -> i32 {
-        self.0.load()
-    }
-    fn nudge(&self, value: i32, jump: i32) {
-        match value {
-            0 => self.store(self.load() - jump),
-            1 => self.store(self.load() - 1),
-            2 => self.store(self.load() + 1),
-            3 => self.store(self.load() + jump),
-            _ => {}
-        }
-    }
+    effect_ui: EffectUi<f32>,
 }
 
 #[derive(Default)]
 struct Controls {
-    active_track_id: Parameter<0, { TRACK_COUNT - 1 }>,
+    active_track_id: bounded::Int<0, { TRACK_COUNT - 1 }>,
     playing: AtomicCell<bool>,
     armed: AtomicCell<bool>,
-    tempo: Parameter<1, 999>,
-    root: Parameter<-12, 12>,
-    scale: Parameter<0, 4>,
+    tempo: bounded::Int<1, 999>,
+    root: bounded::Int<-12, 12>,
+    scale: bounded::Int<0, 4>,
     tracks: Vec<Track>,
+    send_effects: Vec<EffectUi<f32>>,
 }
 impl Controls {
     fn active_track(&self) -> &Track {
         &self.tracks[self.active_track_id.load() as usize]
     }
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-enum Getter {
-    ActiveTrack,
-    Playing,
-    Armed,
-    Tempo,
-    Root,
-    Scale,
-    SampleType,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-enum Setter {
-    ActiveTrack,
-    AuditionDown,
-    Play,
-    Arm,
-    Tempo,
-    TempoTaps,
-    Root,
-    Scale,
-    SampleType,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase", tag = "context")]
-enum Message {
-    Get { method: Getter },
-    Set { method: Setter, data: i32 },
-}
-
-struct Ui {
-    controls: Arc<Controls>,
-    sender: Sender<(Setter, i32)>,
-}
-impl Ui {
-    fn process(&self, request: RpcRequest) -> Option<RpcResponse> {
-        let (message,) = serde_json::from_value(request.params?).ok()?;
-        match message {
-            Message::Set { method, data } => {
-                let _ = self.sender.send((method, data));
-                None
-            }
-            Message::Get { method } => Some(RpcResponse::new_result(
-                request.id,
-                Some(self.control(method).into()),
-            )),
-        }
+    fn effect_uis(&self) -> impl Iterator<Item = &EffectUi<f32>> {
+        std::array::from_ref(&self.active_track().effect_ui)
+            .iter()
+            .chain(self.send_effects.iter())
     }
-
-    fn control(&self, method: Getter) -> i32 {
-        match method {
-            Getter::ActiveTrack => self.controls.active_track_id.load().into(),
-            Getter::Playing => self.controls.playing.load().into(),
-            Getter::Armed => self.controls.armed.load().into(),
-            Getter::Tempo => self.controls.tempo.load().into(),
-            Getter::Root => self.controls.root.load().into(),
-            Getter::Scale => self.controls.scale.load().into(),
-            Getter::SampleType => self.controls.active_track().sample_type.load() as i32,
-        }
+    fn find<T>(&self, f: impl Fn(&EffectUi<f32>) -> Option<&T>) -> Option<&T> {
+        self.effect_uis().find_map(f)
     }
 }
 
@@ -223,7 +170,7 @@ impl Voices {
         let mut player = self
             .players
             .iter_mut()
-            .max_by_key(|x| x.cursor.age)
+            .max_by_key(|player| player.cursor.age)
             .unwrap();
         player.cursor = Cursor {
             age: 0,
@@ -257,10 +204,11 @@ impl Voices {
     }
 }
 
-trait Consume: Sized {
-    fn consume(self) {}
+enum Setter {
+    Toggle(fn(&mut Audio) -> &AtomicCell<bool>),
+    Number(fn(&mut Audio, i32)),
+    Entry(&'static str),
 }
-impl<T: Sized> Consume for T {}
 
 struct Audio {
     controls: Arc<Controls>,
@@ -269,17 +217,23 @@ struct Audio {
 }
 impl Audio {
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
-        for (setter, data) in self.receiver.try_iter() {
+        while let Ok((setter, data)) = self.receiver.try_recv() {
             match setter {
-                Setter::ActiveTrack => self.controls.active_track_id.store(data),
-                Setter::AuditionDown => self.voices.key_down(data),
-                Setter::Play => self.controls.playing.fetch_xor(true).consume(),
-                Setter::Arm => self.controls.armed.fetch_xor(true).consume(),
-                Setter::Tempo => self.controls.tempo.nudge(data, 10),
-                Setter::TempoTaps => self.controls.tempo.store(data),
-                Setter::Root => self.controls.root.nudge(data, 7),
-                Setter::Scale => self.controls.scale.store(data),
-                Setter::SampleType => self.controls.active_track().sample_type.store(data.into()),
+                Setter::Toggle(f) => {
+                    f(self).fetch_xor(true);
+                }
+                Setter::Number(f) => {
+                    f(self, data);
+                }
+                Setter::Entry(key) => {
+                    if let Some((_, step, value)) = self.controls.find(|ui| ui.entries.get(&key)) {
+                        match *step as i32 {
+                            0 => value.store(if value.load() == 0. { 1. } else { 0. }),
+                            1 => value.store(data as f32),
+                            _ => value.nudge(data, *step),
+                        }
+                    }
+                }
             }
         }
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
@@ -288,13 +242,78 @@ impl Audio {
     }
 }
 
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase", tag = "context")]
+enum UiMessage {
+    Get { method: String },
+    Set { method: String, data: i32 },
+}
+
+struct Ui {
+    controls: Arc<Controls>,
+    sender: Sender<(Setter, i32)>,
+}
+impl Ui {
+    fn process(&self, request: RpcRequest) -> Option<RpcResponse> {
+        let (message,) = serde_json::from_value(request.params?).ok()?;
+        match message {
+            UiMessage::Get { method } => Some(RpcResponse::new_result(
+                request.id,
+                Some(self.get(&method).into()),
+            )),
+            UiMessage::Set { method, data } => {
+                let _ = self.sender.send((self.set(&method), data));
+                None
+            }
+        }
+    }
+    fn get(&self, method: &str) -> i32 {
+        match method {
+            "activeTrack" => self.controls.active_track_id.load().into(),
+            "playing" => self.controls.playing.load().into(),
+            "armed" => self.controls.armed.load().into(),
+            "tempo" => self.controls.tempo.load().into(),
+            "root" => self.controls.root.load().into(),
+            "scale" => self.controls.scale.load().into(),
+            "sampleType" => self.controls.active_track().sample_type.load() as i32,
+            _ => self
+                .controls
+                .find(|ui| ui.entries.get(method))
+                .map_or(0, |(_, _, value)| value.load() as i32),
+        }
+    }
+    fn set(&self, method: &str) -> Setter {
+        match method {
+            "play" => Setter::Toggle(|audio| &audio.controls.playing),
+            "arm" => Setter::Toggle(|audio| &audio.controls.armed),
+            "activeTrack" => Setter::Number(|audio, i| audio.controls.active_track_id.store(i)),
+            "auditionDown" => Setter::Number(|audio, i| audio.voices.key_down(i)),
+            "tempo" => Setter::Number(|audio, i| audio.controls.tempo.nudge(i, 10)),
+            "tempoTaps" => Setter::Number(|audio, i| audio.controls.tempo.store(i)),
+            "root" => Setter::Number(|audio, i| audio.controls.root.nudge(i, 7)),
+            "scale" => Setter::Number(|audio, i| audio.controls.scale.store(i)),
+            "sampleType" => Setter::Number(|audio, i| {
+                audio.controls.active_track().sample_type.store(i.into());
+            }),
+            _ => Setter::Entry(
+                self.controls
+                    .find(|ui| ui.entries.get_key_value(method).map(|(key, _)| key))
+                    .map_or(&"", |key| *key),
+            ),
+        }
+    }
+}
+
 fn main() -> Result<()> {
     let mut controls = Controls::default();
     controls.tempo.store(120);
     for i in 0..TRACK_COUNT {
+        let mut effect_ui = EffectUi::default();
+        effects::insert::build_user_interface_static(&mut effect_ui);
         controls.tracks.push(Track {
             file_sample: Sample::read_file(i)?,
             sample_type: SampleType::File.into(),
+            effect_ui,
         });
     }
 
@@ -316,6 +335,11 @@ fn main() -> Result<()> {
             Box::new(effects::drive::new()),
         ],
     };
+    for effect in voices.send_effects.iter() {
+        let mut ui = EffectUi::default();
+        effect.build_user_interface(&mut ui);
+        controls.send_effects.push(ui);
+    }
     for player in voices.players.iter() {
         assert_eq!(player.insert_effect.get_num_inputs(), 2);
         assert_eq!(

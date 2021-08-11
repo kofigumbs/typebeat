@@ -1,8 +1,8 @@
 import("stdfaust.lib");
 
-note = button("note");
 gate = button("gate");
 live = button("live");
+note = nentry("note", 69, 0, 127, 0);
 
 synth1Type = nentry("synth1:type", 0, 0, 4, 1);
 synth2Type = nentry("synth2:type", 0, 0, 4, 1);
