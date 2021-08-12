@@ -174,12 +174,21 @@ impl Voice {
     }
 }
 
-struct Mixer {
+enum Setter {
+    Toggle(fn(&mut Audio) -> &AtomicCell<bool>),
+    Number(fn(&mut Audio, i32)),
+    Entry(&'static str),
+}
+
+struct Audio {
+    controls: Arc<Controls>,
     voices: Vec<Voice>,
     sends: Vec<Box<dyn Send + FaustDsp<T = f32>>>,
+    receiver: Receiver<(Setter, i32)>,
 }
-impl Mixer {
-    fn key_down(&mut self, track_id: usize) {
+impl Audio {
+    fn key_down(&mut self, track_id: i32) {
+        let track_id = track_id.clamp(0, TRACK_COUNT - 1) as usize;
         for voice in self.voices.iter_mut() {
             voice.age += 1;
         }
@@ -192,48 +201,7 @@ impl Mixer {
         voice.position = 0.;
         voice.increment = 1.;
         voice.track_id = Some(track_id);
-        voice.insert.instance_clear();
-    }
-    fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
-        let mut pre_buffer = [0.; effects::insert::OUTPUTS];
-        let mut post_buffer = [0.; 2];
-        for voice in self.voices.iter_mut() {
-            let track = match voice.track_id {
-                None => continue,
-                Some(track_id) => &controls.tracks[track_id],
-            };
-            track.insert.set_params_on(&mut voice.insert);
-            voice.process(track, input, &mut pre_buffer);
-        }
-        add_assign_each(output, &pre_buffer);
-        for (i, (dsp, ui)) in self.sends.iter_mut().zip(controls.sends.iter()).enumerate() {
-            let start_channel = 2 * (i + 1);
-            ui.set_params_on(dsp.as_mut());
-            dsp.compute(
-                1,
-                &pre_buffer.each_ref().map(std::slice::from_ref)[start_channel..],
-                &mut post_buffer.each_mut().map(std::slice::from_mut),
-            );
-            add_assign_each(output, &post_buffer);
-        }
-    }
-}
-
-enum Setter {
-    Toggle(fn(&mut Audio) -> &AtomicCell<bool>),
-    Number(fn(&mut Audio, i32)),
-    Entry(&'static str),
-}
-
-struct Audio {
-    controls: Arc<Controls>,
-    mixer: Mixer,
-    receiver: Receiver<(Setter, i32)>,
-}
-impl Audio {
-    fn key_down(&mut self, track_id: i32) {
-        let track_id = track_id.clamp(0, TRACK_COUNT - 1) as usize;
-        self.mixer.key_down(track_id);
+        voice.insert.dsp.instance_clear();
     }
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
         while let Ok((setter, data)) = self.receiver.try_recv() {
@@ -256,7 +224,32 @@ impl Audio {
             }
         }
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
-            self.mixer.process(&self.controls, input, output);
+            let mut pre_buffer = [0.; effects::insert::OUTPUTS];
+            let mut post_buffer = [0.; 2];
+            for voice in self.voices.iter_mut() {
+                let track = match voice.track_id {
+                    None => continue,
+                    Some(track_id) => &self.controls.tracks[track_id],
+                };
+                track.insert.set_params_on(&mut voice.insert.dsp);
+                voice.process(track, input, &mut pre_buffer);
+            }
+            add_assign_each(output, &pre_buffer);
+            for (i, (dsp, ui)) in self
+                .sends
+                .iter_mut()
+                .zip(self.controls.sends.iter())
+                .enumerate()
+            {
+                let start_channel = 2 * (i + 1);
+                ui.set_params_on(dsp.as_mut());
+                dsp.compute(
+                    1,
+                    &pre_buffer.each_ref().map(std::slice::from_ref)[start_channel..],
+                    &mut post_buffer.each_mut().map(std::slice::from_mut),
+                );
+                add_assign_each(output, &post_buffer);
+            }
         }
     }
 }
