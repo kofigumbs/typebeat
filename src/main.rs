@@ -288,7 +288,7 @@ impl Ui {
             "tempo" => self.controls.tempo.load().into(),
             "root" => self.controls.root.load().into(),
             "scale" => self.controls.scale.load().into(),
-            "sampleType" => self.controls.active_track().sample_type.load() as i32,
+            "sample:type" => self.controls.active_track().sample_type.load() as i32,
             _ => self
                 .controls
                 .find(|ui| ui.entries.get(method))
@@ -305,7 +305,7 @@ impl Ui {
             "tempoTaps" => Setter::Number(|audio, i| audio.controls.tempo.store(i)),
             "root" => Setter::Number(|audio, i| audio.controls.root.nudge(i, 7)),
             "scale" => Setter::Number(|audio, i| audio.controls.scale.store(i)),
-            "sampleType" => Setter::Number(|audio, i| {
+            "sample:type" => Setter::Number(|audio, i| {
                 audio.controls.active_track().sample_type.store(i.into());
             }),
             _ => Setter::Entry(
