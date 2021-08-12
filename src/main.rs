@@ -23,6 +23,19 @@ mod samples;
 
 const VOICE_COUNT: i32 = 5;
 const TRACK_COUNT: i32 = 15;
+const SAMPLE_RATE: i32 = 44100;
+
+fn add_assign_each(destination: &mut [f32], source: &[f32]) {
+    for (destination, source) in destination.iter_mut().zip(source) {
+        *destination += source;
+    }
+}
+
+fn new_dsp<T: FaustDsp>() -> T {
+    let mut dsp = T::new();
+    dsp.instance_init(SAMPLE_RATE);
+    dsp
+}
 
 #[derive(Clone, Copy)]
 enum SampleType {
@@ -60,6 +73,13 @@ impl<T> UI<T> for EffectUi<T> {
         self.entries.insert(s, (i, step, entry));
     }
 }
+impl EffectUi<f32> {
+    fn set_params_on(&self, dsp: &mut dyn effects::FaustDsp<T = f32>) {
+        for (index, _, value) in self.entries.values() {
+            dsp.set_param(*index, value.load());
+        }
+    }
+}
 
 struct Track {
     file_sample: Sample,
@@ -76,7 +96,7 @@ struct Controls {
     root: bounded::Int<-12, 12>,
     scale: bounded::Int<0, 4>,
     tracks: Vec<Track>,
-    send_effects: Vec<EffectUi<f32>>,
+    sends: Vec<EffectUi<f32>>,
 }
 impl Controls {
     fn active_track(&self) -> &Track {
@@ -85,7 +105,7 @@ impl Controls {
     fn effect_uis(&self) -> impl Iterator<Item = &EffectUi<f32>> {
         std::array::from_ref(&self.active_track().effect_ui)
             .iter()
-            .chain(self.send_effects.iter())
+            .chain(self.sends.iter())
     }
     fn find<T>(&self, f: impl Fn(&EffectUi<f32>) -> Option<&T>) -> Option<&T> {
         self.effect_uis().find_map(f)
@@ -100,11 +120,7 @@ struct Cursor {
     track_id: Option<usize>,
 }
 impl Cursor {
-    fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
-        let track = match self.track_id {
-            None => return,
-            Some(track_id) => &controls.tracks[track_id],
-        };
+    fn process(&mut self, track: &Track, input: &[f32], output: &mut [f32]) {
         match track.sample_type.load() {
             SampleType::File => {
                 let duration = track.file_sample.duration();
@@ -129,7 +145,6 @@ impl Cursor {
             }
         }
     }
-
     fn advance<F: Fn(usize, &mut f32)>(&mut self, frame: &mut [f32], write: F) {
         for (channel, sample) in frame.iter_mut().enumerate() {
             write(channel, sample);
@@ -140,27 +155,25 @@ impl Cursor {
 
 struct Player {
     cursor: Cursor,
-    insert_effect: effects::insert,
+    insert: effects::insert,
 }
 impl Player {
-    fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
+    fn process(&mut self, track: &Track, input: &[f32], output: &mut [f32]) {
         let mut pre_buffer = [0.; effects::insert::INPUTS];
         let mut post_buffer = [0.; effects::insert::OUTPUTS];
-        self.cursor.process(controls, input, &mut pre_buffer);
-        self.insert_effect.compute(
+        self.cursor.process(track, input, &mut pre_buffer);
+        self.insert.compute(
             1,
             &pre_buffer.each_ref().map(std::slice::from_ref),
             &mut post_buffer.each_mut().map(std::slice::from_mut),
         );
-        for (output_frame, buffer_frame) in output.iter_mut().zip(post_buffer) {
-            *output_frame += buffer_frame;
-        }
+        add_assign_each(output, &post_buffer);
     }
 }
 
 struct Voices {
     players: Vec<Player>,
-    send_effects: Vec<Box<dyn Send + FaustDsp<T = f32>>>,
+    sends: Vec<Box<dyn Send + FaustDsp<T = f32>>>,
 }
 impl Voices {
     fn key_down(&mut self, track_id: i32) {
@@ -178,28 +191,28 @@ impl Voices {
             increment: 1.0,
             track_id: Some(track_id as usize),
         };
-        player.insert_effect.instance_clear();
+        player.insert.instance_clear();
     }
-
     fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
         let mut pre_buffer = [0.; effects::insert::OUTPUTS];
         let mut post_buffer = [0.; 2];
         for player in self.players.iter_mut() {
-            player.process(controls, input, &mut pre_buffer);
-            for (output_frame, buffer_frame) in output.iter_mut().zip(pre_buffer) {
-                *output_frame += buffer_frame;
-            }
+            let track = match player.cursor.track_id {
+                None => continue,
+                Some(track_id) => &controls.tracks[track_id],
+            };
+            track.effect_ui.set_params_on(&mut player.insert);
+            player.process(track, input, &mut pre_buffer);
+            add_assign_each(output, &pre_buffer);
         }
-        for (i, effect) in self.send_effects.iter_mut().enumerate() {
-            let i = 2 * (i + 1);
-            effect.compute(
+        for (i, (dsp, ui)) in self.sends.iter_mut().zip(controls.sends.iter()).enumerate() {
+            ui.set_params_on(dsp.as_mut());
+            dsp.compute(
                 1,
-                &pre_buffer.each_ref().map(std::slice::from_ref)[i..i + 2],
+                &pre_buffer.each_ref().map(std::slice::from_ref)[2 * (i + 1)..],
                 &mut post_buffer.each_mut().map(std::slice::from_mut),
             );
-            for (output_frame, buffer_frame) in output.iter_mut().zip(post_buffer) {
-                *output_frame += buffer_frame;
-            }
+            add_assign_each(output, &post_buffer);
         }
     }
 }
@@ -318,36 +331,32 @@ fn main() -> Result<()> {
     }
 
     let mut players = Vec::new();
-    players.resize_with(VOICE_COUNT as usize, || {
-        let mut insert_effect = effects::insert::new();
-        insert_effect.instance_init(44100);
-        Player {
-            cursor: Cursor::default(),
-            insert_effect,
-        }
+    players.resize_with(VOICE_COUNT as usize, || Player {
+        cursor: Cursor::default(),
+        insert: new_dsp::<effects::insert>(),
     });
 
     let voices = Voices {
         players,
-        send_effects: vec![
-            Box::new(effects::reverb::new()),
-            Box::new(effects::echo::new()),
-            Box::new(effects::drive::new()),
+        sends: vec![
+            Box::new(new_dsp::<effects::reverb>()),
+            Box::new(new_dsp::<effects::echo>()),
+            Box::new(new_dsp::<effects::drive>()),
         ],
     };
-    for effect in voices.send_effects.iter() {
+    for dsp in voices.sends.iter() {
         let mut ui = EffectUi::default();
-        effect.build_user_interface(&mut ui);
-        controls.send_effects.push(ui);
+        dsp.build_user_interface(&mut ui);
+        controls.sends.push(ui);
     }
     for player in voices.players.iter() {
-        assert_eq!(player.insert_effect.get_num_inputs(), 2);
+        assert_eq!(player.insert.get_num_inputs(), 2);
         assert_eq!(
-            voices.send_effects.len() + 1,
-            player.insert_effect.get_num_outputs() as usize / 2
+            voices.sends.len() + 1,
+            player.insert.get_num_outputs() as usize / 2
         );
     }
-    for dsp in voices.send_effects.iter() {
+    for dsp in voices.sends.iter() {
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
     }
@@ -368,7 +377,7 @@ fn main() -> Result<()> {
     device_config.capture_mut().set_format(Format::F32);
     device_config.playback_mut().set_channels(2);
     device_config.playback_mut().set_format(Format::F32);
-    device_config.set_sample_rate(44100);
+    device_config.set_sample_rate(SAMPLE_RATE as u32);
     let mut device = Device::new(None, &device_config)?;
     device.set_data_callback(move |_, output, input| audio.process(input, output));
     device.start()?;

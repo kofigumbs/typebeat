@@ -3,6 +3,8 @@ use std::convert::TryInto;
 use anyhow::Result;
 use miniaudio::{Decoder, DecoderConfig, Format, FramesMut};
 
+use crate::SAMPLE_RATE;
+
 pub struct Sample(Vec<f32>);
 
 impl Sample {
@@ -11,7 +13,7 @@ impl Sample {
             .join("src")
             .join("samples")
             .join(format!("{:02}.wav", i));
-        let config = DecoderConfig::new(Format::F32, 2, 44100);
+        let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
         let mut decoder = Decoder::from_file(&path, Some(&config))?;
         let mut samples = vec![0.0; (2 * decoder.length_in_pcm_frames()).try_into()?];
         decoder.read_pcm_frames(&mut FramesMut::wrap(&mut samples[..], Format::F32, 2));
