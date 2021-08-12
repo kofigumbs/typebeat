@@ -25,6 +25,10 @@ const VOICE_COUNT: i32 = 5;
 const TRACK_COUNT: i32 = 15;
 const SAMPLE_RATE: i32 = 44100;
 
+fn bool_to_float(x: bool) -> f32 {
+    return if x { 1. } else { 0. };
+}
+
 fn add_assign_each(destination: &mut [f32], source: &[f32]) {
     for (destination, source) in destination.iter_mut().zip(source) {
         *destination += source;
@@ -75,6 +79,9 @@ impl<T> UI<T> for EffectUi<T> {
 }
 impl EffectUi<f32> {
     fn set_params_on(&self, dsp: &mut dyn effects::FaustDsp<T = f32>) {
+        for (index, value) in self.buttons.values() {
+            dsp.set_param(*index, bool_to_float(value.load()));
+        }
         for (index, _, value) in self.entries.values() {
             dsp.set_param(*index, value.load());
         }
@@ -84,7 +91,7 @@ impl EffectUi<f32> {
 struct Track {
     file_sample: Sample,
     sample_type: AtomicCell<SampleType>,
-    effect_ui: EffectUi<f32>,
+    insert: EffectUi<f32>,
 }
 
 #[derive(Default)]
@@ -103,7 +110,7 @@ impl Controls {
         &self.tracks[self.active_track_id.load() as usize]
     }
     fn effect_uis(&self) -> impl Iterator<Item = &EffectUi<f32>> {
-        std::array::from_ref(&self.active_track().effect_ui)
+        std::array::from_ref(&self.active_track().insert)
             .iter()
             .chain(self.sends.iter())
     }
@@ -166,7 +173,7 @@ struct Mixer {
     sends: Vec<Box<dyn Send + FaustDsp<T = f32>>>,
 }
 impl Mixer {
-    fn key_down(&mut self, track_id: i32) {
+    fn key_down(&mut self, track_id: usize) {
         for voice in self.voices.iter_mut() {
             voice.age += 1;
         }
@@ -176,9 +183,9 @@ impl Mixer {
             .max_by_key(|voice| voice.age)
             .unwrap();
         voice.age = 0;
-        voice.position = 0.0;
-        voice.increment = 1.0;
-        voice.track_id = Some(track_id as usize);
+        voice.position = 0.;
+        voice.increment = 1.;
+        voice.track_id = Some(track_id);
         voice.insert.instance_clear();
     }
     fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
@@ -189,15 +196,16 @@ impl Mixer {
                 None => continue,
                 Some(track_id) => &controls.tracks[track_id],
             };
-            track.effect_ui.set_params_on(&mut voice.insert);
+            track.insert.set_params_on(&mut voice.insert);
             voice.process(track, input, &mut pre_buffer);
-            add_assign_each(output, &pre_buffer);
         }
+        add_assign_each(output, &pre_buffer);
         for (i, (dsp, ui)) in self.sends.iter_mut().zip(controls.sends.iter()).enumerate() {
+            let start_channel = 2 * (i + 1);
             ui.set_params_on(dsp.as_mut());
             dsp.compute(
                 1,
-                &pre_buffer.each_ref().map(std::slice::from_ref)[2 * (i + 1)..],
+                &pre_buffer.each_ref().map(std::slice::from_ref)[start_channel..],
                 &mut post_buffer.each_mut().map(std::slice::from_mut),
             );
             add_assign_each(output, &post_buffer);
@@ -217,6 +225,10 @@ struct Audio {
     receiver: Receiver<(Setter, i32)>,
 }
 impl Audio {
+    fn key_down(&mut self, track_id: i32) {
+        let track_id = track_id.clamp(0, TRACK_COUNT - 1) as usize;
+        self.mixer.key_down(track_id);
+    }
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
         while let Ok((setter, data)) = self.receiver.try_recv() {
             match setter {
@@ -229,7 +241,7 @@ impl Audio {
                 Setter::Entry(key) => {
                     if let Some((_, step, value)) = self.controls.find(|ui| ui.entries.get(&key)) {
                         match *step as i32 {
-                            0 => value.store(if value.load() == 0. { 1. } else { 0. }),
+                            0 => value.store(bool_to_float(value.load() == 0.)),
                             1 => value.store(data as f32),
                             _ => value.nudge(data, *step),
                         }
@@ -245,7 +257,7 @@ impl Audio {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase", tag = "context")]
-enum UiMessage {
+enum Rpc {
     Get { method: String },
     Set { method: String, data: i32 },
 }
@@ -256,13 +268,13 @@ struct Ui {
 }
 impl Ui {
     fn process(&self, request: RpcRequest) -> Option<RpcResponse> {
-        let (message,) = serde_json::from_value(request.params?).ok()?;
-        match message {
-            UiMessage::Get { method } => Some(RpcResponse::new_result(
+        let (rpc,) = serde_json::from_value(request.params?).ok()?;
+        match rpc {
+            Rpc::Get { method } => Some(RpcResponse::new_result(
                 request.id,
                 Some(self.get(&method).into()),
             )),
-            UiMessage::Set { method, data } => {
+            Rpc::Set { method, data } => {
                 let _ = self.sender.send((self.set(&method), data));
                 None
             }
@@ -288,7 +300,7 @@ impl Ui {
             "play" => Setter::Toggle(|audio| &audio.controls.playing),
             "arm" => Setter::Toggle(|audio| &audio.controls.armed),
             "activeTrack" => Setter::Number(|audio, i| audio.controls.active_track_id.store(i)),
-            "auditionDown" => Setter::Number(|audio, i| audio.mixer.key_down(i)),
+            "auditionDown" => Setter::Number(|audio, i| audio.key_down(i)),
             "tempo" => Setter::Number(|audio, i| audio.controls.tempo.nudge(i, 10)),
             "tempoTaps" => Setter::Number(|audio, i| audio.controls.tempo.store(i)),
             "root" => Setter::Number(|audio, i| audio.controls.root.nudge(i, 7)),
@@ -309,12 +321,12 @@ fn main() -> Result<()> {
     let mut controls = Controls::default();
     controls.tempo.store(120);
     for i in 0..TRACK_COUNT {
-        let mut effect_ui = EffectUi::default();
-        effects::insert::build_user_interface_static(&mut effect_ui);
+        let mut insert = EffectUi::default();
+        effects::insert::build_user_interface_static(&mut insert);
         controls.tracks.push(Track {
             file_sample: Sample::read_file(i)?,
             sample_type: SampleType::File.into(),
-            effect_ui,
+            insert,
         });
     }
 
@@ -335,11 +347,6 @@ fn main() -> Result<()> {
             Box::new(new_dsp::<effects::drive>()),
         ],
     };
-    for dsp in mixer.sends.iter() {
-        let mut ui = EffectUi::default();
-        dsp.build_user_interface(&mut ui);
-        controls.sends.push(ui);
-    }
     for voice in mixer.voices.iter() {
         assert_eq!(voice.insert.get_num_inputs(), 2);
         assert_eq!(
@@ -348,6 +355,9 @@ fn main() -> Result<()> {
         );
     }
     for dsp in mixer.sends.iter() {
+        let mut ui = EffectUi::default();
+        dsp.build_user_interface(&mut ui);
+        controls.sends.push(ui);
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
     }
