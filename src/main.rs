@@ -142,21 +142,19 @@ impl Voice {
                 let position = self.position.floor() as usize;
                 let position_rem = self.position.fract();
                 if position < duration && position_rem == 0. {
-                    self.advance(&mut pre_buffer, |channel, sample| {
-                        *sample += track.file_sample.at(position, channel);
+                    self.write(&mut pre_buffer, |channel| {
+                        track.file_sample.at(position, channel)
                     });
                 } else if position + 1 < duration {
-                    self.advance(&mut pre_buffer, |channel, sample| {
+                    self.write(&mut pre_buffer, |channel| {
                         let a = track.file_sample.at(position, channel);
                         let b = track.file_sample.at(position + 1, channel);
-                        *sample += a + position_rem * (b - a);
+                        a + position_rem * (b - a)
                     });
                 }
             }
             SampleType::Live | SampleType::LiveRecord | SampleType::LivePlay => {
-                for sample in pre_buffer.iter_mut() {
-                    *sample += input.iter().sum::<f32>();
-                }
+                self.write(&mut pre_buffer, |_| input.iter().sum::<f32>());
             }
         }
         self.insert.dsp.compute(
@@ -166,9 +164,9 @@ impl Voice {
         );
         add_assign_each(output, &post_buffer);
     }
-    fn advance<F: Fn(usize, &mut f32)>(&mut self, frame: &mut [f32], write: F) {
-        for (channel, sample) in frame.iter_mut().enumerate() {
-            write(channel, sample);
+    fn write<F: Fn(usize) -> f32>(&mut self, buffer: &mut [f32], f: F) {
+        for (channel, sample) in buffer.iter_mut().enumerate() {
+            *sample = f(channel);
         }
         self.position += self.increment;
     }
@@ -235,15 +233,10 @@ impl Audio {
                 voice.process(track, input, &mut pre_buffer);
             }
             add_assign_each(output, &pre_buffer);
-            for (i, (dsp, ui)) in self
-                .sends
-                .iter_mut()
-                .zip(self.controls.sends.iter())
-                .enumerate()
-            {
+            for i in 0..self.sends.len() {
                 let start_channel = 2 * (i + 1);
-                ui.set_params_on(dsp.as_mut());
-                dsp.compute(
+                self.controls.sends[i].set_params_on(self.sends[i].as_mut());
+                self.sends[i].compute(
                     1,
                     &pre_buffer.each_ref().map(std::slice::from_ref)[start_channel..],
                     &mut post_buffer.each_mut().map(std::slice::from_mut),
