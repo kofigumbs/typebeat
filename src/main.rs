@@ -35,12 +35,6 @@ fn add_assign_each(destination: &mut [f32], source: &[f32]) {
     }
 }
 
-fn new_dsp<T: FaustDsp>() -> T {
-    let mut dsp = T::new();
-    dsp.instance_init(SAMPLE_RATE);
-    dsp
-}
-
 #[derive(Clone, Copy)]
 enum SampleType {
     File,
@@ -119,12 +113,24 @@ impl Controls {
     }
 }
 
+struct Dsp<T> {
+    dsp: T,
+}
+impl<T: FaustDsp> Default for Dsp<T> {
+    fn default() -> Self {
+        let mut dsp = T::new();
+        dsp.instance_init(SAMPLE_RATE);
+        Dsp { dsp }
+    }
+}
+
+#[derive(Default)]
 struct Voice {
     age: usize,
     position: f32,
     increment: f32,
     track_id: Option<usize>,
-    insert: effects::insert,
+    insert: Dsp<effects::insert>,
 }
 impl Voice {
     fn process(&mut self, track: &Track, input: &[f32], output: &mut [f32]) {
@@ -153,7 +159,7 @@ impl Voice {
                 }
             }
         }
-        self.insert.compute(
+        self.insert.dsp.compute(
             1,
             &pre_buffer.each_ref().map(std::slice::from_ref),
             &mut post_buffer.each_mut().map(std::slice::from_mut),
@@ -330,31 +336,12 @@ fn main() -> Result<()> {
         });
     }
 
-    let mut voices = Vec::new();
-    voices.resize_with(VOICE_COUNT as usize, || Voice {
-        age: 0,
-        position: 0.,
-        increment: 0.,
-        track_id: None,
-        insert: new_dsp::<effects::insert>(),
-    });
-
-    let mixer = Mixer {
-        voices,
-        sends: vec![
-            Box::new(new_dsp::<effects::reverb>()),
-            Box::new(new_dsp::<effects::echo>()),
-            Box::new(new_dsp::<effects::drive>()),
-        ],
-    };
-    for voice in mixer.voices.iter() {
-        assert_eq!(voice.insert.get_num_inputs(), 2);
-        assert_eq!(
-            mixer.sends.len() + 1,
-            voice.insert.get_num_outputs() as usize / 2
-        );
-    }
-    for dsp in mixer.sends.iter() {
+    let sends: Vec<Box<dyn Send + FaustDsp<T = f32>>> = vec![
+        Box::new(Dsp::<effects::reverb>::default().dsp),
+        Box::new(Dsp::<effects::echo>::default().dsp),
+        Box::new(Dsp::<effects::drive>::default().dsp),
+    ];
+    for dsp in sends.iter() {
         let mut ui = EffectUi::default();
         dsp.build_user_interface(&mut ui);
         controls.sends.push(ui);
@@ -369,9 +356,19 @@ fn main() -> Result<()> {
     };
     let mut audio = Audio {
         controls: Arc::clone(&ui.controls),
-        mixer,
+        voices: Vec::new(),
+        sends,
         receiver,
     };
+    for _ in 0..VOICE_COUNT {
+        let voice = Voice::default();
+        assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
+        assert_eq!(
+            audio.sends.len() + 1,
+            voice.insert.dsp.get_num_outputs() as usize / 2
+        );
+        audio.voices.push(voice)
+    }
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);
