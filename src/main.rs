@@ -21,6 +21,7 @@ mod bounded;
 mod effects;
 mod samples;
 
+const KEY_COUNT: i32 = 15;
 const VOICE_COUNT: i32 = 5;
 const TRACK_COUNT: i32 = 15;
 const SAMPLE_RATE: i32 = 44100;
@@ -61,13 +62,10 @@ impl From<i32> for SampleType {
 }
 
 #[derive(Default)]
-struct EffectUi<T> {
+struct EffectUi<T = f32> {
     map: HashMap<&'static str, (ParamIndex, T, bounded::Dynamic<T>)>,
 }
-impl<T: From<f32>> UI<T> for EffectUi<T> {
-    fn add_button(&mut self, s: &'static str, i: ParamIndex) {
-        self.add_num_entry(s, i, 0.0.into(), 0.0.into(), 1.0.into(), 0.0.into());
-    }
+impl<T> UI<T> for EffectUi<T> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, value: T, min: T, max: T, step: T) {
         let entry = bounded::Dynamic {
             atom: value.into(),
@@ -77,7 +75,7 @@ impl<T: From<f32>> UI<T> for EffectUi<T> {
         self.map.insert(s, (i, step, entry));
     }
 }
-impl EffectUi<f32> {
+impl EffectUi {
     fn store(&self, label: &'static str, data: f32) {
         if let Some((_, _, value)) = &self.map.get(label) {
             value.store(data);
@@ -95,7 +93,8 @@ struct Track {
     sample_type: AtomicCell<SampleType>,
     octave: bounded::Int<2, 8>,
     use_key: AtomicCell<bool>,
-    insert: EffectUi<f32>,
+    last_key: bounded::Int<0, { KEY_COUNT - 1 }>,
+    insert: EffectUi,
 }
 impl Track {
     fn note(&self, root: i32, scale: i32, key: i32) -> i32 {
@@ -117,18 +116,18 @@ struct Controls {
     root: bounded::Int<-12, 12>,
     scale: bounded::Int<0, 4>,
     tracks: Vec<Track>,
-    sends: Vec<EffectUi<f32>>,
+    sends: Vec<EffectUi>,
 }
 impl Controls {
     fn active_track(&self) -> &Track {
         &self.tracks[self.active_track_id.load() as usize]
     }
-    fn effect_uis(&self) -> impl Iterator<Item = &EffectUi<f32>> {
+    fn effect_uis(&self) -> impl Iterator<Item = &EffectUi> {
         std::array::from_ref(&self.active_track().insert)
             .iter()
             .chain(self.sends.iter())
     }
-    fn find<T>(&self, f: impl Fn(&EffectUi<f32>) -> Option<&T>) -> Option<&T> {
+    fn find<T>(&self, f: impl Fn(&EffectUi) -> Option<&T>) -> Option<&T> {
         self.effect_uis().find_map(f)
     }
 }
@@ -160,8 +159,8 @@ impl Voice {
             SampleType::File => {
                 let duration = track.file_sample.duration();
                 let position = self.position.floor() as usize;
-                let position_rem = self.position.fract();
-                if position < duration && position_rem == 0. {
+                let position_fract = self.position.fract();
+                if position < duration && position_fract == 0. {
                     self.write(&mut pre_buffer, |channel| {
                         track.file_sample.at(position, channel)
                     });
@@ -169,7 +168,7 @@ impl Voice {
                     self.write(&mut pre_buffer, |channel| {
                         let a = track.file_sample.at(position, channel);
                         let b = track.file_sample.at(position + 1, channel);
-                        a + position_rem * (b - a)
+                        a + position_fract * (b - a)
                     });
                 }
             }
@@ -193,8 +192,7 @@ impl Voice {
 }
 
 enum Setter {
-    Toggle(fn(&mut Audio) -> &AtomicCell<bool>),
-    Number(fn(&mut Audio, i32)),
+    Fn(fn(&mut Audio, i32)),
     Entry(&'static str),
 }
 
@@ -219,6 +217,7 @@ impl Audio {
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
         }
+        track.last_key.store(key);
         track.insert.store(&"gate", 1.);
         track.insert.store(&"note", note as f32);
         match track.sample_type.load() {
@@ -229,10 +228,7 @@ impl Audio {
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
         while let Ok((setter, data)) = self.receiver.try_recv() {
             match setter {
-                Setter::Toggle(f) => {
-                    f(self).fetch_xor(true);
-                }
-                Setter::Number(f) => {
+                Setter::Fn(f) => {
                     f(self, data);
                 }
                 Setter::Entry(key) => {
@@ -305,6 +301,9 @@ impl Ui {
             "tempo" => self.controls.tempo.load().into(),
             "root" => self.controls.root.load().into(),
             "scale" => self.controls.scale.load().into(),
+            "octave" => self.controls.active_track().octave.load(),
+            "useKey" => self.controls.active_track().use_key.load() as i32,
+            "lastKey" => self.controls.active_track().last_key.load(),
             "sample:type" => self.controls.active_track().sample_type.load() as i32,
             _ => self
                 .controls
@@ -314,25 +313,34 @@ impl Ui {
     }
     fn set(&self, method: &str) -> Setter {
         match method {
-            "play" => Setter::Toggle(|audio| &audio.controls.playing),
-            "arm" => Setter::Toggle(|audio| &audio.controls.armed),
-            "activeTrack" => Setter::Number(|audio, i| audio.controls.active_track_id.store(i)),
-            "auditionDown" => Setter::Number(|audio, i| audio.key_down(i, 7)),
-            "tempo" => Setter::Number(|audio, i| audio.controls.tempo.nudge(i, 10)),
-            "tempoTaps" => Setter::Number(|audio, i| audio.controls.tempo.store(i)),
-            "root" => Setter::Number(|audio, i| audio.controls.root.nudge(i, 7)),
-            "scale" => Setter::Number(|audio, i| audio.controls.scale.store(i)),
-            "noteDown" => Setter::Number(|audio, i| {
+            "play" => Setter::Fn(|audio, _| {
+                audio.controls.playing.fetch_xor(true);
+            }),
+            "arm" => Setter::Fn(|audio, _| {
+                audio.controls.armed.fetch_xor(true);
+            }),
+            "auditionDown" => Setter::Fn(|audio, i| {
+                audio.key_down(i, audio.controls.active_track().last_key.load());
+            }),
+            "activeTrack" => Setter::Fn(|audio, i| audio.controls.active_track_id.store(i)),
+            "tempo" => Setter::Fn(|audio, i| audio.controls.tempo.nudge(i, 10)),
+            "tempoTaps" => Setter::Fn(|audio, i| audio.controls.tempo.store(i)),
+            "root" => Setter::Fn(|audio, i| audio.controls.root.nudge(i, 7)),
+            "scale" => Setter::Fn(|audio, i| audio.controls.scale.store(i)),
+            "octave" => Setter::Fn(|audio, i| audio.controls.active_track().octave.nudge(i, 0)),
+            "useKey" => Setter::Fn(|audio, _| {
+                audio.controls.active_track().use_key.fetch_xor(true);
+            }),
+            "noteDown" => Setter::Fn(|audio, i| {
                 audio.key_down(audio.controls.active_track_id.load(), i);
             }),
-            "sample:type" => Setter::Number(|audio, i| {
+            "sample:type" => Setter::Fn(|audio, i| {
                 audio.controls.active_track().sample_type.store(i.into());
             }),
-            _ => Setter::Entry(
-                self.controls
-                    .find(|ui| ui.map.get_key_value(method).map(|(key, _)| key))
-                    .map_or(&"", |key| *key),
-            ),
+            _ => self
+                .controls
+                .find(|ui| ui.map.get_key_value(method).map(|(key, _)| key))
+                .map_or(Setter::Fn(|_, _| {}), |key| Setter::Entry(*key)),
         }
     }
 }
@@ -346,8 +354,9 @@ fn main() -> Result<()> {
         controls.tracks.push(Track {
             file_sample: Sample::read_file(i)?,
             sample_type: SampleType::File.into(),
-            octave: bounded::Int { atom: 4.into() },
+            octave: 4.into(),
             use_key: true.into(),
+            last_key: 12.into(),
             insert,
         });
     }

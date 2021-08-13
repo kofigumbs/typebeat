@@ -28,7 +28,7 @@ pub trait Bounded<T: Copy + PartialOrd + Num> {
 
 #[derive(Default)]
 pub struct Int<const MIN: i32, const MAX: i32> {
-    pub atom: AtomicCell<i32>,
+    atom: AtomicCell<i32>,
 }
 impl<const MIN: i32, const MAX: i32> Bounded<i32> for Int<MIN, MAX> {
     fn get_min(&self) -> i32 {
@@ -39,6 +39,11 @@ impl<const MIN: i32, const MAX: i32> Bounded<i32> for Int<MIN, MAX> {
     }
     fn get_atom(&self) -> &AtomicCell<i32> {
         &self.atom
+    }
+}
+impl<const MIN: i32, const MAX: i32> From<i32> for Int<MIN, MAX> {
+    fn from(value: i32) -> Self {
+        Self { atom: value.into() }
     }
 }
 
