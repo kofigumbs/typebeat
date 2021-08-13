@@ -213,7 +213,7 @@ impl Audio {
         if let Some(voice) = self.voices.iter_mut().max_by_key(|voice| voice.age) {
             voice.age = 0;
             voice.position = 0.;
-            voice.increment = 1.;
+            voice.increment = (note as f32 / 12.).exp2() / (69.0_f32 / 12.).exp2();
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
         }
