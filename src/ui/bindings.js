@@ -1,5 +1,5 @@
 const Bindings = ({ state, set }) => {
-  const method = (...parts) => parts.join(':').replace(/[^\w:]/, '');
+  const method = (...parts) => parts.join(' ');
 
   const noOp = () => '';
   const bind = options => Object.assign({ label: noOp, title: noOp, onDown: noOp, onUp: noOp }, options);

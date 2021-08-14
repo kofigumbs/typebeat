@@ -21,10 +21,6 @@ impl Sample {
     }
 
     pub fn at(&self, position: usize, channel: usize) -> f32 {
-        self.0[2 * position + channel]
-    }
-
-    pub fn duration(&self) -> usize {
-        self.0.len() / 2 as usize
+        *self.0.get(2 * position + channel).unwrap_or(&0.)
     }
 }

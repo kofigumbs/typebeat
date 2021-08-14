@@ -7,7 +7,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
-use serde::Deserialize;
 use wry::application::event::{Event, WindowEvent};
 use wry::application::event_loop::{ControlFlow, EventLoop};
 use wry::application::window::WindowBuilder;
@@ -33,14 +32,17 @@ const SCALE_OFFSETS: [[i32; 7]; 4] = [
     [0, 2, 3, 5, 7, 9, 11],
 ];
 
-fn bool_to_float(x: bool) -> f32 {
-    return if x { 1. } else { 0. };
-}
-
 fn add_assign_each(destination: &mut [f32], source: &[f32]) {
     for (destination, source) in destination.iter_mut().zip(source) {
         *destination += source;
     }
+}
+
+trait Void {
+    fn void(self);
+}
+impl<T: Sized> Void for T {
+    fn void(self) {}
 }
 
 #[derive(Clone, Copy)]
@@ -62,10 +64,10 @@ impl From<i32> for SampleType {
 }
 
 #[derive(Default)]
-struct EffectUi<T = f32> {
+struct Entries<T = f32> {
     map: HashMap<&'static str, (ParamIndex, T, bounded::Dynamic<T>)>,
 }
-impl<T> UI<T> for EffectUi<T> {
+impl<T> UI<T> for Entries<T> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, value: T, min: T, max: T, step: T) {
         let entry = bounded::Dynamic {
             atom: value.into(),
@@ -75,7 +77,7 @@ impl<T> UI<T> for EffectUi<T> {
         self.map.insert(s, (i, step, entry));
     }
 }
-impl EffectUi {
+impl Entries {
     fn store(&self, label: &'static str, data: f32) {
         if let Some((_, _, value)) = &self.map.get(label) {
             value.store(data);
@@ -94,7 +96,7 @@ struct Track {
     octave: bounded::Int<2, 8>,
     use_key: AtomicCell<bool>,
     last_key: bounded::Int<0, { KEY_COUNT - 1 }>,
-    insert: EffectUi,
+    insert: Entries,
 }
 impl Track {
     fn note(&self, root: i32, scale: i32, key: i32) -> i32 {
@@ -116,19 +118,23 @@ struct Controls {
     root: bounded::Int<-12, 12>,
     scale: bounded::Int<0, 4>,
     tracks: Vec<Track>,
-    sends: Vec<EffectUi>,
+    sends: Vec<Entries>,
 }
 impl Controls {
     fn active_track(&self) -> &Track {
         &self.tracks[self.active_track_id.load() as usize]
     }
-    fn effect_uis(&self) -> impl Iterator<Item = &EffectUi> {
+    fn entries(&self) -> impl Iterator<Item = &Entries> {
         std::array::from_ref(&self.active_track().insert)
             .iter()
             .chain(self.sends.iter())
     }
-    fn find<T>(&self, f: impl Fn(&EffectUi) -> Option<&T>) -> Option<&T> {
-        self.effect_uis().find_map(f)
+    fn find(
+        &self,
+        key: &str,
+    ) -> Option<(&&'static str, &(ParamIndex, f32, bounded::Dynamic<f32>))> {
+        self.entries()
+            .find_map(|entries| entries.map.get_key_value(key))
     }
 }
 
@@ -157,20 +163,13 @@ impl Voice {
         let mut post_buffer = [0.; effects::insert::OUTPUTS];
         match track.sample_type.load() {
             SampleType::File => {
-                let duration = track.file_sample.duration();
                 let position = self.position.floor() as usize;
                 let position_fract = self.position.fract();
-                if position < duration && position_fract == 0. {
-                    self.write(&mut pre_buffer, |channel| {
-                        track.file_sample.at(position, channel)
-                    });
-                } else if position + 1 < duration {
-                    self.write(&mut pre_buffer, |channel| {
-                        let a = track.file_sample.at(position, channel);
-                        let b = track.file_sample.at(position + 1, channel);
-                        a + position_fract * (b - a)
-                    });
-                }
+                self.write(&mut pre_buffer, |channel| {
+                    let a = track.file_sample.at(position, channel);
+                    let b = track.file_sample.at(position + 1, channel);
+                    position_fract.mul_add(b - a, a)
+                });
             }
             SampleType::Live | SampleType::LiveRecord | SampleType::LivePlay => {
                 self.write(&mut pre_buffer, |_| input.iter().sum::<f32>());
@@ -191,18 +190,21 @@ impl Voice {
     }
 }
 
-enum Setter {
-    Fn(fn(&mut Audio, i32)),
-    Entry(&'static str),
+enum Message {
+    Setter(i32, fn(&mut Audio, i32)),
+    SetEntry(i32, &'static str),
 }
 
 struct Audio {
     controls: Arc<Controls>,
     voices: Vec<Voice>,
     sends: Vec<Box<dyn Send + FaustDsp<T = f32>>>,
-    receiver: Receiver<(Setter, i32)>,
+    receiver: Receiver<Message>,
 }
 impl Audio {
+    fn active_track(&self) -> &Track {
+        self.controls.active_track()
+    }
     fn key_down(&mut self, track_id: i32, key: i32) {
         let track_id = track_id.clamp(0, TRACK_COUNT - 1) as usize;
         let track = &self.controls.tracks[track_id];
@@ -226,15 +228,13 @@ impl Audio {
         };
     }
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
-        while let Ok((setter, data)) = self.receiver.try_recv() {
+        while let Ok(setter) = self.receiver.try_recv() {
             match setter {
-                Setter::Fn(f) => {
-                    f(self, data);
-                }
-                Setter::Entry(key) => {
-                    if let Some((_, step, value)) = self.controls.find(|ui| ui.map.get(&key)) {
+                Message::Setter(data, f) => f(self, data),
+                Message::SetEntry(data, key) => {
+                    if let Some((_, (_, step, value))) = self.controls.find(&key) {
                         match *step as i32 {
-                            0 => value.store(bool_to_float(value.load() == 0.)),
+                            0 => value.store(if value.load() == 0. { 1. } else { 0. }),
                             1 => value.store(data as f32),
                             _ => value.nudge(data, *step),
                         }
@@ -268,80 +268,52 @@ impl Audio {
     }
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase", tag = "context")]
-enum Rpc {
-    Get { method: String },
-    Set { method: String, data: i32 },
-}
-
 struct Ui {
     controls: Arc<Controls>,
-    sender: Sender<(Setter, i32)>,
+    sender: Sender<Message>,
 }
 impl Ui {
     fn process(&self, request: RpcRequest) -> Option<RpcResponse> {
-        let (rpc,) = serde_json::from_value(request.params?).ok()?;
-        match rpc {
-            Rpc::Get { method } => Some(RpcResponse::new_result(
-                request.id,
-                Some(self.get(&method).into()),
-            )),
-            Rpc::Set { method, data } => {
-                let _ = self.sender.send((self.set(&method), data));
-                None
+        let param = &request.params?[0];
+        let context = param["context"].as_str()?;
+        let method = param["method"].as_str()?;
+        let data = param["data"].as_i64()? as i32;
+        let send = |setter| self.sender.send(Message::Setter(data, setter)).void();
+        let mut response = 0;
+        match format!("{} {}", context, method).as_str() {
+            "set auditionDown" => {
+                send(|audio, i| audio.key_down(i, audio.active_track().last_key.load()))
             }
+            "set noteDown" => {
+                send(|audio, i| audio.key_down(audio.controls.active_track_id.load(), i))
+            }
+            "get activeTrack" => response = self.controls.active_track_id.load(),
+            "set activeTrack" => send(|audio, i| audio.controls.active_track_id.store(i)),
+            "get sample type" => response = self.controls.active_track().sample_type.load() as i32,
+            "set sample type" => send(|audio, i| audio.active_track().sample_type.store(i.into())),
+            "get octave" => response = self.controls.active_track().octave.load(),
+            "set octave" => send(|audio, i| audio.active_track().octave.nudge(i, 0)),
+            "get useKey" => response = self.controls.active_track().use_key.load().into(),
+            "set useKey" => send(|audio, _| audio.active_track().use_key.fetch_xor(true).void()),
+            "get lastKey" => response = self.controls.active_track().last_key.load(),
+            "get playing" => response = self.controls.playing.load().into(),
+            "set play" => send(|audio, _| audio.controls.playing.fetch_xor(true).void()),
+            "get armed" => response = self.controls.armed.load().into(),
+            "set arm" => send(|audio, _| audio.controls.armed.fetch_xor(true).void()),
+            "get tempo" => response = self.controls.tempo.load(),
+            "set tempo" => send(|audio, i| audio.controls.tempo.nudge(i, 10)),
+            "set tempoTaps" => send(|audio, i| audio.controls.tempo.store(i)),
+            "get root" => response = self.controls.root.load(),
+            "set root" => send(|audio, i| audio.controls.root.nudge(i, 7)),
+            "get scale" => response = self.controls.scale.load(),
+            "set scale" => send(|audio, i| audio.controls.scale.store(i)),
+            _ => match (context, self.controls.find(method)) {
+                ("get", Some((_, (_, _, value)))) => response = value.load() as i32,
+                ("set", Some((key, _))) => self.sender.send(Message::SetEntry(data, key)).void(),
+                _ => {}
+            },
         }
-    }
-    fn get(&self, method: &str) -> i32 {
-        match method {
-            "activeTrack" => self.controls.active_track_id.load().into(),
-            "playing" => self.controls.playing.load().into(),
-            "armed" => self.controls.armed.load().into(),
-            "tempo" => self.controls.tempo.load().into(),
-            "root" => self.controls.root.load().into(),
-            "scale" => self.controls.scale.load().into(),
-            "octave" => self.controls.active_track().octave.load(),
-            "useKey" => self.controls.active_track().use_key.load() as i32,
-            "lastKey" => self.controls.active_track().last_key.load(),
-            "sample:type" => self.controls.active_track().sample_type.load() as i32,
-            _ => self
-                .controls
-                .find(|ui| ui.map.get(method))
-                .map_or(0, |(_, _, value)| value.load() as i32),
-        }
-    }
-    fn set(&self, method: &str) -> Setter {
-        match method {
-            "play" => Setter::Fn(|audio, _| {
-                audio.controls.playing.fetch_xor(true);
-            }),
-            "arm" => Setter::Fn(|audio, _| {
-                audio.controls.armed.fetch_xor(true);
-            }),
-            "auditionDown" => Setter::Fn(|audio, i| {
-                audio.key_down(i, audio.controls.active_track().last_key.load());
-            }),
-            "activeTrack" => Setter::Fn(|audio, i| audio.controls.active_track_id.store(i)),
-            "tempo" => Setter::Fn(|audio, i| audio.controls.tempo.nudge(i, 10)),
-            "tempoTaps" => Setter::Fn(|audio, i| audio.controls.tempo.store(i)),
-            "root" => Setter::Fn(|audio, i| audio.controls.root.nudge(i, 7)),
-            "scale" => Setter::Fn(|audio, i| audio.controls.scale.store(i)),
-            "octave" => Setter::Fn(|audio, i| audio.controls.active_track().octave.nudge(i, 0)),
-            "useKey" => Setter::Fn(|audio, _| {
-                audio.controls.active_track().use_key.fetch_xor(true);
-            }),
-            "noteDown" => Setter::Fn(|audio, i| {
-                audio.key_down(audio.controls.active_track_id.load(), i);
-            }),
-            "sample:type" => Setter::Fn(|audio, i| {
-                audio.controls.active_track().sample_type.store(i.into());
-            }),
-            _ => self
-                .controls
-                .find(|ui| ui.map.get_key_value(method).map(|(key, _)| key))
-                .map_or(Setter::Fn(|_, _| {}), |key| Setter::Entry(*key)),
-        }
+        Some(RpcResponse::new_result(request.id, Some(response.into())))
     }
 }
 
@@ -349,16 +321,16 @@ fn main() -> Result<()> {
     let mut controls = Controls::default();
     controls.tempo.store(120);
     for i in 0..TRACK_COUNT {
-        let mut insert = EffectUi::default();
-        effects::insert::build_user_interface_static(&mut insert);
-        controls.tracks.push(Track {
+        let mut track = Track {
             file_sample: Sample::read_file(i)?,
             sample_type: SampleType::File.into(),
             octave: 4.into(),
             use_key: true.into(),
             last_key: 12.into(),
-            insert,
-        });
+            insert: Entries::default(),
+        };
+        effects::insert::build_user_interface_static(&mut track.insert);
+        controls.tracks.push(track);
     }
 
     let sends: Vec<Box<dyn Send + FaustDsp<T = f32>>> = vec![
@@ -367,20 +339,16 @@ fn main() -> Result<()> {
         Box::new(Dsp::<effects::drive>::default().dsp),
     ];
     for dsp in sends.iter() {
-        let mut ui = EffectUi::default();
-        dsp.build_user_interface(&mut ui);
-        controls.sends.push(ui);
+        let mut entries = Entries::default();
+        dsp.build_user_interface(&mut entries);
+        controls.sends.push(entries);
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
     }
 
     let (sender, receiver) = std::sync::mpsc::channel();
-    let ui = Ui {
-        controls: Arc::new(controls),
-        sender,
-    };
     let mut audio = Audio {
-        controls: Arc::clone(&ui.controls),
+        controls: Arc::new(controls),
         voices: Vec::new(),
         sends,
         receiver,
@@ -394,6 +362,10 @@ fn main() -> Result<()> {
         );
         audio.voices.push(voice)
     }
+    let ui = Ui {
+        controls: Arc::clone(&audio.controls),
+        sender,
+    };
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);
