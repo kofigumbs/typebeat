@@ -1,4 +1,5 @@
 #![feature(array_methods)]
+#![feature(option_result_contains)]
 
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender};
@@ -42,20 +43,18 @@ fn toggle(value: &AtomicCell<bool>) {
     value.fetch_xor(true);
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 enum SampleType {
     File,
     Live,
     LiveRecord,
     LivePlay,
 }
-impl From<i32> for SampleType {
-    fn from(value: i32) -> Self {
-        match value {
-            i if i <= 0 => SampleType::File,
-            i if i == 1 => SampleType::Live,
-            i if i == 2 => SampleType::LiveRecord,
-            _ /* i > */ => SampleType::LivePlay,
+impl SampleType {
+    fn thru(self) -> i32 {
+        match self {
+            Self::File | Self::LivePlay => 0,
+            Self::Live | Self::LiveRecord => 1,
         }
     }
 }
@@ -163,6 +162,11 @@ struct Voice {
     insert: Dsp<effects::insert>,
 }
 impl Voice {
+    fn release(&mut self, track: &Track) {
+        if let Some((index, _, _)) = track.insert.map.get(&"gate") {
+            self.insert.dsp.set_param(*index, 0.);
+        }
+    }
     fn process(&mut self, track: &Track, input: &[f32], output: &mut [f32]) {
         let mut pre_buffer = [0.; effects::insert::INPUTS];
         let mut post_buffer = [0.; effects::insert::OUTPUTS];
@@ -227,18 +231,32 @@ impl Audio {
         }
         track.insert.store(&"gate", 1.);
         track.insert.store(&"note", note as f32);
-        match track.sample_type.load() {
-            SampleType::File | SampleType::LivePlay => track.insert.store(&"live", 1.),
-            SampleType::Live | SampleType::LiveRecord => track.insert.store(&"live", 0.),
-        };
+        track
+            .insert
+            .store(&"thru", track.sample_type.load().thru() as f32);
     }
     fn key_up(&mut self, track_id: i32, key: i32) {
-        let track = self.controls.track(track_id);
-        self.voices
-            .iter_mut()
-            .filter(|voice| voice.track_id == Some(track_id) && voice.key == key)
-            .filter_map(|voice| Some(voice).zip(track.insert.map.get(&"gate")))
-            .for_each(|(voice, (index, _, _))| voice.insert.dsp.set_param(*index, 0.));
+        for voice in self.voices.iter_mut() {
+            if voice.track_id.contains(&track_id) && voice.key == key {
+                voice.release(self.controls.track(track_id));
+            }
+        }
+    }
+    fn set_sample_type(&mut self, value: i32) {
+        let track = self.controls.active_track();
+        let sample_type = match value {
+            i if i <= 0 => SampleType::File,
+            i if i == 1 => SampleType::Live,
+            i if i == 2 => SampleType::LiveRecord,
+            _ /* i > */ => SampleType::LivePlay,
+        };
+        if sample_type != track.sample_type.swap(sample_type) {
+            for voice in self.voices.iter_mut() {
+                if voice.track_id.contains(&self.controls.active_track_id.load()) {
+                    voice.release(track);
+                }
+            }
+        }
     }
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
         while let Ok(setter) = self.receiver.try_recv() {
@@ -314,9 +332,7 @@ impl Ui {
             "get activeTrack" => self.controls.active_track_id.load(),
             "set activeTrack" => send(|audio, i| audio.controls.active_track_id.store(i))?,
             "get sample type" => self.controls.active_track().sample_type.load() as i32,
-            "set sample type" => {
-                send(|audio, i| audio.controls.active_track().sample_type.store(i.into()))?
-            }
+            "set sample type" => send(|audio, i| audio.set_sample_type(i))?,
             "get octave" => self.controls.active_track().octave.load(),
             "set octave" => send(|audio, i| audio.controls.active_track().octave.nudge(i, 0))?,
             "get useKey" => self.controls.active_track().use_key.load().into(),
