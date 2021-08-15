@@ -38,11 +38,8 @@ fn add_assign_each(destination: &mut [f32], source: &[f32]) {
     }
 }
 
-trait Void {
-    fn void(self);
-}
-impl<T: Sized> Void for T {
-    fn void(self) {}
+fn toggle(value: &AtomicCell<bool>) {
+    value.fetch_xor(true);
 }
 
 #[derive(Clone, Copy)]
@@ -91,22 +88,13 @@ impl Entries {
 }
 
 struct Track {
+    muted: AtomicCell<bool>,
     file_sample: Sample,
     sample_type: AtomicCell<SampleType>,
     octave: bounded::Int<2, 8>,
     use_key: AtomicCell<bool>,
     last_key: bounded::Int<0, { KEY_COUNT - 1 }>,
     insert: Entries,
-}
-impl Track {
-    fn note(&self, root: i32, scale: i32, key: i32) -> i32 {
-        (self.octave.load() + key / 7) * 12
-            + if self.use_key.load() {
-                SCALE_OFFSETS[scale as usize][key as usize % 7] + root
-            } else {
-                SCALE_OFFSETS[0][key as usize % 7]
-            }
-    }
 }
 
 #[derive(Default)]
@@ -123,6 +111,16 @@ struct Controls {
 impl Controls {
     fn active_track(&self) -> &Track {
         &self.tracks[self.active_track_id.load() as usize]
+    }
+    fn note(&self, track: &Track, key: i32) -> i32 {
+        let root = self.root.load();
+        let scale = self.scale.load();
+        (track.octave.load() + key / 7) * 12
+            + if track.use_key.load() {
+                SCALE_OFFSETS[scale as usize][key as usize % 7] + root
+            } else {
+                SCALE_OFFSETS[0][key as usize % 7]
+            }
     }
     fn entries(&self) -> impl Iterator<Item = &Entries> {
         std::array::from_ref(&self.active_track().insert)
@@ -202,13 +200,14 @@ struct Audio {
     receiver: Receiver<Message>,
 }
 impl Audio {
-    fn active_track(&self) -> &Track {
-        self.controls.active_track()
-    }
     fn key_down(&mut self, track_id: i32, key: i32) {
         let track_id = track_id.clamp(0, TRACK_COUNT - 1) as usize;
         let track = &self.controls.tracks[track_id];
-        let note = track.note(self.controls.root.load(), self.controls.scale.load(), key);
+        track.last_key.store(key);
+        if track.muted.load() {
+            return;
+        }
+        let note = self.controls.note(track, key);
         for voice in self.voices.iter_mut() {
             voice.age += 1;
         }
@@ -219,7 +218,6 @@ impl Audio {
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
         }
-        track.last_key.store(key);
         track.insert.store(&"gate", 1.);
         track.insert.store(&"note", note as f32);
         match track.sample_type.load() {
@@ -278,42 +276,64 @@ impl Ui {
         let context = param["context"].as_str()?;
         let method = param["method"].as_str()?;
         let data = param["data"].as_i64()? as i32;
-        let send = |setter| self.sender.send(Message::Setter(data, setter)).void();
-        let mut response = 0;
-        match format!("{} {}", context, method).as_str() {
+        let send = |setter| self.send(Message::Setter(data, setter));
+        let response = match format!("{} {}", context, method).as_str() {
             "set auditionDown" => {
-                send(|audio, i| audio.key_down(i, audio.active_track().last_key.load()))
+                send(|audio, i| audio.key_down(i, audio.controls.active_track().last_key.load()))?
             }
             "set noteDown" => {
-                send(|audio, i| audio.key_down(audio.controls.active_track_id.load(), i))
+                send(|audio, i| audio.key_down(audio.controls.active_track_id.load(), i))?
             }
-            "get activeTrack" => response = self.controls.active_track_id.load(),
-            "set activeTrack" => send(|audio, i| audio.controls.active_track_id.store(i)),
-            "get sample type" => response = self.controls.active_track().sample_type.load() as i32,
-            "set sample type" => send(|audio, i| audio.active_track().sample_type.store(i.into())),
-            "get octave" => response = self.controls.active_track().octave.load(),
-            "set octave" => send(|audio, i| audio.active_track().octave.nudge(i, 0)),
-            "get useKey" => response = self.controls.active_track().use_key.load().into(),
-            "set useKey" => send(|audio, _| audio.active_track().use_key.fetch_xor(true).void()),
-            "get lastKey" => response = self.controls.active_track().last_key.load(),
-            "get playing" => response = self.controls.playing.load().into(),
-            "set play" => send(|audio, _| audio.controls.playing.fetch_xor(true).void()),
-            "get armed" => response = self.controls.armed.load().into(),
-            "set arm" => send(|audio, _| audio.controls.armed.fetch_xor(true).void()),
-            "get tempo" => response = self.controls.tempo.load(),
-            "set tempo" => send(|audio, i| audio.controls.tempo.nudge(i, 10)),
-            "set tempoTaps" => send(|audio, i| audio.controls.tempo.store(i)),
-            "get root" => response = self.controls.root.load(),
-            "set root" => send(|audio, i| audio.controls.root.nudge(i, 7)),
-            "get scale" => response = self.controls.scale.load(),
-            "set scale" => send(|audio, i| audio.controls.scale.store(i)),
-            _ => match (context, self.controls.find(method)) {
-                ("get", Some((_, (_, _, value)))) => response = value.load() as i32,
-                ("set", Some((key, _))) => self.sender.send(Message::SetEntry(data, key)).void(),
-                _ => {}
-            },
-        }
+            "get activeTrack" => self.controls.active_track_id.load(),
+            "set activeTrack" => send(|audio, i| audio.controls.active_track_id.store(i))?,
+            "get sample type" => self.controls.active_track().sample_type.load() as i32,
+            "set sample type" => {
+                send(|audio, i| audio.controls.active_track().sample_type.store(i.into()))?
+            }
+            "get octave" => self.controls.active_track().octave.load(),
+            "set octave" => send(|audio, i| audio.controls.active_track().octave.nudge(i, 0))?,
+            "get useKey" => self.controls.active_track().use_key.load().into(),
+            "set useKey" => send(|audio, _| toggle(&audio.controls.active_track().use_key))?,
+            "get lastKey" => self.controls.active_track().last_key.load(),
+            "get playing" => self.controls.playing.load().into(),
+            "set play" => send(|audio, _| toggle(&audio.controls.playing))?,
+            "get armed" => self.controls.armed.load().into(),
+            "set arm" => send(|audio, _| toggle(&audio.controls.armed))?,
+            "get tempo" => self.controls.tempo.load(),
+            "set tempo" => send(|audio, i| audio.controls.tempo.nudge(i, 10))?,
+            "set tempoTaps" => send(|audio, i| audio.controls.tempo.store(i))?,
+            "get root" => self.controls.root.load(),
+            "set root" => send(|audio, i| audio.controls.root.nudge(i, 7))?,
+            "get scale" => self.controls.scale.load(),
+            "set scale" => send(|audio, i| audio.controls.scale.store(i))?,
+            "set mute" => send(|audio, i| toggle(&audio.controls.tracks[i as usize].muted))?,
+            _ => {
+                if let Some((key, (_, _, value))) = self.controls.find(method) {
+                    match context {
+                        "get" => value.load() as i32,
+                        "set" => self.send(Message::SetEntry(data, key))?,
+                        _ => None?,
+                    }
+                } else if let Some((name, i)) = Ui::split(method) {
+                    match format!("{} {}", context, name).as_str() {
+                        "get note" => self.controls.note(self.controls.active_track(), i),
+                        "get mute" => self.controls.tracks[i as usize].muted.load() as i32,
+                        _ => None?,
+                    }
+                } else {
+                    None?
+                }
+            }
+        };
         Some(RpcResponse::new_result(request.id, Some(response.into())))
+    }
+    fn send<T>(&self, message: Message) -> Option<T> {
+        let _ = self.sender.send(message);
+        None
+    }
+    fn split(method: &str) -> Option<(&str, i32)> {
+        let mut iter = method.split(' ');
+        iter.next().zip(iter.next()?.parse().ok())
     }
 }
 
@@ -322,6 +342,7 @@ fn main() -> Result<()> {
     controls.tempo.store(120);
     for i in 0..TRACK_COUNT {
         let mut track = Track {
+            muted: false.into(),
             file_sample: Sample::read_file(i)?,
             sample_type: SampleType::File.into(),
             octave: 4.into(),
