@@ -81,8 +81,11 @@ impl Entries {
         }
     }
     fn set_params_on(&self, dsp: &mut dyn effects::FaustDsp<T = f32>) {
-        for (index, _, value) in self.map.values() {
-            dsp.set_param(*index, value.load());
+        for (key, (index, _, value)) in self.map.iter() {
+            match *key {
+                "gate" | "note" => {}
+                _ => dsp.set_param(*index, value.load()),
+            }
         }
     }
 }
@@ -93,7 +96,7 @@ struct Track {
     sample_type: AtomicCell<SampleType>,
     octave: bounded::Int<2, 8>,
     use_key: AtomicCell<bool>,
-    last_key: bounded::Int<0, { KEY_COUNT - 1 }>,
+    active_key: bounded::Int<0, { KEY_COUNT - 1 }>,
     insert: Entries,
 }
 
@@ -206,7 +209,7 @@ struct Audio {
 impl Audio {
     fn key_down(&mut self, track_id: i32, key: i32) {
         let track = self.controls.track(track_id);
-        track.last_key.store(key);
+        track.active_key.store(key);
         if track.muted.load() {
             return;
         }
@@ -252,22 +255,22 @@ impl Audio {
                 }
             }
         }
+        for (voice, track) in self.active_voices() {
+            track.insert.set_params_on(voice.insert.dsp.as_mut());
+        }
+        for (dsp, entries) in self.sends.iter_mut().zip(self.controls.sends.iter()) {
+            entries.set_params_on(dsp.as_mut());
+        }
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
             let mut pre_buffer = [0.; effects::insert::OUTPUTS];
             let mut post_buffer = [0.; 2];
-            for voice in self.voices.iter_mut() {
-                let track = match voice.track_id {
-                    None => continue,
-                    Some(track_id) => self.controls.track(track_id),
-                };
-                track.insert.set_params_on(voice.insert.dsp.as_mut());
+            for (voice, track) in self.active_voices() {
                 voice.process(track, input, &mut pre_buffer);
             }
             add_assign_each(output, &pre_buffer);
-            for i in 0..self.sends.len() {
+            for (i, dsp) in self.sends.iter_mut().enumerate() {
                 let start_channel = 2 * (i + 1);
-                self.controls.sends[i].set_params_on(self.sends[i].as_mut());
-                self.sends[i].compute(
+                dsp.compute(
                     1,
                     &pre_buffer.each_ref().map(std::slice::from_ref)[start_channel..],
                     &mut post_buffer.each_mut().map(std::slice::from_mut),
@@ -275,6 +278,12 @@ impl Audio {
                 add_assign_each(output, &post_buffer);
             }
         }
+    }
+    fn active_voices(&mut self) -> impl Iterator<Item = (&mut Voice, &Track)> {
+        let controls = &self.controls;
+        self.voices
+            .iter_mut()
+            .filter_map(move |voice| voice.track_id.map(|i| (voice, controls.track(i))))
     }
 }
 
@@ -291,10 +300,10 @@ impl Ui {
         let send = |setter| self.send(Message::Setter(data, setter));
         let response = match format!("{} {}", context, method).as_str() {
             "set auditionDown" => {
-                send(|audio, i| audio.key_down(i, audio.controls.active_track().last_key.load()))?
+                send(|audio, i| audio.key_down(i, audio.controls.active_track().active_key.load()))?
             }
             "set auditionUp" => {
-                send(|audio, i| audio.key_up(i, audio.controls.active_track().last_key.load()))?
+                send(|audio, i| audio.key_up(i, audio.controls.active_track().active_key.load()))?
             }
             "set noteDown" => {
                 send(|audio, i| audio.key_down(audio.controls.active_track_id.load(), i))?
@@ -312,7 +321,7 @@ impl Ui {
             "set octave" => send(|audio, i| audio.controls.active_track().octave.nudge(i, 0))?,
             "get useKey" => self.controls.active_track().use_key.load().into(),
             "set useKey" => send(|audio, _| toggle(&audio.controls.active_track().use_key))?,
-            "get lastKey" => self.controls.active_track().last_key.load(),
+            "get lastKey" => self.controls.active_track().active_key.load(),
             "get playing" => self.controls.playing.load().into(),
             "set play" => send(|audio, _| toggle(&audio.controls.playing))?,
             "get armed" => self.controls.armed.load().into(),
@@ -365,7 +374,7 @@ fn main() -> Result<()> {
             sample_type: SampleType::File.into(),
             octave: 4.into(),
             use_key: true.into(),
-            last_key: 12.into(),
+            active_key: 12.into(),
             insert: Entries::default(),
         };
         effects::insert::build_user_interface_static(&mut track.insert);

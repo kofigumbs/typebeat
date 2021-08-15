@@ -4,10 +4,10 @@ gate = nentry("gate",  0, 0,   1, 0);
 live = nentry("live",  0, 0,   1, 0);
 note = nentry("note", 69, 0, 127, 0);
 
-synth1Type = nentry("synth1 type", 0, 0, 4, 1);
-synth2Type = nentry("synth2 type", 0, 0, 4, 1);
-synth3Type = nentry("synth3 type", 0, 0, 4, 1);
-holdSample = nentry("holdSample",  0, 0, 1, 0);
+synth1Type = nentry("synth 1 type", 0, 0, 4, 1);
+synth2Type = nentry("synth 2 type", 0, 0, 4, 1);
+synth3Type = nentry("synth 3 type", 0, 0, 4, 1);
+holdSample = nentry("holdSample",   0, 0, 1, 0);
 
 sampleLevel  = nentry("sample level",  25,    0,  50, 10) : smooth;
 sampleDetune = nentry("sample detune",  0, -120, 120, 10) : smooth;
