@@ -109,8 +109,11 @@ struct Controls {
     sends: Vec<Entries>,
 }
 impl Controls {
+    fn track(&self, id: i32) -> &Track {
+        &self.tracks[id.clamp(0, TRACK_COUNT - 1) as usize]
+    }
     fn active_track(&self) -> &Track {
-        &self.tracks[self.active_track_id.load() as usize]
+        self.track(self.active_track_id.load())
     }
     fn note(&self, track: &Track, key: i32) -> i32 {
         let root = self.root.load();
@@ -149,10 +152,11 @@ impl<T: FaustDsp> Default for Dsp<T> {
 
 #[derive(Default)]
 struct Voice {
+    key: i32,
     age: usize,
     position: f32,
     increment: f32,
-    track_id: Option<usize>,
+    track_id: Option<i32>,
     insert: Dsp<effects::insert>,
 }
 impl Voice {
@@ -201,8 +205,7 @@ struct Audio {
 }
 impl Audio {
     fn key_down(&mut self, track_id: i32, key: i32) {
-        let track_id = track_id.clamp(0, TRACK_COUNT - 1) as usize;
-        let track = &self.controls.tracks[track_id];
+        let track = self.controls.track(track_id);
         track.last_key.store(key);
         if track.muted.load() {
             return;
@@ -212,6 +215,7 @@ impl Audio {
             voice.age += 1;
         }
         if let Some(voice) = self.voices.iter_mut().max_by_key(|voice| voice.age) {
+            voice.key = key;
             voice.age = 0;
             voice.position = 0.;
             voice.increment = (note as f32 / 12.).exp2() / (69.0_f32 / 12.).exp2();
@@ -224,6 +228,14 @@ impl Audio {
             SampleType::File | SampleType::LivePlay => track.insert.store(&"live", 1.),
             SampleType::Live | SampleType::LiveRecord => track.insert.store(&"live", 0.),
         };
+    }
+    fn key_up(&mut self, track_id: i32, key: i32) {
+        let track = self.controls.track(track_id);
+        self.voices
+            .iter_mut()
+            .filter(|voice| voice.track_id == Some(track_id) && voice.key == key)
+            .filter_map(|voice| Some(voice).zip(track.insert.map.get(&"gate")))
+            .for_each(|(voice, (index, _, _))| voice.insert.dsp.set_param(*index, 0.));
     }
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
         while let Ok(setter) = self.receiver.try_recv() {
@@ -246,9 +258,9 @@ impl Audio {
             for voice in self.voices.iter_mut() {
                 let track = match voice.track_id {
                     None => continue,
-                    Some(track_id) => &self.controls.tracks[track_id],
+                    Some(track_id) => self.controls.track(track_id),
                 };
-                track.insert.set_params_on(&mut voice.insert.dsp);
+                track.insert.set_params_on(voice.insert.dsp.as_mut());
                 voice.process(track, input, &mut pre_buffer);
             }
             add_assign_each(output, &pre_buffer);
@@ -281,8 +293,14 @@ impl Ui {
             "set auditionDown" => {
                 send(|audio, i| audio.key_down(i, audio.controls.active_track().last_key.load()))?
             }
+            "set auditionUp" => {
+                send(|audio, i| audio.key_up(i, audio.controls.active_track().last_key.load()))?
+            }
             "set noteDown" => {
                 send(|audio, i| audio.key_down(audio.controls.active_track_id.load(), i))?
+            }
+            "set noteUp" => {
+                send(|audio, i| audio.key_up(audio.controls.active_track_id.load(), i))?
             }
             "get activeTrack" => self.controls.active_track_id.load(),
             "set activeTrack" => send(|audio, i| audio.controls.active_track_id.store(i))?,
