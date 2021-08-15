@@ -6,6 +6,10 @@ edition = "2018"
 [[bin]]
 name = "typebeat"
 
+[profile.dev]
+opt-level = 2
+overflow-checks = false
+
 [dependencies]
 anyhow = "1.0"
 crossbeam = "0.8"

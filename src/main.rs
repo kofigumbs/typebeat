@@ -140,11 +140,11 @@ impl Controls {
 }
 
 struct Dsp<T> {
-    dsp: T,
+    dsp: Box<T>,
 }
 impl<T: FaustDsp> Default for Dsp<T> {
     fn default() -> Self {
-        let mut dsp = T::new();
+        let mut dsp = Box::new(T::new());
         dsp.instance_init(SAMPLE_RATE);
         Dsp { dsp }
     }
@@ -373,9 +373,9 @@ fn main() -> Result<()> {
     }
 
     let sends: Vec<Box<dyn Send + FaustDsp<T = f32>>> = vec![
-        Box::new(Dsp::<effects::reverb>::default().dsp),
-        Box::new(Dsp::<effects::echo>::default().dsp),
-        Box::new(Dsp::<effects::drive>::default().dsp),
+        Dsp::<effects::reverb>::default().dsp,
+        Dsp::<effects::echo>::default().dsp,
+        Dsp::<effects::drive>::default().dsp,
     ];
     for dsp in sends.iter() {
         let mut entries = Entries::default();
