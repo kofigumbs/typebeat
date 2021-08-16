@@ -27,10 +27,10 @@ pub trait Bounded<T: Copy + PartialOrd + Num> {
 }
 
 #[derive(Default)]
-pub struct Int<const MIN: i32, const MAX: i32> {
+pub struct I32<const MIN: i32, const MAX: i32> {
     atom: AtomicCell<i32>,
 }
-impl<const MIN: i32, const MAX: i32> Bounded<i32> for Int<MIN, MAX> {
+impl<const MIN: i32, const MAX: i32> Bounded<i32> for I32<MIN, MAX> {
     fn get_min(&self) -> i32 {
         MIN
     }
@@ -41,18 +41,18 @@ impl<const MIN: i32, const MAX: i32> Bounded<i32> for Int<MIN, MAX> {
         &self.atom
     }
 }
-impl<const MIN: i32, const MAX: i32> From<i32> for Int<MIN, MAX> {
+impl<const MIN: i32, const MAX: i32> From<i32> for I32<MIN, MAX> {
     fn from(value: i32) -> Self {
         Self { atom: value.into() }
     }
 }
 
-pub struct Dynamic<T> {
+pub struct Any<T> {
     pub atom: AtomicCell<T>,
     pub min: T,
     pub max: T,
 }
-impl<T: Copy + PartialOrd + Num> Bounded<T> for Dynamic<T> {
+impl<T: Copy + PartialOrd + Num> Bounded<T> for Any<T> {
     fn get_min(&self) -> T {
         self.min
     }

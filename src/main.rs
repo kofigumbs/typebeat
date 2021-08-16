@@ -1,5 +1,4 @@
 #![feature(array_methods)]
-#![feature(option_result_contains)]
 
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender};
@@ -15,7 +14,6 @@ use wry::webview::{RpcRequest, RpcResponse, WebViewBuilder};
 
 use bounded::Bounded;
 use effects::{Bus, FaustDsp, ParamIndex, UI};
-use samples::Sample;
 
 mod bounded;
 mod effects;
@@ -33,6 +31,18 @@ const SCALE_OFFSETS: [[i32; 7]; 4] = [
     [0, 2, 3, 5, 7, 9, 11],
 ];
 
+fn get_clamped<T: Copy>(values: &[T], index: usize) -> T {
+    values[index.clamp(0, values.len() - 1)]
+}
+
+fn get_stereo(position: usize, channel: usize, sample: &[f32]) -> f32 {
+    *sample.get(2 * position + channel).unwrap_or(&0.)
+}
+
+fn into_stereo(buffer: &[f32], channel: usize) -> [f32; 2] {
+    [buffer[2 * channel], buffer[2 * channel + 1]]
+}
+
 fn add_assign_each(destination: &mut [f32], source: &[f32]) {
     for (destination, source) in destination.iter_mut().zip(source) {
         *destination += source;
@@ -43,6 +53,18 @@ fn toggle(value: &AtomicCell<bool>) {
     value.fetch_xor(true);
 }
 
+fn compute<const N: usize, const M: usize>(
+    dsp: &mut dyn effects::FaustDsp<T = f32>,
+    input: &[f32; N],
+    output: &mut [f32; M],
+) {
+    dsp.compute(
+        1,
+        &input.each_ref().map(std::slice::from_ref),
+        &mut output.each_mut().map(std::slice::from_mut),
+    );
+}
+
 #[derive(Clone, Copy, PartialEq)]
 enum SampleType {
     File,
@@ -51,6 +73,12 @@ enum SampleType {
     LivePlay,
 }
 impl SampleType {
+    const ALL: [Self; 4] = [
+        SampleType::File,
+        SampleType::Live,
+        SampleType::LiveRecord,
+        SampleType::LivePlay,
+    ];
     fn thru(self) -> i32 {
         match self {
             Self::File | Self::LivePlay => 0,
@@ -61,11 +89,11 @@ impl SampleType {
 
 #[derive(Default)]
 struct Entries<T = f32> {
-    map: HashMap<&'static str, (ParamIndex, T, bounded::Dynamic<T>)>,
+    map: HashMap<&'static str, (ParamIndex, T, bounded::Any<T>)>,
 }
 impl<T> UI<T> for Entries<T> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, value: T, min: T, max: T, step: T) {
-        let entry = bounded::Dynamic {
+        let entry = bounded::Any {
             atom: value.into(),
             min,
             max,
@@ -91,22 +119,22 @@ impl Entries {
 
 struct Track {
     muted: AtomicCell<bool>,
-    file_sample: Sample,
+    file_sample: Vec<f32>,
     sample_type: AtomicCell<SampleType>,
-    octave: bounded::Int<2, 8>,
+    octave: bounded::I32<2, 8>,
     use_key: AtomicCell<bool>,
-    active_key: bounded::Int<0, { KEY_COUNT - 1 }>,
+    active_key: bounded::I32<0, { KEY_COUNT - 1 }>,
     insert: Entries,
 }
 
 #[derive(Default)]
 struct Controls {
-    active_track_id: bounded::Int<0, { TRACK_COUNT - 1 }>,
+    active_track_id: bounded::I32<0, { TRACK_COUNT - 1 }>,
     playing: AtomicCell<bool>,
     armed: AtomicCell<bool>,
-    tempo: bounded::Int<1, 999>,
-    root: bounded::Int<-12, 12>,
-    scale: bounded::Int<0, 4>,
+    tempo: bounded::I32<1, 999>,
+    root: bounded::I32<-12, 12>,
+    scale: bounded::I32<0, 4>,
     tracks: Vec<Track>,
     sends: Vec<Entries>,
 }
@@ -132,13 +160,16 @@ impl Controls {
             .iter()
             .chain(self.sends.iter())
     }
-    fn find(
-        &self,
-        key: &str,
-    ) -> Option<(&&'static str, &(ParamIndex, f32, bounded::Dynamic<f32>))> {
+    fn find(&self, key: &str) -> Option<(&&'static str, &(ParamIndex, f32, bounded::Any<f32>))> {
         self.entries()
             .find_map(|entries| entries.map.get_key_value(key))
     }
+}
+
+#[derive(Clone)]
+struct Live {
+    in_use: usize,
+    sample: Vec<f32>,
 }
 
 struct Dsp<T> {
@@ -162,34 +193,33 @@ struct Voice {
     insert: Dsp<effects::insert>,
 }
 impl Voice {
-    fn release(&mut self, track: &Track) {
-        if let Some((index, _, _)) = track.insert.map.get(&"gate") {
-            self.insert.dsp.set_param(*index, 0.);
-        }
-    }
-    fn process(&mut self, track: &Track, input: &[f32], output: &mut [f32]) {
-        let mut pre_buffer = [0.; effects::insert::INPUTS];
-        let mut post_buffer = [0.; effects::insert::OUTPUTS];
+    fn process(&mut self, track: &Track, live: &mut Live, input: &[f32], output: &mut [f32]) {
+        let mut pre_buffer = [0.; 2];
+        let mut out_buffer = [0.; effects::insert::OUTPUTS];
         match track.sample_type.load() {
-            SampleType::File => {
-                let position = self.position.floor() as usize;
-                let position_fract = self.position.fract();
-                self.write(&mut pre_buffer, |channel| {
-                    let a = track.file_sample.at(position, channel);
-                    let b = track.file_sample.at(position + 1, channel);
-                    position_fract.mul_add(b - a, a)
-                });
+            SampleType::File => self.play_sample(&mut pre_buffer, &track.file_sample),
+            SampleType::Live => self.write(&mut pre_buffer, |_| input.iter().sum()),
+            SampleType::LiveRecord => {
+                let input = input.iter().sum();
+                if live.in_use < live.sample.len() {
+                    live.sample[live.in_use] = input;
+                    live.in_use += 1;
+                }
+                self.write(&mut pre_buffer, |_| input);
             }
-            SampleType::Live | SampleType::LiveRecord | SampleType::LivePlay => {
-                self.write(&mut pre_buffer, |_| input.iter().sum::<f32>());
-            }
+            SampleType::LivePlay => self.play_sample(&mut pre_buffer, &live.sample[..live.in_use]),
         }
-        self.insert.dsp.compute(
-            1,
-            &pre_buffer.each_ref().map(std::slice::from_ref),
-            &mut post_buffer.each_mut().map(std::slice::from_mut),
-        );
-        add_assign_each(output, &post_buffer);
+        compute(self.insert.dsp.as_mut(), &pre_buffer, &mut out_buffer);
+        add_assign_each(output, &out_buffer);
+    }
+    fn play_sample(&mut self, buffer: &mut [f32], sample: &[f32]) {
+        let position = self.position.floor() as usize;
+        let position_fract = self.position.fract();
+        self.write(buffer, |channel| {
+            let a = get_stereo(position, channel, sample);
+            let b = get_stereo(position + 1, channel, sample);
+            position_fract.mul_add(b - a, a)
+        });
     }
     fn write<F: Fn(usize) -> f32>(&mut self, buffer: &mut [f32], f: F) {
         for (channel, sample) in buffer.iter_mut().enumerate() {
@@ -206,6 +236,7 @@ enum Message {
 
 struct Audio {
     controls: Arc<Controls>,
+    lives: Vec<Live>,
     voices: Vec<Voice>,
     sends: Vec<Box<dyn Send + FaustDsp<T = f32>>>,
     receiver: Receiver<Message>,
@@ -236,26 +267,29 @@ impl Audio {
             .store(&"thru", track.sample_type.load().thru() as f32);
     }
     fn key_up(&mut self, track_id: i32, key: i32) {
+        let track = self.controls.track(track_id);
         for voice in self.voices.iter_mut() {
-            if voice.track_id.contains(&track_id) && voice.key == key {
-                voice.release(self.controls.track(track_id));
+            if voice.track_id == Some(track_id) && voice.key == key {
+                if let Some((index, _, _)) = track.insert.map.get(&"gate") {
+                    voice.insert.dsp.set_param(*index, 0.);
+                }
             }
         }
     }
     fn set_sample_type(&mut self, value: i32) {
         let track = self.controls.active_track();
-        let sample_type = match value {
-            i if i <= 0 => SampleType::File,
-            i if i == 1 => SampleType::Live,
-            i if i == 2 => SampleType::LiveRecord,
-            _ /* i > */ => SampleType::LivePlay,
-        };
-        if sample_type != track.sample_type.swap(sample_type) {
+        let track_id = self.controls.active_track_id.load();
+        let sample_type = get_clamped(&SampleType::ALL, value as usize);
+        if sample_type == SampleType::LiveRecord {
+            self.lives[track_id as usize].in_use = 0;
+        }
+        if sample_type != track.sample_type.load() {
             for voice in self.voices.iter_mut() {
-                if voice.track_id.contains(&self.controls.active_track_id.load()) {
-                    voice.release(track);
+                if voice.track_id == Some(track_id) {
+                    voice.track_id = None;
                 }
             }
+            track.sample_type.store(sample_type);
         }
     }
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
@@ -273,35 +307,33 @@ impl Audio {
                 }
             }
         }
-        for (voice, track) in self.active_voices() {
-            track.insert.set_params_on(voice.insert.dsp.as_mut());
+        for voice in self.voices.iter_mut() {
+            if let Some(track_id) = voice.track_id {
+                self.controls
+                    .track(track_id)
+                    .insert
+                    .set_params_on(voice.insert.dsp.as_mut());
+            }
         }
         for (dsp, entries) in self.sends.iter_mut().zip(self.controls.sends.iter()) {
             entries.set_params_on(dsp.as_mut());
         }
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
             let mut pre_buffer = [0.; effects::insert::OUTPUTS];
-            let mut post_buffer = [0.; 2];
-            for (voice, track) in self.active_voices() {
-                voice.process(track, input, &mut pre_buffer);
+            let mut out_buffer = [0.; 2];
+            for (voice, live) in self.voices.iter_mut().zip(self.lives.iter_mut()) {
+                if let Some(track_id) = voice.track_id {
+                    voice.process(self.controls.track(track_id), live, input, &mut pre_buffer);
+                } else {
+                    compute(voice.insert.dsp.as_mut(), &[0., 0.], &mut pre_buffer);
+                }
             }
             add_assign_each(output, &pre_buffer);
-            for (i, dsp) in self.sends.iter_mut().enumerate() {
-                let start_channel = 2 * (i + 1);
-                dsp.compute(
-                    1,
-                    &pre_buffer.each_ref().map(std::slice::from_ref)[start_channel..],
-                    &mut post_buffer.each_mut().map(std::slice::from_mut),
-                );
-                add_assign_each(output, &post_buffer);
+            for (dsp, i) in self.sends.iter_mut().zip(1..) {
+                compute(dsp.as_mut(), &into_stereo(&pre_buffer, i), &mut out_buffer);
+                add_assign_each(output, &out_buffer);
             }
         }
-    }
-    fn active_voices(&mut self) -> impl Iterator<Item = (&mut Voice, &Track)> {
-        let controls = &self.controls;
-        self.voices
-            .iter_mut()
-            .filter_map(move |voice| voice.track_id.map(|i| (voice, controls.track(i))))
     }
 }
 
@@ -386,7 +418,7 @@ fn main() -> Result<()> {
     for i in 0..TRACK_COUNT {
         let mut track = Track {
             muted: false.into(),
-            file_sample: Sample::read_file(i)?,
+            file_sample: samples::read_stereo_file(i)?,
             sample_type: SampleType::File.into(),
             octave: 4.into(),
             use_key: true.into(),
@@ -413,18 +445,24 @@ fn main() -> Result<()> {
     let (sender, receiver) = std::sync::mpsc::channel();
     let mut audio = Audio {
         controls: Arc::new(controls),
+        lives: Vec::new(),
         voices: Vec::new(),
         sends,
         receiver,
     };
-    for _ in 0..VOICE_COUNT {
-        let voice = Voice::default();
+    audio.lives.resize_with(TRACK_COUNT as usize, || Live {
+        in_use: 0,
+        sample: vec![0.; 60 * SAMPLE_RATE as usize],
+    });
+    audio
+        .voices
+        .resize_with(VOICE_COUNT as usize, Voice::default);
+    for voice in audio.voices.iter() {
         assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
         assert_eq!(
             audio.sends.len() + 1,
             voice.insert.dsp.get_num_outputs() as usize / 2
         );
-        audio.voices.push(voice)
     }
     let ui = Ui {
         controls: Arc::clone(&audio.controls),
