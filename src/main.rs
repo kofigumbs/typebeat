@@ -216,9 +216,13 @@ impl Voice {
         let position = self.position.floor() as usize;
         let position_fract = self.position.fract();
         self.write(buffer, |channel| {
-            let a = get_stereo(position, channel, sample);
-            let b = get_stereo(position + 1, channel, sample);
-            position_fract.mul_add(b - a, a)
+            if position_fract == 0. {
+                get_stereo(position, channel, sample)
+            } else {
+                let a = get_stereo(position, channel, sample);
+                let b = get_stereo(position + 1, channel, sample);
+                position_fract.mul_add(b - a, a)
+            }
         });
     }
     fn write<F: Fn(usize) -> f32>(&mut self, buffer: &mut [f32], f: F) {
