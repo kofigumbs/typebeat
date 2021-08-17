@@ -14,22 +14,24 @@ use wry::application::window::WindowBuilder;
 use wry::webview::{RpcRequest, RpcResponse, WebViewBuilder};
 
 use bounded::Bounded;
-use effects::{Bus, FaustDsp, ParamIndex, UI};
+use effects::{FaustDsp, ParamIndex, UI};
 
 mod bounded;
 mod effects;
 mod samples;
+
+const SEND_COUNT: usize = 4;
 
 const KEY_COUNT: i32 = 15;
 const VOICE_COUNT: i32 = 5;
 const TRACK_COUNT: i32 = 15;
 const SAMPLE_RATE: i32 = 44100;
 
-const SCALE_OFFSETS: [[i32; 7]; 4] = [
-    [0, 2, 4, 5, 7, 9, 11],
-    [0, 2, 3, 5, 7, 8, 10],
-    [0, 2, 3, 5, 7, 8, 11],
-    [0, 2, 3, 5, 7, 9, 11],
+const SCALE_OFFSETS: &[&[i32]] = &[
+    &[0, 2, 4, 5, 7, 9, 11],
+    &[0, 2, 3, 5, 7, 8, 10],
+    &[0, 2, 3, 5, 7, 8, 11],
+    &[0, 2, 3, 5, 7, 9, 11],
 ];
 
 fn get_clamped<T: Copy>(values: &[T], index: usize) -> T {
@@ -197,7 +199,7 @@ struct Voice {
 }
 impl Voice {
     fn process(&mut self, controls: &Controls, live: &mut Live, input: &[f32], output: &mut [f32]) {
-        let mut buffer = Buffer::<2, { effects::insert::OUTPUTS }>::new();
+        let mut buffer = Buffer::<2, { SEND_COUNT * 2 }>::new();
         match self.track_id {
             None => self.play(&mut buffer.mix, |_| 0.),
             Some(track_id) => {
@@ -333,15 +335,14 @@ impl Audio {
             entries.set_params_on(dsp.as_mut());
         }
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
-            let mut buffer = Buffer::<{ effects::insert::OUTPUTS }, 2>::new();
+            let mut buffer = Buffer::<{ SEND_COUNT * 2 }, 2>::new();
             for (voice, live) in self.voices.iter_mut().zip(self.lives.iter_mut()) {
                 voice.process(&self.controls, live, input, &mut buffer.mix);
             }
-            add_assign_each(output, &buffer.mix);
-            for (i, dsp) in self.sends.iter_mut().enumerate() {
-                buffer.mix_start = 2 * (i + 1);
+            for dsp in self.sends.iter_mut() {
                 buffer.compute(dsp.as_mut());
                 add_assign_each(output, &buffer.out);
+                buffer.mix_start += 2;
             }
         }
     }
@@ -399,7 +400,7 @@ impl Ui {
                         "set" => self.send(Message::SetEntry(data, key))?,
                         _ => None?,
                     }
-                } else if let Some((name, i)) = Ui::split(method) {
+                } else if let Some((name, i)) = Self::split(method) {
                     match format!("{} {}", context, name).as_str() {
                         "get note" => self.controls.note(self.controls.active_track(), i),
                         "get mute" => self.controls.tracks[i as usize].muted.load() as i32,
@@ -440,6 +441,7 @@ fn main() -> Result<()> {
     }
 
     let sends: Vec<Box<dyn Send + FaustDsp<T = f32>>> = vec![
+        Dsp::<effects::dry>::default().dsp,
         Dsp::<effects::reverb>::default().dsp,
         Dsp::<effects::echo>::default().dsp,
         Dsp::<effects::drive>::default().dsp,
@@ -451,6 +453,7 @@ fn main() -> Result<()> {
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
     }
+    assert_eq!(sends.len(), SEND_COUNT as usize);
 
     let (sender, receiver) = std::sync::mpsc::channel();
     let mut audio = Audio {
@@ -464,16 +467,16 @@ fn main() -> Result<()> {
         in_use: 0,
         sample: vec![0.; 60 * SAMPLE_RATE as usize],
     });
-    audio
-        .voices
-        .resize_with(VOICE_COUNT as usize, Voice::default);
-    for voice in audio.voices.iter() {
+    for _ in 0..VOICE_COUNT {
+        let voice = Voice::default();
         assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
         assert_eq!(
-            audio.sends.len() + 1,
-            voice.insert.dsp.get_num_outputs() as usize / 2
+            voice.insert.dsp.get_num_outputs(),
+            2 * audio.sends.len() as i32
         );
+        audio.voices.push(voice);
     }
+
     let ui = Ui {
         controls: Arc::clone(&audio.controls),
         sender,
@@ -485,6 +488,7 @@ fn main() -> Result<()> {
     device_config.playback_mut().set_channels(2);
     device_config.playback_mut().set_format(Format::F32);
     device_config.set_sample_rate(SAMPLE_RATE as u32);
+
     let mut device = Device::new(None, &device_config)?;
     device.set_data_callback(move |_, output, input| audio.process(input, output));
     device.start()?;

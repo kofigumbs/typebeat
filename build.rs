@@ -1,18 +1,10 @@
 extern crate anyhow;
 
-use std::fs::{DirEntry, File, OpenOptions};
-use std::io::{BufReader, Write};
+use std::fs::DirEntry;
 use std::path::Path;
 use std::process::Command;
 
 use anyhow::Result;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-struct Bus {
-    inputs: usize,
-    outputs: usize,
-}
 
 fn dsp_file(entry: DirEntry) -> Option<(String, String)> {
     if entry.path().extension()? != "dsp" {
@@ -43,24 +35,8 @@ fn main() -> Result<()> {
         Command::new("vendor/faust/build/bin/faust")
             .args(&["-I", "vendor/faust/libraries"])
             .args(&["-lang", "rust", "-cn", &basename])
-            .args(&["-O", &out_dir, "-json", "-o", &out, &path])
+            .args(&["-O", &out_dir, "-o", &out, &path])
             .status()?;
-        let bus: Bus = serde_json::from_reader(BufReader::new(File::open(
-            Path::new(&out_dir)
-                .join(&basename)
-                .with_extension("dsp.json"),
-        )?))?;
-        let impl_bus = format!(
-            "impl Bus for {} {{
-                const INPUTS: usize = {};
-                const OUTPUTS: usize = {};
-            }}",
-            &basename, bus.inputs, bus.outputs
-        );
-        OpenOptions::new()
-            .append(true)
-            .open(Path::new(&out_dir).join(&out))?
-            .write_all(impl_bus.as_ref())?;
         println!("cargo:rerun-if-changed={}", &path);
     }
     Ok(())
