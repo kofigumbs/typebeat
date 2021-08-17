@@ -7,6 +7,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
+use num_traits::Num;
 use wry::application::event::{Event, WindowEvent};
 use wry::application::event_loop::{ControlFlow, EventLoop};
 use wry::application::window::WindowBuilder;
@@ -35,14 +36,6 @@ fn get_clamped<T: Copy>(values: &[T], index: usize) -> T {
     values[index.clamp(0, values.len() - 1)]
 }
 
-fn get_stereo(position: usize, channel: usize, sample: &[f32]) -> f32 {
-    *sample.get(2 * position + channel).unwrap_or(&0.)
-}
-
-fn into_stereo(buffer: &[f32], channel: usize) -> [f32; 2] {
-    [buffer[2 * channel], buffer[2 * channel + 1]]
-}
-
 fn add_assign_each(destination: &mut [f32], source: &[f32]) {
     for (destination, source) in destination.iter_mut().zip(source) {
         *destination += source;
@@ -51,18 +44,6 @@ fn add_assign_each(destination: &mut [f32], source: &[f32]) {
 
 fn toggle(value: &AtomicCell<bool>) {
     value.fetch_xor(true);
-}
-
-fn compute<const N: usize, const M: usize>(
-    dsp: &mut dyn effects::FaustDsp<T = f32>,
-    input: &[f32; N],
-    output: &mut [f32; M],
-) {
-    dsp.compute(
-        1,
-        &input.each_ref().map(std::slice::from_ref),
-        &mut output.each_mut().map(std::slice::from_mut),
-    );
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -79,10 +60,10 @@ impl SampleType {
         SampleType::LiveRecord,
         SampleType::LivePlay,
     ];
-    fn thru(self) -> i32 {
+    fn thru<T: Num>(self) -> T {
         match self {
-            Self::File | Self::LivePlay => 0,
-            Self::Live | Self::LiveRecord => 1,
+            Self::File | Self::LivePlay => T::zero(),
+            Self::Live | Self::LiveRecord => T::one(),
         }
     }
 }
@@ -183,6 +164,28 @@ impl<T: FaustDsp> Default for Dsp<T> {
     }
 }
 
+struct Buffer<const N: usize, const M: usize> {
+    mix: [f32; N],
+    out: [f32; M],
+    mix_start: usize,
+}
+impl<const N: usize, const M: usize> Buffer<N, M> {
+    fn new() -> Self {
+        Buffer {
+            mix: [0.; N],
+            out: [0.; M],
+            mix_start: 0,
+        }
+    }
+    fn compute(&mut self, dsp: &mut dyn effects::FaustDsp<T = f32>) {
+        dsp.compute(
+            1,
+            &self.mix.each_ref().map(std::slice::from_ref)[self.mix_start..],
+            &mut self.out.each_mut().map(std::slice::from_mut),
+        );
+    }
+}
+
 #[derive(Default)]
 struct Voice {
     key: i32,
@@ -193,39 +196,48 @@ struct Voice {
     insert: Dsp<effects::insert>,
 }
 impl Voice {
-    fn process(&mut self, track: &Track, live: &mut Live, input: &[f32], output: &mut [f32]) {
-        let mut pre_buffer = [0.; 2];
-        let mut out_buffer = [0.; effects::insert::OUTPUTS];
-        match track.sample_type.load() {
-            SampleType::File => self.play_sample(&mut pre_buffer, &track.file_sample),
-            SampleType::Live => self.write(&mut pre_buffer, |_| input.iter().sum()),
-            SampleType::LiveRecord => {
-                let input = input.iter().sum();
-                if live.in_use < live.sample.len() {
-                    live.sample[live.in_use] = input;
-                    live.in_use += 1;
+    fn process(&mut self, controls: &Controls, live: &mut Live, input: &[f32], output: &mut [f32]) {
+        let mut buffer = Buffer::<2, { effects::insert::OUTPUTS }>::new();
+        match self.track_id {
+            None => self.play(&mut buffer.mix, |_| 0.),
+            Some(track_id) => {
+                let track = controls.track(track_id);
+                match track.sample_type.load() {
+                    SampleType::File => self.play_sample(&mut buffer.mix, &track.file_sample, 2),
+                    SampleType::Live => self.play_thru(&mut buffer.mix, live, input, false),
+                    SampleType::LiveRecord => self.play_thru(&mut buffer.mix, live, input, true),
+                    SampleType::LivePlay => {
+                        self.play_sample(&mut buffer.mix, &live.sample[..live.in_use], 1)
+                    }
                 }
-                self.write(&mut pre_buffer, |_| input);
             }
-            SampleType::LivePlay => self.play_sample(&mut pre_buffer, &live.sample[..live.in_use]),
         }
-        compute(self.insert.dsp.as_mut(), &pre_buffer, &mut out_buffer);
-        add_assign_each(output, &out_buffer);
+        buffer.compute(self.insert.dsp.as_mut());
+        add_assign_each(output, &buffer.out);
     }
-    fn play_sample(&mut self, buffer: &mut [f32], sample: &[f32]) {
+    fn play_thru(&mut self, buffer: &mut [f32], live: &mut Live, input: &[f32], record: bool) {
+        let input = input.iter().sum();
+        if record && live.in_use < live.sample.len() {
+            live.sample[live.in_use] = input;
+            live.in_use += 1;
+        }
+        self.play(buffer, |_| input);
+    }
+    fn play_sample(&mut self, buffer: &mut [f32], sample: &[f32], channel_count: usize) {
         let position = self.position.floor() as usize;
         let position_fract = self.position.fract();
-        self.write(buffer, |channel| {
+        self.play(buffer, |channel| {
+            let index = |i| i * channel_count + channel % channel_count;
             if position_fract == 0. {
-                get_stereo(position, channel, sample)
+                *sample.get(index(position)).unwrap_or(&0.)
             } else {
-                let a = get_stereo(position, channel, sample);
-                let b = get_stereo(position + 1, channel, sample);
+                let a = *sample.get(index(position)).unwrap_or(&0.);
+                let b = *sample.get(index(position + 1)).unwrap_or(&0.);
                 position_fract.mul_add(b - a, a)
             }
         });
     }
-    fn write<F: Fn(usize) -> f32>(&mut self, buffer: &mut [f32], f: F) {
+    fn play(&mut self, buffer: &mut [f32], f: impl Fn(usize) -> f32) {
         for (channel, sample) in buffer.iter_mut().enumerate() {
             *sample = f(channel);
         }
@@ -266,9 +278,7 @@ impl Audio {
         }
         track.insert.store(&"gate", 1.);
         track.insert.store(&"note", note as f32);
-        track
-            .insert
-            .store(&"thru", track.sample_type.load().thru() as f32);
+        track.insert.store(&"thru", track.sample_type.load().thru());
     }
     fn key_up(&mut self, track_id: i32, key: i32) {
         let track = self.controls.track(track_id);
@@ -323,19 +333,15 @@ impl Audio {
             entries.set_params_on(dsp.as_mut());
         }
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
-            let mut pre_buffer = [0.; effects::insert::OUTPUTS];
-            let mut out_buffer = [0.; 2];
+            let mut buffer = Buffer::<{ effects::insert::OUTPUTS }, 2>::new();
             for (voice, live) in self.voices.iter_mut().zip(self.lives.iter_mut()) {
-                if let Some(track_id) = voice.track_id {
-                    voice.process(self.controls.track(track_id), live, input, &mut pre_buffer);
-                } else {
-                    compute(voice.insert.dsp.as_mut(), &[0., 0.], &mut pre_buffer);
-                }
+                voice.process(&self.controls, live, input, &mut buffer.mix);
             }
-            add_assign_each(output, &pre_buffer);
-            for (dsp, i) in self.sends.iter_mut().zip(1..) {
-                compute(dsp.as_mut(), &into_stereo(&pre_buffer, i), &mut out_buffer);
-                add_assign_each(output, &out_buffer);
+            add_assign_each(output, &buffer.mix);
+            for (i, dsp) in self.sends.iter_mut().enumerate() {
+                buffer.mix_start = 2 * (i + 1);
+                buffer.compute(dsp.as_mut());
+                add_assign_each(output, &buffer.out);
             }
         }
     }
