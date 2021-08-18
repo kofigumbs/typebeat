@@ -20,7 +20,8 @@ mod bounded;
 mod effects;
 mod samples;
 
-const SEND_COUNT: usize = 4;
+const SEND_COUNT: usize = 3;
+const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
 
 const KEY_COUNT: i32 = 15;
 const VOICE_COUNT: i32 = 5;
@@ -36,12 +37,6 @@ const SCALE_OFFSETS: &[&[i32]] = &[
 
 fn get_clamped<T: Copy>(values: &[T], index: usize) -> T {
     values[index.clamp(0, values.len() - 1)]
-}
-
-fn add_assign_each(destination: &mut [f32], source: &[f32]) {
-    for (destination, source) in destination.iter_mut().zip(source) {
-        *destination += source;
-    }
 }
 
 fn toggle(value: &AtomicCell<bool>) {
@@ -155,14 +150,14 @@ struct Live {
     sample: Vec<f32>,
 }
 
-struct Dsp<T> {
+struct DspFactory<T> {
     dsp: Box<T>,
 }
-impl<T: FaustDsp> Default for Dsp<T> {
+impl<T: FaustDsp> Default for DspFactory<T> {
     fn default() -> Self {
         let mut dsp = Box::new(T::new());
         dsp.instance_init(SAMPLE_RATE);
-        Dsp { dsp }
+        DspFactory { dsp }
     }
 }
 
@@ -186,6 +181,11 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
             &mut self.out.each_mut().map(std::slice::from_mut),
         );
     }
+    fn write_to(&self, destination: &mut [f32]) {
+        for (destination, source) in destination.iter_mut().zip(&self.mix) {
+            *destination += source;
+        }
+    }
 }
 
 #[derive(Default)]
@@ -195,11 +195,11 @@ struct Voice {
     position: f32,
     increment: f32,
     track_id: Option<i32>,
-    insert: Dsp<effects::insert>,
+    insert: DspFactory<effects::insert>,
 }
 impl Voice {
     fn process(&mut self, controls: &Controls, live: &mut Live, input: &[f32], output: &mut [f32]) {
-        let mut buffer = Buffer::<2, { SEND_COUNT * 2 }>::new();
+        let mut buffer = Buffer::<2, INSERT_OUTPUT_COUNT>::new();
         match self.track_id {
             None => self.play(&mut buffer.mix, |_| 0.),
             Some(track_id) => {
@@ -215,7 +215,7 @@ impl Voice {
             }
         }
         buffer.compute(self.insert.dsp.as_mut());
-        add_assign_each(output, &buffer.out);
+        buffer.write_to(output);
     }
     fn play_thru(&mut self, buffer: &mut [f32], live: &mut Live, input: &[f32], record: bool) {
         let input = input.iter().sum();
@@ -335,24 +335,25 @@ impl Audio {
             entries.set_params_on(dsp.as_mut());
         }
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
-            let mut buffer = Buffer::<{ SEND_COUNT * 2 }, 2>::new();
+            let mut buffer = Buffer::<INSERT_OUTPUT_COUNT, 2>::new();
             for (voice, live) in self.voices.iter_mut().zip(self.lives.iter_mut()) {
                 voice.process(&self.controls, live, input, &mut buffer.mix);
             }
+            buffer.write_to(output);
             for dsp in self.sends.iter_mut() {
-                buffer.compute(dsp.as_mut());
-                add_assign_each(output, &buffer.out);
                 buffer.mix_start += 2;
+                buffer.compute(dsp.as_mut());
+                buffer.write_to(output);
             }
         }
     }
 }
 
-struct Ui {
+struct Rpc {
     controls: Arc<Controls>,
     sender: Sender<Message>,
 }
-impl Ui {
+impl Rpc {
     fn process(&self, request: RpcRequest) -> Option<RpcResponse> {
         let param = &request.params?[0];
         let context = param["context"].as_str()?;
@@ -441,10 +442,9 @@ fn main() -> Result<()> {
     }
 
     let sends: Vec<Box<dyn Send + FaustDsp<T = f32>>> = vec![
-        Dsp::<effects::dry>::default().dsp,
-        Dsp::<effects::reverb>::default().dsp,
-        Dsp::<effects::echo>::default().dsp,
-        Dsp::<effects::drive>::default().dsp,
+        DspFactory::<effects::reverb>::default().dsp,
+        DspFactory::<effects::echo>::default().dsp,
+        DspFactory::<effects::drive>::default().dsp,
     ];
     for dsp in sends.iter() {
         let mut entries = Entries::default();
@@ -472,12 +472,12 @@ fn main() -> Result<()> {
         assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
         assert_eq!(
             voice.insert.dsp.get_num_outputs(),
-            2 * audio.sends.len() as i32
+            2 + 2 * audio.sends.len() as i32
         );
         audio.voices.push(voice);
     }
 
-    let ui = Ui {
+    let rpc = Rpc {
         controls: Arc::clone(&audio.controls),
         sender,
     };
@@ -503,7 +503,7 @@ fn main() -> Result<()> {
         .join("index.html");
     let _webview = WebViewBuilder::new(window)?
         .with_url(&format!("file://{}", html.display()))?
-        .with_rpc_handler(move |_, request| ui.process(request))
+        .with_rpc_handler(move |_, request| rpc.process(request))
         .build()?;
     event_loop.run(|event, _, control_flow| match event {
         Event::WindowEvent {

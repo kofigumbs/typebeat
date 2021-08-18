@@ -48,7 +48,6 @@ pub trait UI<T, P = ParamIndex> {
     fn declare(&mut self, param: Option<ParamIndex>, key: &str, value: &str) {}
 }
 
-include!(concat!(env!("OUT_DIR"), "/dry.rs"));
 include!(concat!(env!("OUT_DIR"), "/insert.rs"));
 include!(concat!(env!("OUT_DIR"), "/reverb.rs"));
 include!(concat!(env!("OUT_DIR"), "/echo.rs"));
