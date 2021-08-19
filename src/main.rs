@@ -7,7 +7,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
-use num_traits::Num;
 use wry::application::event::{Event, WindowEvent};
 use wry::application::event_loop::{ControlFlow, EventLoop};
 use wry::application::window::WindowBuilder;
@@ -39,6 +38,10 @@ fn get_clamped<T: Copy>(values: &[T], index: usize) -> T {
     values[index.clamp(0, values.len() - 1)]
 }
 
+fn bool_to_float(value: bool) -> f32 {
+    return if value { 1. } else { 0. };
+}
+
 fn toggle(value: &AtomicCell<bool>) {
     value.fetch_xor(true);
 }
@@ -57,10 +60,10 @@ impl SampleType {
         SampleType::LiveRecord,
         SampleType::LivePlay,
     ];
-    fn thru<T: Num>(self) -> T {
+    fn thru(self) -> bool {
         match self {
-            Self::File | Self::LivePlay => T::zero(),
-            Self::Live | Self::LiveRecord => T::one(),
+            Self::File | Self::LivePlay => false,
+            Self::Live | Self::LiveRecord => true,
         }
     }
 }
@@ -280,32 +283,41 @@ impl Audio {
         }
         track.insert.store(&"gate", 1.);
         track.insert.store(&"note", note as f32);
-        track.insert.store(&"thru", track.sample_type.load().thru());
+        track
+            .insert
+            .store(&"thru", bool_to_float(track.sample_type.load().thru()));
     }
     fn key_up(&mut self, track_id: i32, key: i32) {
-        let track = self.controls.track(track_id);
-        for voice in self.voices.iter_mut() {
-            if voice.track_id == Some(track_id) && voice.key == key {
-                if let Some((index, _, _)) = track.insert.map.get(&"gate") {
-                    voice.insert.dsp.set_param(*index, 0.);
-                }
+        self.release(track_id, |voice, gate| {
+            if voice.key == key {
+                voice.insert.dsp.set_param(gate, 0.);
             }
-        }
+        });
     }
     fn set_sample_type(&mut self, value: i32) {
-        let track = self.controls.active_track();
         let track_id = self.controls.active_track_id.load();
-        let sample_type = get_clamped(&SampleType::ALL, value as usize);
-        if sample_type == SampleType::LiveRecord {
+        let old = self.controls.active_track().sample_type.load();
+        let new = get_clamped(&SampleType::ALL, value as usize);
+        if new == SampleType::LiveRecord {
             self.lives[track_id as usize].in_use = 0;
         }
-        if sample_type != track.sample_type.load() {
-            for voice in self.voices.iter_mut() {
-                if voice.track_id == Some(track_id) {
+        if old != new {
+            self.release(track_id, |voice, gate| {
+                voice.insert.dsp.set_param(gate, 0.);
+                if !old.thru() && new.thru() {
                     voice.track_id = None;
                 }
-            }
-            track.sample_type.store(sample_type);
+            });
+            self.controls.active_track().sample_type.store(new);
+        }
+    }
+    fn release(&mut self, track_id: i32, f: impl Fn(&mut Voice, ParamIndex)) {
+        let track = self.controls.track(track_id);
+        if let Some((index, _, _)) = track.insert.map.get(&"gate") {
+            self.voices
+                .iter_mut()
+                .filter(|voice| voice.track_id == Some(track_id))
+                .for_each(|voice| f(voice, *index));
         }
     }
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
@@ -315,7 +327,7 @@ impl Audio {
                 Message::SetEntry(data, key) => {
                     if let Some((_, (_, step, value))) = self.controls.find(&key) {
                         match *step as i32 {
-                            0 => value.store(if value.load() == 0. { 1. } else { 0. }),
+                            0 => value.store(bool_to_float(value.load() == 0.)),
                             1 => value.store(data as f32),
                             _ => value.nudge(data, *step),
                         }
