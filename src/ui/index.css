@@ -70,7 +70,7 @@ body {
   background: var(--b_inv);
 }
 
-.hold .minipad {
+.mode .minipad {
   background: var(--f_med);
 }
 
@@ -113,7 +113,7 @@ body {
   pointer-events: none;
 }
 
-.hold [data-tare-character] * {
+.mode [data-tare-character] * {
   border-width: 5px;
   border-color: var(--f_med);
 }

@@ -102,12 +102,6 @@ const requestSync = () => {
  * events
  */
 
-const modifiersDown = new Set();
-const modifierToggle = (element, keep) => {
-  keep ? modifiersDown.add(element) : modifiersDown.delete(element);
-  [state.modifier] = modifiersDown;
-};
-
 const capsByEventCode = new Map([
   ['Semicolon', ';'], ['Comma', ','], ['Period', '.'], ['Slash', '/'],
   ...Array.from('QWERTYUIOPASDFGHJKLZXCVBNM', cap => [`Key${cap}`, cap]),
@@ -120,10 +114,13 @@ const handleDocumentKey = event => {
   if (!cap)
     return;
   const down = event.type === 'keydown';
-  if (bindings.has(cap)) {
-    modifierToggle(cap, down);
+  const binding = bindings.has(cap);
+  if (binding && !down)
+    return;
+  if (binding) {
+    state.modifier = cap;
     for (const key of keysOnLeft)
-      key.classList.toggle('hold', !!state.modifier && key.dataset.cap === state.modifier);
+      key.classList.toggle('mode', !!state.modifier && key.dataset.cap === state.modifier);
     state.tempoTaps = [];
   }
   else {
