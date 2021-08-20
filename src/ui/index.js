@@ -12,6 +12,16 @@ const bindings = Bindings({
 
 
 /*
+ * movable window
+ * https://github.com/tauri-apps/wry/blob/134af020c0058a84c8b6d640613d6d001aa42f82/examples/custom_titlebar.rs#L52-L58
+ */
+document.addEventListener('mousedown', event => {
+  if (event.buttons === 1)
+    event.detail === 2 ? window.rpc?.notify('maximize') : window.rpc?.notify('move');
+})
+
+
+/*
  * theme
  */
 

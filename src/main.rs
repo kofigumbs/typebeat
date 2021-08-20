@@ -1,3 +1,4 @@
+#![feature(never_type)]
 #![feature(array_methods)]
 
 use std::collections::HashMap;
@@ -7,10 +8,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
-use wry::application::event::{Event, WindowEvent};
-use wry::application::event_loop::{ControlFlow, EventLoop};
-use wry::application::window::WindowBuilder;
-use wry::webview::{RpcRequest, RpcResponse, WebViewBuilder};
 
 use bounded::Bounded;
 use effects::{FaustDsp, ParamIndex, UI};
@@ -18,6 +15,7 @@ use effects::{FaustDsp, ParamIndex, UI};
 mod bounded;
 mod effects;
 mod samples;
+mod ui;
 
 const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
@@ -366,13 +364,9 @@ struct Rpc {
     sender: Sender<Message>,
 }
 impl Rpc {
-    fn process(&self, request: RpcRequest) -> Option<RpcResponse> {
-        let param = &request.params?[0];
-        let context = param["context"].as_str()?;
-        let method = param["method"].as_str()?;
-        let data = param["data"].as_i64()? as i32;
+    fn process(&self, context: &str, method: &str, data: i32) -> Option<i32> {
         let send = |setter| self.send(Message::Setter(data, setter));
-        let response = match format!("{} {}", context, method).as_str() {
+        Some(match format!("{} {}", context, method).as_str() {
             "set auditionDown" => {
                 send(|audio, i| audio.key_down(i, audio.controls.active_track().active_key.load()))?
             }
@@ -423,8 +417,7 @@ impl Rpc {
                     None?
                 }
             }
-        };
-        Some(RpcResponse::new_result(request.id, Some(response.into())))
+        })
     }
     fn send<T>(&self, message: Message) -> Option<T> {
         let _ = self.sender.send(message);
@@ -505,23 +498,5 @@ fn main() -> Result<()> {
     device.set_data_callback(move |_, output, input| audio.process(input, output));
     device.start()?;
 
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_title("Typebeat")
-        .build(&event_loop)?;
-    let html = std::env::current_dir()?
-        .join("src")
-        .join("ui")
-        .join("index.html");
-    let _webview = WebViewBuilder::new(window)?
-        .with_url(&format!("file://{}", html.display()))?
-        .with_rpc_handler(move |_, request| rpc.process(request))
-        .build()?;
-    event_loop.run(|event, _, control_flow| match event {
-        Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
-        } => *control_flow = ControlFlow::Exit,
-        _ => *control_flow = ControlFlow::Wait,
-    });
+    ui::start(move |method, context, data| rpc.process(method, context, data))?;
 }
