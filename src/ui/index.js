@@ -118,7 +118,7 @@ const handleDocumentKey = event => {
   if (binding && !down)
     return;
   if (binding) {
-    state.modifier = cap;
+    state.modifier = state.modifier === cap ? undefined : cap;
     for (const key of keysOnLeft)
       key.classList.toggle('mode', !!state.modifier && key.dataset.cap === state.modifier);
     state.tempoTaps = [];
