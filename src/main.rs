@@ -118,7 +118,7 @@ impl Clone for Change {
 
 #[derive(Default, Clone)]
 struct Step {
-    key: [Change; KEY_COUNT as usize],
+    keys: [Change; KEY_COUNT as usize],
 }
 
 #[derive(Debug)]
@@ -174,7 +174,7 @@ impl Track {
         let mut last_active = 0;
         for i in start..(start + self.view_length()) {
             let step = get_clamped(&self.sequence, i);
-            let change = get_clamped(&step.key, self.active_key.load());
+            let change = get_clamped(&step.keys, self.active_key.load());
             if change.active.load() {
                 active_count += 1;
                 last_active = i;
@@ -221,19 +221,28 @@ impl Track {
         match self.view_from(start) {
             View::OutOfBounds => {}
             View::Empty | View::ExactlyOnStep => {
-                let change = &self.sequence[start as usize].key[self.active_key.load() as usize];
+                let change = &self.sequence[start as usize].keys[self.active_key.load() as usize];
                 toggle(&change.active);
                 change.skip_next.store(false);
                 change.value.store(self.view_length());
             }
             View::ContainsSteps => {
                 for i in start..(start + self.view_length()) {
-                    self.sequence[i as usize].key[self.active_key.load() as usize]
+                    self.sequence[i as usize].keys[self.active_key.load() as usize]
                         .active
                         .store(false);
                 }
             }
         }
+    }
+    fn can_clear(&self) -> bool {
+        self.changes().any(|change| change.active.load())
+    }
+    fn clear(&self) {
+        self.changes().for_each(|change| change.active.store(false))
+    }
+    fn changes(&self) -> impl Iterator<Item = &Change> {
+        self.sequence.iter().flat_map(|step| step.keys.iter())
     }
 }
 
@@ -509,7 +518,7 @@ impl Audio {
                     let step_index = (self.controls.step.load() % length) as usize;
                     for key in 0..KEY_COUNT as usize {
                         let change =
-                            || &self.controls.tracks[track_id].sequence[step_index].key[key];
+                            || &self.controls.tracks[track_id].sequence[step_index].keys[key];
                         // if (self.controls.step.load() - self.last_played[key] == sequence[self.last_played[key] % length].key[key].value)
                         //     self.key_up(track_id as i32, key as i32);
                         if change().skip_next.load() {
@@ -564,15 +573,17 @@ impl Rpc {
             "get useKey" => self.controls.active_track().use_key.load().into(),
             "set useKey" => send(|audio, _| toggle(&audio.controls.active_track().use_key))?,
             "get step" => self.controls.step.load(),
-            "get bars" => self.controls.active_track().length.load() / MAX_RESOLUTION,
             "get resolution" => self.controls.active_track().resolution.load(),
             "get viewStart" => self.controls.active_track().view_start(),
             "get lastKey" => self.controls.active_track().active_key.load(),
             "set page" => send(|audio, i| audio.controls.active_track().adjust_page(i))?,
+            "get bars" => self.controls.active_track().length.load() / MAX_RESOLUTION,
             "set bars" => send(|audio, i| audio.controls.active_track().adjust_length(i))?,
             "set zoomOut" => send(|audio, _| audio.controls.active_track().zoom_out())?,
             "set zoomIn" => send(|audio, _| audio.controls.active_track().zoom_in())?,
             "set sequence" => send(|audio, i| audio.controls.active_track().toggle_step(i))?,
+            "get canClear" => self.controls.active_track().can_clear() as i32,
+            "set clear" => send(|audio, _| audio.controls.active_track().clear())?,
             "get playing" => self.controls.playing.load().into(),
             "set play" => send(|audio, _| audio.controls.toggle_play())?,
             "get armed" => self.controls.armed.load().into(),
