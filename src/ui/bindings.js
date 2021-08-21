@@ -107,7 +107,7 @@ const Bindings = ({ state, set }) => {
       ...group('NM,.', i => ({
         label: async () => {
           const n = ((await state.viewStart + i) % await state.resolution) + 1;
-          switch (await state[`view:${i}`]) {
+          switch (await state[method('view', i)]) {
             case 0: return '';
             case 1: return `${n}/${await state.resolution}`;
             case 2: return `${n}█${await state.resolution}`;

@@ -3,7 +3,7 @@ use miniaudio::{Decoder, DecoderConfig, Format, FramesMut};
 
 use crate::SAMPLE_RATE;
 
-pub fn read_stereo_file(i: i32) -> Result<Vec<f32>> {
+pub fn read_stereo_file(i: usize) -> Result<Vec<f32>> {
     let path = std::env::current_dir()?
         .join("src")
         .join("samples")

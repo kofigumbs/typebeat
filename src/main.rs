@@ -20,9 +20,13 @@ mod ui;
 const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
 
+const MAX_RESOLUTION: i32 = 512;
+const MAX_LENGTH: i32 = MAX_RESOLUTION * 16 * 8;
+
 const KEY_COUNT: i32 = 15;
 const VOICE_COUNT: i32 = 5;
 const TRACK_COUNT: i32 = 15;
+const VIEWS_PER_PAGE: i32 = 4;
 const SAMPLE_RATE: i32 = 44100;
 
 const SCALE_OFFSETS: &[&[i32]] = &[
@@ -32,8 +36,8 @@ const SCALE_OFFSETS: &[&[i32]] = &[
     &[0, 2, 3, 5, 7, 9, 11],
 ];
 
-fn get_clamped<T: Copy>(values: &[T], index: usize) -> T {
-    values[index.clamp(0, values.len() - 1)]
+fn get_clamped<T>(values: &[T], index: i32) -> &T {
+    &values[(index as usize).clamp(0, values.len() - 1)]
 }
 
 fn bool_to_float(value: bool) -> f32 {
@@ -96,6 +100,35 @@ impl Entries {
     }
 }
 
+#[derive(Default)]
+struct Change {
+    value: AtomicCell<i32>,
+    active: AtomicCell<bool>,
+    skip_next: AtomicCell<bool>,
+}
+impl Clone for Change {
+    fn clone(&self) -> Self {
+        Change {
+            value: self.value.load().into(),
+            active: self.active.load().into(),
+            skip_next: self.skip_next.load().into(),
+        }
+    }
+}
+
+#[derive(Default, Clone)]
+struct Step {
+    key: [Change; KEY_COUNT as usize],
+}
+
+#[derive(Debug)]
+enum View {
+    OutOfBounds,
+    Empty,
+    ExactlyOnStep,
+    ContainsSteps,
+}
+
 struct Track {
     muted: AtomicCell<bool>,
     file_sample: Vec<f32>,
@@ -103,7 +136,105 @@ struct Track {
     octave: bounded::I32<2, 8>,
     use_key: AtomicCell<bool>,
     active_key: bounded::I32<0, { KEY_COUNT - 1 }>,
+    length: bounded::I32<MAX_RESOLUTION, MAX_LENGTH>,
+    resolution: bounded::I32<1, MAX_RESOLUTION>,
+    page_start: bounded::I32<0, { i32::MAX }>,
+    sequence: Vec<Step>,
     insert: Entries,
+}
+impl Default for Track {
+    fn default() -> Self {
+        Self {
+            muted: false.into(),
+            file_sample: Vec::new(),
+            sample_type: SampleType::File.into(),
+            octave: 4.into(),
+            use_key: true.into(),
+            active_key: 12.into(),
+            length: MAX_RESOLUTION.into(),
+            resolution: 16.into(),
+            page_start: 0.into(),
+            sequence: vec![Step::default(); MAX_LENGTH as usize],
+            insert: Entries::default(),
+        }
+    }
+}
+impl Track {
+    fn view_start(&self) -> i32 {
+        self.page_start.load() / self.view_length()
+    }
+    fn view_length(&self) -> i32 {
+        MAX_RESOLUTION / self.resolution.load()
+    }
+    fn view_from(&self, start: i32) -> View {
+        if start >= self.length.load() {
+            return View::OutOfBounds;
+        }
+        let mut active_count = 0;
+        let mut last_active = 0;
+        for i in start..(start + self.view_length()) {
+            let step = get_clamped(&self.sequence, i);
+            let change = get_clamped(&step.key, self.active_key.load());
+            if change.active.load() {
+                active_count += 1;
+                last_active = i;
+            }
+        }
+        if active_count == 0 {
+            View::Empty
+        } else if active_count == 1 && last_active == start {
+            View::ExactlyOnStep
+        } else {
+            View::ContainsSteps
+        }
+    }
+    fn view_index_to_start(&self, i: i32) -> i32 {
+        self.page_start.load() + i * self.view_length()
+    }
+    fn view(&self, i: i32) -> View {
+        self.view_from(self.view_index_to_start(i))
+    }
+    fn zoom_out(&self) {
+        if self.resolution.load() > 1 {
+            self.resolution.store(self.resolution.load() / 2);
+            self.page_start
+                .store(self.page_start.load() / self.view_length() * self.view_length());
+        }
+    }
+    fn zoom_in(&self) {
+        if self.resolution.load() < MAX_RESOLUTION {
+            self.resolution.store(self.resolution.load() * 2);
+        }
+    }
+    fn adjust_page(&self, diff: i32) {
+        let new_page_start = self.page_start.load() + diff * VIEWS_PER_PAGE * self.view_length();
+        if new_page_start < self.length.load() {
+            self.page_start.store(new_page_start);
+        }
+    }
+    fn adjust_length(&self, diff: i32) {
+        self.length
+            .store(self.length.load() + diff * MAX_RESOLUTION)
+    }
+    fn toggle_step(&self, i: i32) {
+        let start = self.view_index_to_start(i);
+        match self.view_from(start) {
+            View::OutOfBounds => {}
+            View::Empty | View::ExactlyOnStep => {
+                let change = &self.sequence[start as usize].key[self.active_key.load() as usize];
+                toggle(&change.active);
+                change.skip_next.store(false);
+                change.value.store(self.view_length());
+            }
+            View::ContainsSteps => {
+                for i in start..(start + self.view_length()) {
+                    self.sequence[i as usize].key[self.active_key.load() as usize]
+                        .active
+                        .store(false);
+                }
+            }
+        }
+    }
 }
 
 #[derive(Default)]
@@ -113,8 +244,10 @@ struct Controls {
     armed: AtomicCell<bool>,
     tempo: bounded::I32<1, 999>,
     root: bounded::I32<-12, 12>,
-    scale: bounded::I32<0, 4>,
-    tracks: Vec<Track>,
+    scale: bounded::I32<0, { SCALE_OFFSETS[0].len() as i32 }>,
+    step: bounded::I32<0, { i32::MAX }>,
+    frames_since_last_step: bounded::I32<0, { i32::MAX }>,
+    tracks: [Track; TRACK_COUNT as usize],
     sends: Vec<Entries>,
 }
 impl Controls {
@@ -123,6 +256,11 @@ impl Controls {
     }
     fn active_track(&self) -> &Track {
         self.track(self.active_track_id.load())
+    }
+    fn toggle_play(&self) {
+        toggle(&self.playing);
+        self.step.store(0);
+        self.frames_since_last_step.store(0);
     }
     fn note(&self, track: &Track, key: i32) -> i32 {
         let root = self.root.load();
@@ -133,6 +271,26 @@ impl Controls {
             } else {
                 SCALE_OFFSETS[0][key as usize % 7]
             }
+    }
+    fn process(&self) {
+        if self.playing.load() {
+            self.frames_since_last_step.increment();
+            if self.frames_since_last_step.load() as f32 >= self.step_duration(MAX_RESOLUTION) {
+                self.step.increment();
+                self.frames_since_last_step.store(0);
+            }
+        }
+    }
+    fn quantized_step(&self, step: i32, resolution: i32) -> i32 {
+        let scale = MAX_RESOLUTION / resolution;
+        let scaled_step = step / scale * scale;
+        let snap_to_next = (step - scaled_step) as f32 * self.step_duration(MAX_RESOLUTION)
+            + self.frames_since_last_step.load() as f32
+            > self.step_duration(resolution) / 2.;
+        scaled_step + scale * (snap_to_next as i32)
+    }
+    fn step_duration(&self, resolution: i32) -> f32 {
+        SAMPLE_RATE as f32 * 240. / (self.tempo.load() as f32) / (resolution as f32)
     }
     fn entries(&self) -> impl Iterator<Item = &Entries> {
         std::array::from_ref(&self.active_track().insert)
@@ -295,7 +453,7 @@ impl Audio {
     fn set_sample_type(&mut self, value: i32) {
         let track_id = self.controls.active_track_id.load();
         let old = self.controls.active_track().sample_type.load();
-        let new = get_clamped(&SampleType::ALL, value as usize);
+        let new = *get_clamped(&SampleType::ALL, value);
         if new == SampleType::LiveRecord {
             self.lives[track_id as usize].in_use = 0;
         }
@@ -345,6 +503,24 @@ impl Audio {
             entries.set_params_on(dsp.as_mut());
         }
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
+            if self.controls.playing.load() && self.controls.frames_since_last_step.load() == 0 {
+                for track_id in 0..self.controls.tracks.len() {
+                    let length = self.controls.tracks[track_id].length.load();
+                    let step_index = (self.controls.step.load() % length) as usize;
+                    for key in 0..KEY_COUNT as usize {
+                        let change =
+                            || &self.controls.tracks[track_id].sequence[step_index].key[key];
+                        // if (self.controls.step.load() - self.last_played[key] == sequence[self.last_played[key] % length].key[key].value)
+                        //     self.key_up(track_id as i32, key as i32);
+                        if change().skip_next.load() {
+                            change().skip_next.store(false);
+                        } else if change().active.load() {
+                            self.key_down(track_id as i32, key as i32);
+                        }
+                    }
+                }
+            }
+            self.controls.process();
             let mut buffer = Buffer::<INSERT_OUTPUT_COUNT, 2>::new();
             for (voice, live) in self.voices.iter_mut().zip(self.lives.iter_mut()) {
                 voice.process(&self.controls, live, input, &mut buffer.mix);
@@ -387,9 +563,18 @@ impl Rpc {
             "set octave" => send(|audio, i| audio.controls.active_track().octave.nudge(i, 0))?,
             "get useKey" => self.controls.active_track().use_key.load().into(),
             "set useKey" => send(|audio, _| toggle(&audio.controls.active_track().use_key))?,
+            "get step" => self.controls.step.load(),
+            "get bars" => self.controls.active_track().length.load() / MAX_RESOLUTION,
+            "get resolution" => self.controls.active_track().resolution.load(),
+            "get viewStart" => self.controls.active_track().view_start(),
             "get lastKey" => self.controls.active_track().active_key.load(),
+            "set page" => send(|audio, i| audio.controls.active_track().adjust_page(i))?,
+            "set bars" => send(|audio, i| audio.controls.active_track().adjust_length(i))?,
+            "set zoomOut" => send(|audio, _| audio.controls.active_track().zoom_out())?,
+            "set zoomIn" => send(|audio, _| audio.controls.active_track().zoom_in())?,
+            "set sequence" => send(|audio, i| audio.controls.active_track().toggle_step(i))?,
             "get playing" => self.controls.playing.load().into(),
-            "set play" => send(|audio, _| toggle(&audio.controls.playing))?,
+            "set play" => send(|audio, _| audio.controls.toggle_play())?,
             "get armed" => self.controls.armed.load().into(),
             "set arm" => send(|audio, _| toggle(&audio.controls.armed))?,
             "get tempo" => self.controls.tempo.load(),
@@ -409,6 +594,7 @@ impl Rpc {
                     }
                 } else if let Some((name, i)) = Self::split(method) {
                     match format!("{} {}", context, name).as_str() {
+                        "get view" => self.controls.active_track().view(i) as i32,
                         "get note" => self.controls.note(self.controls.active_track(), i),
                         "get mute" => self.controls.tracks[i as usize].muted.load() as i32,
                         _ => None?,
@@ -432,18 +618,9 @@ impl Rpc {
 fn main() -> Result<()> {
     let mut controls = Controls::default();
     controls.tempo.store(120);
-    for i in 0..TRACK_COUNT {
-        let mut track = Track {
-            muted: false.into(),
-            file_sample: samples::read_stereo_file(i)?,
-            sample_type: SampleType::File.into(),
-            octave: 4.into(),
-            use_key: true.into(),
-            active_key: 12.into(),
-            insert: Entries::default(),
-        };
+    for (i, track) in controls.tracks.iter_mut().enumerate() {
+        track.file_sample = samples::read_stereo_file(i)?;
         effects::insert::build_user_interface_static(&mut track.insert);
-        controls.tracks.push(track);
     }
 
     let sends: Vec<Box<dyn Send + FaustDsp<T = f32>>> = vec![
