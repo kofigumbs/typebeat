@@ -302,9 +302,7 @@ impl Controls {
     }
 }
 
-#[derive(Clone)]
 struct Live {
-    in_use: usize,
     sample: Vec<f32>,
 }
 
@@ -356,6 +354,22 @@ struct Voice {
     insert: DspFactory<effects::insert>,
 }
 impl Voice {
+    // 0 is the "highest" -- voices with priority 0 should not be stolen
+    fn priority(&self, controls: &Controls) -> usize {
+        match self.track_id {
+            Some(track_id) => {
+                let track = controls.track(track_id);
+                if track.sample_type.load().thru() {
+                    0
+                } else if let Some((_, _, value)) = track.insert.map.get(&"gate") {
+                    2 - value.load() as usize
+                } else {
+                    3 // unreachable, gate should always exist in map
+                }
+            }
+            None => 4,
+        }
+    }
     fn process(&mut self, controls: &Controls, live: &mut Live, input: &[f32], output: &mut [f32]) {
         let mut buffer = Buffer::<2, INSERT_OUTPUT_COUNT>::new();
         match self.track_id {
@@ -366,9 +380,7 @@ impl Voice {
                     SampleType::File => self.play_sample(&mut buffer.mix, &track.file_sample, 2),
                     SampleType::Live => self.play_thru(&mut buffer.mix, live, input, false),
                     SampleType::LiveRecord => self.play_thru(&mut buffer.mix, live, input, true),
-                    SampleType::LivePlay => {
-                        self.play_sample(&mut buffer.mix, &live.sample[..live.in_use], 1)
-                    }
+                    SampleType::LivePlay => self.play_sample(&mut buffer.mix, &live.sample, 1),
                 }
             }
         }
@@ -377,9 +389,8 @@ impl Voice {
     }
     fn play_thru(&mut self, buffer: &mut [f32], live: &mut Live, input: &[f32], record: bool) {
         let input = input.iter().sum();
-        if record && live.in_use < live.sample.len() {
-            live.sample[live.in_use] = input;
-            live.in_use += 1;
+        if record && live.sample.len() < live.sample.capacity() {
+            live.sample.push(input);
         }
         self.play(buffer, |_| input);
     }
@@ -433,7 +444,7 @@ impl Audio {
             change.skip_next.store(quantized_step > song_step);
         }
         track.active_key.store(key);
-        self.allocate_voice(track_id, key);
+        self.allocate(track_id, key);
     }
     fn key_up(&mut self, track_id: Option<i32>, key: Option<i32>) {
         let track_id = track_id.unwrap_or(self.controls.active_track_id.load());
@@ -448,23 +459,24 @@ impl Audio {
             let change = get_clamped(&step.keys, key);
             change.value.store(self.controls.step.load() - last_played);
         }
-        self.release_voice(track_id, key);
+        self.release(track_id, key);
     }
     fn set_sample_type(&mut self, value: i32) {
         let track_id = self.controls.active_track_id.load();
         let old = self.controls.active_track().sample_type.load();
         let new = *get_clamped(&SampleType::ALL, value);
         if new == SampleType::LiveRecord {
-            self.lives[track_id as usize].in_use = 0;
+            self.lives[track_id as usize].sample.clear();
         }
         if old != new {
-            self.each_voice_for(track_id, |voice, gate| {
-                voice.insert.dsp.set_param(gate, 0.);
-                if !old.thru() && new.thru() {
-                    voice.track_id = None;
-                }
-            });
             self.controls.active_track().sample_type.store(new);
+            self.each_voice_for(track_id, |voice, gate| {
+                voice.track_id = None;
+                voice.insert.dsp.set_param(gate, 0.);
+            });
+            if new.thru() {
+                self.allocate(track_id, self.controls.active_track().active_key.load());
+            }
         }
     }
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
@@ -509,12 +521,12 @@ impl Audio {
                     let step = &track.sequence[position as usize % length];
                     for (key, change) in step.keys.iter().enumerate() {
                         if position - track.last_played[key].load() == change.value.load() {
-                            self.release_voice(track_id as i32, key as i32);
+                            self.release(track_id as i32, key as i32);
                         }
                         if change.skip_next.load() {
                             change.skip_next.store(false);
                         } else if change.active.load() && !track.muted.load() {
-                            self.allocate_voice(track_id as i32, key as i32);
+                            self.allocate(track_id as i32, key as i32);
                         }
                     }
                 }
@@ -541,14 +553,19 @@ impl Audio {
             }
         }
     }
-    fn allocate_voice(&mut self, track_id: i32, key: i32) {
-        self.release_voice(track_id, key);
+    fn allocate(&mut self, track_id: i32, key: i32) {
+        self.release(track_id, key);
         let track = self.controls.track(track_id);
         let note = self.controls.note(track, key);
         for voice in self.voices.iter_mut() {
             voice.age += 1;
         }
-        if let Some(voice) = self.voices.iter_mut().max_by_key(|voice| voice.age) {
+        let controls = Arc::clone(&self.controls);
+        if let Some(voice) = self
+            .voices
+            .iter_mut()
+            .max_by_key(|voice| (voice.priority(&controls), voice.age))
+        {
             voice.key = key;
             voice.age = 0;
             voice.position = 0.;
@@ -563,7 +580,7 @@ impl Audio {
             .store(&"thru", bool_to_float(track.sample_type.load().thru()));
         get_clamped(&track.last_played, key).store(self.controls.step.load());
     }
-    fn release_voice(&mut self, track_id: i32, key: i32) {
+    fn release(&mut self, track_id: i32, key: i32) {
         self.each_voice_for(track_id, |voice, gate| {
             if voice.key == key {
                 voice.insert.dsp.set_param(gate, 0.);
@@ -686,8 +703,7 @@ fn main() -> Result<()> {
         receiver,
     };
     audio.lives.resize_with(TRACK_COUNT as usize, || Live {
-        in_use: 0,
-        sample: vec![0.; 60 * SAMPLE_RATE as usize],
+        sample: Vec::with_capacity(60 * SAMPLE_RATE as usize),
     });
     for _ in 0..VOICE_COUNT {
         let voice = Voice::default();
