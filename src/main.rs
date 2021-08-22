@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use crossbeam::atomic::AtomicCell;
@@ -133,6 +133,7 @@ enum View {
 struct Track {
     muted: AtomicCell<bool>,
     file_sample: Vec<f32>,
+    live_sample: Mutex<Vec<f32>>,
     sample_type: AtomicCell<SampleType>,
     octave: bounded::I32<2, 8>,
     use_key: AtomicCell<bool>,
@@ -149,6 +150,7 @@ impl Default for Track {
         Self {
             muted: false.into(),
             file_sample: Vec::new(),
+            live_sample: Vec::with_capacity(60 * SAMPLE_RATE as usize).into(),
             sample_type: SampleType::File.into(),
             octave: 4.into(),
             use_key: true.into(),
@@ -361,17 +363,6 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
     }
 }
 
-struct Live {
-    sample: Vec<f32>,
-}
-impl Default for Live {
-    fn default() -> Self {
-        Live {
-            sample: Vec::with_capacity(60 * SAMPLE_RATE as usize),
-        }
-    }
-}
-
 #[derive(Default)]
 struct Voice {
     key: i32,
@@ -399,24 +390,18 @@ impl Voice {
         }
     }
 
-    fn process(
-        &mut self,
-        controls: &Controls,
-        lives: &mut [Live],
-        input: &[f32],
-        output: &mut [f32],
-    ) {
+    fn process(&mut self, controls: &Controls, input: &[f32], output: &mut [f32]) {
         let mut buffer = Buffer::<2, INSERT_OUTPUT_COUNT>::new();
         match self.track_id {
             None => self.play(&mut buffer.mix, |_| 0.),
             Some(track_id) => {
                 let track = controls.track(track_id);
-                let live = &mut lives[track_id as usize];
+                let live = &mut track.live_sample.try_lock().unwrap();
                 match track.sample_type.load() {
                     SampleType::File => self.play_sample(&mut buffer.mix, &track.file_sample, 2),
                     SampleType::Live => self.play_thru(&mut buffer.mix, live, input, false),
                     SampleType::LiveRecord => self.play_thru(&mut buffer.mix, live, input, true),
-                    SampleType::LivePlay => self.play_sample(&mut buffer.mix, &live.sample, 1),
+                    SampleType::LivePlay => self.play_sample(&mut buffer.mix, live, 1),
                 }
             }
         }
@@ -424,10 +409,10 @@ impl Voice {
         buffer.write_to(output);
     }
 
-    fn play_thru(&mut self, buffer: &mut [f32], live: &mut Live, input: &[f32], record: bool) {
+    fn play_thru(&mut self, buffer: &mut [f32], live: &mut Vec<f32>, input: &[f32], record: bool) {
         let input = input.iter().sum();
-        if record && live.sample.len() < live.sample.capacity() {
-            live.sample.push(input);
+        if record && live.len() < live.capacity() {
+            live.push(input);
         }
         self.play(buffer, |_| input);
     }
@@ -462,7 +447,6 @@ enum Message {
 
 struct Audio {
     controls: Arc<Controls>,
-    lives: [Live; TRACK_COUNT as usize],
     voices: Vec<Voice>,
     sends: Vec<Box<dyn Send + FaustDsp<T = f32>>>,
     receiver: Receiver<Message>,
@@ -503,26 +487,29 @@ impl Audio {
     }
 
     fn set_sample_type(&mut self, value: i32) {
-        let track_id = self.controls.active_track_id.load();
-        let old = self.controls.active_track().sample_type.load();
+        // Clone for more convenient ownership rules
+        let controls = Arc::clone(&self.controls);
+
+        let track = controls.active_track();
+        let old = track.sample_type.load();
         let new = *get_clamped(&SampleType::ALL, value);
         if new == SampleType::LiveRecord {
-            self.lives[track_id as usize].sample.clear();
+            track.live_sample.try_lock().unwrap().clear();
         }
         if old != new {
-            self.controls.active_track().sample_type.store(new);
-            self.each_voice_for(track_id, |voice, gate| {
+            controls.active_track().sample_type.store(new);
+            self.each_voice_for(controls.active_track_id.load(), |voice, gate| {
                 voice.track_id = None;
                 voice.insert.dsp.set_param(gate, 0.);
             });
             if new.thru() {
-                self.allocate(track_id, self.controls.active_track().active_key.load());
+                self.allocate(controls.active_track_id.load(), track.active_key.load());
             }
         }
     }
 
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
-        // Process control messages
+        // Process messages for the RPC queue
         while let Ok(setter) = self.receiver.try_recv() {
             match setter {
                 Message::Setter(data, f) => f(self, data),
@@ -538,7 +525,7 @@ impl Audio {
             }
         }
 
-        // Update dsp parameters
+        // Update DSP parameters
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
                 self.controls
@@ -551,7 +538,7 @@ impl Audio {
             entries.set_params_on(dsp.as_mut());
         }
 
-        // Process each audio frame
+        // Read input frames and calculate output frames
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
             // Clone for more convenient ownership rules
             let controls = Arc::clone(&self.controls);
@@ -588,7 +575,7 @@ impl Audio {
             // Run voices and sends
             let mut buffer = Buffer::<INSERT_OUTPUT_COUNT, 2>::new();
             for voice in self.voices.iter_mut() {
-                voice.process(&self.controls, &mut self.lives, input, &mut buffer.mix);
+                voice.process(&self.controls, input, &mut buffer.mix);
             }
             buffer.write_to(output);
             for dsp in self.sends.iter_mut() {
@@ -624,7 +611,7 @@ impl Audio {
             voice.insert.dsp.instance_clear();
         }
 
-        // Update dsp parameters
+        // Update DSP parameters
         track.insert.store(&"gate", 1.);
         track.insert.store(&"note", note as f32);
         track
@@ -753,9 +740,12 @@ fn main() -> Result<()> {
     assert_eq!(sends.len(), SEND_COUNT as usize);
 
     let (sender, receiver) = std::sync::mpsc::channel();
-    let mut audio = Audio {
+    let rpc = Rpc {
         controls: Arc::new(controls),
-        lives: Default::default(),
+        sender,
+    };
+    let mut audio = Audio {
+        controls: Arc::clone(&rpc.controls),
         voices: Vec::new(),
         sends,
         receiver,
@@ -769,11 +759,6 @@ fn main() -> Result<()> {
         );
         audio.voices.push(voice);
     }
-
-    let rpc = Rpc {
-        controls: Arc::clone(&audio.controls),
-        sender,
-    };
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);
