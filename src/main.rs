@@ -256,7 +256,7 @@ struct Controls {
     tempo: bounded::I32<1, 999>,
     root: bounded::I32<-12, 12>,
     scale: bounded::I32<0, { SCALE_OFFSETS[0].len() as i32 }>,
-    song_position: bounded::I32<0, { i32::MAX }>,
+    step: bounded::I32<0, { i32::MAX }>,
     frames_since_last_step: bounded::I32<0, { i32::MAX }>,
     tracks: [Track; TRACK_COUNT as usize],
     sends: Vec<Entries>,
@@ -270,7 +270,7 @@ impl Controls {
     }
     fn toggle_play(&self) {
         toggle(&self.playing);
-        self.song_position.store(0);
+        self.step.store(0);
         self.frames_since_last_step.store(0);
     }
     fn note(&self, track: &Track, key: i32) -> i32 {
@@ -294,13 +294,10 @@ impl Controls {
     fn step_duration(&self, resolution: i32) -> f32 {
         SAMPLE_RATE as f32 * 240. / (self.tempo.load() as f32) / (resolution as f32)
     }
-    fn entries(&self) -> impl Iterator<Item = &Entries> {
+    fn find(&self, key: &str) -> Option<(&&'static str, &(ParamIndex, f32, bounded::Any<f32>))> {
         std::array::from_ref(&self.active_track().insert)
             .iter()
             .chain(self.sends.iter())
-    }
-    fn find(&self, key: &str) -> Option<(&&'static str, &(ParamIndex, f32, bounded::Any<f32>))> {
-        self.entries()
             .find_map(|entries| entries.map.get_key_value(key))
     }
 }
@@ -429,6 +426,8 @@ impl Audio {
         if track.muted.load() {
             return;
         }
+
+        // Select the oldest voice and reassign it to this track
         let note = self.controls.note(track, key);
         for voice in self.voices.iter_mut() {
             voice.age += 1;
@@ -441,16 +440,40 @@ impl Audio {
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
         }
+
+        // Update dsp parameters
         track.insert.store(&"gate", 1.);
         track.insert.store(&"note", note as f32);
         track
             .insert
             .store(&"thru", bool_to_float(track.sample_type.load().thru()));
-        get_clamped(&track.last_played, key).store(self.controls.song_position.load());
+
+        // Record to sequence
+        let song_step = self.controls.step.load();
+        if self.controls.playing.load() && self.controls.armed.load() {
+            let quantized_step = self
+                .controls
+                .quantized_step(song_step, track.resolution.load());
+            let track_step = get_clamped(&track.sequence, quantized_step % track.length.load());
+            let change = get_clamped(&track_step.keys, key);
+            change.active.store(true);
+            change.skip_next.store(quantized_step > song_step);
+        }
+        get_clamped(&track.last_played, key).store(song_step);
     }
     fn key_up(&mut self, track_id: Option<i32>, key: Option<i32>) {
         let track_id = track_id.unwrap_or(self.controls.active_track_id.load());
-        let key = key.unwrap_or(self.controls.track(track_id).active_key.load());
+        let track = self.controls.track(track_id);
+        let key = key.unwrap_or(track.active_key.load());
+        if self.controls.playing.load() && self.controls.armed.load() {
+            let last_played = get_clamped(&track.last_played, key).load();
+            let quantized_step = self
+                .controls
+                .quantized_step(last_played, track.resolution.load());
+            let step = get_clamped(&track.sequence, quantized_step % track.length.load());
+            let change = get_clamped(&step.keys, key);
+            change.value.store(self.controls.step.load() - last_played);
+        }
         self.release(track_id, |voice, gate| {
             if voice.key == key {
                 voice.insert.dsp.set_param(gate, 0.);
@@ -500,7 +523,7 @@ impl Audio {
             }
         }
 
-        // Update Faust parameters
+        // Update dsp parameters
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
                 self.controls
@@ -524,7 +547,7 @@ impl Audio {
             if controls.playing.load() && controls.frames_since_last_step.load() == 0 {
                 for (track_id, track) in controls.tracks.iter().enumerate() {
                     let length = controls.tracks[track_id].length.load() as usize;
-                    let position = controls.song_position.load();
+                    let position = controls.step.load();
                     let step = &track.sequence[position as usize % length];
                     for (key, change) in step.keys.iter().enumerate() {
                         if position - track.last_played[key].load() == change.value.load() {
@@ -545,9 +568,7 @@ impl Audio {
                 controls.frames_since_last_step.store(next_step);
                 if next_step as f32 >= controls.step_duration(MAX_RESOLUTION) {
                     controls.frames_since_last_step.store(0);
-                    controls
-                        .song_position
-                        .store(controls.song_position.load() + 1);
+                    controls.step.store(controls.step.load() + 1);
                 }
             }
 
@@ -586,7 +607,7 @@ impl Rpc {
             "set octave" => send(|audio, i| audio.controls.active_track().octave.nudge(i, 0))?,
             "get useKey" => self.controls.active_track().use_key.load().into(),
             "set useKey" => send(|audio, _| toggle(&audio.controls.active_track().use_key))?,
-            "get step" => self.controls.song_position.load(),
+            "get step" => self.controls.step.load(),
             "get resolution" => self.controls.active_track().resolution.load(),
             "get viewStart" => self.controls.active_track().view_start(),
             "get lastKey" => self.controls.active_track().active_key.load(),
