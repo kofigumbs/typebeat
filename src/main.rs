@@ -422,33 +422,6 @@ impl Audio {
         let track_id = track_id.unwrap_or(self.controls.active_track_id.load());
         let track = self.controls.track(track_id);
         let key = key.unwrap_or(track.active_key.load());
-        track.active_key.store(key);
-        if track.muted.load() {
-            return;
-        }
-
-        // Select the oldest voice and reassign it to this track
-        let note = self.controls.note(track, key);
-        for voice in self.voices.iter_mut() {
-            voice.age += 1;
-        }
-        if let Some(voice) = self.voices.iter_mut().max_by_key(|voice| voice.age) {
-            voice.key = key;
-            voice.age = 0;
-            voice.position = 0.;
-            voice.increment = (note as f32 / 12.).exp2() / (69.0_f32 / 12.).exp2();
-            voice.track_id = Some(track_id);
-            voice.insert.dsp.instance_clear();
-        }
-
-        // Update dsp parameters
-        track.insert.store(&"gate", 1.);
-        track.insert.store(&"note", note as f32);
-        track
-            .insert
-            .store(&"thru", bool_to_float(track.sample_type.load().thru()));
-
-        // Record to sequence
         let song_step = self.controls.step.load();
         if self.controls.playing.load() && self.controls.armed.load() {
             let quantized_step = self
@@ -459,7 +432,8 @@ impl Audio {
             change.active.store(true);
             change.skip_next.store(quantized_step > song_step);
         }
-        get_clamped(&track.last_played, key).store(song_step);
+        track.active_key.store(key);
+        self.allocate_voice(track_id, key);
     }
     fn key_up(&mut self, track_id: Option<i32>, key: Option<i32>) {
         let track_id = track_id.unwrap_or(self.controls.active_track_id.load());
@@ -474,11 +448,7 @@ impl Audio {
             let change = get_clamped(&step.keys, key);
             change.value.store(self.controls.step.load() - last_played);
         }
-        self.release(track_id, |voice, gate| {
-            if voice.key == key {
-                voice.insert.dsp.set_param(gate, 0.);
-            }
-        });
+        self.release_voice(track_id, key);
     }
     fn set_sample_type(&mut self, value: i32) {
         let track_id = self.controls.active_track_id.load();
@@ -488,22 +458,13 @@ impl Audio {
             self.lives[track_id as usize].in_use = 0;
         }
         if old != new {
-            self.release(track_id, |voice, gate| {
+            self.each_voice_for(track_id, |voice, gate| {
                 voice.insert.dsp.set_param(gate, 0.);
                 if !old.thru() && new.thru() {
                     voice.track_id = None;
                 }
             });
             self.controls.active_track().sample_type.store(new);
-        }
-    }
-    fn release(&mut self, track_id: i32, f: impl Fn(&mut Voice, ParamIndex)) {
-        let track = self.controls.track(track_id);
-        if let Some((index, _, _)) = track.insert.map.get(&"gate") {
-            self.voices
-                .iter_mut()
-                .filter(|voice| voice.track_id == Some(track_id))
-                .for_each(|voice| f(voice, *index));
         }
     }
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
@@ -522,7 +483,6 @@ impl Audio {
                 }
             }
         }
-
         // Update dsp parameters
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
@@ -535,14 +495,12 @@ impl Audio {
         for (dsp, entries) in self.sends.iter_mut().zip(self.controls.sends.iter()) {
             entries.set_params_on(dsp.as_mut());
         }
-
         // Process each audio frame
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
             // Since most methods called here take &mut self, it becomes inconvenient to use
             // self.controls directly. Calling Arc::clone is just an atomic increment, so we'll do
             // that instead.
             let controls = Arc::clone(&self.controls);
-
             // If this is a new step, then replay any sequenced events
             if controls.playing.load() && controls.frames_since_last_step.load() == 0 {
                 for (track_id, track) in controls.tracks.iter().enumerate() {
@@ -551,17 +509,16 @@ impl Audio {
                     let step = &track.sequence[position as usize % length];
                     for (key, change) in step.keys.iter().enumerate() {
                         if position - track.last_played[key].load() == change.value.load() {
-                            self.key_up(Some(track_id as i32), Some(key as i32));
+                            self.release_voice(track_id as i32, key as i32);
                         }
                         if change.skip_next.load() {
                             change.skip_next.store(false);
-                        } else if change.active.load() {
-                            self.key_down(Some(track_id as i32), Some(key as i32));
+                        } else if change.active.load() && !track.muted.load() {
+                            self.allocate_voice(track_id as i32, key as i32);
                         }
                     }
                 }
             }
-
             // Advance song position
             if controls.playing.load() {
                 let next_step = controls.frames_since_last_step.load() + 1;
@@ -571,7 +528,6 @@ impl Audio {
                     controls.step.store(controls.step.load() + 1);
                 }
             }
-
             // Run voices and sends
             let mut buffer = Buffer::<INSERT_OUTPUT_COUNT, 2>::new();
             for (voice, live) in self.voices.iter_mut().zip(self.lives.iter_mut()) {
@@ -583,6 +539,44 @@ impl Audio {
                 buffer.compute(dsp.as_mut());
                 buffer.write_to(output);
             }
+        }
+    }
+    fn allocate_voice(&mut self, track_id: i32, key: i32) {
+        self.release_voice(track_id, key);
+        let track = self.controls.track(track_id);
+        let note = self.controls.note(track, key);
+        for voice in self.voices.iter_mut() {
+            voice.age += 1;
+        }
+        if let Some(voice) = self.voices.iter_mut().max_by_key(|voice| voice.age) {
+            voice.key = key;
+            voice.age = 0;
+            voice.position = 0.;
+            voice.increment = (note as f32 / 12.).exp2() / (69.0_f32 / 12.).exp2();
+            voice.track_id = Some(track_id);
+            voice.insert.dsp.instance_clear();
+        }
+        track.insert.store(&"gate", 1.);
+        track.insert.store(&"note", note as f32);
+        track
+            .insert
+            .store(&"thru", bool_to_float(track.sample_type.load().thru()));
+        get_clamped(&track.last_played, key).store(self.controls.step.load());
+    }
+    fn release_voice(&mut self, track_id: i32, key: i32) {
+        self.each_voice_for(track_id, |voice, gate| {
+            if voice.key == key {
+                voice.insert.dsp.set_param(gate, 0.);
+            }
+        });
+    }
+    fn each_voice_for(&mut self, track_id: i32, f: impl Fn(&mut Voice, ParamIndex)) {
+        let track = self.controls.track(track_id);
+        if let Some((index, _, _)) = track.insert.map.get(&"gate") {
+            self.voices
+                .iter_mut()
+                .filter(|voice| voice.track_id == Some(track_id))
+                .for_each(|voice| f(voice, *index));
         }
     }
 }
