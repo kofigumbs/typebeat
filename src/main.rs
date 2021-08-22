@@ -142,7 +142,7 @@ struct Track {
     resolution: bounded::I32<1, MAX_RESOLUTION>,
     page_start: bounded::I32<0, { i32::MAX }>,
     sequence: Vec<Step>,
-    last_played: Vec<AtomicCell<i32>>,
+    last_played: [AtomicCell<i32>; KEY_COUNT as usize],
     insert: Entries,
 }
 impl Default for Track {
@@ -159,7 +159,7 @@ impl Default for Track {
             resolution: 16.into(),
             page_start: 0.into(),
             sequence: vec![Step::default(); MAX_LENGTH as usize],
-            last_played: (0..KEY_COUNT).map(|_| 0.into()).collect(),
+            last_played: Default::default(),
             insert: Entries::default(),
         }
     }
@@ -448,7 +448,7 @@ enum Message {
 struct Audio {
     controls: Arc<Controls>,
     voices: Vec<Voice>,
-    sends: Vec<Box<dyn Send + FaustDsp<T = f32>>>,
+    sends: [Box<dyn Send + FaustDsp<T = f32>>; SEND_COUNT],
     receiver: Receiver<Message>,
 }
 impl Audio {
@@ -720,34 +720,23 @@ impl Rpc {
 fn main() -> Result<()> {
     let mut controls = Controls::default();
     controls.tempo.store(120);
+    controls
+        .sends
+        .resize_with(SEND_COUNT as usize, Entries::default);
     for (i, track) in controls.tracks.iter_mut().enumerate() {
         track.file_sample = samples::read_stereo_file(i)?;
         effects::insert::build_user_interface_static(&mut track.insert);
     }
 
-    let sends: Vec<Box<dyn Send + FaustDsp<T = f32>>> = vec![
-        DspFactory::<effects::reverb>::default().dsp,
-        DspFactory::<effects::echo>::default().dsp,
-        DspFactory::<effects::drive>::default().dsp,
-    ];
-    for dsp in sends.iter() {
-        let mut entries = Entries::default();
-        dsp.build_user_interface(&mut entries);
-        controls.sends.push(entries);
-        assert_eq!(dsp.get_num_inputs(), 2);
-        assert_eq!(dsp.get_num_outputs(), 2);
-    }
-    assert_eq!(sends.len(), SEND_COUNT as usize);
-
     let (sender, receiver) = std::sync::mpsc::channel();
-    let rpc = Rpc {
-        controls: Arc::new(controls),
-        sender,
-    };
     let mut audio = Audio {
-        controls: Arc::clone(&rpc.controls),
+        controls: Arc::new(controls),
         voices: Vec::new(),
-        sends,
+        sends: [
+            DspFactory::<effects::reverb>::default().dsp,
+            DspFactory::<effects::echo>::default().dsp,
+            DspFactory::<effects::drive>::default().dsp,
+        ],
         receiver,
     };
     for _ in 0..VOICE_COUNT {
@@ -755,10 +744,24 @@ fn main() -> Result<()> {
         assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
         assert_eq!(
             voice.insert.dsp.get_num_outputs(),
-            2 + 2 * audio.sends.len() as i32
+            INSERT_OUTPUT_COUNT as i32
         );
         audio.voices.push(voice);
     }
+    for (dsp, entries) in audio
+        .sends
+        .iter()
+        .zip(Arc::get_mut(&mut audio.controls).unwrap().sends.iter_mut())
+    {
+        assert_eq!(dsp.get_num_inputs(), 2);
+        assert_eq!(dsp.get_num_outputs(), 2);
+        dsp.build_user_interface(entries);
+    }
+
+    let rpc = Rpc {
+        controls: Arc::clone(&audio.controls),
+        sender,
+    };
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);
