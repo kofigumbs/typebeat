@@ -90,6 +90,7 @@ impl Entries {
             value.store(data);
         }
     }
+
     fn set_params_on(&self, dsp: &mut dyn effects::FaustDsp<T = f32>) {
         for (key, (index, _, value)) in self.map.iter() {
             match *key {
@@ -165,9 +166,11 @@ impl Track {
     fn view_start(&self) -> i32 {
         self.page_start.load() / self.view_length()
     }
+
     fn view_length(&self) -> i32 {
         MAX_RESOLUTION / self.resolution.load()
     }
+
     fn view_from(&self, start: i32) -> View {
         if start >= self.length.load() {
             return View::OutOfBounds;
@@ -190,12 +193,15 @@ impl Track {
             View::ContainsSteps
         }
     }
+
     fn view_index_to_start(&self, i: i32) -> i32 {
         self.page_start.load() + i * self.view_length()
     }
+
     fn view(&self, i: i32) -> View {
         self.view_from(self.view_index_to_start(i))
     }
+
     fn zoom_out(&self) {
         if self.resolution.load() > 1 {
             self.resolution.store(self.resolution.load() / 2);
@@ -203,21 +209,25 @@ impl Track {
                 .store(self.page_start.load() / self.view_length() * self.view_length());
         }
     }
+
     fn zoom_in(&self) {
         if self.resolution.load() < MAX_RESOLUTION {
             self.resolution.store(self.resolution.load() * 2);
         }
     }
+
     fn adjust_page(&self, diff: i32) {
         let new_page_start = self.page_start.load() + diff * VIEWS_PER_PAGE * self.view_length();
         if new_page_start < self.length.load() {
             self.page_start.store(new_page_start);
         }
     }
+
     fn adjust_length(&self, diff: i32) {
         self.length
             .store(self.length.load() + diff * MAX_RESOLUTION)
     }
+
     fn toggle_step(&self, i: i32) {
         let start = self.view_index_to_start(i);
         match self.view_from(start) {
@@ -237,12 +247,15 @@ impl Track {
             }
         }
     }
+
     fn can_clear(&self) -> bool {
         self.changes().any(|change| change.active.load())
     }
+
     fn clear(&self) {
         self.changes().for_each(|change| change.active.store(false))
     }
+
     fn changes(&self) -> impl Iterator<Item = &Change> {
         self.sequence.iter().flat_map(|step| step.keys.iter())
     }
@@ -263,16 +276,19 @@ struct Controls {
 }
 impl Controls {
     fn track(&self, id: i32) -> &Track {
-        &self.tracks[id.clamp(0, TRACK_COUNT - 1) as usize]
+        get_clamped(&self.tracks, id)
     }
+
     fn active_track(&self) -> &Track {
         self.track(self.active_track_id.load())
     }
+
     fn toggle_play(&self) {
         toggle(&self.playing);
         self.step.store(0);
         self.frames_since_last_step.store(0);
     }
+
     fn note(&self, track: &Track, key: i32) -> i32 {
         let root = self.root.load();
         let scale = self.scale.load();
@@ -283,6 +299,7 @@ impl Controls {
                 SCALE_OFFSETS[0][key as usize % 7]
             }
     }
+
     fn quantized_step(&self, step: i32, resolution: i32) -> i32 {
         let scale = MAX_RESOLUTION / resolution;
         let scaled_step = step / scale * scale;
@@ -291,19 +308,17 @@ impl Controls {
             > self.step_duration(resolution) / 2.;
         scaled_step + scale * (snap_to_next as i32)
     }
+
     fn step_duration(&self, resolution: i32) -> f32 {
         SAMPLE_RATE as f32 * 240. / (self.tempo.load() as f32) / (resolution as f32)
     }
+
     fn find(&self, key: &str) -> Option<(&&'static str, &(ParamIndex, f32, bounded::Any<f32>))> {
         std::array::from_ref(&self.active_track().insert)
             .iter()
             .chain(self.sends.iter())
             .find_map(|entries| entries.map.get_key_value(key))
     }
-}
-
-struct Live {
-    sample: Vec<f32>,
 }
 
 struct DspFactory<T> {
@@ -330,6 +345,7 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
             mix_start: 0,
         }
     }
+
     fn compute(&mut self, dsp: &mut dyn effects::FaustDsp<T = f32>) {
         dsp.compute(
             1,
@@ -337,9 +353,21 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
             &mut self.out.each_mut().map(std::slice::from_mut),
         );
     }
+
     fn write_to(&self, destination: &mut [f32]) {
         for (destination, source) in destination.iter_mut().zip(&self.mix) {
             *destination += source;
+        }
+    }
+}
+
+struct Live {
+    sample: Vec<f32>,
+}
+impl Default for Live {
+    fn default() -> Self {
+        Live {
+            sample: Vec::with_capacity(60 * SAMPLE_RATE as usize),
         }
     }
 }
@@ -370,12 +398,20 @@ impl Voice {
             None => 4,
         }
     }
-    fn process(&mut self, controls: &Controls, live: &mut Live, input: &[f32], output: &mut [f32]) {
+
+    fn process(
+        &mut self,
+        controls: &Controls,
+        lives: &mut [Live],
+        input: &[f32],
+        output: &mut [f32],
+    ) {
         let mut buffer = Buffer::<2, INSERT_OUTPUT_COUNT>::new();
         match self.track_id {
             None => self.play(&mut buffer.mix, |_| 0.),
             Some(track_id) => {
                 let track = controls.track(track_id);
+                let live = &mut lives[track_id as usize];
                 match track.sample_type.load() {
                     SampleType::File => self.play_sample(&mut buffer.mix, &track.file_sample, 2),
                     SampleType::Live => self.play_thru(&mut buffer.mix, live, input, false),
@@ -387,6 +423,7 @@ impl Voice {
         buffer.compute(self.insert.dsp.as_mut());
         buffer.write_to(output);
     }
+
     fn play_thru(&mut self, buffer: &mut [f32], live: &mut Live, input: &[f32], record: bool) {
         let input = input.iter().sum();
         if record && live.sample.len() < live.sample.capacity() {
@@ -394,6 +431,7 @@ impl Voice {
         }
         self.play(buffer, |_| input);
     }
+
     fn play_sample(&mut self, buffer: &mut [f32], sample: &[f32], channel_count: usize) {
         let position = self.position.floor() as usize;
         let position_fract = self.position.fract();
@@ -408,6 +446,7 @@ impl Voice {
             }
         });
     }
+
     fn play(&mut self, buffer: &mut [f32], f: impl Fn(usize) -> f32) {
         for (channel, sample) in buffer.iter_mut().enumerate() {
             *sample = f(channel);
@@ -423,7 +462,7 @@ enum Message {
 
 struct Audio {
     controls: Arc<Controls>,
-    lives: Vec<Live>,
+    lives: [Live; TRACK_COUNT as usize],
     voices: Vec<Voice>,
     sends: Vec<Box<dyn Send + FaustDsp<T = f32>>>,
     receiver: Receiver<Message>,
@@ -446,6 +485,7 @@ impl Audio {
         track.active_key.store(key);
         self.allocate(track_id, key);
     }
+
     fn key_up(&mut self, track_id: Option<i32>, key: Option<i32>) {
         let track_id = track_id.unwrap_or(self.controls.active_track_id.load());
         let track = self.controls.track(track_id);
@@ -461,6 +501,7 @@ impl Audio {
         }
         self.release(track_id, key);
     }
+
     fn set_sample_type(&mut self, value: i32) {
         let track_id = self.controls.active_track_id.load();
         let old = self.controls.active_track().sample_type.load();
@@ -479,6 +520,7 @@ impl Audio {
             }
         }
     }
+
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
         // Process control messages
         while let Ok(setter) = self.receiver.try_recv() {
@@ -495,6 +537,7 @@ impl Audio {
                 }
             }
         }
+
         // Update dsp parameters
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
@@ -507,12 +550,12 @@ impl Audio {
         for (dsp, entries) in self.sends.iter_mut().zip(self.controls.sends.iter()) {
             entries.set_params_on(dsp.as_mut());
         }
+
         // Process each audio frame
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
-            // Since most methods called here take &mut self, it becomes inconvenient to use
-            // self.controls directly. Calling Arc::clone is just an atomic increment, so we'll do
-            // that instead.
+            // Clone for more convenient ownership rules
             let controls = Arc::clone(&self.controls);
+
             // If this is a new step, then replay any sequenced events
             if controls.playing.load() && controls.frames_since_last_step.load() == 0 {
                 for (track_id, track) in controls.tracks.iter().enumerate() {
@@ -531,6 +574,7 @@ impl Audio {
                     }
                 }
             }
+
             // Advance song position
             if controls.playing.load() {
                 let next_step = controls.frames_since_last_step.load() + 1;
@@ -540,10 +584,11 @@ impl Audio {
                     controls.step.store(controls.step.load() + 1);
                 }
             }
+
             // Run voices and sends
             let mut buffer = Buffer::<INSERT_OUTPUT_COUNT, 2>::new();
-            for (voice, live) in self.voices.iter_mut().zip(self.lives.iter_mut()) {
-                voice.process(&self.controls, live, input, &mut buffer.mix);
+            for voice in self.voices.iter_mut() {
+                voice.process(&self.controls, &mut self.lives, input, &mut buffer.mix);
             }
             buffer.write_to(output);
             for dsp in self.sends.iter_mut() {
@@ -553,6 +598,7 @@ impl Audio {
             }
         }
     }
+
     fn allocate(&mut self, track_id: i32, key: i32) {
         self.release(track_id, key);
         let track = self.controls.track(track_id);
@@ -560,7 +606,11 @@ impl Audio {
         for voice in self.voices.iter_mut() {
             voice.age += 1;
         }
+
+        // Clone for more convenient ownership rules
         let controls = Arc::clone(&self.controls);
+
+        // Steal voie with highest priority number, breaking ties with age
         if let Some(voice) = self
             .voices
             .iter_mut()
@@ -573,13 +623,18 @@ impl Audio {
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
         }
+
+        // Update dsp parameters
         track.insert.store(&"gate", 1.);
         track.insert.store(&"note", note as f32);
         track
             .insert
             .store(&"thru", bool_to_float(track.sample_type.load().thru()));
+
+        // Remember when this was played to for note length sequencer calculation
         get_clamped(&track.last_played, key).store(self.controls.step.load());
     }
+
     fn release(&mut self, track_id: i32, key: i32) {
         self.each_voice_for(track_id, |voice, gate| {
             if voice.key == key {
@@ -587,6 +642,7 @@ impl Audio {
             }
         });
     }
+
     fn each_voice_for(&mut self, track_id: i32, f: impl Fn(&mut Voice, ParamIndex)) {
         let track = self.controls.track(track_id);
         if let Some((index, _, _)) = track.insert.map.get(&"gate") {
@@ -662,10 +718,12 @@ impl Rpc {
             }
         })
     }
+
     fn send<T>(&self, message: Message) -> Option<T> {
         let _ = self.sender.send(message);
         None
     }
+
     fn split(method: &str) -> Option<(&str, i32)> {
         let mut iter = method.split(' ');
         iter.next().zip(iter.next()?.parse().ok())
@@ -697,14 +755,11 @@ fn main() -> Result<()> {
     let (sender, receiver) = std::sync::mpsc::channel();
     let mut audio = Audio {
         controls: Arc::new(controls),
-        lives: Vec::new(),
+        lives: Default::default(),
         voices: Vec::new(),
         sends,
         receiver,
     };
-    audio.lives.resize_with(TRACK_COUNT as usize, || Live {
-        sample: Vec::with_capacity(60 * SAMPLE_RATE as usize),
-    });
     for _ in 0..VOICE_COUNT {
         let voice = Voice::default();
         assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
