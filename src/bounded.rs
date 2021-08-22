@@ -15,10 +15,6 @@ pub trait Bounded<T: Copy + PartialOrd + Num> {
             .store(num_traits::clamp(value, self.get_min(), self.get_max()));
     }
 
-    fn increment(&self) {
-        self.get_atom().store(self.load() + T::one());
-    }
-
     fn nudge(&self, value: i32, jump: T) {
         match value {
             0 => self.store(self.load() - jump),

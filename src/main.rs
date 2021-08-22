@@ -140,6 +140,7 @@ struct Track {
     resolution: bounded::I32<1, MAX_RESOLUTION>,
     page_start: bounded::I32<0, { i32::MAX }>,
     sequence: Vec<Step>,
+    last_played: Vec<AtomicCell<i32>>,
     insert: Entries,
 }
 impl Default for Track {
@@ -155,6 +156,7 @@ impl Default for Track {
             resolution: 16.into(),
             page_start: 0.into(),
             sequence: vec![Step::default(); MAX_LENGTH as usize],
+            last_played: (0..KEY_COUNT).map(|_| 0.into()).collect(),
             insert: Entries::default(),
         }
     }
@@ -254,7 +256,7 @@ struct Controls {
     tempo: bounded::I32<1, 999>,
     root: bounded::I32<-12, 12>,
     scale: bounded::I32<0, { SCALE_OFFSETS[0].len() as i32 }>,
-    step: bounded::I32<0, { i32::MAX }>,
+    song_position: bounded::I32<0, { i32::MAX }>,
     frames_since_last_step: bounded::I32<0, { i32::MAX }>,
     tracks: [Track; TRACK_COUNT as usize],
     sends: Vec<Entries>,
@@ -268,7 +270,7 @@ impl Controls {
     }
     fn toggle_play(&self) {
         toggle(&self.playing);
-        self.step.store(0);
+        self.song_position.store(0);
         self.frames_since_last_step.store(0);
     }
     fn note(&self, track: &Track, key: i32) -> i32 {
@@ -280,15 +282,6 @@ impl Controls {
             } else {
                 SCALE_OFFSETS[0][key as usize % 7]
             }
-    }
-    fn process(&self) {
-        if self.playing.load() {
-            self.frames_since_last_step.increment();
-            if self.frames_since_last_step.load() as f32 >= self.step_duration(MAX_RESOLUTION) {
-                self.step.increment();
-                self.frames_since_last_step.store(0);
-            }
-        }
     }
     fn quantized_step(&self, step: i32, resolution: i32) -> i32 {
         let scale = MAX_RESOLUTION / resolution;
@@ -451,6 +444,7 @@ impl Audio {
         track
             .insert
             .store(&"thru", bool_to_float(track.sample_type.load().thru()));
+        get_clamped(&track.last_played, key).store(self.controls.song_position.load());
     }
     fn key_up(&mut self, track_id: i32, key: i32) {
         self.release(track_id, |voice, gate| {
@@ -486,6 +480,7 @@ impl Audio {
         }
     }
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
+        // Process control messages
         while let Ok(setter) = self.receiver.try_recv() {
             match setter {
                 Message::Setter(data, f) => f(self, data),
@@ -500,6 +495,8 @@ impl Audio {
                 }
             }
         }
+
+        // Update Faust parameters
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
                 self.controls
@@ -511,25 +508,44 @@ impl Audio {
         for (dsp, entries) in self.sends.iter_mut().zip(self.controls.sends.iter()) {
             entries.set_params_on(dsp.as_mut());
         }
+
+        // Process each audio frame
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
-            if self.controls.playing.load() && self.controls.frames_since_last_step.load() == 0 {
-                for track_id in 0..self.controls.tracks.len() {
-                    let length = self.controls.tracks[track_id].length.load();
-                    let step_index = (self.controls.step.load() % length) as usize;
-                    for key in 0..KEY_COUNT as usize {
-                        let change =
-                            || &self.controls.tracks[track_id].sequence[step_index].keys[key];
-                        // if (self.controls.step.load() - self.last_played[key] == sequence[self.last_played[key] % length].key[key].value)
-                        //     self.key_up(track_id as i32, key as i32);
-                        if change().skip_next.load() {
-                            change().skip_next.store(false);
-                        } else if change().active.load() {
+            // Since most methods called here take &mut self, it becomes inconvenient to use
+            // self.controls directly. Calling Arc::clone is just an atomic increment, so we'll do
+            // that instead.
+            let controls = Arc::clone(&self.controls);
+
+            // If this is a new step, then replay any sequenced events
+            if controls.playing.load() && controls.frames_since_last_step.load() == 0 {
+                for (track_id, track) in controls.tracks.iter().enumerate() {
+                    let length = controls.tracks[track_id].length.load() as usize;
+                    let position = controls.song_position.load();
+                    let step = &track.sequence[position as usize % length];
+                    for (key, change) in step.keys.iter().enumerate() {
+                        if position - track.last_played[key].load() == change.value.load() {
+                            self.key_up(track_id as i32, key as i32);
+                        }
+                        if change.skip_next.load() {
+                            change.skip_next.store(false);
+                        } else if change.active.load() {
                             self.key_down(track_id as i32, key as i32);
                         }
                     }
                 }
             }
-            self.controls.process();
+
+            // Advance song position
+            if controls.playing.load() {
+                let next_step = controls.frames_since_last_step.load() + 1;
+                controls.frames_since_last_step.store(next_step);
+                if next_step as f32 >= controls.step_duration(MAX_RESOLUTION) {
+                    controls.frames_since_last_step.store(0);
+                    controls.song_position.store(controls.song_position.load() + 1);
+                }
+            }
+
+            // Run voices and sends
             let mut buffer = Buffer::<INSERT_OUTPUT_COUNT, 2>::new();
             for (voice, live) in self.voices.iter_mut().zip(self.lives.iter_mut()) {
                 voice.process(&self.controls, live, input, &mut buffer.mix);
@@ -572,7 +588,7 @@ impl Rpc {
             "set octave" => send(|audio, i| audio.controls.active_track().octave.nudge(i, 0))?,
             "get useKey" => self.controls.active_track().use_key.load().into(),
             "set useKey" => send(|audio, _| toggle(&audio.controls.active_track().use_key))?,
-            "get step" => self.controls.step.load(),
+            "get step" => self.controls.song_position.load(),
             "get resolution" => self.controls.active_track().resolution.load(),
             "get viewStart" => self.controls.active_track().view_start(),
             "get lastKey" => self.controls.active_track().active_key.load(),
