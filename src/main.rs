@@ -421,8 +421,10 @@ struct Audio {
     receiver: Receiver<Message>,
 }
 impl Audio {
-    fn key_down(&mut self, track_id: i32, key: i32) {
+    fn key_down(&mut self, track_id: Option<i32>, key: Option<i32>) {
+        let track_id = track_id.unwrap_or(self.controls.active_track_id.load());
         let track = self.controls.track(track_id);
+        let key = key.unwrap_or(track.active_key.load());
         track.active_key.store(key);
         if track.muted.load() {
             return;
@@ -446,7 +448,9 @@ impl Audio {
             .store(&"thru", bool_to_float(track.sample_type.load().thru()));
         get_clamped(&track.last_played, key).store(self.controls.song_position.load());
     }
-    fn key_up(&mut self, track_id: i32, key: i32) {
+    fn key_up(&mut self, track_id: Option<i32>, key: Option<i32>) {
+        let track_id = track_id.unwrap_or(self.controls.active_track_id.load());
+        let key = key.unwrap_or(self.controls.track(track_id).active_key.load());
         self.release(track_id, |voice, gate| {
             if voice.key == key {
                 voice.insert.dsp.set_param(gate, 0.);
@@ -524,12 +528,12 @@ impl Audio {
                     let step = &track.sequence[position as usize % length];
                     for (key, change) in step.keys.iter().enumerate() {
                         if position - track.last_played[key].load() == change.value.load() {
-                            self.key_up(track_id as i32, key as i32);
+                            self.key_up(Some(track_id as i32), Some(key as i32));
                         }
                         if change.skip_next.load() {
                             change.skip_next.store(false);
                         } else if change.active.load() {
-                            self.key_down(track_id as i32, key as i32);
+                            self.key_down(Some(track_id as i32), Some(key as i32));
                         }
                     }
                 }
@@ -541,7 +545,9 @@ impl Audio {
                 controls.frames_since_last_step.store(next_step);
                 if next_step as f32 >= controls.step_duration(MAX_RESOLUTION) {
                     controls.frames_since_last_step.store(0);
-                    controls.song_position.store(controls.song_position.load() + 1);
+                    controls
+                        .song_position
+                        .store(controls.song_position.load() + 1);
                 }
             }
 
@@ -568,18 +574,10 @@ impl Rpc {
     fn process(&self, context: &str, method: &str, data: i32) -> Option<i32> {
         let send = |setter| self.send(Message::Setter(data, setter));
         Some(match format!("{} {}", context, method).as_str() {
-            "set auditionDown" => {
-                send(|audio, i| audio.key_down(i, audio.controls.active_track().active_key.load()))?
-            }
-            "set auditionUp" => {
-                send(|audio, i| audio.key_up(i, audio.controls.active_track().active_key.load()))?
-            }
-            "set noteDown" => {
-                send(|audio, i| audio.key_down(audio.controls.active_track_id.load(), i))?
-            }
-            "set noteUp" => {
-                send(|audio, i| audio.key_up(audio.controls.active_track_id.load(), i))?
-            }
+            "set auditionDown" => send(|audio, i| audio.key_down(Some(i), None))?,
+            "set auditionUp" => send(|audio, i| audio.key_up(Some(i), None))?,
+            "set noteDown" => send(|audio, i| audio.key_down(None, Some(i)))?,
+            "set noteUp" => send(|audio, i| audio.key_up(None, Some(i)))?,
             "get activeTrack" => self.controls.active_track_id.load(),
             "set activeTrack" => send(|audio, i| audio.controls.active_track_id.store(i))?,
             "get sample type" => self.controls.active_track().sample_type.load() as i32,
