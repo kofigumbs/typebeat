@@ -1,5 +1,8 @@
 const Bindings = ({ state, set }) => {
-  const method = (...parts) => parts.join(' ');
+  const camelCase = (first, ...rest) => [
+    first,
+    ...rest.map(word => word[0].toUpperCase() + word.substring(1)),
+  ].join('').replace(' ', '');
 
   const noOp = () => '';
   const bind = options => Object.assign({ label: noOp, title: noOp, onDown: noOp, onUp: noOp }, options);
@@ -44,7 +47,7 @@ const Bindings = ({ state, set }) => {
       ...oneOf('YUIO', state, 'sound', ['sample', 'synth 1', 'synth 2', 'synth 3']),
       ...oneOf('NM,', state, 'soundControl', ['type', 'level', 'detune']),
       ...group('HJKL;', i => {
-        const soundMethod = () => method(state.sound, state.soundControl);
+        const soundMethod = () => camelCase(state.sound, state.soundControl);
         const soundNudge = nudge(() => state[soundMethod()], j => set(soundMethod(), j))[i][1];
         return {
           label: () => {
@@ -74,8 +77,8 @@ const Bindings = ({ state, set }) => {
     ])}],
     ['T', { mode: 'Note', actions: new Map([
       ...all(i => ({
-        label: async () => note(await state[method('note', i)]),
-        title: async () => i == await state.lastKey,
+        label: async () => note(await state[`note ${i}`]),
+        title: async () => i == await state.activeKey,
         onDown: () => set('noteDown', i),
         onUp: () => set('noteUp', i),
       })),
@@ -107,7 +110,7 @@ const Bindings = ({ state, set }) => {
       ...group('NM,.', i => ({
         label: async () => {
           const n = ((await state.viewStart + i) % await state.resolution) + 1;
-          switch (await state[method('view', i)]) {
+          switch (await state[`view ${i}`]) {
             case 0: return '';
             case 1: return `${n}/${await state.resolution}`;
             case 2: return `${n}█${await state.resolution}`;
@@ -127,7 +130,7 @@ const Bindings = ({ state, set }) => {
     ['F', { mode: 'EQ', actions: new Map([
       ...oneOf('YUIOP', state, 'eqBand', ['low', 'band 1', 'band 2', 'band 3', 'high']),
       ...oneOf('NM', state, 'eqFilter', ['freq.', 'res.']),
-      ...nudge(() => state[method(state.eqBand, state.eqFilter)], i => set(method(state.eqBand, state.eqFilter), i)),
+      ...nudge(() => state[camelCase(state.eqBand, state.eqFilter)], i => set(camelCase(state.eqBand, state.eqFilter), i)),
     ])}],
     ['G', { mode: 'Mix', actions: new Map([
       ...oneOf('YUIOP', state, 'mix', ['main', 'pan', 'reverb', 'echo', 'drive']),
@@ -150,15 +153,15 @@ const Bindings = ({ state, set }) => {
     ])}],
     ['C', { mode: 'Send', actions: new Map([
       ...oneOf('YUI', state, 'effect', ['reverb', 'echo', 'drive']),
-      ...nudge(() => state[method(state.effect, state.effectControl)], i => set(method(state.effect, state.effectControl), i)),
+      ...nudge(() => state[camelCase(state.effect, state.effectControl)], i => set(camelCase(state.effect, state.effectControl), i)),
       ...oneOf('NM,', state, 'effectControl', ['gain', 'feed', 'space']),
     ])}],
     ['V', { mode: 'Tape', actions: new Map([
     ])}],
     ['B', { mode: 'Mute', actions: new Map([
       ...all(i => ({
-        label: async () => await state[method('mute', i)] ? '</>' : '==',
-        onDown: () => set('mute', i),
+        label: async () => await state[`muted ${i}`] ? '</>' : '==',
+        onDown: () => set('muted', i),
       })),
     ])}],
     [undefined, { actions: new Map([

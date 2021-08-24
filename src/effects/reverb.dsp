@@ -1,8 +1,8 @@
 import("stdfaust.lib");
 
-gain  = nentry("reverb gain",  25, 0, 50, 10) : si.smoo;
-feed  = nentry("reverb feed",  25, 0, 50, 10) : si.smoo;
-space = nentry("reverb space", 25, 0, 50, 10);
+gain  = nentry("reverbGain",  25, 0, 50, 10) : si.smoo;
+feed  = nentry("reverbFeed",  25, 0, 50, 10) : si.smoo;
+space = nentry("reverbSpace", 25, 0, 50, 10);
 
 process = sp.stereoize(*(gain/250)) : re.stereo_freeverb(comb, allpass, damp, space) with {
 	damp = 0.2;
