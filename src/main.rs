@@ -10,11 +10,9 @@ use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
 use serde_json::Value;
 
-use bounded::Bounded;
 use effects::{FaustDsp, ParamIndex, UI};
-use state::{Enum, Key, Parameter, State};
+use state::{Enum, Key, State};
 
-mod bounded;
 mod effects;
 mod samples;
 mod state;
@@ -54,19 +52,44 @@ const LENGTH: &Key<i32> = &Key::new("length", MAX_RESOLUTION, Some(MAX_RESOLUTIO
 const RESOLUTION: &Key<i32> = &Key::new("resolution", 16, Some(1..=MAX_RESOLUTION));
 const SAMPLE_TYPE: &Key<SampleType> = &Key::new("sampleType", SampleType::File, None);
 
+// Insert keys -- must match definitions in insert.dsp
+const THRU: &Key<bool> = &Key::toggle("thru");
+const GATE: &Key<i32> = &Key::new("gate", 0, Some(0..=1));
+const NOTE: &Key<i32> = &Key::new("note", 0, Some(0..=127));
+
 fn get_clamped<T>(values: &[T], index: i32) -> &T {
     &values[(index as usize).clamp(0, values.len() - 1)]
-}
-
-fn bool_to_float(value: bool) -> f32 {
-    return if value { 1. } else { 0. };
 }
 
 fn toggle(value: &AtomicCell<bool>) {
     value.fetch_xor(true);
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct InitUi<'a> {
+    state: &'a mut State,
+    saved: &'a Value,
+    psk: &'a mut HashMap<&'static str, (ParamIndex, f32, Key<f32>)>,
+}
+impl<'a> UI<f32> for InitUi<'a> {
+    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
+        let key = Key::new(s, n, Some(lo..=hi));
+        self.state.init(&key, self.saved);
+        self.psk.insert(s, (i, by, key));
+    }
+}
+
+struct SyncUi<'a, T: ?Sized> {
+    dsp: &'a mut T,
+    state: &'a State,
+}
+impl<'a, T: FaustDsp<T = f32> + ?Sized> UI<f32> for SyncUi<'a, T> {
+    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, n: f32, lo: f32, hi: f32, _: f32) {
+        let key = Key::new(s, n, Some(lo..=hi));
+        self.dsp.set_param(i, self.state.get(&key));
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
 enum SampleType {
     File,
     Live,
@@ -81,37 +104,6 @@ impl SampleType {
         match self {
             Self::File | Self::LivePlay => false,
             Self::Live | Self::LiveRecord => true,
-        }
-    }
-}
-
-#[derive(Default)]
-struct Entries<T = f32> {
-    map: HashMap<&'static str, (ParamIndex, T, bounded::Any<T>)>,
-}
-impl<T> UI<T> for Entries<T> {
-    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, value: T, min: T, max: T, step: T) {
-        let entry = bounded::Any {
-            atom: value.into(),
-            min,
-            max,
-        };
-        self.map.insert(s, (i, step, entry));
-    }
-}
-impl Entries {
-    fn store(&self, label: &'static str, data: f32) {
-        if let Some((_, _, value)) = &self.map.get(label) {
-            value.store(data);
-        }
-    }
-
-    fn set_params_on(&self, dsp: &mut dyn effects::FaustDsp<T = f32>) {
-        for (key, (index, _, value)) in self.map.iter() {
-            match *key {
-                "gate" | "note" => {}
-                _ => dsp.set_param(*index, value.load()),
-            }
         }
     }
 }
@@ -147,23 +139,23 @@ enum View {
 
 struct Track {
     state: State,
+    psk: HashMap<&'static str, (ParamIndex, f32, Key<f32>)>,
     file_sample: Vec<f32>,
     live_sample: Mutex<Vec<f32>>,
     page_start: AtomicCell<i32>,
     sequence: Vec<Step>,
     last_played: [AtomicCell<i32>; KEY_COUNT as usize],
-    insert: Entries,
 }
 impl Default for Track {
     fn default() -> Self {
         Self {
             state: State::default(),
+            psk: HashMap::default(),
             file_sample: Vec::new(),
             live_sample: Vec::with_capacity(60 * SAMPLE_RATE as usize).into(),
             page_start: 0.into(),
             sequence: vec![Step::default(); MAX_LENGTH as usize],
             last_played: Default::default(),
-            insert: Entries::default(),
         }
     }
 }
@@ -270,12 +262,12 @@ impl Track {
 #[derive(Default)]
 struct Controls {
     song: State,
+    psk: HashMap<&'static str, (ParamIndex, f32, Key<f32>)>,
     playing: AtomicCell<bool>,
     armed: AtomicCell<bool>,
     step: AtomicCell<i32>,
     frames_since_last_step: AtomicCell<i32>,
     tracks: [Track; TRACK_COUNT as usize],
-    sends: Vec<Entries>,
 }
 impl Controls {
     fn track(&self, id: i32) -> &Track {
@@ -316,22 +308,40 @@ impl Controls {
         SAMPLE_RATE as f32 * 240. / (self.song.get(TEMPO) as f32) / (resolution as f32)
     }
 
-    fn find(&self, key: &str) -> Option<(&&'static str, &(ParamIndex, f32, bounded::Any<f32>))> {
-        std::array::from_ref(&self.active_track().insert)
-            .iter()
-            .chain(self.sends.iter())
-            .find_map(|entries| entries.map.get_key_value(key))
+    fn find(&self, name: &str) -> Option<(&State, f32, &Key<f32>)> {
+        if let Some((_, by, key)) = self.psk.get(name) {
+            Some((&self.song, *by, key))
+        } else if let Some((_, by, key)) = self.active_track().psk.get(name) {
+            Some((&self.active_track().state, *by, key))
+        } else {
+            None
+        }
     }
 }
 
-struct DspFactory<T> {
+// Wrapper for FaustDsp that keeps track of its `build_user_interface` fn
+struct DspDyn {
+    dsp: Box<dyn Send + FaustDsp<T = f32>>,
+    builder: fn(&mut dyn UI<f32>),
+}
+
+// Wrapper for FaustDsp that implements Default
+struct DspDefault<T> {
     dsp: Box<T>,
 }
-impl<T: FaustDsp> Default for DspFactory<T> {
+impl<T: FaustDsp> Default for DspDefault<T> {
     fn default() -> Self {
         let mut dsp = Box::new(T::new());
         dsp.instance_init(SAMPLE_RATE);
-        DspFactory { dsp }
+        DspDefault { dsp }
+    }
+}
+impl<T: 'static + Send + FaustDsp<T = f32>> DspDefault<T> {
+    fn to_dyn(self) -> DspDyn {
+        DspDyn {
+            dsp: self.dsp,
+            builder: T::build_user_interface_static,
+        }
     }
 }
 
@@ -371,7 +381,7 @@ struct Voice {
     position: f32,
     increment: f32,
     track_id: Option<i32>,
-    insert: DspFactory<effects::insert>,
+    insert: DspDefault<effects::insert>,
 }
 impl Voice {
     // 0 is the "highest" -- voices with priority 0 should not be stolen
@@ -381,10 +391,8 @@ impl Voice {
                 let track = controls.track(track_id);
                 if track.state.get(SAMPLE_TYPE).thru() {
                     0
-                } else if let Some((_, _, value)) = track.insert.map.get(&"gate") {
-                    2 - value.load() as usize
                 } else {
-                    3 // unreachable, gate should always exist in map
+                    2 - track.state.get(GATE) as usize
                 }
             }
             None => 4,
@@ -449,7 +457,7 @@ enum Message {
 struct Audio {
     controls: Arc<Controls>,
     voices: Vec<Voice>,
-    sends: [Box<dyn Send + FaustDsp<T = f32>>; SEND_COUNT],
+    sends: [DspDyn; SEND_COUNT],
     receiver: Receiver<Message>,
 }
 impl Audio {
@@ -517,12 +525,12 @@ impl Audio {
         while let Ok(setter) = self.receiver.try_recv() {
             match setter {
                 Message::Setter(data, f) => f(self, data),
-                Message::SetEntry(data, key) => {
-                    if let Some((_, (_, step, value))) = self.controls.find(&key) {
-                        match *step as i32 {
-                            0 => value.store(bool_to_float(value.load() == 0.)),
-                            1 => value.store(data as f32),
-                            _ => value.nudge(data, *step),
+                Message::SetEntry(data, name) => {
+                    if let Some((state, step, key)) = self.controls.find(&name) {
+                        match step as i32 {
+                            0 => state.toggle(key),
+                            1 => state.set(key, data as f32),
+                            _ => state.nudge(key, data, step),
                         }
                     }
                 }
@@ -532,14 +540,15 @@ impl Audio {
         // Update DSP parameters
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
-                self.controls
-                    .track(track_id)
-                    .insert
-                    .set_params_on(voice.insert.dsp.as_mut());
+                let dsp = voice.insert.dsp.as_mut();
+                let state = &self.controls.track(track_id).state;
+                effects::insert::build_user_interface_static(&mut SyncUi { dsp, state });
             }
         }
-        for (dsp, entries) in self.sends.iter_mut().zip(self.controls.sends.iter()) {
-            entries.set_params_on(dsp.as_mut());
+        for DspDyn { dsp, builder } in self.sends.iter_mut() {
+            let dsp = dsp.as_mut();
+            let state = &self.controls.song;
+            builder(&mut SyncUi { dsp, state });
         }
 
         // Read input frames and calculate output frames
@@ -582,7 +591,7 @@ impl Audio {
                 voice.process(&self.controls, input, &mut buffer.mix);
             }
             buffer.write_to(output);
-            for dsp in self.sends.iter_mut() {
+            for DspDyn { dsp, .. } in self.sends.iter_mut() {
                 buffer.mix_start += 2;
                 buffer.compute(dsp.as_mut());
                 buffer.write_to(output);
@@ -616,11 +625,9 @@ impl Audio {
         }
 
         // Update DSP parameters
-        track.insert.store(&"gate", 1.);
-        track.insert.store(&"note", note as f32);
-        track
-            .insert
-            .store(&"thru", bool::to_f32(track.state.get(SAMPLE_TYPE).thru()));
+        track.state.set(GATE, 1);
+        track.state.set(NOTE, note);
+        track.state.set(THRU, track.state.get(SAMPLE_TYPE).thru());
 
         // Remember when this was played to for note length sequencer calculation
         get_clamped(&track.last_played, key).store(self.controls.step.load());
@@ -636,12 +643,11 @@ impl Audio {
 
     fn each_voice_for(&mut self, track_id: i32, f: impl Fn(&mut Voice, ParamIndex)) {
         let track = self.controls.track(track_id);
-        if let Some((index, _, _)) = track.insert.map.get(&"gate") {
-            self.voices
-                .iter_mut()
-                .filter(|voice| voice.track_id == Some(track_id))
-                .for_each(|voice| f(voice, *index));
-        }
+        let (index, _, _) = track.psk["gate"];
+        self.voices
+            .iter_mut()
+            .filter(|voice| voice.track_id == Some(track_id))
+            .for_each(|voice| f(voice, index));
     }
 }
 
@@ -692,10 +698,10 @@ impl Rpc {
             "set scale" => send(|audio, i| audio.controls.song.set(SCALE, i))?,
             "set muted" => send(|audio, i| audio.controls.tracks[i as usize].state.toggle(MUTED))?,
             _ => {
-                if let Some((key, (_, _, value))) = self.controls.find(method) {
+                if let Some((state, _, key)) = self.controls.find(method) {
                     match context {
-                        "get" => value.load() as i32,
-                        "set" => self.send(Message::SetEntry(data, key))?,
+                        "get" => state.get(key) as i32,
+                        "set" => self.send(Message::SetEntry(data, key.name))?,
                         _ => None?,
                     }
                 } else if let Some((name, i)) = Self::split(method) {
@@ -727,24 +733,23 @@ fn main() -> Result<()> {
     let saved = &Value::Null;
 
     let mut controls = Controls::default();
-    controls.song.deserialize(ACTIVE_TRACK_ID, saved);
-    controls.song.deserialize(TEMPO, saved);
-    controls.song.deserialize(ROOT, saved);
-    controls.song.deserialize(SCALE, saved);
-    controls
-        .sends
-        .resize_with(SEND_COUNT as usize, Entries::default);
+    controls.song.init(ACTIVE_TRACK_ID, saved);
+    controls.song.init(TEMPO, saved);
+    controls.song.init(ROOT, saved);
+    controls.song.init(SCALE, saved);
     for (i, track) in controls.tracks.iter_mut().enumerate() {
         let saved = &saved["tracks"][i];
-        track.state.deserialize(MUTED, saved);
-        track.state.deserialize(USE_KEY, saved);
-        track.state.deserialize(ACTIVE_KEY, saved);
-        track.state.deserialize(OCTAVE, saved);
-        track.state.deserialize(LENGTH, saved);
-        track.state.deserialize(RESOLUTION, saved);
-        track.state.deserialize(SAMPLE_TYPE, saved);
+        let state = &mut track.state;
+        let psk = &mut track.psk;
+        state.init(MUTED, saved);
+        state.init(USE_KEY, saved);
+        state.init(ACTIVE_KEY, saved);
+        state.init(OCTAVE, saved);
+        state.init(LENGTH, saved);
+        state.init(RESOLUTION, saved);
+        state.init(SAMPLE_TYPE, saved);
         track.file_sample = samples::read_stereo_file(i)?;
-        effects::insert::build_user_interface_static(&mut track.insert);
+        effects::insert::build_user_interface_static(&mut InitUi { state, psk, saved });
     }
 
     let (sender, receiver) = std::sync::mpsc::channel();
@@ -752,9 +757,9 @@ fn main() -> Result<()> {
         controls: Arc::new(controls),
         voices: Vec::new(),
         sends: [
-            DspFactory::<effects::reverb>::default().dsp,
-            DspFactory::<effects::echo>::default().dsp,
-            DspFactory::<effects::drive>::default().dsp,
+            DspDefault::<effects::reverb>::default().to_dyn(),
+            DspDefault::<effects::echo>::default().to_dyn(),
+            DspDefault::<effects::drive>::default().to_dyn(),
         ],
         receiver,
     };
@@ -767,14 +772,13 @@ fn main() -> Result<()> {
         );
         audio.voices.push(voice);
     }
-    for (dsp, entries) in audio
-        .sends
-        .iter()
-        .zip(Arc::get_mut(&mut audio.controls).unwrap().sends.iter_mut())
-    {
+    for DspDyn { dsp, builder } in audio.sends.iter_mut() {
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
-        dsp.build_user_interface(entries);
+        let controls = &mut Arc::get_mut(&mut audio.controls).unwrap();
+        let state = &mut controls.song;
+        let psk = &mut controls.psk;
+        builder(&mut InitUi { state, psk, saved });
     }
 
     let rpc = Rpc {

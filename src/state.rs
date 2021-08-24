@@ -15,7 +15,7 @@ pub type Range<T> = Option<RangeInclusive<T>>;
 ///   4. Parameters have a default value
 /// <https://matklad.github.io/2018/05/24/typed-key-pattern.html>
 pub struct Key<T> {
-    name: &'static str,
+    pub name: &'static str,
     default: T,
     range: Range<T>,
 }
@@ -99,7 +99,7 @@ pub struct State {
 
 impl State {
     /// Read parameter from the saved value or use the default if it doesn't exist
-    pub fn deserialize<T: Copy + Parameter>(&mut self, key: &Key<T>, saved: &Value) {
+    pub fn init<T: Copy + Parameter>(&mut self, key: &Key<T>, saved: &Value) {
         if let Some(value) = saved[key.name].as_f64() {
             self.map.insert(key.name, AtomicCell::new(value as f32));
         } else {
@@ -113,20 +113,20 @@ impl State {
     }
 
     /// Set the parameter's value
-    pub fn set<T: Copy + Ord + Parameter>(&self, key: &Key<T>, value: T) {
+    pub fn set<T: Copy + PartialOrd + Parameter>(&self, key: &Key<T>, value: T) {
         self.map[key.name].store(match &key.range {
             None => value.to_f32(),
-            Some(range) => value.clamp(*range.start(), *range.end()).to_f32(),
+            Some(range) => num_traits::clamp(value, *range.start(), *range.end()).to_f32(),
         });
     }
 
     /// Toggles the boolean parameter's value
-    pub fn toggle(&self, key: &Key<bool>) {
-        self.set(key, !self.get(key));
+    pub fn toggle<T>(&self, key: &Key<T>) {
+        self.map[key.name].store(bool::to_f32(self.map[key.name].load() == 0.));
     }
 
     /// Update the parameter's value by +/- 1 or jump, depending on the the value provided
-    pub fn nudge<T: Copy + Ord + Num + Parameter>(&self, key: &Key<T>, value: i32, jump: T) {
+    pub fn nudge<T: Copy + PartialOrd + Num + Parameter>(&self, key: &Key<T>, value: i32, jump: T) {
         match value {
             0 => self.set(key, self.get(key) - jump),
             1 => self.set(key, self.get(key) - T::one()),
