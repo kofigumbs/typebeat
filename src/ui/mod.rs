@@ -1,17 +1,24 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use wry::application::dpi::LogicalSize;
 use wry::application::event::{Event, WindowEvent};
 use wry::application::event_loop::{ControlFlow, EventLoop};
+use wry::application::menu::{MenuBar, MenuItem};
 use wry::application::window::WindowBuilder;
 use wry::webview::{RpcResponse, WebViewBuilder};
 
 pub fn start(f: impl Fn(&str, &str, i32) -> Option<i32> + 'static) -> Result<!> {
+    let mut submenu = MenuBar::new();
+    let mut menu = MenuBar::new();
+    submenu.add_native_item(MenuItem::Quit).context("⌘Q")?;
+    menu.add_submenu("Typebeat", true, submenu);
+
     let event_loop = EventLoop::new();
     let size = LogicalSize::new(1200., 415.);
     let window_builder = WindowBuilder::new()
         .with_title("Typebeat")
         .with_inner_size(size)
-        .with_min_inner_size(size);
+        .with_min_inner_size(size)
+        .with_menu(menu);
     let window;
     #[cfg(target_os = "macos")]
     {
@@ -52,7 +59,7 @@ pub fn start(f: impl Fn(&str, &str, i32) -> Option<i32> + 'static) -> Result<!> 
             }
         })
         .build()?;
-    event_loop.run(|event, _, control_flow| match event {
+    event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             event: WindowEvent::CloseRequested,
             ..

@@ -148,6 +148,6 @@ const handleDocumentKey = event => {
 
 document.addEventListener('keydown', handleDocumentKey);
 document.addEventListener('keyup', handleDocumentKey);
-document.addEventListener('keypress', event => event.preventDefault());
+document.addEventListener('keypress', event => false);
 
 sync();
