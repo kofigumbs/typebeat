@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use crossbeam::atomic::AtomicCell;
-use num_traits::Num;
+use num_traits::{AsPrimitive, Num};
 use serde_json::Value;
 
 pub trait Parameter {
@@ -61,14 +61,15 @@ impl<T: Copy + PartialEq + Enum> Parameter for T {
 
 /// Tags a parameter
 ///   1. Parameters are bidirectionally convertible to f32s
-///   2. Parameters are optionally clamped
-///   3. Parameters are optionally persisted in the save file by name
+///   2. Parameters are clamped
+///   3. Parameters are persisted in the save file by name
 ///   4. Parameters are available to the front-end by name
 /// <https://matklad.github.io/2018/05/24/typed-key-pattern.html>
 pub struct Key<T: 'static> {
     name: &'static str,
     min: AtomicCell<f32>,
     max: AtomicCell<f32>,
+    by: AtomicCell<u8>,
     _marker: &'static PhantomData<T>,
 }
 
@@ -79,6 +80,7 @@ impl<T> Key<T> {
             name,
             min: AtomicCell::new(f32::MIN),
             max: AtomicCell::new(f32::MAX),
+            by: AtomicCell::new(1),
             _marker: &PhantomData,
         }
     }
@@ -89,6 +91,11 @@ impl<T> Key<T> {
     {
         self.min.store(min.to_f32());
         self.max.store(max.to_f32());
+        self
+    }
+
+    pub fn nudge_by(&self, by: u8) -> &Self {
+        self.by.store(by);
         self
     }
 }
@@ -151,14 +158,23 @@ impl<Aux> State<Aux> {
         atom.store(bool::to_f32(atom.load() == 0.));
     }
 
-    /// Update the parameter's value by +/- 1 or jump, depending on the the value provided
-    pub fn nudge<T: Copy + PartialOrd + Num + Parameter>(&self, key: &Key<T>, value: i32, jump: T) {
+    /// Update the parameter's value by +/- 1 or by, depending on the the value provided
+    pub fn nudge<T: Copy + PartialOrd + Num + Parameter>(&self, key: &Key<T>, value: i32, by: T) {
         match value {
-            0 => self.set(key, self.get(key) - jump),
+            0 => self.set(key, self.get(key) - by),
             1 => self.set(key, self.get(key) - T::one()),
             2 => self.set(key, self.get(key) + T::one()),
-            3 => self.set(key, self.get(key) + jump),
+            3 => self.set(key, self.get(key) + by),
             _ => {}
+        }
+    }
+
+    /// Toggles, sets, or nudges a parameter depending on the Key's properties
+    pub fn update<T: AsPrimitive<f32> + AsPrimitive<i32>>(&self, key: &Key<f32>, value: T) {
+        match key.by.load() {
+            0 => self.toggle(key),
+            1 => self.set(key, value.as_()),
+            by => self.nudge(key, value.as_(), by as f32),
         }
     }
 }

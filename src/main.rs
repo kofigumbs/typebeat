@@ -68,14 +68,15 @@ fn toggle(value: &AtomicCell<bool>) {
 }
 
 struct InitUi<'a> {
-    state: &'a mut State<(ParamIndex, i32, Key<f32>)>,
+    state: &'a mut State<(ParamIndex, Key<f32>)>,
     saved: &'a Value,
 }
 impl<'a> UI<f32> for InitUi<'a> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
         let key = Key::new(s);
-        self.state.init(self.saved, key.between(lo, hi), n);
-        self.state.with_aux(&Key::<()>::new(s), (i, by as i32, key));
+        self.state
+            .init(self.saved, key.between(lo, hi).nudge_by(by as u8), n);
+        self.state.with_aux(&Key::<()>::new(s), (i, key));
     }
 }
 
@@ -138,7 +139,7 @@ enum View {
 }
 
 struct Track {
-    state: State<(ParamIndex, i32, Key<f32>)>,
+    state: State<(ParamIndex, Key<f32>)>,
     file_sample: Vec<f32>,
     live_sample: Mutex<Vec<f32>>,
     page_start: AtomicCell<i32>,
@@ -264,7 +265,7 @@ enum StateId {
 
 #[derive(Default)]
 struct Controls {
-    song: State<(ParamIndex, i32, Key<f32>)>,
+    song: State<(ParamIndex, Key<f32>)>,
     playing: AtomicCell<bool>,
     armed: AtomicCell<bool>,
     step: AtomicCell<i32>,
@@ -316,7 +317,7 @@ impl Controls {
             .or_else(|| Some(StateId::ActiveTrack).zip(self.active_track().state.get_name(name)))
     }
 
-    fn get_state(&self, id: StateId) -> &State<(ParamIndex, i32, Key<f32>)> {
+    fn get_state(&self, id: StateId) -> &State<(ParamIndex, Key<f32>)> {
         match id {
             StateId::Song => &self.song,
             StateId::ActiveTrack => &self.active_track().state,
@@ -533,11 +534,7 @@ impl Audio {
                 Message::Setter(data, f) => f(self, data),
                 Message::SetEntry(data, state_id, name) => {
                     let state = self.controls.get_state(state_id);
-                    match state.get_aux(&Key::<()>::new(name)) {
-                        (_, 0, key) => state.toggle(key),
-                        (_, 1, key) => state.set(key, data as f32),
-                        (_, by, key) => state.nudge(key, data, *by as f32),
-                    }
+                    state.update(&state.get_aux(&Key::<()>::new(name)).1, data);
                 }
             }
         }
@@ -667,12 +664,7 @@ impl Rpc {
             "set auditionUp" => send(|audio, i| audio.key_up(Some(i), None))?,
             "set noteDown" => send(|audio, i| audio.key_down(None, Some(i)))?,
             "set noteUp" => send(|audio, i| audio.key_up(None, Some(i)))?,
-            "set activeTrack" => send(|audio, i| audio.controls.song.set(&ACTIVE_TRACK_ID, i))?,
             "set sampleType" => send(|audio, i| audio.set_sample_type(i))?,
-            "set octave" => {
-                send(|audio, i| audio.controls.active_track().state.nudge(&OCTAVE, i, 0))?
-            }
-            "set useKey" => send(|audio, _| audio.controls.active_track().state.toggle(&USE_KEY))?,
             "get step" => self.controls.step.load(),
             "get viewStart" => self.controls.active_track().view_start(),
             "set page" => send(|audio, i| audio.controls.active_track().adjust_page(i))?,
@@ -687,10 +679,6 @@ impl Rpc {
             "set play" => send(|audio, _| audio.controls.toggle_play())?,
             "get armed" => self.controls.armed.load().into(),
             "set arm" => send(|audio, _| toggle(&audio.controls.armed))?,
-            "set tempo" => send(|audio, i| audio.controls.song.nudge(&TEMPO, i, 10))?,
-            "set tempoTaps" => send(|audio, i| audio.controls.song.set(&TEMPO, i))?,
-            "set root" => send(|audio, i| audio.controls.song.nudge(&ROOT, i, 7))?,
-            "set scale" => send(|audio, i| audio.controls.song.set(&SCALE, i))?,
             "set muted" => send(|audio, i| audio.controls.tracks[i as usize].state.toggle(&MUTED))?,
             _ => {
                 if let Some((state_id, name)) = self.controls.find_state(method) {
@@ -733,16 +721,16 @@ fn main() -> Result<()> {
     let mut controls = Controls::default();
     let song = &mut controls.song;
     song.init(saved, ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1), 0);
-    song.init(saved, TEMPO.between(0, 999), 120);
-    song.init(saved, ROOT.between(-12, 12), 0);
+    song.init(saved, TEMPO.between(0, 999).nudge_by(10), 120);
+    song.init(saved, ROOT.between(-12, 12).nudge_by(7), 0);
     song.init(saved, SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1), 0);
     for (i, track) in controls.tracks.iter_mut().enumerate() {
         let saved = &saved["tracks"][i];
         let state = &mut track.state;
         state.init(saved, &MUTED, false);
-        state.init(saved, &USE_KEY, true);
+        state.init(saved, USE_KEY.nudge_by(0), true);
         state.init(saved, ACTIVE_KEY.between(0, KEY_COUNT), 12);
-        state.init(saved, OCTAVE.between(2, 8), 4);
+        state.init(saved, OCTAVE.between(2, 8).nudge_by(2), 4);
         state.init(
             saved,
             LENGTH.between(MAX_RESOLUTION, MAX_LENGTH),
