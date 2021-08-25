@@ -1,10 +1,13 @@
 #![feature(never_type)]
 #![feature(array_methods)]
 
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
-use anyhow::Result;
+use anyhow::{Error, Result};
 use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
 use serde_json::Value;
@@ -37,24 +40,24 @@ const SCALE_OFFSETS: &[&[i32]] = &[
 ];
 
 // Song keys
-const ACTIVE_TRACK_ID: &Key<i32> = &Key::new("activeTrack", 0, Some(0..=TRACK_COUNT - 1));
-const TEMPO: &Key<i32> = &Key::new("tempo", 0, Some(0..=999));
-const ROOT: &Key<i32> = &Key::new("root", 0, Some(-12..=12));
-const SCALE: &Key<i32> = &Key::new("scale", 0, Some(0..=SCALE_OFFSETS.len() as i32 - 1));
+static ACTIVE_TRACK_ID: Key<i32> = Key::new("activeTrack");
+static TEMPO: Key<i32> = Key::new("tempo");
+static ROOT: Key<i32> = Key::new("root");
+static SCALE: Key<i32> = Key::new("scale");
 
 // Track keys
-const MUTED: &Key<bool> = &Key::toggle("muted");
-const USE_KEY: &Key<bool> = &Key::toggle("useKey");
-const ACTIVE_KEY: &Key<i32> = &Key::new("activeKey", 12, Some(0..=KEY_COUNT));
-const OCTAVE: &Key<i32> = &Key::new("octave", 4, Some(2..=8));
-const LENGTH: &Key<i32> = &Key::new("length", MAX_RESOLUTION, Some(MAX_RESOLUTION..=MAX_LENGTH));
-const RESOLUTION: &Key<i32> = &Key::new("resolution", 16, Some(1..=MAX_RESOLUTION));
-const SAMPLE_TYPE: &Key<SampleType> = &Key::new("sampleType", SampleType::File, None);
+static MUTED: Key<bool> = Key::new("muted");
+static USE_KEY: Key<bool> = Key::new("useKey");
+static ACTIVE_KEY: Key<i32> = Key::new("activeKey");
+static OCTAVE: Key<i32> = Key::new("octave");
+static LENGTH: Key<i32> = Key::new("length");
+static RESOLUTION: Key<i32> = Key::new("resolution");
+static SAMPLE_TYPE: Key<SampleType> = Key::new("sampleType");
 
-// Insert keys -- must match definitions in insert.dsp
-const THRU: &Key<bool> = &Key::toggle("thru");
-const GATE: &Key<i32> = &Key::new("gate", 0, Some(0..=1));
-const NOTE: &Key<i32> = &Key::new("note", 0, Some(0..=127));
+// Insert keys -- must match definitions in effects/insert.dsp
+static THRU: Key<bool> = Key::new("thru");
+static GATE: Key<i32> = Key::new("gate");
+static NOTE: Key<i32> = Key::new("note");
 
 fn get_clamped<T>(values: &[T], index: i32) -> &T {
     &values[(index as usize).clamp(0, values.len() - 1)]
@@ -70,10 +73,9 @@ struct InitUi<'a> {
 }
 impl<'a> UI<f32> for InitUi<'a> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
-        let key = Key::new(s, n, Some(lo..=hi));
-        self.state.init(&key, self.saved);
-        self.state
-            .with_aux(&Key::<()>::read_only(s), (i, by as i32, key));
+        let key = Key::new(s);
+        self.state.init(self.saved, key.between(lo, hi), n);
+        self.state.with_aux(&Key::<()>::new(s), (i, by as i32, key));
     }
 }
 
@@ -83,7 +85,7 @@ struct SyncUi<'a, T: ?Sized, U> {
 }
 impl<'a, T: FaustDsp<T = f32> + ?Sized, U> UI<f32> for SyncUi<'a, T, U> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
-        self.dsp.set_param(i, self.state.get(&Key::read_only(s)));
+        self.dsp.set_param(i, self.state.get(&Key::new(s)));
     }
 }
 
@@ -161,18 +163,18 @@ impl Track {
     }
 
     fn view_length(&self) -> i32 {
-        MAX_RESOLUTION / self.state.get(RESOLUTION)
+        MAX_RESOLUTION / self.state.get(&RESOLUTION)
     }
 
     fn view_from(&self, start: i32) -> View {
-        if start >= self.state.get(LENGTH) {
+        if start >= self.state.get(&LENGTH) {
             return View::OutOfBounds;
         }
         let mut active_count = 0;
         let mut last_active = 0;
         for i in start..(start + self.view_length()) {
             let step = get_clamped(&self.sequence, i);
-            let change = get_clamped(&step.keys, self.state.get(ACTIVE_KEY));
+            let change = get_clamped(&step.keys, self.state.get(&ACTIVE_KEY));
             if change.active.load() {
                 active_count += 1;
                 last_active = i;
@@ -196,29 +198,29 @@ impl Track {
     }
 
     fn zoom_out(&self) {
-        if self.state.get(RESOLUTION) > 1 {
-            self.state.set(RESOLUTION, self.state.get(RESOLUTION) / 2);
+        if self.state.get(&RESOLUTION) > 1 {
+            self.state.set(&RESOLUTION, self.state.get(&RESOLUTION) / 2);
             self.page_start
                 .store(self.page_start.load() / self.view_length() * self.view_length());
         }
     }
 
     fn zoom_in(&self) {
-        if self.state.get(RESOLUTION) < MAX_RESOLUTION {
-            self.state.set(RESOLUTION, self.state.get(RESOLUTION) * 2);
+        if self.state.get(&RESOLUTION) < MAX_RESOLUTION {
+            self.state.set(&RESOLUTION, self.state.get(&RESOLUTION) * 2);
         }
     }
 
     fn adjust_page(&self, diff: i32) {
         let new_page_start = self.page_start.load() + diff * VIEWS_PER_PAGE * self.view_length();
-        if new_page_start < self.state.get(LENGTH) {
+        if new_page_start < self.state.get(&LENGTH) {
             self.page_start.store(new_page_start);
         }
     }
 
     fn adjust_length(&self, diff: i32) {
         self.state
-            .set(LENGTH, self.state.get(LENGTH) + diff * MAX_RESOLUTION);
+            .set(&LENGTH, self.state.get(&LENGTH) + diff * MAX_RESOLUTION);
     }
 
     fn toggle_step(&self, i: i32) {
@@ -227,14 +229,14 @@ impl Track {
             View::OutOfBounds => {}
             View::Empty | View::ExactlyOnStep => {
                 let change =
-                    &self.sequence[start as usize].keys[self.state.get(ACTIVE_KEY) as usize];
+                    &self.sequence[start as usize].keys[self.state.get(&ACTIVE_KEY) as usize];
                 toggle(&change.active);
                 change.skip_next.store(false);
                 change.value.store(self.view_length());
             }
             View::ContainsSteps => {
                 for i in start..(start + self.view_length()) {
-                    self.sequence[i as usize].keys[self.state.get(ACTIVE_KEY) as usize]
+                    self.sequence[i as usize].keys[self.state.get(&ACTIVE_KEY) as usize]
                         .active
                         .store(false);
                 }
@@ -275,7 +277,7 @@ impl Controls {
     }
 
     fn active_track(&self) -> &Track {
-        self.track(self.song.get(ACTIVE_TRACK_ID))
+        self.track(self.song.get(&ACTIVE_TRACK_ID))
     }
 
     fn toggle_play(&self) {
@@ -285,10 +287,10 @@ impl Controls {
     }
 
     fn note(&self, track: &Track, key: i32) -> i32 {
-        let root = self.song.get(ROOT);
-        let scale = self.song.get(SCALE);
-        (track.state.get(OCTAVE) + key / 7) * 12
-            + if track.state.get(USE_KEY) {
+        let root = self.song.get(&ROOT);
+        let scale = self.song.get(&SCALE);
+        (track.state.get(&OCTAVE) + key / 7) * 12
+            + if track.state.get(&USE_KEY) {
                 SCALE_OFFSETS[scale as usize][key as usize % 7] + root
             } else {
                 SCALE_OFFSETS[0][key as usize % 7]
@@ -305,7 +307,7 @@ impl Controls {
     }
 
     fn step_duration(&self, resolution: i32) -> f32 {
-        SAMPLE_RATE as f32 * 240. / (self.song.get(TEMPO) as f32) / (resolution as f32)
+        SAMPLE_RATE as f32 * 240. / (self.song.get(&TEMPO) as f32) / (resolution as f32)
     }
 
     fn find_state(&self, name: &str) -> Option<(StateId, &'static str)> {
@@ -392,10 +394,10 @@ impl Voice {
         match self.track_id {
             Some(track_id) => {
                 let track = controls.track(track_id);
-                if track.state.get(SAMPLE_TYPE).thru() {
+                if track.state.get(&SAMPLE_TYPE).thru() {
                     0
                 } else {
-                    2 - track.state.get(GATE) as usize
+                    2 - track.state.get(&GATE) as usize
                 }
             }
             None => 4,
@@ -409,7 +411,7 @@ impl Voice {
             Some(track_id) => {
                 let track = controls.track(track_id);
                 let live = &mut track.live_sample.try_lock().unwrap();
-                match track.state.get(SAMPLE_TYPE) {
+                match track.state.get(&SAMPLE_TYPE) {
                     SampleType::File => self.play_sample(&mut buffer.mix, &track.file_sample, 2),
                     SampleType::Live => self.play_thru(&mut buffer.mix, live, input, false),
                     SampleType::LiveRecord => self.play_thru(&mut buffer.mix, live, input, true),
@@ -465,33 +467,34 @@ struct Audio {
 }
 impl Audio {
     fn key_down(&mut self, track_id: Option<i32>, key: Option<i32>) {
-        let track_id = track_id.unwrap_or(self.controls.song.get(ACTIVE_TRACK_ID));
+        let track_id = track_id.unwrap_or(self.controls.song.get(&ACTIVE_TRACK_ID));
         let track = self.controls.track(track_id);
-        let key = key.unwrap_or(track.state.get(ACTIVE_KEY));
+        let key = key.unwrap_or(track.state.get(&ACTIVE_KEY));
         let song_step = self.controls.step.load();
         if self.controls.playing.load() && self.controls.armed.load() {
             let quantized_step = self
                 .controls
-                .quantized_step(song_step, track.state.get(RESOLUTION));
-            let track_step = get_clamped(&track.sequence, quantized_step % track.state.get(LENGTH));
+                .quantized_step(song_step, track.state.get(&RESOLUTION));
+            let track_step =
+                get_clamped(&track.sequence, quantized_step % track.state.get(&LENGTH));
             let change = get_clamped(&track_step.keys, key);
             change.active.store(true);
             change.skip_next.store(quantized_step > song_step);
         }
-        track.state.set(ACTIVE_KEY, key);
+        track.state.set(&ACTIVE_KEY, key);
         self.allocate(track_id, key);
     }
 
     fn key_up(&mut self, track_id: Option<i32>, key: Option<i32>) {
-        let track_id = track_id.unwrap_or(self.controls.song.get(ACTIVE_TRACK_ID));
+        let track_id = track_id.unwrap_or(self.controls.song.get(&ACTIVE_TRACK_ID));
         let track = self.controls.track(track_id);
-        let key = key.unwrap_or(track.state.get(ACTIVE_KEY));
+        let key = key.unwrap_or(track.state.get(&ACTIVE_KEY));
         if self.controls.playing.load() && self.controls.armed.load() {
             let last_played = get_clamped(&track.last_played, key).load();
             let quantized_step = self
                 .controls
-                .quantized_step(last_played, track.state.get(RESOLUTION));
-            let step = get_clamped(&track.sequence, quantized_step % track.state.get(LENGTH));
+                .quantized_step(last_played, track.state.get(&RESOLUTION));
+            let step = get_clamped(&track.sequence, quantized_step % track.state.get(&LENGTH));
             let change = get_clamped(&step.keys, key);
             change.value.store(self.controls.step.load() - last_played);
         }
@@ -503,21 +506,21 @@ impl Audio {
         let controls = Arc::clone(&self.controls);
 
         let track = controls.active_track();
-        let old = track.state.get(SAMPLE_TYPE);
+        let old = track.state.get(&SAMPLE_TYPE);
         let new = *get_clamped(&SampleType::ALL, value);
         if new == SampleType::LiveRecord {
             track.live_sample.try_lock().unwrap().clear();
         }
         if old != new {
-            controls.active_track().state.set(SAMPLE_TYPE, new);
-            self.each_voice_for(controls.song.get(ACTIVE_TRACK_ID), |voice, gate| {
+            controls.active_track().state.set(&SAMPLE_TYPE, new);
+            self.each_voice_for(controls.song.get(&ACTIVE_TRACK_ID), |voice, gate| {
                 voice.track_id = None;
                 voice.insert.dsp.set_param(gate, 0.);
             });
             if new.thru() {
                 self.allocate(
-                    controls.song.get(ACTIVE_TRACK_ID),
-                    track.state.get(ACTIVE_KEY),
+                    controls.song.get(&ACTIVE_TRACK_ID),
+                    track.state.get(&ACTIVE_KEY),
                 );
             }
         }
@@ -530,7 +533,7 @@ impl Audio {
                 Message::Setter(data, f) => f(self, data),
                 Message::SetEntry(data, state_id, name) => {
                     let state = self.controls.get_state(state_id);
-                    match state.get_aux(&Key::<()>::read_only(name)) {
+                    match state.get_aux(&Key::<()>::new(name)) {
                         (_, 0, key) => state.toggle(key),
                         (_, 1, key) => state.set(key, data as f32),
                         (_, by, key) => state.nudge(key, data, *by as f32),
@@ -561,7 +564,7 @@ impl Audio {
             // If this is a new step, then replay any sequenced events
             if controls.playing.load() && controls.frames_since_last_step.load() == 0 {
                 for (track_id, track) in controls.tracks.iter().enumerate() {
-                    let length = controls.tracks[track_id].state.get(LENGTH) as usize;
+                    let length = controls.tracks[track_id].state.get(&LENGTH) as usize;
                     let position = controls.step.load();
                     let step = &track.sequence[position as usize % length];
                     for (key, change) in step.keys.iter().enumerate() {
@@ -570,7 +573,7 @@ impl Audio {
                         }
                         if change.skip_next.load() {
                             change.skip_next.store(false);
-                        } else if change.active.load() && !track.state.get(MUTED) {
+                        } else if change.active.load() && !track.state.get(&MUTED) {
                             self.allocate(track_id as i32, key as i32);
                         }
                     }
@@ -627,9 +630,9 @@ impl Audio {
         }
 
         // Update DSP parameters
-        track.state.set(GATE, 1);
-        track.state.set(NOTE, note);
-        track.state.set(THRU, track.state.get(SAMPLE_TYPE).thru());
+        track.state.set(&GATE, 1);
+        track.state.set(&NOTE, note);
+        track.state.set(&THRU, track.state.get(&SAMPLE_TYPE).thru());
 
         // Remember when this was played to for note length sequencer calculation
         get_clamped(&track.last_played, key).store(self.controls.step.load());
@@ -648,7 +651,7 @@ impl Audio {
         self.voices
             .iter_mut()
             .filter(|voice| voice.track_id == Some(track_id))
-            .for_each(|voice| f(voice, track.state.get_aux(GATE).0));
+            .for_each(|voice| f(voice, track.state.get_aux(&GATE).0));
     }
 }
 
@@ -664,16 +667,16 @@ impl Rpc {
             "set auditionUp" => send(|audio, i| audio.key_up(Some(i), None))?,
             "set noteDown" => send(|audio, i| audio.key_down(None, Some(i)))?,
             "set noteUp" => send(|audio, i| audio.key_up(None, Some(i)))?,
-            "set activeTrack" => send(|audio, i| audio.controls.song.set(ACTIVE_TRACK_ID, i))?,
+            "set activeTrack" => send(|audio, i| audio.controls.song.set(&ACTIVE_TRACK_ID, i))?,
             "set sampleType" => send(|audio, i| audio.set_sample_type(i))?,
             "set octave" => {
-                send(|audio, i| audio.controls.active_track().state.nudge(OCTAVE, i, 0))?
+                send(|audio, i| audio.controls.active_track().state.nudge(&OCTAVE, i, 0))?
             }
-            "set useKey" => send(|audio, _| audio.controls.active_track().state.toggle(USE_KEY))?,
+            "set useKey" => send(|audio, _| audio.controls.active_track().state.toggle(&USE_KEY))?,
             "get step" => self.controls.step.load(),
             "get viewStart" => self.controls.active_track().view_start(),
             "set page" => send(|audio, i| audio.controls.active_track().adjust_page(i))?,
-            "get bars" => self.controls.active_track().state.get(LENGTH) / MAX_RESOLUTION,
+            "get bars" => self.controls.active_track().state.get(&LENGTH) / MAX_RESOLUTION,
             "set bars" => send(|audio, i| audio.controls.active_track().adjust_length(i))?,
             "set zoomOut" => send(|audio, _| audio.controls.active_track().zoom_out())?,
             "set zoomIn" => send(|audio, _| audio.controls.active_track().zoom_in())?,
@@ -684,15 +687,15 @@ impl Rpc {
             "set play" => send(|audio, _| audio.controls.toggle_play())?,
             "get armed" => self.controls.armed.load().into(),
             "set arm" => send(|audio, _| toggle(&audio.controls.armed))?,
-            "set tempo" => send(|audio, i| audio.controls.song.nudge(TEMPO, i, 10))?,
-            "set tempoTaps" => send(|audio, i| audio.controls.song.set(TEMPO, i))?,
-            "set root" => send(|audio, i| audio.controls.song.nudge(ROOT, i, 7))?,
-            "set scale" => send(|audio, i| audio.controls.song.set(SCALE, i))?,
-            "set muted" => send(|audio, i| audio.controls.tracks[i as usize].state.toggle(MUTED))?,
+            "set tempo" => send(|audio, i| audio.controls.song.nudge(&TEMPO, i, 10))?,
+            "set tempoTaps" => send(|audio, i| audio.controls.song.set(&TEMPO, i))?,
+            "set root" => send(|audio, i| audio.controls.song.nudge(&ROOT, i, 7))?,
+            "set scale" => send(|audio, i| audio.controls.song.set(&SCALE, i))?,
+            "set muted" => send(|audio, i| audio.controls.tracks[i as usize].state.toggle(&MUTED))?,
             _ => {
                 if let Some((state_id, name)) = self.controls.find_state(method) {
                     match context {
-                        "get" => self.controls.get_state(state_id).get(&Key::read_only(name)),
+                        "get" => self.controls.get_state(state_id).get(&Key::new(name)),
                         "set" => self.send(Message::SetEntry(data, state_id, name))?,
                         _ => None?,
                     }
@@ -700,7 +703,7 @@ impl Rpc {
                     match format!("{} {}", context, name).as_str() {
                         "get view" => self.controls.active_track().view(i) as i32,
                         "get note" => self.controls.note(self.controls.active_track(), i),
-                        "get muted" => self.controls.tracks[i as usize].state.get(MUTED) as i32,
+                        "get muted" => self.controls.tracks[i as usize].state.get(&MUTED) as i32,
                         _ => None?,
                     }
                 } else {
@@ -722,23 +725,31 @@ impl Rpc {
 }
 
 fn main() -> Result<()> {
-    let saved = &Value::Null;
+    let saved = &File::open(Path::new(&".typebeat"))
+        .map_err(Error::new)
+        .and_then(|path| serde_json::from_reader(BufReader::new(path)).map_err(Error::new))
+        .unwrap_or_default();
 
     let mut controls = Controls::default();
-    controls.song.init(ACTIVE_TRACK_ID, saved);
-    controls.song.init(TEMPO, saved);
-    controls.song.init(ROOT, saved);
-    controls.song.init(SCALE, saved);
+    let song = &mut controls.song;
+    song.init(saved, ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1), 0);
+    song.init(saved, TEMPO.between(0, 999), 120);
+    song.init(saved, ROOT.between(-12, 12), 0);
+    song.init(saved, SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1), 0);
     for (i, track) in controls.tracks.iter_mut().enumerate() {
         let saved = &saved["tracks"][i];
         let state = &mut track.state;
-        state.init(MUTED, saved);
-        state.init(USE_KEY, saved);
-        state.init(ACTIVE_KEY, saved);
-        state.init(OCTAVE, saved);
-        state.init(LENGTH, saved);
-        state.init(RESOLUTION, saved);
-        state.init(SAMPLE_TYPE, saved);
+        state.init(saved, &MUTED, false);
+        state.init(saved, &USE_KEY, true);
+        state.init(saved, ACTIVE_KEY.between(0, KEY_COUNT), 12);
+        state.init(saved, OCTAVE.between(2, 8), 4);
+        state.init(
+            saved,
+            LENGTH.between(MAX_RESOLUTION, MAX_LENGTH),
+            MAX_RESOLUTION,
+        );
+        state.init(saved, RESOLUTION.between(1, MAX_RESOLUTION), 16);
+        state.init(saved, &SAMPLE_TYPE, SampleType::File);
         track.file_sample = samples::read_stereo_file(i)?;
         effects::insert::build_user_interface_static(&mut InitUi { state, saved });
     }

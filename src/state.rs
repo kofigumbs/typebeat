@@ -1,55 +1,9 @@
 use std::collections::HashMap;
-use std::ops::RangeInclusive;
+use std::marker::PhantomData;
 
 use crossbeam::atomic::AtomicCell;
 use num_traits::Num;
 use serde_json::Value;
-
-/// Optional clamping boundaries for a Key
-pub type Range<T> = Option<RangeInclusive<T>>;
-
-/// Tags a parameter
-///   1. Parameters are bidirectionally convertible to f32s
-///   2. Parameters are persisted in the save file
-///   3. Parameters are optionally clamped
-///   4. Parameters have a default value
-/// <https://matklad.github.io/2018/05/24/typed-key-pattern.html>
-#[derive(Default)]
-pub struct Key<T> {
-    name: &'static str,
-    default: T,
-    range: Range<T>,
-}
-
-impl<T> Key<T> {
-    /// Defines a parameter tag
-    pub const fn new(name: &'static str, default: T, range: Range<T>) -> Self {
-        Self {
-            name,
-            default,
-            range,
-        }
-    }
-
-    /// Keys for use with State#get
-    pub fn read_only(name: &'static str) -> Self
-    where
-        T: Default,
-    {
-        Self {
-            name,
-            default: T::default(),
-            range: None,
-        }
-    }
-}
-
-impl Key<bool> {
-    /// Defines a boolean parameter tag, defaulting to false
-    pub const fn toggle(name: &'static str) -> Self {
-        Self::new(name, false, None)
-    }
-}
 
 pub trait Parameter {
     fn to_f32(self) -> f32;
@@ -105,18 +59,59 @@ impl<T: Copy + PartialEq + Enum> Parameter for T {
     }
 }
 
-#[derive(Default)]
+/// Tags a parameter
+///   1. Parameters are bidirectionally convertible to f32s
+///   2. Parameters are optionally clamped
+///   3. Parameters are optionally persisted in the save file by name
+///   4. Parameters are available to the front-end by name
+/// <https://matklad.github.io/2018/05/24/typed-key-pattern.html>
+pub struct Key<T: 'static> {
+    name: &'static str,
+    min: AtomicCell<f32>,
+    max: AtomicCell<f32>,
+    _marker: &'static PhantomData<T>,
+}
+
+impl<T> Key<T> {
+    /// Defines a persisted, unbounded parameter tag
+    pub const fn new(name: &'static str) -> Self {
+        Self {
+            name,
+            min: AtomicCell::new(f32::MIN),
+            max: AtomicCell::new(f32::MAX),
+            _marker: &PhantomData,
+        }
+    }
+
+    pub fn between(&self, min: T, max: T) -> &Self
+    where
+        T: Parameter,
+    {
+        self.min.store(min.to_f32());
+        self.max.store(max.to_f32());
+        self
+    }
+}
+
 pub struct State<Aux> {
     map: HashMap<&'static str, (AtomicCell<f32>, Option<Aux>)>,
 }
 
+impl<Aux> Default for State<Aux> {
+    fn default() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+}
+
 impl<Aux> State<Aux> {
     /// Read parameter from the saved value or use the default if it doesn't exist
-    pub fn init<T: Copy + Parameter>(&mut self, key: &Key<T>, saved: &Value) {
+    pub fn init<T: Copy + Parameter>(&mut self, saved: &Value, key: &Key<T>, default: T) {
         let raw = if let Some(value) = saved[key.name].as_f64() {
             value as f32
         } else {
-            key.default.to_f32()
+            default.to_f32()
         };
         self.map.insert(key.name, (AtomicCell::new(raw), None));
     }
@@ -145,10 +140,9 @@ impl<Aux> State<Aux> {
 
     /// Set the parameter's value
     pub fn set<T: Copy + PartialOrd + Parameter>(&self, key: &Key<T>, value: T) {
-        self.map[key.name].0.store(match &key.range {
-            None => value.to_f32(),
-            Some(range) => num_traits::clamp(value, *range.start(), *range.end()).to_f32(),
-        });
+        self.map[key.name]
+            .0
+            .store(value.to_f32().clamp(key.min.load(), key.max.load()));
     }
 
     /// Toggles the boolean parameter's value
