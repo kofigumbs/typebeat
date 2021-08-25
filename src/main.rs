@@ -71,6 +71,7 @@ struct InitUi<'a> {
     state: &'a mut State<(ParamIndex, Key<f32>)>,
     saved: &'a Value,
 }
+
 impl<'a> UI<f32> for InitUi<'a> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
         let key = Key::new(s);
@@ -84,6 +85,7 @@ struct SyncUi<'a, T: ?Sized, U> {
     dsp: &'a mut T,
     state: &'a State<U>,
 }
+
 impl<'a, T: FaustDsp<T = f32> + ?Sized, U> UI<f32> for SyncUi<'a, T, U> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
         self.dsp.set_param(i, self.state.get(&Key::new(s)));
@@ -97,9 +99,11 @@ enum SampleType {
     LiveRecord,
     LivePlay,
 }
+
 impl Enum for SampleType {
     const ALL: &'static [Self] = &[Self::File, Self::Live, Self::LiveRecord, Self::LivePlay];
 }
+
 impl SampleType {
     fn thru(self) -> bool {
         match self {
@@ -115,6 +119,7 @@ struct Change {
     active: AtomicCell<bool>,
     skip_next: AtomicCell<bool>,
 }
+
 impl Clone for Change {
     fn clone(&self) -> Self {
         Change {
@@ -146,6 +151,7 @@ struct Track {
     sequence: Vec<Step>,
     last_played: [AtomicCell<i32>; KEY_COUNT as usize],
 }
+
 impl Default for Track {
     fn default() -> Self {
         Self {
@@ -158,6 +164,7 @@ impl Default for Track {
         }
     }
 }
+
 impl Track {
     fn view_start(&self) -> i32 {
         self.page_start.load() / self.view_length()
@@ -272,6 +279,7 @@ struct Controls {
     frames_since_last_step: AtomicCell<i32>,
     tracks: [Track; TRACK_COUNT as usize],
 }
+
 impl Controls {
     fn track(&self, id: i32) -> &Track {
         get_clamped(&self.tracks, id)
@@ -325,16 +333,17 @@ impl Controls {
     }
 }
 
-// Wrapper for FaustDsp that keeps track of its `build_user_interface` fn
+/// Wrapper for FaustDsp that keeps track of its `build_user_interface` fn
 struct DspDyn {
     dsp: Box<dyn Send + FaustDsp<T = f32>>,
     builder: fn(&mut dyn UI<f32>),
 }
 
-// Wrapper for FaustDsp that implements Default
+/// Wrapper for FaustDsp that implements Default
 struct DspDefault<T> {
     dsp: Box<T>,
 }
+
 impl<T: FaustDsp> Default for DspDefault<T> {
     fn default() -> Self {
         let mut dsp = Box::new(T::new());
@@ -342,6 +351,7 @@ impl<T: FaustDsp> Default for DspDefault<T> {
         DspDefault { dsp }
     }
 }
+
 impl<T: 'static + Send + FaustDsp<T = f32>> DspDefault<T> {
     fn to_dyn(self) -> DspDyn {
         DspDyn {
@@ -356,6 +366,7 @@ struct Buffer<const N: usize, const M: usize> {
     out: [f32; M],
     mix_start: usize,
 }
+
 impl<const N: usize, const M: usize> Buffer<N, M> {
     fn new() -> Self {
         Buffer {
@@ -389,6 +400,7 @@ struct Voice {
     track_id: Option<i32>,
     insert: DspDefault<effects::insert>,
 }
+
 impl Voice {
     // 0 is the "highest" -- voices with priority 0 should not be stolen
     fn priority(&self, controls: &Controls) -> usize {
@@ -466,6 +478,7 @@ struct Audio {
     sends: [DspDyn; SEND_COUNT],
     receiver: Receiver<Message>,
 }
+
 impl Audio {
     fn key_down(&mut self, track_id: Option<i32>, key: Option<i32>) {
         let track_id = track_id.unwrap_or(self.controls.song.get(&ACTIVE_TRACK_ID));
@@ -656,6 +669,7 @@ struct Rpc {
     controls: Arc<Controls>,
     sender: Sender<Message>,
 }
+
 impl Rpc {
     fn process(&self, context: &str, method: &str, data: i32) -> Option<i32> {
         let send = |setter| self.send(Message::Setter(data, setter));
