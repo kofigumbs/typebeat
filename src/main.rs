@@ -1,7 +1,6 @@
 #![feature(never_type)]
 #![feature(array_methods)]
 
-use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
@@ -66,26 +65,24 @@ fn toggle(value: &AtomicCell<bool>) {
 }
 
 struct InitUi<'a> {
-    state: &'a mut State,
+    state: &'a mut State<(ParamIndex, i32, Key<f32>)>,
     saved: &'a Value,
-    psk: &'a mut HashMap<&'static str, (ParamIndex, f32, Key<f32>)>,
 }
 impl<'a> UI<f32> for InitUi<'a> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
         let key = Key::new(s, n, Some(lo..=hi));
         self.state.init(&key, self.saved);
-        self.psk.insert(s, (i, by, key));
+        self.state.with_aux(&Key::<()>::read_only(s), (i, by as i32, key));
     }
 }
 
-struct SyncUi<'a, T: ?Sized> {
+struct SyncUi<'a, T: ?Sized, U> {
     dsp: &'a mut T,
-    state: &'a State,
+    state: &'a State<U>,
 }
-impl<'a, T: FaustDsp<T = f32> + ?Sized> UI<f32> for SyncUi<'a, T> {
-    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, n: f32, lo: f32, hi: f32, _: f32) {
-        let key = Key::new(s, n, Some(lo..=hi));
-        self.dsp.set_param(i, self.state.get(&key));
+impl<'a, T: FaustDsp<T = f32> + ?Sized, U> UI<f32> for SyncUi<'a, T, U> {
+    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
+        self.dsp.set_param(i, self.state.get(&Key::read_only(s)));
     }
 }
 
@@ -138,8 +135,7 @@ enum View {
 }
 
 struct Track {
-    state: State,
-    psk: HashMap<&'static str, (ParamIndex, f32, Key<f32>)>,
+    state: State<(ParamIndex, i32, Key<f32>)>,
     file_sample: Vec<f32>,
     live_sample: Mutex<Vec<f32>>,
     page_start: AtomicCell<i32>,
@@ -150,7 +146,6 @@ impl Default for Track {
     fn default() -> Self {
         Self {
             state: State::default(),
-            psk: HashMap::default(),
             file_sample: Vec::new(),
             live_sample: Vec::with_capacity(60 * SAMPLE_RATE as usize).into(),
             page_start: 0.into(),
@@ -261,8 +256,7 @@ impl Track {
 
 #[derive(Default)]
 struct Controls {
-    song: State,
-    psk: HashMap<&'static str, (ParamIndex, f32, Key<f32>)>,
+    song: State<(ParamIndex, i32, Key<f32>)>,
     playing: AtomicCell<bool>,
     armed: AtomicCell<bool>,
     step: AtomicCell<i32>,
@@ -308,14 +302,10 @@ impl Controls {
         SAMPLE_RATE as f32 * 240. / (self.song.get(TEMPO) as f32) / (resolution as f32)
     }
 
-    fn find(&self, name: &str) -> Option<(&State, f32, &Key<f32>)> {
-        if let Some((_, by, key)) = self.psk.get(name) {
-            Some((&self.song, *by, key))
-        } else if let Some((_, by, key)) = self.active_track().psk.get(name) {
-            Some((&self.active_track().state, *by, key))
-        } else {
-            None
-        }
+    fn find(&self, name: &str) -> Option<(&'static str, &State<(ParamIndex, i32, Key<f32>)>)> {
+        [&self.song, &self.active_track().state]
+            .iter()
+            .find_map(|&state| state.get_name(name).zip(Some(state)))
     }
 }
 
@@ -526,11 +516,11 @@ impl Audio {
             match setter {
                 Message::Setter(data, f) => f(self, data),
                 Message::SetEntry(data, name) => {
-                    if let Some((state, step, key)) = self.controls.find(&name) {
-                        match step as i32 {
-                            0 => state.toggle(key),
-                            1 => state.set(key, data as f32),
-                            _ => state.nudge(key, data, step),
+                    if let Some((name, state)) = self.controls.find(name) {
+                        match state.get_aux(&Key::<()>::read_only(name)) {
+                            (_, 0, key) => state.toggle(key),
+                            (_, 1, key) => state.set(key, data as f32),
+                            (_, by, key) => state.nudge(key, data, *by as f32),
                         }
                     }
                 }
@@ -643,11 +633,10 @@ impl Audio {
 
     fn each_voice_for(&mut self, track_id: i32, f: impl Fn(&mut Voice, ParamIndex)) {
         let track = self.controls.track(track_id);
-        let (index, _, _) = track.psk["gate"];
         self.voices
             .iter_mut()
             .filter(|voice| voice.track_id == Some(track_id))
-            .for_each(|voice| f(voice, index));
+            .for_each(|voice| f(voice, track.state.get_aux(GATE).0));
     }
 }
 
@@ -698,10 +687,10 @@ impl Rpc {
             "set scale" => send(|audio, i| audio.controls.song.set(SCALE, i))?,
             "set muted" => send(|audio, i| audio.controls.tracks[i as usize].state.toggle(MUTED))?,
             _ => {
-                if let Some((state, _, key)) = self.controls.find(method) {
+                if let Some((name, state)) = self.controls.find(method) {
                     match context {
-                        "get" => state.get(key) as i32,
-                        "set" => self.send(Message::SetEntry(data, key.name))?,
+                        "get" => state.get(&Key::read_only(name)),
+                        "set" => self.send(Message::SetEntry(data, name))?,
                         _ => None?,
                     }
                 } else if let Some((name, i)) = Self::split(method) {
@@ -740,7 +729,6 @@ fn main() -> Result<()> {
     for (i, track) in controls.tracks.iter_mut().enumerate() {
         let saved = &saved["tracks"][i];
         let state = &mut track.state;
-        let psk = &mut track.psk;
         state.init(MUTED, saved);
         state.init(USE_KEY, saved);
         state.init(ACTIVE_KEY, saved);
@@ -749,7 +737,7 @@ fn main() -> Result<()> {
         state.init(RESOLUTION, saved);
         state.init(SAMPLE_TYPE, saved);
         track.file_sample = samples::read_stereo_file(i)?;
-        effects::insert::build_user_interface_static(&mut InitUi { state, psk, saved });
+        effects::insert::build_user_interface_static(&mut InitUi { state, saved });
     }
 
     let (sender, receiver) = std::sync::mpsc::channel();
@@ -775,10 +763,8 @@ fn main() -> Result<()> {
     for DspDyn { dsp, builder } in audio.sends.iter_mut() {
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
-        let controls = &mut Arc::get_mut(&mut audio.controls).unwrap();
-        let state = &mut controls.song;
-        let psk = &mut controls.psk;
-        builder(&mut InitUi { state, psk, saved });
+        let state = &mut Arc::get_mut(&mut audio.controls).unwrap().song;
+        builder(&mut InitUi { state, saved });
     }
 
     let rpc = Rpc {

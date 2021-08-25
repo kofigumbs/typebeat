@@ -14,8 +14,9 @@ pub type Range<T> = Option<RangeInclusive<T>>;
 ///   3. Parameters are optionally clamped
 ///   4. Parameters have a default value
 /// <https://matklad.github.io/2018/05/24/typed-key-pattern.html>
+#[derive(Default)]
 pub struct Key<T> {
-    pub name: &'static str,
+    name: &'static str,
     default: T,
     range: Range<T>,
 }
@@ -27,6 +28,18 @@ impl<T> Key<T> {
             name,
             default,
             range,
+        }
+    }
+
+    /// Keys for use with State#get
+    pub fn read_only(name: &'static str) -> Self
+    where
+        T: Default,
+    {
+        Self {
+            name,
+            default: T::default(),
+            range: None,
         }
     }
 }
@@ -93,28 +106,46 @@ impl<T: Copy + PartialEq + Enum> Parameter for T {
 }
 
 #[derive(Default)]
-pub struct State {
-    map: HashMap<&'static str, AtomicCell<f32>>,
+pub struct State<Aux> {
+    map: HashMap<&'static str, (AtomicCell<f32>, Option<Aux>)>,
 }
 
-impl State {
+impl<Aux> State<Aux> {
     /// Read parameter from the saved value or use the default if it doesn't exist
     pub fn init<T: Copy + Parameter>(&mut self, key: &Key<T>, saved: &Value) {
-        if let Some(value) = saved[key.name].as_f64() {
-            self.map.insert(key.name, AtomicCell::new(value as f32));
+        let raw = if let Some(value) = saved[key.name].as_f64() {
+            value as f32
         } else {
-            self.map.insert(key.name, key.default.to_f32().into());
-        }
+            key.default.to_f32()
+        };
+        self.map.insert(key.name, (AtomicCell::new(raw), None));
+    }
+
+    /// Attaches aux data to an existing key
+    pub fn with_aux<T>(&mut self, key: &Key<T>, aux: Aux) {
+        self.map
+            .entry(key.name)
+            .and_modify(|pair| pair.1 = Some(aux));
+    }
+
+    /// Gets the static name for a parameter if it exists
+    pub fn get_name(&self, name: &str) -> Option<&'static str> {
+        self.map.get_key_value(name).map(|(&name, _)| name)
+    }
+
+    /// Get the parameter's aux association
+    pub fn get_aux<T>(&self, key: &Key<T>) -> &Aux {
+        self.map[key.name].1.as_ref().unwrap()
     }
 
     /// Get the parameter's value
     pub fn get<T: Parameter>(&self, key: &Key<T>) -> T {
-        Parameter::from_f32(self.map[key.name].load())
+        Parameter::from_f32(self.map[key.name].0.load())
     }
 
     /// Set the parameter's value
     pub fn set<T: Copy + PartialOrd + Parameter>(&self, key: &Key<T>, value: T) {
-        self.map[key.name].store(match &key.range {
+        self.map[key.name].0.store(match &key.range {
             None => value.to_f32(),
             Some(range) => num_traits::clamp(value, *range.start(), *range.end()).to_f32(),
         });
@@ -122,7 +153,8 @@ impl State {
 
     /// Toggles the boolean parameter's value
     pub fn toggle<T>(&self, key: &Key<T>) {
-        self.map[key.name].store(bool::to_f32(self.map[key.name].load() == 0.));
+        let atom = &self.map[key.name].0;
+        atom.store(bool::to_f32(atom.load() == 0.));
     }
 
     /// Update the parameter's value by +/- 1 or jump, depending on the the value provided
