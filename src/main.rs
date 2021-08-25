@@ -72,7 +72,8 @@ impl<'a> UI<f32> for InitUi<'a> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
         let key = Key::new(s, n, Some(lo..=hi));
         self.state.init(&key, self.saved);
-        self.state.with_aux(&Key::<()>::read_only(s), (i, by as i32, key));
+        self.state
+            .with_aux(&Key::<()>::read_only(s), (i, by as i32, key));
     }
 }
 
@@ -254,6 +255,11 @@ impl Track {
     }
 }
 
+enum StateId {
+    Song,
+    ActiveTrack,
+}
+
 #[derive(Default)]
 struct Controls {
     song: State<(ParamIndex, i32, Key<f32>)>,
@@ -302,10 +308,17 @@ impl Controls {
         SAMPLE_RATE as f32 * 240. / (self.song.get(TEMPO) as f32) / (resolution as f32)
     }
 
-    fn find(&self, name: &str) -> Option<(&'static str, &State<(ParamIndex, i32, Key<f32>)>)> {
-        [&self.song, &self.active_track().state]
-            .iter()
-            .find_map(|&state| state.get_name(name).zip(Some(state)))
+    fn find_state(&self, name: &str) -> Option<(StateId, &'static str)> {
+        Some(StateId::Song)
+            .zip(self.song.get_name(name))
+            .or_else(|| Some(StateId::ActiveTrack).zip(self.active_track().state.get_name(name)))
+    }
+
+    fn get_state(&self, id: StateId) -> &State<(ParamIndex, i32, Key<f32>)> {
+        match id {
+            StateId::Song => &self.song,
+            StateId::ActiveTrack => &self.active_track().state,
+        }
     }
 }
 
@@ -441,7 +454,7 @@ impl Voice {
 
 enum Message {
     Setter(i32, fn(&mut Audio, i32)),
-    SetEntry(i32, &'static str),
+    SetEntry(i32, StateId, &'static str),
 }
 
 struct Audio {
@@ -515,13 +528,12 @@ impl Audio {
         while let Ok(setter) = self.receiver.try_recv() {
             match setter {
                 Message::Setter(data, f) => f(self, data),
-                Message::SetEntry(data, name) => {
-                    if let Some((name, state)) = self.controls.find(name) {
-                        match state.get_aux(&Key::<()>::read_only(name)) {
-                            (_, 0, key) => state.toggle(key),
-                            (_, 1, key) => state.set(key, data as f32),
-                            (_, by, key) => state.nudge(key, data, *by as f32),
-                        }
+                Message::SetEntry(data, state_id, name) => {
+                    let state = self.controls.get_state(state_id);
+                    match state.get_aux(&Key::<()>::read_only(name)) {
+                        (_, 0, key) => state.toggle(key),
+                        (_, 1, key) => state.set(key, data as f32),
+                        (_, by, key) => state.nudge(key, data, *by as f32),
                     }
                 }
             }
@@ -652,20 +664,14 @@ impl Rpc {
             "set auditionUp" => send(|audio, i| audio.key_up(Some(i), None))?,
             "set noteDown" => send(|audio, i| audio.key_down(None, Some(i)))?,
             "set noteUp" => send(|audio, i| audio.key_up(None, Some(i)))?,
-            "get activeTrack" => self.controls.song.get(ACTIVE_TRACK_ID),
             "set activeTrack" => send(|audio, i| audio.controls.song.set(ACTIVE_TRACK_ID, i))?,
-            "get sampleType" => self.controls.active_track().state.get(SAMPLE_TYPE) as i32,
             "set sampleType" => send(|audio, i| audio.set_sample_type(i))?,
-            "get octave" => self.controls.active_track().state.get(OCTAVE),
             "set octave" => {
                 send(|audio, i| audio.controls.active_track().state.nudge(OCTAVE, i, 0))?
             }
-            "get useKey" => self.controls.active_track().state.get(USE_KEY) as i32,
             "set useKey" => send(|audio, _| audio.controls.active_track().state.toggle(USE_KEY))?,
             "get step" => self.controls.step.load(),
-            "get resolution" => self.controls.active_track().state.get(RESOLUTION),
             "get viewStart" => self.controls.active_track().view_start(),
-            "get activeKey" => self.controls.active_track().state.get(ACTIVE_KEY),
             "set page" => send(|audio, i| audio.controls.active_track().adjust_page(i))?,
             "get bars" => self.controls.active_track().state.get(LENGTH) / MAX_RESOLUTION,
             "set bars" => send(|audio, i| audio.controls.active_track().adjust_length(i))?,
@@ -678,19 +684,16 @@ impl Rpc {
             "set play" => send(|audio, _| audio.controls.toggle_play())?,
             "get armed" => self.controls.armed.load().into(),
             "set arm" => send(|audio, _| toggle(&audio.controls.armed))?,
-            "get tempo" => self.controls.song.get(TEMPO),
             "set tempo" => send(|audio, i| audio.controls.song.nudge(TEMPO, i, 10))?,
             "set tempoTaps" => send(|audio, i| audio.controls.song.set(TEMPO, i))?,
-            "get root" => self.controls.song.get(ROOT),
             "set root" => send(|audio, i| audio.controls.song.nudge(ROOT, i, 7))?,
-            "get scale" => self.controls.song.get(SCALE),
             "set scale" => send(|audio, i| audio.controls.song.set(SCALE, i))?,
             "set muted" => send(|audio, i| audio.controls.tracks[i as usize].state.toggle(MUTED))?,
             _ => {
-                if let Some((name, state)) = self.controls.find(method) {
+                if let Some((state_id, name)) = self.controls.find_state(method) {
                     match context {
-                        "get" => state.get(&Key::read_only(name)),
-                        "set" => self.send(Message::SetEntry(data, name))?,
+                        "get" => self.controls.get_state(state_id).get(&Key::read_only(name)),
+                        "set" => self.send(Message::SetEntry(data, state_id, name))?,
                         _ => None?,
                     }
                 } else if let Some((name, i)) = Self::split(method) {
