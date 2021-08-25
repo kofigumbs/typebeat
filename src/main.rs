@@ -1,15 +1,18 @@
 #![feature(never_type)]
 #![feature(array_methods)]
 
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::BufReader;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use anyhow::{Error, Result};
 use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 use serde_json::Value;
 
 use effects::{FaustDsp, ParamIndex, UI};
@@ -69,14 +72,14 @@ fn toggle(value: &AtomicCell<bool>) {
 
 struct InitUi<'a> {
     state: &'a mut State<(ParamIndex, Key<f32>)>,
-    saved: &'a Value,
+    save: &'a Value,
 }
 
 impl<'a> UI<f32> for InitUi<'a> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
         let key = Key::new(s);
         self.state
-            .init(self.saved, key.between(lo, hi).nudge_by(by as u8), n);
+            .init(self.save, key.between(lo, hi).nudge_by(by as u8), n);
         self.state.with_aux(&Key::<()>::new(s), (i, key));
     }
 }
@@ -162,6 +165,12 @@ impl Default for Track {
             sequence: vec![Step::default(); MAX_LENGTH as usize],
             last_played: Default::default(),
         }
+    }
+}
+
+impl Serialize for Track {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.state.serialize(serializer)
     }
 }
 
@@ -278,6 +287,15 @@ struct Controls {
     step: AtomicCell<i32>,
     frames_since_last_step: AtomicCell<i32>,
     tracks: [Track; TRACK_COUNT as usize],
+}
+
+impl Serialize for Controls {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut s = serializer.serialize_struct("Controls", 2)?;
+        s.serialize_field("song", &self.song)?;
+        s.serialize_field("tracks", &self.tracks)?;
+        s.end()
+    }
 }
 
 impl Controls {
@@ -726,34 +744,50 @@ impl Rpc {
     }
 }
 
+struct Autosave {
+    controls: Arc<Controls>,
+}
+impl Autosave {
+    fn start(&self) -> anyhow::Result<!> {
+        loop {
+            std::thread::sleep(Duration::from_secs(1));
+            let file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(".typebeat")?;
+            serde_json::to_writer_pretty(file, self.controls.as_ref())?;
+        }
+    }
+}
+
 fn main() -> Result<()> {
-    let saved = &File::open(Path::new(&".typebeat"))
+    let save = &File::open(Path::new(&".typebeat"))
         .map_err(Error::new)
         .and_then(|path| serde_json::from_reader(BufReader::new(path)).map_err(Error::new))
         .unwrap_or_default();
 
     let mut controls = Controls::default();
     let song = &mut controls.song;
-    song.init(saved, ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1), 0);
-    song.init(saved, TEMPO.between(0, 999).nudge_by(10), 120);
-    song.init(saved, ROOT.between(-12, 12).nudge_by(7), 0);
-    song.init(saved, SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1), 0);
+    song.init(save, ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1), 0);
+    song.init(save, TEMPO.between(0, 999).nudge_by(10), 120);
+    song.init(save, ROOT.between(-12, 12).nudge_by(7), 0);
+    song.init(save, SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1), 0);
     for (i, track) in controls.tracks.iter_mut().enumerate() {
-        let saved = &saved["tracks"][i];
+        let save = &save["tracks"][i];
         let state = &mut track.state;
-        state.init(saved, &MUTED, false);
-        state.init(saved, USE_KEY.nudge_by(0), true);
-        state.init(saved, ACTIVE_KEY.between(0, KEY_COUNT), 12);
-        state.init(saved, OCTAVE.between(2, 8).nudge_by(2), 4);
+        state.init(save, &MUTED, false);
+        state.init(save, USE_KEY.nudge_by(0), true);
+        state.init(save, ACTIVE_KEY.between(0, KEY_COUNT), 12);
+        state.init(save, OCTAVE.between(2, 8).nudge_by(2), 4);
         state.init(
-            saved,
+            save,
             LENGTH.between(MAX_RESOLUTION, MAX_LENGTH),
             MAX_RESOLUTION,
         );
-        state.init(saved, RESOLUTION.between(1, MAX_RESOLUTION), 16);
-        state.init(saved, &SAMPLE_TYPE, SampleType::File);
+        state.init(save, RESOLUTION.between(1, MAX_RESOLUTION), 16);
+        state.init(save, &SAMPLE_TYPE, SampleType::File);
         track.file_sample = samples::read_stereo_file(i)?;
-        effects::insert::build_user_interface_static(&mut InitUi { state, saved });
+        effects::insert::build_user_interface_static(&mut InitUi { state, save });
     }
 
     let (sender, receiver) = std::sync::mpsc::channel();
@@ -780,12 +814,16 @@ fn main() -> Result<()> {
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
         let state = &mut Arc::get_mut(&mut audio.controls).unwrap().song;
-        builder(&mut InitUi { state, saved });
+        builder(&mut InitUi { state, save });
     }
 
     let rpc = Rpc {
         controls: Arc::clone(&audio.controls),
         sender,
+    };
+
+    let autosave = Autosave {
+        controls: Arc::clone(&audio.controls),
     };
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
@@ -799,5 +837,6 @@ fn main() -> Result<()> {
     device.set_data_callback(move |_, output, input| audio.process(input, output));
     device.start()?;
 
+    std::thread::spawn(move || autosave.start());
     ui::start(move |method, context, data| rpc.process(method, context, data))?;
 }

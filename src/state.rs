@@ -3,6 +3,8 @@ use std::marker::PhantomData;
 
 use crossbeam::atomic::AtomicCell;
 use num_traits::{AsPrimitive, Num};
+use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
 use serde_json::Value;
 
 pub trait Parameter {
@@ -112,10 +114,20 @@ impl<Aux> Default for State<Aux> {
     }
 }
 
+impl<Aux> Serialize for State<Aux> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut s = serializer.serialize_map(Some(self.map.len()))?;
+        for name in self.map.keys() {
+            s.serialize_entry(name, &self.get(&Key::<f32>::new(name)))?;
+        }
+        s.end()
+    }
+}
+
 impl<Aux> State<Aux> {
     /// Read parameter from the saved value or use the default if it doesn't exist
-    pub fn init<T: Copy + Parameter>(&mut self, saved: &Value, key: &Key<T>, default: T) {
-        let raw = if let Some(value) = saved[key.name].as_f64() {
+    pub fn init<T: Copy + Parameter>(&mut self, save: &Value, key: &Key<T>, default: T) {
+        let raw = if let Some(value) = save[key.name].as_f64() {
             value as f32
         } else {
             default.to_f32()
