@@ -5,7 +5,7 @@ use std::fs::{File, OpenOptions};
 use std::io::BufReader;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Error, Result};
@@ -73,6 +73,7 @@ fn toggle(value: &AtomicCell<bool>) {
 struct GateInitUi<'a> {
     gate: &'a mut ParamIndex,
 }
+
 impl<'a> UI<f32> for GateInitUi<'a> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
         if s == "gate" {
@@ -163,7 +164,8 @@ enum View {
 struct Track {
     state: State,
     file_sample: Vec<f32>,
-    live_sample: Mutex<Vec<f32>>,
+    live_sample: Vec<AtomicCell<f32>>,
+    live_length: AtomicCell<usize>,
     page_start: AtomicCell<i32>,
     sequence: Vec<Step>,
     last_played: [AtomicCell<i32>; KEY_COUNT as usize],
@@ -171,10 +173,13 @@ struct Track {
 
 impl Default for Track {
     fn default() -> Self {
+        let mut live_sample = Vec::new();
+        live_sample.resize_with(60 * SAMPLE_RATE as usize, Default::default);
         Self {
             state: State::default(),
             file_sample: Vec::new(),
-            live_sample: Vec::with_capacity(60 * SAMPLE_RATE as usize).into(),
+            live_sample,
+            live_length: 0.into(),
             page_start: 0.into(),
             sequence: vec![Step::default(); MAX_LENGTH as usize],
             last_played: Default::default(),
@@ -184,11 +189,32 @@ impl Default for Track {
 
 impl Serialize for Track {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.collect_map(self.state.iter())
+        let mut s = serializer.serialize_map(None)?;
+        for (name, value) in self.state.iter() {
+            s.serialize_entry(name, &value)?;
+        }
+        s.serialize_entry(
+            "live",
+            &self
+                .live()
+                .iter()
+                .flat_map(|x| x.load().to_le_bytes())
+                .collect::<Vec<_>>(),
+        )?;
+        s.end()
     }
 }
 
 impl Track {
+    fn init_live(&mut self, value: &Value) {
+        if let Ok(live) = serde_json::from_value::<Vec<u8>>(value.clone()) {
+            self.live_length.store(live.len());
+            self.live_sample.iter()
+                .zip(live.chunks_exact(4))
+                .for_each(|(atom, x)| atom.store(f32::from_le_bytes([x[0], x[1], x[2], x[3]])));
+        }
+    }
+
     fn view_start(&self) -> i32 {
         self.page_start.load() / self.view_length()
     }
@@ -285,6 +311,10 @@ impl Track {
 
     fn changes(&self) -> impl Iterator<Item = &Change> {
         self.sequence.iter().flat_map(|step| step.keys.iter())
+    }
+
+    fn live(&self) -> &[AtomicCell<f32>] {
+        &self.live_sample[..self.live_length.load()]
     }
 }
 
@@ -458,12 +488,12 @@ impl Voice {
             None => self.play(&mut buffer.mix, |_| 0.),
             Some(track_id) => {
                 let track = controls.track(track_id);
-                let live = &mut track.live_sample.try_lock().unwrap();
+                let mix = &mut buffer.mix;
                 match track.state.get(&SAMPLE_TYPE) {
-                    SampleType::File => self.play_sample(&mut buffer.mix, &track.file_sample, 2),
-                    SampleType::Live => self.play_thru(&mut buffer.mix, live, input, false),
-                    SampleType::LiveRecord => self.play_thru(&mut buffer.mix, live, input, true),
-                    SampleType::LivePlay => self.play_sample(&mut buffer.mix, live, 1),
+                    SampleType::File => self.play_sample(mix, &track.file_sample, |x| *x, 2),
+                    SampleType::Live => self.play_thru(mix, track, input, false),
+                    SampleType::LiveRecord => self.play_thru(mix, track, input, true),
+                    SampleType::LivePlay => self.play_sample(mix, track.live(), |x| x.load(), 1),
                 }
             }
         }
@@ -471,31 +501,33 @@ impl Voice {
         buffer.write_to(output);
     }
 
-    fn play_thru(&mut self, buffer: &mut [f32], live: &mut Vec<f32>, input: &[f32], record: bool) {
+    fn play_thru(&mut self, mix: &mut [f32], track: &Track, input: &[f32], record: bool) {
         let input = input.iter().sum();
-        if record && live.len() < live.capacity() {
-            live.push(input);
+        let length = track.live_length.load();
+        if record && length < track.live_sample.len() {
+            track.live_sample[length].store(input);
+            track.live_length.store(length + 1);
         }
-        self.play(buffer, |_| input);
+        self.play(mix, |_| input);
     }
 
-    fn play_sample(&mut self, buffer: &mut [f32], sample: &[f32], channel_count: usize) {
+    fn play_sample<T>(&mut self, mix: &mut [f32], sample: &[T], f: fn(&T) -> f32, channels: usize) {
         let position = self.position.floor() as usize;
         let position_fract = self.position.fract();
-        self.play(buffer, |channel| {
-            let index = |i| i * channel_count + channel % channel_count;
+        self.play(mix, |channel| {
+            let index = |i| i * channels + channel % channels;
             if position_fract == 0. {
-                *sample.get(index(position)).unwrap_or(&0.)
+                sample.get(index(position)).map_or(0., f)
             } else {
-                let a = *sample.get(index(position)).unwrap_or(&0.);
-                let b = *sample.get(index(position + 1)).unwrap_or(&0.);
+                let a = sample.get(index(position)).map_or(0., f);
+                let b = sample.get(index(position + 1)).map_or(0., f);
                 position_fract.mul_add(b - a, a)
             }
         });
     }
 
-    fn play(&mut self, buffer: &mut [f32], f: impl Fn(usize) -> f32) {
-        for (channel, sample) in buffer.iter_mut().enumerate() {
+    fn play(&mut self, mix: &mut [f32], f: impl Fn(usize) -> f32) {
+        for (channel, sample) in mix.iter_mut().enumerate() {
             *sample = f(channel);
         }
         self.position += self.increment;
@@ -558,7 +590,7 @@ impl Audio {
         let old = track.state.get(&SAMPLE_TYPE);
         let new = *get_clamped(&SampleType::ALL, value);
         if new == SampleType::LiveRecord {
-            track.live_sample.try_lock().unwrap().clear();
+            track.live_length.store(0);
         }
         if old != new {
             controls.active_track().state.set(&SAMPLE_TYPE, new);
@@ -805,8 +837,9 @@ fn main() -> Result<()> {
         );
         state.init(save, RESOLUTION.between(1, MAX_RESOLUTION), 16);
         state.init(save, &SAMPLE_TYPE, SampleType::File);
-        track.file_sample = samples::read_stereo_file(i)?;
         effects::insert::build_user_interface_static(&mut StateInitUi { save, state });
+        track.file_sample = samples::read_stereo_file(i)?;
+        track.init_live(&save["live"]);
     }
 
     let (sender, receiver) = std::sync::mpsc::channel();
