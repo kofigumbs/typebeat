@@ -12,7 +12,7 @@ use anyhow::{Error, Result};
 use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
 use serde::ser::SerializeMap;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 
 use effects::{FaustDsp, ParamIndex, UI};
@@ -20,6 +20,7 @@ use state::{Enum, Key, State};
 
 mod effects;
 mod samples;
+mod serde_atomic;
 mod state;
 mod ui;
 
@@ -35,11 +36,12 @@ const TRACK_COUNT: i32 = 15;
 const VIEWS_PER_PAGE: i32 = 4;
 const SAMPLE_RATE: i32 = 44100;
 
-const SCALE_OFFSETS: &[&[i32]] = &[
-    &[0, 2, 4, 5, 7, 9, 11],
-    &[0, 2, 3, 5, 7, 8, 10],
-    &[0, 2, 3, 5, 7, 8, 11],
-    &[0, 2, 3, 5, 7, 9, 11],
+const SCALE_LENGTH: usize = 7;
+const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
+    [0, 2, 4, 5, 7, 9, 11],
+    [0, 2, 3, 5, 7, 8, 10],
+    [0, 2, 3, 5, 7, 8, 11],
+    [0, 2, 3, 5, 7, 9, 11],
 ];
 
 // Song keys
@@ -131,10 +133,13 @@ impl SampleType {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 struct Change {
+    #[serde(with = "serde_atomic")]
     value: AtomicCell<i32>,
+    #[serde(with = "serde_atomic")]
     active: AtomicCell<bool>,
+    #[serde(with = "serde_atomic")]
     skip_next: AtomicCell<bool>,
 }
 
@@ -148,8 +153,9 @@ impl Clone for Change {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 struct Step {
+    #[serde(default)]
     keys: [Change; KEY_COUNT as usize],
 }
 
@@ -195,23 +201,25 @@ impl Serialize for Track {
         }
         s.serialize_entry(
             "live",
-            &self
-                .live()
-                .iter()
-                .flat_map(|x| x.load().to_le_bytes())
-                .collect::<Vec<_>>(),
+            &self.live().iter().map(AtomicCell::load).collect::<Vec<_>>(),
         )?;
+        s.serialize_entry("sequence", &self.sequence)?;
         s.end()
     }
 }
 
 impl Track {
-    fn init_live(&mut self, value: &Value) {
-        if let Ok(live) = serde_json::from_value::<Vec<u8>>(value.clone()) {
+    fn init(&mut self, value: &Value) {
+        if let Some(live) = value["live"].as_array() {
             self.live_length.store(live.len());
-            self.live_sample.iter()
-                .zip(live.chunks_exact(4))
-                .for_each(|(atom, x)| atom.store(f32::from_le_bytes([x[0], x[1], x[2], x[3]])));
+            for (atom, x) in self.live_sample.iter().zip(live) {
+                let _ = serde_json::from_value(x.clone()).map(|x| atom.store(x));
+            }
+        }
+        if let Some(sequence) = value["sequence"].as_array() {
+            for (step, x) in self.sequence.iter_mut().zip(sequence) {
+                let _ = serde_json::from_value(x.clone()).map(|x| *step = x);
+            }
         }
     }
 
@@ -365,9 +373,9 @@ impl Controls {
         let scale = self.state.get(&SCALE);
         (track.state.get(&OCTAVE) + key / 7) * 12
             + if track.state.get(&USE_KEY) {
-                SCALE_OFFSETS[scale as usize][key as usize % 7] + root
+                SCALE_OFFSETS[scale as usize][key as usize % SCALE_LENGTH] + root
             } else {
-                SCALE_OFFSETS[0][key as usize % 7]
+                SCALE_OFFSETS[0][key as usize % SCALE_LENGTH]
             }
     }
 
@@ -796,7 +804,7 @@ struct Autosave {
 impl Autosave {
     fn start(&self) -> anyhow::Result<!> {
         loop {
-            std::thread::sleep(Duration::from_secs(1));
+            std::thread::sleep(Duration::from_secs(2));
             let file = OpenOptions::new()
                 .write(true)
                 .create(true)
@@ -825,6 +833,7 @@ fn main() -> Result<()> {
 
     for (i, track) in controls.tracks.iter_mut().enumerate() {
         let save = &save["tracks"][i];
+        track.init(save);
         let state = &mut track.state;
         state.init(save, &MUTED, false);
         state.init(save, USE_KEY.nudge_by(0), true);
@@ -839,7 +848,6 @@ fn main() -> Result<()> {
         state.init(save, &SAMPLE_TYPE, SampleType::File);
         effects::insert::build_user_interface_static(&mut StateInitUi { save, state });
         track.file_sample = samples::read_stereo_file(i)?;
-        track.init_live(&save["live"]);
     }
 
     let (sender, receiver) = std::sync::mpsc::channel();
