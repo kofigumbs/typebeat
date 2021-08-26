@@ -11,7 +11,7 @@ use std::time::Duration;
 use anyhow::{Error, Result};
 use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
-use serde::ser::SerializeStruct;
+use serde::ser::SerializeMap;
 use serde::{Serialize, Serializer};
 use serde_json::Value;
 
@@ -184,7 +184,7 @@ impl Default for Track {
 
 impl Serialize for Track {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.state.serialize(serializer)
+        serializer.collect_map(self.state.iter())
     }
 }
 
@@ -295,7 +295,7 @@ enum StateId {
 
 #[derive(Default)]
 struct Controls {
-    song: State,
+    state: State,
     gate: ParamIndex,
     playing: AtomicCell<bool>,
     armed: AtomicCell<bool>,
@@ -306,9 +306,11 @@ struct Controls {
 
 impl Serialize for Controls {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_struct("Controls", 2)?;
-        s.serialize_field("song", &self.song)?;
-        s.serialize_field("tracks", &self.tracks)?;
+        let mut s = serializer.serialize_map(None)?;
+        for (name, value) in self.state.iter() {
+            s.serialize_entry(name, &value)?;
+        }
+        s.serialize_entry("tracks", &self.tracks)?;
         s.end()
     }
 }
@@ -319,7 +321,7 @@ impl Controls {
     }
 
     fn active_track(&self) -> &Track {
-        self.track(self.song.get(&ACTIVE_TRACK_ID))
+        self.track(self.state.get(&ACTIVE_TRACK_ID))
     }
 
     fn toggle_play(&self) {
@@ -329,8 +331,8 @@ impl Controls {
     }
 
     fn note(&self, track: &Track, key: i32) -> i32 {
-        let root = self.song.get(&ROOT);
-        let scale = self.song.get(&SCALE);
+        let root = self.state.get(&ROOT);
+        let scale = self.state.get(&SCALE);
         (track.state.get(&OCTAVE) + key / 7) * 12
             + if track.state.get(&USE_KEY) {
                 SCALE_OFFSETS[scale as usize][key as usize % 7] + root
@@ -349,18 +351,18 @@ impl Controls {
     }
 
     fn step_duration(&self, resolution: i32) -> f32 {
-        SAMPLE_RATE as f32 * 240. / (self.song.get(&TEMPO) as f32) / (resolution as f32)
+        SAMPLE_RATE as f32 * 240. / (self.state.get(&TEMPO) as f32) / (resolution as f32)
     }
 
     fn find_state(&self, name: &str) -> Option<(StateId, Key<i32>)> {
         Some(StateId::Song)
-            .zip(self.song.get_key(name))
+            .zip(self.state.get_key(name))
             .or_else(|| Some(StateId::ActiveTrack).zip(self.active_track().state.get_key(name)))
     }
 
     fn get_state(&self, id: StateId) -> &State {
         match id {
-            StateId::Song => &self.song,
+            StateId::Song => &self.state,
             StateId::ActiveTrack => &self.active_track().state,
         }
     }
@@ -514,7 +516,7 @@ struct Audio {
 
 impl Audio {
     fn key_down(&mut self, track_id: Option<i32>, key: Option<i32>) {
-        let track_id = track_id.unwrap_or(self.controls.song.get(&ACTIVE_TRACK_ID));
+        let track_id = track_id.unwrap_or(self.controls.state.get(&ACTIVE_TRACK_ID));
         let track = self.controls.track(track_id);
         let key = key.unwrap_or(track.state.get(&ACTIVE_KEY));
         let song_step = self.controls.step.load();
@@ -533,7 +535,7 @@ impl Audio {
     }
 
     fn key_up(&mut self, track_id: Option<i32>, key: Option<i32>) {
-        let track_id = track_id.unwrap_or(self.controls.song.get(&ACTIVE_TRACK_ID));
+        let track_id = track_id.unwrap_or(self.controls.state.get(&ACTIVE_TRACK_ID));
         let track = self.controls.track(track_id);
         let key = key.unwrap_or(track.state.get(&ACTIVE_KEY));
         if self.controls.playing.load() && self.controls.armed.load() {
@@ -560,14 +562,14 @@ impl Audio {
         }
         if old != new {
             controls.active_track().state.set(&SAMPLE_TYPE, new);
-            self.each_voice_for(controls.song.get(&ACTIVE_TRACK_ID))
+            self.each_voice_for(controls.state.get(&ACTIVE_TRACK_ID))
                 .for_each(|voice| {
                     voice.track_id = None;
                     voice.insert.dsp.set_param(controls.gate, 0.);
                 });
             if new.thru() {
                 self.allocate(
-                    controls.song.get(&ACTIVE_TRACK_ID),
+                    controls.state.get(&ACTIVE_TRACK_ID),
                     track.state.get(&ACTIVE_KEY),
                 );
             }
@@ -595,7 +597,7 @@ impl Audio {
         }
         for DspDyn { dsp, builder } in self.sends.iter_mut() {
             let dsp = dsp.as_mut();
-            let state = &self.controls.song;
+            let state = &self.controls.state;
             builder(&mut StateSyncUi { dsp, state });
         }
 
@@ -766,6 +768,7 @@ impl Autosave {
             let file = OpenOptions::new()
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(".typebeat")?;
             serde_json::to_writer_pretty(file, self.controls.as_ref())?;
         }
@@ -782,11 +785,11 @@ fn main() -> Result<()> {
     let gate = &mut controls.gate;
     effects::insert::build_user_interface_static(&mut GateInitUi { gate });
 
-    let song = &mut controls.song;
-    song.init(save, ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1), 0);
-    song.init(save, TEMPO.between(0, 999).nudge_by(10), 120);
-    song.init(save, ROOT.between(-12, 12).nudge_by(7), 0);
-    song.init(save, SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1), 0);
+    let state = &mut controls.state;
+    state.init(save, ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1), 0);
+    state.init(save, TEMPO.between(0, 999).nudge_by(10), 120);
+    state.init(save, ROOT.between(-12, 12).nudge_by(7), 0);
+    state.init(save, SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1), 0);
 
     for (i, track) in controls.tracks.iter_mut().enumerate() {
         let save = &save["tracks"][i];
@@ -829,7 +832,7 @@ fn main() -> Result<()> {
     for DspDyn { dsp, builder } in audio.sends.iter_mut() {
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
-        let state = &mut Arc::get_mut(&mut audio.controls).unwrap().song;
+        let state = &mut Arc::get_mut(&mut audio.controls).unwrap().state;
         builder(&mut StateInitUi { state, save });
     }
 

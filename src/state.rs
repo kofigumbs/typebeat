@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use crossbeam::atomic::AtomicCell;
-use serde::ser::SerializeMap;
-use serde::{Serialize, Serializer};
 use serde_json::Value;
 
 pub trait Parameter {
@@ -125,16 +123,6 @@ impl Default for State {
     }
 }
 
-impl Serialize for State {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_map(Some(self.data.len()))?;
-        for name in self.data.keys() {
-            s.serialize_entry(name, &self.get(&Key::<f32>::new(name)))?;
-        }
-        s.end()
-    }
-}
-
 impl State {
     /// Read parameter from the saved value or use the default if it doesn't exist
     pub fn init<T: Copy + Parameter>(&mut self, save: &Value, key: &Key<T>, default: T) {
@@ -179,5 +167,9 @@ impl State {
             (x, 3) => self.set(key, self.get(key) + x),
             _ => {}
         }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, f32)> {
+        self.data.iter().map(|(&name, atom)| (name, atom.load()))
     }
 }
