@@ -112,13 +112,20 @@ const requestSync = () => {
  * events
  */
 
+const hasModifier = event => (
+  event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
+);
+
 const capsByEventCode = new Map([
   ['Semicolon', ';'], ['Comma', ','], ['Period', '.'], ['Slash', '/'],
   ...Array.from('QWERTYUIOPASDFGHJKLZXCVBNM', cap => [`Key${cap}`, cap]),
 ]);
 
 const handleDocumentKey = event => {
-  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.repeat)
+  if (hasModifier(event))
+    return;
+  event.preventDefault();
+  if (event.repeat)
     return;
   const cap = capsByEventCode.get(event.code);
   if (!cap)
@@ -148,6 +155,6 @@ const handleDocumentKey = event => {
 
 document.addEventListener('keydown', handleDocumentKey);
 document.addEventListener('keyup', handleDocumentKey);
-document.addEventListener('keypress', event => event.preventDefault());
+document.addEventListener('keypress', event => !hasModifier(event));
 
 sync();
