@@ -59,7 +59,7 @@ static SAMPLE_TYPE: Key<SampleType> = Key::new("sampleType");
 
 // Insert keys -- must match definitions in effects/insert.dsp
 static THRU: Key<bool> = Key::new("thru");
-static GATE: Key<i32> = Key::new("gate");
+static GATE: Key<bool> = Key::new("gate");
 static NOTE: Key<i32> = Key::new("note");
 
 fn get_clamped<T>(values: &[T], index: i32) -> &T {
@@ -70,26 +70,38 @@ fn toggle(value: &AtomicCell<bool>) {
     value.fetch_xor(true);
 }
 
-struct InitUi<'a> {
-    state: &'a mut State<ParamIndex>,
-    save: &'a Value,
+struct GateInitUi<'a> {
+    gate: &'a mut ParamIndex,
 }
-
-impl<'a> UI<f32> for InitUi<'a> {
-    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
-        let key = Key::new(s);
-        self.state
-            .init(self.save, key.between(lo, hi).nudge_by(by as u8), n);
-        self.state.with_aux(&Key::<()>::new(s), i);
+impl<'a> UI<f32> for GateInitUi<'a> {
+    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
+        if s == "gate" {
+            *self.gate = i;
+        }
     }
 }
 
-struct SyncUi<'a, T: ?Sized, U> {
-    dsp: &'a mut T,
-    state: &'a State<U>,
+struct StateInitUi<'a> {
+    save: &'a Value,
+    state: &'a mut State,
 }
 
-impl<'a, T: FaustDsp<T = f32> + ?Sized, U> UI<f32> for SyncUi<'a, T, U> {
+impl<'a> UI<f32> for StateInitUi<'a> {
+    fn add_num_entry(&mut self, s: &'static str, _: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
+        self.state.init(
+            self.save,
+            Key::new(s).between(lo, hi).nudge_by(by as i32),
+            n,
+        );
+    }
+}
+
+struct StateSyncUi<'a, T: ?Sized> {
+    dsp: &'a mut T,
+    state: &'a State,
+}
+
+impl<'a, T: FaustDsp<T = f32> + ?Sized> UI<f32> for StateSyncUi<'a, T> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
         self.dsp.set_param(i, self.state.get(&Key::new(s)));
     }
@@ -147,7 +159,7 @@ enum View {
 }
 
 struct Track {
-    state: State<ParamIndex>,
+    state: State,
     file_sample: Vec<f32>,
     live_sample: Mutex<Vec<f32>>,
     page_start: AtomicCell<i32>,
@@ -281,7 +293,8 @@ enum StateId {
 
 #[derive(Default)]
 struct Controls {
-    song: State<ParamIndex>,
+    song: State,
+    gate: ParamIndex,
     playing: AtomicCell<bool>,
     armed: AtomicCell<bool>,
     step: AtomicCell<i32>,
@@ -343,7 +356,7 @@ impl Controls {
             .or_else(|| Some(StateId::ActiveTrack).zip(self.active_track().state.get_key(name)))
     }
 
-    fn get_state(&self, id: StateId) -> &State<ParamIndex> {
+    fn get_state(&self, id: StateId) -> &State {
         match id {
             StateId::Song => &self.song,
             StateId::ActiveTrack => &self.active_track().state,
@@ -545,10 +558,11 @@ impl Audio {
         }
         if old != new {
             controls.active_track().state.set(&SAMPLE_TYPE, new);
-            self.each_voice_for(controls.song.get(&ACTIVE_TRACK_ID), |voice, gate| {
-                voice.track_id = None;
-                voice.insert.dsp.set_param(gate, 0.);
-            });
+            self.each_voice_for(controls.song.get(&ACTIVE_TRACK_ID))
+                .for_each(|voice| {
+                    voice.track_id = None;
+                    voice.insert.dsp.set_param(controls.gate, 0.);
+                });
             if new.thru() {
                 self.allocate(
                     controls.song.get(&ACTIVE_TRACK_ID),
@@ -564,7 +578,7 @@ impl Audio {
             match setter {
                 Message::Setter(data, f) => f(self, data),
                 Message::SetEntry(data, state_id, key) => {
-                    self.controls.get_state(state_id).update(&key, data)
+                    self.controls.get_state(state_id).nudge(&key, data)
                 }
             }
         }
@@ -574,13 +588,13 @@ impl Audio {
             if let Some(track_id) = voice.track_id {
                 let dsp = voice.insert.dsp.as_mut();
                 let state = &self.controls.track(track_id).state;
-                effects::insert::build_user_interface_static(&mut SyncUi { dsp, state });
+                effects::insert::build_user_interface_static(&mut StateSyncUi { dsp, state });
             }
         }
         for DspDyn { dsp, builder } in self.sends.iter_mut() {
             let dsp = dsp.as_mut();
             let state = &self.controls.song;
-            builder(&mut SyncUi { dsp, state });
+            builder(&mut StateSyncUi { dsp, state });
         }
 
         // Read input frames and calculate output frames
@@ -657,7 +671,7 @@ impl Audio {
         }
 
         // Update DSP parameters
-        track.state.set(&GATE, 1);
+        track.state.set(&GATE, true);
         track.state.set(&NOTE, note);
         track.state.set(&THRU, track.state.get(&SAMPLE_TYPE).thru());
 
@@ -666,19 +680,16 @@ impl Audio {
     }
 
     fn release(&mut self, track_id: i32, key: i32) {
-        self.each_voice_for(track_id, |voice, gate| {
-            if voice.key == key {
-                voice.insert.dsp.set_param(gate, 0.);
-            }
-        });
+        let gate = self.controls.gate;
+        self.each_voice_for(track_id)
+            .filter(|voice| voice.key == key)
+            .for_each(|voice| voice.insert.dsp.set_param(gate, 0.));
     }
 
-    fn each_voice_for(&mut self, track_id: i32, f: impl Fn(&mut Voice, ParamIndex)) {
-        let track = self.controls.track(track_id);
+    fn each_voice_for(&mut self, track_id: i32) -> impl Iterator<Item = &mut Voice> {
         self.voices
             .iter_mut()
-            .filter(|voice| voice.track_id == Some(track_id))
-            .for_each(|voice| f(voice, *track.state.get_aux(&GATE)));
+            .filter(move |voice| voice.track_id == Some(track_id))
     }
 }
 
@@ -766,11 +777,15 @@ fn main() -> Result<()> {
         .unwrap_or_default();
 
     let mut controls = Controls::default();
+    let gate = &mut controls.gate;
+    effects::insert::build_user_interface_static(&mut GateInitUi { gate });
+
     let song = &mut controls.song;
     song.init(save, ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1), 0);
     song.init(save, TEMPO.between(0, 999).nudge_by(10), 120);
     song.init(save, ROOT.between(-12, 12).nudge_by(7), 0);
     song.init(save, SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1), 0);
+
     for (i, track) in controls.tracks.iter_mut().enumerate() {
         let save = &save["tracks"][i];
         let state = &mut track.state;
@@ -786,7 +801,7 @@ fn main() -> Result<()> {
         state.init(save, RESOLUTION.between(1, MAX_RESOLUTION), 16);
         state.init(save, &SAMPLE_TYPE, SampleType::File);
         track.file_sample = samples::read_stereo_file(i)?;
-        effects::insert::build_user_interface_static(&mut InitUi { state, save });
+        effects::insert::build_user_interface_static(&mut StateInitUi { save, state });
     }
 
     let (sender, receiver) = std::sync::mpsc::channel();
@@ -813,7 +828,7 @@ fn main() -> Result<()> {
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
         let state = &mut Arc::get_mut(&mut audio.controls).unwrap().song;
-        builder(&mut InitUi { state, save });
+        builder(&mut StateInitUi { state, save });
     }
 
     let rpc = Rpc {

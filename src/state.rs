@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use crossbeam::atomic::AtomicCell;
-use num_traits::{AsPrimitive, Num};
 use serde::ser::SerializeMap;
 use serde::{Serialize, Serializer};
 use serde_json::Value;
@@ -71,7 +70,7 @@ pub struct Key<T: 'static> {
     name: &'static str,
     min: AtomicCell<f32>,
     max: AtomicCell<f32>,
-    by: AtomicCell<u8>,
+    by: AtomicCell<i32>,
     _marker: &'static PhantomData<T>,
 }
 
@@ -96,7 +95,7 @@ impl<T> Key<T> {
         self
     }
 
-    pub fn nudge_by(&self, by: u8) -> &Self {
+    pub fn nudge_by(&self, by: i32) -> &Self {
         self.by.store(by);
         self
     }
@@ -112,12 +111,12 @@ impl<T> Key<T> {
     }
 }
 
-pub struct State<Aux> {
+pub struct State {
     keys: HashMap<&'static str, Key<()>>,
-    data: HashMap<&'static str, (AtomicCell<f32>, Option<Aux>)>,
+    data: HashMap<&'static str, AtomicCell<f32>>,
 }
 
-impl<Aux> Default for State<Aux> {
+impl Default for State {
     fn default() -> Self {
         Self {
             keys: HashMap::new(),
@@ -126,7 +125,7 @@ impl<Aux> Default for State<Aux> {
     }
 }
 
-impl<Aux> Serialize for State<Aux> {
+impl Serialize for State {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_map(Some(self.data.len()))?;
         for name in self.data.keys() {
@@ -136,7 +135,7 @@ impl<Aux> Serialize for State<Aux> {
     }
 }
 
-impl<Aux> State<Aux> {
+impl State {
     /// Read parameter from the saved value or use the default if it doesn't exist
     pub fn init<T: Copy + Parameter>(&mut self, save: &Value, key: &Key<T>, default: T) {
         let raw = if let Some(value) = save[key.name].as_f64() {
@@ -145,14 +144,7 @@ impl<Aux> State<Aux> {
             default.to_f32()
         };
         self.keys.insert(key.name, key.clone());
-        self.data.insert(key.name, (AtomicCell::new(raw), None));
-    }
-
-    /// Attaches aux data to an existing key
-    pub fn with_aux<T>(&mut self, key: &Key<T>, aux: Aux) {
-        self.data
-            .entry(key.name)
-            .and_modify(|pair| pair.1 = Some(aux));
+        self.data.insert(key.name, AtomicCell::new(raw));
     }
 
     /// Gets the raw version of a parameter key by its name
@@ -160,46 +152,32 @@ impl<Aux> State<Aux> {
         self.keys.get(name).map(Key::clone)
     }
 
-    /// Get the parameter's aux association
-    pub fn get_aux<T>(&self, key: &Key<T>) -> &Aux {
-        self.data[key.name].1.as_ref().unwrap()
-    }
-
     /// Get the parameter's value
     pub fn get<T: Parameter>(&self, key: &Key<T>) -> T {
-        Parameter::from_f32(self.data[key.name].0.load())
+        Parameter::from_f32(self.data[key.name].load())
     }
 
     /// Set the parameter's value
     pub fn set<T: Copy + PartialOrd + Parameter>(&self, key: &Key<T>, value: T) {
-        self.data[key.name]
-            .0
-            .store(value.to_f32().clamp(key.min.load(), key.max.load()));
+        self.data[key.name].store(value.to_f32().clamp(key.min.load(), key.max.load()));
     }
 
     /// Toggles the boolean parameter's value
     pub fn toggle<T>(&self, key: &Key<T>) {
-        let atom = &self.data[key.name].0;
+        let atom = &self.data[key.name];
         atom.store(bool::to_f32(atom.load() == 0.));
     }
 
-    /// Update the parameter's value by +/- 1 or by, depending on the the value provided
-    pub fn nudge<T: Copy + PartialOrd + Num + Parameter>(&self, key: &Key<T>, value: i32, by: T) {
-        match value {
-            0 => self.set(key, self.get(key) - by),
-            1 => self.set(key, self.get(key) - T::one()),
-            2 => self.set(key, self.get(key) + T::one()),
-            3 => self.set(key, self.get(key) + by),
-            _ => {}
-        }
-    }
-
     /// Toggles, sets, or nudges a parameter depending on the Key's properties
-    pub fn update(&self, key: &Key<i32>, value: i32) {
-        match key.by.load() {
-            0 => self.toggle(key),
-            1 => self.set(key, value.as_()),
-            by => self.nudge(key, value, by as i32),
+    pub fn nudge(&self, key: &Key<i32>, value: i32) {
+        match (key.by.load(), value) {
+            (0, _) => self.toggle(key),
+            (1, _) => self.set(key, value),
+            (x, 0) => self.set(key, self.get(key) - x),
+            (_, 1) => self.set(key, self.get(key) - 1),
+            (_, 2) => self.set(key, self.get(key) + 1),
+            (x, 3) => self.set(key, self.get(key) + x),
+            _ => {}
         }
     }
 }
