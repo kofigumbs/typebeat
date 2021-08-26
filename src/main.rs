@@ -71,7 +71,7 @@ fn toggle(value: &AtomicCell<bool>) {
 }
 
 struct InitUi<'a> {
-    state: &'a mut State<(ParamIndex, Key<f32>)>,
+    state: &'a mut State<ParamIndex>,
     save: &'a Value,
 }
 
@@ -80,7 +80,7 @@ impl<'a> UI<f32> for InitUi<'a> {
         let key = Key::new(s);
         self.state
             .init(self.save, key.between(lo, hi).nudge_by(by as u8), n);
-        self.state.with_aux(&Key::<()>::new(s), (i, key));
+        self.state.with_aux(&Key::<()>::new(s), i);
     }
 }
 
@@ -147,7 +147,7 @@ enum View {
 }
 
 struct Track {
-    state: State<(ParamIndex, Key<f32>)>,
+    state: State<ParamIndex>,
     file_sample: Vec<f32>,
     live_sample: Mutex<Vec<f32>>,
     page_start: AtomicCell<i32>,
@@ -281,7 +281,7 @@ enum StateId {
 
 #[derive(Default)]
 struct Controls {
-    song: State<(ParamIndex, Key<f32>)>,
+    song: State<ParamIndex>,
     playing: AtomicCell<bool>,
     armed: AtomicCell<bool>,
     step: AtomicCell<i32>,
@@ -337,13 +337,13 @@ impl Controls {
         SAMPLE_RATE as f32 * 240. / (self.song.get(&TEMPO) as f32) / (resolution as f32)
     }
 
-    fn find_state(&self, name: &str) -> Option<(StateId, &'static str)> {
+    fn find_state(&self, name: &str) -> Option<(StateId, Key<i32>)> {
         Some(StateId::Song)
-            .zip(self.song.get_name(name))
-            .or_else(|| Some(StateId::ActiveTrack).zip(self.active_track().state.get_name(name)))
+            .zip(self.song.get_key(name))
+            .or_else(|| Some(StateId::ActiveTrack).zip(self.active_track().state.get_key(name)))
     }
 
-    fn get_state(&self, id: StateId) -> &State<(ParamIndex, Key<f32>)> {
+    fn get_state(&self, id: StateId) -> &State<ParamIndex> {
         match id {
             StateId::Song => &self.song,
             StateId::ActiveTrack => &self.active_track().state,
@@ -487,7 +487,7 @@ impl Voice {
 
 enum Message {
     Setter(i32, fn(&mut Audio, i32)),
-    SetEntry(i32, StateId, &'static str),
+    SetEntry(i32, StateId, Key<i32>),
 }
 
 struct Audio {
@@ -563,9 +563,8 @@ impl Audio {
         while let Ok(setter) = self.receiver.try_recv() {
             match setter {
                 Message::Setter(data, f) => f(self, data),
-                Message::SetEntry(data, state_id, name) => {
-                    let state = self.controls.get_state(state_id);
-                    state.update(&state.get_aux(&Key::<()>::new(name)).1, data);
+                Message::SetEntry(data, state_id, key) => {
+                    self.controls.get_state(state_id).update(&key, data)
                 }
             }
         }
@@ -679,7 +678,7 @@ impl Audio {
         self.voices
             .iter_mut()
             .filter(|voice| voice.track_id == Some(track_id))
-            .for_each(|voice| f(voice, track.state.get_aux(&GATE).0));
+            .for_each(|voice| f(voice, *track.state.get_aux(&GATE)));
     }
 }
 
@@ -713,10 +712,10 @@ impl Rpc {
             "set arm" => send(|audio, _| toggle(&audio.controls.armed))?,
             "set muted" => send(|audio, i| audio.controls.tracks[i as usize].state.toggle(&MUTED))?,
             _ => {
-                if let Some((state_id, name)) = self.controls.find_state(method) {
+                if let Some((state_id, key)) = self.controls.find_state(method) {
                     match context {
-                        "get" => self.controls.get_state(state_id).get(&Key::new(name)),
-                        "set" => self.send(Message::SetEntry(data, state_id, name))?,
+                        "get" => self.controls.get_state(state_id).get(&key),
+                        "set" => self.send(Message::SetEntry(data, state_id, key))?,
                         _ => None?,
                     }
                 } else if let Some((name, i)) = Self::split(method) {

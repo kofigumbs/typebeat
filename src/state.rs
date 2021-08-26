@@ -100,24 +100,36 @@ impl<T> Key<T> {
         self.by.store(by);
         self
     }
+
+    fn clone<U>(&self) -> Key<U> {
+        Key {
+            name: self.name,
+            min: self.min.load().into(),
+            max: self.max.load().into(),
+            by: self.by.load().into(),
+            _marker: &PhantomData,
+        }
+    }
 }
 
 pub struct State<Aux> {
-    map: HashMap<&'static str, (AtomicCell<f32>, Option<Aux>)>,
+    keys: HashMap<&'static str, Key<()>>,
+    data: HashMap<&'static str, (AtomicCell<f32>, Option<Aux>)>,
 }
 
 impl<Aux> Default for State<Aux> {
     fn default() -> Self {
         Self {
-            map: HashMap::new(),
+            keys: HashMap::new(),
+            data: HashMap::new(),
         }
     }
 }
 
 impl<Aux> Serialize for State<Aux> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_map(Some(self.map.len()))?;
-        for name in self.map.keys() {
+        let mut s = serializer.serialize_map(Some(self.data.len()))?;
+        for name in self.data.keys() {
             s.serialize_entry(name, &self.get(&Key::<f32>::new(name)))?;
         }
         s.end()
@@ -132,41 +144,42 @@ impl<Aux> State<Aux> {
         } else {
             default.to_f32()
         };
-        self.map.insert(key.name, (AtomicCell::new(raw), None));
+        self.keys.insert(key.name, key.clone());
+        self.data.insert(key.name, (AtomicCell::new(raw), None));
     }
 
     /// Attaches aux data to an existing key
     pub fn with_aux<T>(&mut self, key: &Key<T>, aux: Aux) {
-        self.map
+        self.data
             .entry(key.name)
             .and_modify(|pair| pair.1 = Some(aux));
     }
 
-    /// Gets the static name for a parameter if it exists
-    pub fn get_name(&self, name: &str) -> Option<&'static str> {
-        self.map.get_key_value(name).map(|(&name, _)| name)
+    /// Gets the raw version of a parameter key by its name
+    pub fn get_key<T>(&self, name: &str) -> Option<Key<T>> {
+        self.keys.get(name).map(Key::clone)
     }
 
     /// Get the parameter's aux association
     pub fn get_aux<T>(&self, key: &Key<T>) -> &Aux {
-        self.map[key.name].1.as_ref().unwrap()
+        self.data[key.name].1.as_ref().unwrap()
     }
 
     /// Get the parameter's value
     pub fn get<T: Parameter>(&self, key: &Key<T>) -> T {
-        Parameter::from_f32(self.map[key.name].0.load())
+        Parameter::from_f32(self.data[key.name].0.load())
     }
 
     /// Set the parameter's value
     pub fn set<T: Copy + PartialOrd + Parameter>(&self, key: &Key<T>, value: T) {
-        self.map[key.name]
+        self.data[key.name]
             .0
             .store(value.to_f32().clamp(key.min.load(), key.max.load()));
     }
 
     /// Toggles the boolean parameter's value
     pub fn toggle<T>(&self, key: &Key<T>) {
-        let atom = &self.map[key.name].0;
+        let atom = &self.data[key.name].0;
         atom.store(bool::to_f32(atom.load() == 0.));
     }
 
@@ -182,11 +195,11 @@ impl<Aux> State<Aux> {
     }
 
     /// Toggles, sets, or nudges a parameter depending on the Key's properties
-    pub fn update<T: AsPrimitive<f32> + AsPrimitive<i32>>(&self, key: &Key<f32>, value: T) {
+    pub fn update(&self, key: &Key<i32>, value: i32) {
         match key.by.load() {
             0 => self.toggle(key),
             1 => self.set(key, value.as_()),
-            by => self.nudge(key, value.as_(), by as f32),
+            by => self.nudge(key, value, by as i32),
         }
     }
 }
