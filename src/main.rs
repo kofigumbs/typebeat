@@ -103,7 +103,9 @@ struct StateSyncUi<'a, T: ?Sized> {
 
 impl<'a, T: FaustDsp<T = f32> + ?Sized> UI<f32> for StateSyncUi<'a, T> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
-        self.dsp.set_param(i, self.state.get(&Key::new(s)));
+        if s != "gate" && s != "note" && s != "thru" {
+            self.dsp.set_param(i, self.state.get(&Key::new(s)));
+        }
     }
 }
 
