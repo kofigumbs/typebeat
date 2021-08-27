@@ -492,7 +492,7 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
     }
 
     fn write_to(&self, destination: &mut [f32]) {
-        for (destination, source) in destination.iter_mut().zip(&self.mix) {
+        for (destination, source) in destination.iter_mut().zip(&self.out) {
             *destination += source;
         }
     }
