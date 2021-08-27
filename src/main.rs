@@ -58,6 +58,7 @@ static ACTIVE_KEY: Key<i32> = Key::new("activeKey");
 static OCTAVE: Key<i32> = Key::new("octave");
 static LENGTH: Key<i32> = Key::new("length");
 static RESOLUTION: Key<i32> = Key::new("resolution");
+static SAMPLE_DETUNE: Key<f32> = Key::new("sampleDetune"); // registered by dsp
 static SAMPLE_TYPE: Key<SampleType> = Key::new("sampleType"); // registered by dsp
 
 fn get_clamped<T>(values: &[T], index: i32) -> &T {
@@ -532,10 +533,10 @@ impl Voice {
                 let track = song.track(track_id);
                 let mix = &mut buffer.mix;
                 match track.state.get(&SAMPLE_TYPE) {
-                    SampleType::File => self.play_sample(mix, &track.file_sample, |x| *x, 2),
+                    SampleType::File => self.play_file(mix, &track.file_sample, f32::to_owned, 2),
                     SampleType::Live => self.play_thru(mix, track, input, false),
                     SampleType::LiveRecord => self.play_thru(mix, track, input, true),
-                    SampleType::LivePlay => self.play_sample(mix, track.live(), |x| x.load(), 1),
+                    SampleType::LivePlay => self.play_file(mix, track.live(), AtomicCell::load, 1),
                 }
             }
         }
@@ -553,7 +554,7 @@ impl Voice {
         self.play(mix, |_| input);
     }
 
-    fn play_sample<T>(&mut self, mix: &mut [f32], sample: &[T], f: fn(&T) -> f32, channels: usize) {
+    fn play_file<T>(&mut self, mix: &mut [f32], sample: &[T], f: fn(&T) -> f32, channels: usize) {
         let position = self.position.floor() as usize;
         let position_fract = self.position.fract();
         self.play(mix, |channel| {
@@ -745,7 +746,8 @@ impl Audio {
             voice.gate = true;
             voice.age = 0;
             voice.position = 0.;
-            voice.increment = (note / 12.).exp2() / (69.0_f32 / 12.).exp2();
+            voice.increment = ((note + track.state.get(&SAMPLE_DETUNE) / 10.) / 12.).exp2()
+                / (69.0_f32 / 12.).exp2();
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
             voice.insert.dsp.set_param(self.song.note_id, note);
