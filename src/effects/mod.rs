@@ -8,8 +8,14 @@
 
 pub type F32 = f32;
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone)]
 pub struct ParamIndex(pub i32);
+
+impl Default for ParamIndex {
+    fn default() -> Self {
+        Self(-1)
+    }
+}
 
 pub trait FaustDsp {
     type T;
@@ -44,7 +50,8 @@ pub trait Meta {
 pub trait UI<T> {
     fn open_vertical_box(&mut self, label: &str) {}
     fn close_box(&mut self) {}
-    fn add_num_entry(&mut self, label: &'static str, i: ParamIndex, n: T, lo: T, hi: T, by: T);
+    fn add_button(&mut self, label: &'static str, i: ParamIndex) {}
+    fn add_num_entry(&mut self, label: &'static str, i: ParamIndex, n: T, lo: T, hi: T, by: T) {}
     fn declare(&mut self, param: Option<ParamIndex>, key: &str, value: &str) {}
 }
 

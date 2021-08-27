@@ -1,6 +1,7 @@
 #![feature(never_type)]
 #![feature(array_methods)]
 
+use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::BufReader;
 use std::path::Path;
@@ -16,7 +17,7 @@ use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
 
 use effects::{FaustDsp, ParamIndex, UI};
-use state::{Enum, Key, State};
+use state::{Enum, Key, Parameter, State};
 
 mod effects;
 mod samples;
@@ -59,11 +60,6 @@ static LENGTH: Key<i32> = Key::new("length");
 static RESOLUTION: Key<i32> = Key::new("resolution");
 static SAMPLE_TYPE: Key<SampleType> = Key::new("sampleType");
 
-// Insert keys -- must match definitions in effects/insert.dsp
-static THRU: Key<bool> = Key::new("thru");
-static GATE: Key<bool> = Key::new("gate");
-static NOTE: Key<i32> = Key::new("note");
-
 fn get_clamped<T>(values: &[T], index: i32) -> &T {
     &values[(index as usize).clamp(0, values.len() - 1)]
 }
@@ -72,15 +68,14 @@ fn toggle(value: &AtomicCell<bool>) {
     value.fetch_xor(true);
 }
 
-struct GateInitUi<'a> {
-    gate: &'a mut ParamIndex,
+#[derive(Default)]
+struct ButtonInitUi {
+    map: HashMap<&'static str, ParamIndex>,
 }
 
-impl<'a> UI<f32> for GateInitUi<'a> {
-    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
-        if s == "gate" {
-            *self.gate = i;
-        }
+impl UI<f32> for ButtonInitUi {
+    fn add_button(&mut self, s: &'static str, i: ParamIndex) {
+        self.map.insert(s, i);
     }
 }
 
@@ -102,9 +97,7 @@ struct StateSyncUi<'a, T: ?Sized> {
 
 impl<'a, T: FaustDsp<T = f32> + ?Sized> UI<f32> for StateSyncUi<'a, T> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
-        if s != "gate" && s != "note" && s != "thru" {
-            self.dsp.set_param(i, self.state.get(&Key::new(s)));
-        }
+        self.dsp.set_param(i, self.state.get(&Key::new(s)));
     }
 }
 
@@ -374,6 +367,8 @@ struct Controls {
     #[serde(skip)]
     gate: ParamIndex,
     #[serde(skip)]
+    note: ParamIndex,
+    #[serde(skip)]
     playing: AtomicCell<bool>,
     #[serde(skip)]
     armed: AtomicCell<bool>,
@@ -499,6 +494,7 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
 #[derive(Default)]
 struct Voice {
     key: i32,
+    gate: bool,
     age: usize,
     position: f32,
     increment: f32,
@@ -515,7 +511,7 @@ impl Voice {
                 if track.state.get(&SAMPLE_TYPE).thru() {
                     0
                 } else {
-                    2 - track.state.get(&GATE) as usize
+                    2 - self.gate as usize
                 }
             }
             None => 4,
@@ -634,11 +630,10 @@ impl Audio {
         }
         if old != new {
             controls.active_track().state.set(&SAMPLE_TYPE, new);
-            self.each_voice_for(controls.state.get(&ACTIVE_TRACK_ID))
-                .for_each(|voice| {
-                    voice.track_id = None;
-                    voice.insert.dsp.set_param(controls.gate, 0.);
-                });
+            for voice in self.each_voice_for(controls.state.get(&ACTIVE_TRACK_ID)) {
+                voice.gate = false;
+                voice.track_id = None;
+            }
             if new.thru() {
                 self.allocate(
                     controls.state.get(&ACTIVE_TRACK_ID),
@@ -665,6 +660,7 @@ impl Audio {
             if let Some(track_id) = voice.track_id {
                 let dsp = voice.insert.dsp.as_mut();
                 let state = &self.controls.track(track_id).state;
+                dsp.set_param(self.controls.gate, bool::to_f32(voice.gate));
                 effects::insert::build_user_interface_static(&mut StateSyncUi { dsp, state });
             }
         }
@@ -725,7 +721,7 @@ impl Audio {
     fn allocate(&mut self, track_id: i32, key: i32) {
         self.release(track_id, key);
         let track = self.controls.track(track_id);
-        let note = self.controls.note(track, key);
+        let note = self.controls.note(track, key) as f32;
         for voice in self.voices.iter_mut() {
             voice.age += 1;
         }
@@ -740,27 +736,23 @@ impl Audio {
             .max_by_key(|voice| (voice.priority(&controls), voice.age))
         {
             voice.key = key;
+            voice.gate = true;
             voice.age = 0;
             voice.position = 0.;
-            voice.increment = (note as f32 / 12.).exp2() / (69.0_f32 / 12.).exp2();
+            voice.increment = (note / 12.).exp2() / (69.0_f32 / 12.).exp2();
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
+            voice.insert.dsp.set_param(self.controls.note, note);
         }
-
-        // Update DSP parameters
-        track.state.set(&GATE, true);
-        track.state.set(&NOTE, note);
-        track.state.set(&THRU, track.state.get(&SAMPLE_TYPE).thru());
 
         // Remember when this was played to for note length sequencer calculation
         get_clamped(&track.last_played, key).store(self.controls.step.load());
     }
 
     fn release(&mut self, track_id: i32, key: i32) {
-        let gate = self.controls.gate;
         self.each_voice_for(track_id)
             .filter(|voice| voice.key == key)
-            .for_each(|voice| voice.insert.dsp.set_param(gate, 0.));
+            .for_each(|voice| voice.gate = false);
     }
 
     fn each_voice_for(&mut self, track_id: i32) -> impl Iterator<Item = &mut Voice> {
@@ -858,8 +850,10 @@ fn main() -> Result<(), Error> {
         .and_then(|file| serde_json::from_reader(BufReader::new(file)).map_err(Error::new))
         .unwrap_or_default();
 
-    let gate = &mut controls.gate;
-    effects::insert::build_user_interface_static(&mut GateInitUi { gate });
+    let mut buttons = ButtonInitUi::default();
+    effects::insert::build_user_interface_static(&mut buttons);
+    controls.gate = buttons.map["gate"];
+    controls.note = buttons.map["note"];
 
     let state = &mut controls.state;
     state.register(ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1));

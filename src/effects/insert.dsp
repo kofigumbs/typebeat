@@ -1,13 +1,13 @@
 import("stdfaust.lib");
 
-gate = nentry("gate",  0, 0,   1, 0);
-thru = nentry("thru",  0, 0,   1, 0);
-note = nentry("note", 69, 0, 127, 0);
+gate = button("gate");
+note = button("note");
 
+sampleType = nentry("sampleType", 0, 0, 4, 1);
 synth1Type = nentry("synth1Type", 0, 0, 4, 1);
 synth2Type = nentry("synth2Type", 0, 0, 4, 1);
 synth3Type = nentry("synth3Type", 0, 0, 4, 1);
-holdSample = nentry("holdSample",   0, 0, 1, 0);
+holdSample = nentry("holdSample", 0, 0, 1, 0);
 
 sampleLevel  = nentry("sampleLevel", 25,    0,  50, 10) : smooth;
 sampleDetune = nentry("sampleDetune", 0, -120, 120, 10) : smooth;
@@ -43,7 +43,7 @@ process = sound :> eq : panning <: send(main), send(reverb), send(echo), send(dr
 sound = sample, synth1, synth2, synth3 with {
 	sample = sp.stereoize(sampleTranspose : *(sampleLevel/25 * ba.if(holdSample, envelope, 1)));
 	sampleTranspose = ba.bypass_fade(1, sampleOffset == 0, ef.transpose(1000, 10, sampleOffset));
-	sampleOffset = thru * (sampleDetune/10 + note - 69);
+	sampleOffset = (sampleType == 1 | sampleType == 2) * (sampleDetune/10 + note - 69);
 	synth1 = frequency(synth1Detune/10) : oscillator(synth1Type) : *(synth1Level/150 * envelope) <: _, _;
 	synth2 = frequency(synth2Detune/10) : oscillator(synth2Type) : *(synth2Level/150 * envelope) <: _, _;
 	synth3 = frequency(synth3Detune/10) : oscillator(synth3Type) : *(synth3Level/150 * envelope) <: _, _;
