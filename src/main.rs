@@ -58,7 +58,7 @@ static ACTIVE_KEY: Key<i32> = Key::new("activeKey");
 static OCTAVE: Key<i32> = Key::new("octave");
 static LENGTH: Key<i32> = Key::new("length");
 static RESOLUTION: Key<i32> = Key::new("resolution");
-static SAMPLE_TYPE: Key<SampleType> = Key::new("sampleType");
+static SAMPLE_TYPE: Key<SampleType> = Key::new("sampleType"); // registered by dsp
 
 fn get_clamped<T>(values: &[T], index: i32) -> &T {
     &values[(index as usize).clamp(0, values.len() - 1)]
@@ -433,29 +433,35 @@ impl Song {
     }
 }
 
-/// Wrapper for FaustDsp that keeps track of its `build_user_interface` fn
+/// Wrapper for FaustDsp that implements Clone and Default
+struct DspBox<T> {
+    dsp: Box<T>,
+}
+
+impl<T: FaustDsp> Clone for DspBox<T> {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl<T: FaustDsp> Default for DspBox<T> {
+    fn default() -> Self {
+        let mut dsp = Box::new(T::new());
+        dsp.instance_init(SAMPLE_RATE);
+        DspBox { dsp }
+    }
+}
+
+/// Wrapper for FaustDsp that keeps track of its #build_user_interface fn
 struct DspDyn {
     dsp: Box<dyn Send + FaustDsp<T = f32>>,
     builder: fn(&mut dyn UI<f32>),
 }
 
-/// Wrapper for FaustDsp that implements Default
-struct DspDefault<T> {
-    dsp: Box<T>,
-}
-
-impl<T: FaustDsp> Default for DspDefault<T> {
-    fn default() -> Self {
-        let mut dsp = Box::new(T::new());
-        dsp.instance_init(SAMPLE_RATE);
-        DspDefault { dsp }
-    }
-}
-
-impl<T: 'static + Send + FaustDsp<T = f32>> DspDefault<T> {
-    fn to_dyn(self) -> DspDyn {
-        DspDyn {
-            dsp: self.dsp,
+impl<T: 'static + Send + FaustDsp<T = f32>> From<DspBox<T>> for DspDyn {
+    fn from(dsp_box: DspBox<T>) -> Self {
+        Self {
+            dsp: dsp_box.dsp,
             builder: T::build_user_interface_static,
         }
     }
@@ -491,7 +497,7 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Voice {
     key: i32,
     gate: bool,
@@ -499,7 +505,7 @@ struct Voice {
     position: f32,
     increment: f32,
     track_id: Option<i32>,
-    insert: DspDefault<effects::insert>,
+    insert: DspBox<effects::insert>,
 }
 
 impl Voice {
@@ -824,7 +830,7 @@ impl Rpc {
 }
 
 struct Autosave {
-    last_version: usize,
+    version: usize,
     song: Arc<Song>,
 }
 
@@ -832,13 +838,13 @@ impl Autosave {
     fn start(&mut self) -> ! {
         loop {
             std::thread::sleep(Duration::from_secs(1));
-            let version = self.song.version.load();
-            if version != self.last_version {
+            let song_version = self.song.version.load();
+            if song_version != self.version {
                 let mut options = OpenOptions::new();
                 options.write(true).create(true).truncate(true);
                 let file = options.open(".typebeat").unwrap();
                 serde_json::to_writer(file, self.song.as_ref()).unwrap();
-                self.last_version = version;
+                self.version = song_version;
             }
         }
     }
@@ -873,40 +879,37 @@ fn main() -> Result<(), Error> {
                 .default(MAX_RESOLUTION),
         );
         state.register(RESOLUTION.between(1, MAX_RESOLUTION).default(16));
-        state.register(SAMPLE_TYPE.default(SampleType::File));
         effects::insert::build_user_interface_static(&mut StateRegisterUi { state });
         state.init();
         track.file_sample = samples::read_stereo_file(i)?;
     }
 
-    let (sender, receiver) = std::sync::mpsc::channel();
-    let mut audio = Audio {
-        song: Arc::new(song),
-        voices: Vec::new(),
-        sends: [
-            DspDefault::<effects::reverb>::default().to_dyn(),
-            DspDefault::<effects::echo>::default().to_dyn(),
-            DspDefault::<effects::drive>::default().to_dyn(),
-        ],
-        receiver,
-    };
-    for _ in 0..VOICE_COUNT {
-        let voice = Voice::default();
-        assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
-        assert_eq!(
-            voice.insert.dsp.get_num_outputs(),
-            INSERT_OUTPUT_COUNT as i32
-        );
-        audio.voices.push(voice);
-    }
-
-    let state = &mut Arc::get_mut(&mut audio.song).unwrap().state;
-    for DspDyn { dsp, builder } in audio.sends.iter_mut() {
+    let mut sends: [DspDyn; SEND_COUNT] = [
+        DspBox::<effects::reverb>::default().into(),
+        DspBox::<effects::echo>::default().into(),
+        DspBox::<effects::drive>::default().into(),
+    ];
+    for DspDyn { dsp, builder } in sends.iter_mut() {
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
         builder(&mut StateRegisterUi { state });
     }
     state.init();
+
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let mut audio = Audio {
+        song: Arc::new(song),
+        voices: vec![Voice::default(); VOICE_COUNT as usize],
+        sends,
+        receiver,
+    };
+    for voice in audio.voices.iter() {
+        assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
+        assert_eq!(
+            voice.insert.dsp.get_num_outputs(),
+            INSERT_OUTPUT_COUNT as i32
+        );
+    }
 
     let rpc = Rpc {
         song: Arc::clone(&audio.song),
@@ -914,7 +917,7 @@ fn main() -> Result<(), Error> {
     };
 
     let mut autosave = Autosave {
-        last_version: 0,
+        version: 0,
         song: Arc::clone(&audio.song),
     };
 
