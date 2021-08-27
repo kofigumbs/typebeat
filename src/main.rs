@@ -8,12 +8,12 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{Error, Result};
+use anyhow::Error;
 use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
-use serde::ser::SerializeMap;
-use serde::{Deserialize, Serialize, Serializer};
-use serde_json::Value;
+use serde::de::{Deserializer, MapAccess, Visitor};
+use serde::ser::{SerializeMap, Serializer};
+use serde::{Deserialize, Serialize};
 
 use effects::{FaustDsp, ParamIndex, UI};
 use state::{Enum, Key, State};
@@ -84,17 +84,14 @@ impl<'a> UI<f32> for GateInitUi<'a> {
     }
 }
 
-struct StateInitUi<'a> {
-    save: &'a Value,
+struct StateRegisterUi<'a> {
     state: &'a mut State,
 }
 
-impl<'a> UI<f32> for StateInitUi<'a> {
+impl<'a> UI<f32> for StateRegisterUi<'a> {
     fn add_num_entry(&mut self, s: &'static str, _: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
-        self.state.init(
-            self.save,
-            Key::new(s).between(lo, hi).nudge_by(by as i32).default(n),
-        );
+        self.state
+            .register(Key::new(s).between(lo, hi).nudge_by(by as i32).default(n));
     }
 }
 
@@ -132,7 +129,7 @@ impl SampleType {
     }
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 struct Change {
     #[serde(with = "serde_atomic")]
     value: AtomicCell<i32>,
@@ -152,7 +149,7 @@ impl Clone for Change {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 struct Step {
     #[serde(default)]
     keys: [Change; KEY_COUNT as usize],
@@ -164,7 +161,6 @@ impl Step {
     }
 }
 
-#[derive(Debug)]
 enum View {
     OutOfBounds,
     Empty,
@@ -201,9 +197,7 @@ impl Default for Track {
 impl Serialize for Track {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut s = serializer.serialize_map(None)?;
-        for (name, value) in self.state.iter() {
-            s.serialize_entry(name, &value)?;
-        }
+        s.serialize_entry("state", &self.state)?;
         s.serialize_entry(
             "live",
             &self.live().iter().map(AtomicCell::load).collect::<Vec<_>>(),
@@ -221,22 +215,48 @@ impl Serialize for Track {
     }
 }
 
-impl Track {
-    fn init(&mut self, value: &Value) {
-        if let Ok(live) = Vec::<f32>::deserialize(&value["live"]) {
-            self.live_length.store(live.len());
-            self.live_sample
-                .iter()
-                .zip(live)
-                .for_each(|(atom, x)| atom.store(x));
-        }
-        if let Ok(sequence) = Vec::<(usize, Step)>::deserialize(&value["sequence"]) {
-            sequence
-                .into_iter()
-                .for_each(|(i, step)| self.sequence[i] = step);
-        }
+struct TrackVisitor();
+impl<'de> Visitor<'de> for TrackVisitor {
+    type Value = Track;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("Track")
     }
 
+    fn visit_map<M: MapAccess<'de>>(self, mut map_access: M) -> Result<Self::Value, M::Error> {
+        let mut track = Track::default();
+        while let Some(key) = map_access.next_key::<String>()? {
+            match key.as_str() {
+                "state" => track.state = map_access.next_value()?,
+                "live" => {
+                    let live = map_access.next_value::<Vec<f32>>()?;
+                    track.live_length.store(live.len());
+                    for (atom, x) in track.live_sample.iter().zip(live) {
+                        atom.store(x);
+                    }
+                }
+                "sequence" => {
+                    let sequence = map_access.next_value::<Vec<(usize, Step)>>()?;
+                    for (i, step) in sequence {
+                        if i < track.sequence.len() {
+                            track.sequence[i] = step;
+                        }
+                    }
+                }
+                _ => map_access.next_value::<()>()?,
+            }
+        }
+        Ok(track)
+    }
+}
+
+impl<'de> Deserialize<'de> for Track {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_map(TrackVisitor())
+    }
+}
+
+impl Track {
     fn view_start(&self) -> i32 {
         self.page_start.load() / self.view_length()
     }
@@ -293,7 +313,7 @@ impl Track {
     fn adjust_page(&self, diff: i32) {
         let new_page_start = self.page_start.load() + diff * VIEWS_PER_PAGE * self.view_length();
         if new_page_start < self.state.get(&LENGTH) {
-            self.page_start.store(new_page_start);
+            self.page_start.store(new_page_start.max(0));
         }
     }
 
@@ -345,27 +365,24 @@ enum StateId {
     ActiveTrack,
 }
 
-#[derive(Default)]
+#[derive(Default, Deserialize, Serialize)]
 struct Controls {
+    #[serde(default)]
     state: State,
-    gate: ParamIndex,
-    playing: AtomicCell<bool>,
-    armed: AtomicCell<bool>,
-    step: AtomicCell<i32>,
-    frames_since_last_step: AtomicCell<i32>,
+    #[serde(default)]
     tracks: [Track; TRACK_COUNT as usize],
+    #[serde(skip)]
+    gate: ParamIndex,
+    #[serde(skip)]
+    playing: AtomicCell<bool>,
+    #[serde(skip)]
+    armed: AtomicCell<bool>,
+    #[serde(skip)]
+    step: AtomicCell<i32>,
+    #[serde(skip)]
+    frames_since_last_step: AtomicCell<i32>,
+    #[serde(skip)]
     version: AtomicCell<usize>,
-}
-
-impl Serialize for Controls {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_map(None)?;
-        for (name, value) in self.state.iter() {
-            s.serialize_entry(name, &value)?;
-        }
-        s.serialize_entry("tracks", &self.tracks)?;
-        s.end()
-    }
 }
 
 impl Controls {
@@ -822,15 +839,12 @@ struct Autosave {
 impl Autosave {
     fn start(&mut self) -> ! {
         loop {
-            std::thread::sleep(Duration::from_secs(2));
+            std::thread::sleep(Duration::from_secs(1));
             let version = self.controls.version.load();
             if version != self.last_version {
-                let file = OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(".typebeat")
-                    .unwrap();
+                let mut options = OpenOptions::new();
+                options.write(true).create(true).truncate(true);
+                let file = options.open(".typebeat").unwrap();
                 serde_json::to_writer(file, self.controls.as_ref()).unwrap();
                 self.last_version = version;
             }
@@ -838,38 +852,36 @@ impl Autosave {
     }
 }
 
-fn main() -> Result<()> {
-    let mut controls = Controls::default();
+fn main() -> Result<(), Error> {
+    let mut controls: Controls = File::open(Path::new(&".typebeat"))
+        .map_err(Error::new)
+        .and_then(|file| serde_json::from_reader(BufReader::new(file)).map_err(Error::new))
+        .unwrap_or_default();
+
     let gate = &mut controls.gate;
     effects::insert::build_user_interface_static(&mut GateInitUi { gate });
 
-    let save = &File::open(Path::new(&".typebeat"))
-        .map_err(Error::new)
-        .and_then(|path| serde_json::from_reader(BufReader::new(path)).map_err(Error::new))
-        .unwrap_or_default();
     let state = &mut controls.state;
-    state.init(save, ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1));
-    state.init(save, TEMPO.between(0, 999).default(120).nudge_by(10));
-    state.init(save, ROOT.between(-12, 12).nudge_by(7));
-    state.init(save, SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1));
+    state.register(ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1));
+    state.register(TEMPO.between(0, 999).default(120).nudge_by(10));
+    state.register(ROOT.between(-12, 12).nudge_by(7));
+    state.register(SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1));
 
     for (i, track) in controls.tracks.iter_mut().enumerate() {
-        let save = &save["tracks"][i];
-        track.init(save);
         let state = &mut track.state;
-        state.init(save, &MUTED);
-        state.init(save, USE_KEY.nudge_by(0).default(true));
-        state.init(save, ACTIVE_KEY.between(0, KEY_COUNT).default(12));
-        state.init(save, OCTAVE.between(2, 8).default(4).nudge_by(2));
-        state.init(
-            save,
+        state.register(&MUTED);
+        state.register(USE_KEY.nudge_by(0).default(true));
+        state.register(ACTIVE_KEY.between(0, KEY_COUNT).default(12));
+        state.register(OCTAVE.between(2, 8).default(4).nudge_by(2));
+        state.register(
             LENGTH
                 .between(MAX_RESOLUTION, MAX_LENGTH)
                 .default(MAX_RESOLUTION),
         );
-        state.init(save, RESOLUTION.between(1, MAX_RESOLUTION).default(16));
-        state.init(save, SAMPLE_TYPE.default(SampleType::File));
-        effects::insert::build_user_interface_static(&mut StateInitUi { save, state });
+        state.register(RESOLUTION.between(1, MAX_RESOLUTION).default(16));
+        state.register(SAMPLE_TYPE.default(SampleType::File));
+        effects::insert::build_user_interface_static(&mut StateRegisterUi { state });
+        state.init();
         track.file_sample = samples::read_stereo_file(i)?;
     }
 
@@ -893,12 +905,14 @@ fn main() -> Result<()> {
         );
         audio.voices.push(voice);
     }
+
+    let state = &mut Arc::get_mut(&mut audio.controls).unwrap().state;
     for DspDyn { dsp, builder } in audio.sends.iter_mut() {
         assert_eq!(dsp.get_num_inputs(), 2);
         assert_eq!(dsp.get_num_outputs(), 2);
-        let state = &mut Arc::get_mut(&mut audio.controls).unwrap().state;
-        builder(&mut StateInitUi { state, save });
+        builder(&mut StateRegisterUi { state });
     }
+    state.init();
 
     let rpc = Rpc {
         controls: Arc::clone(&audio.controls),

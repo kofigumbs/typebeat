@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use crossbeam::atomic::AtomicCell;
-use serde_json::Value;
+use serde::ser::{SerializeMap, Serializer};
+use serde::{Deserialize, Serialize};
 
 pub trait Parameter {
     fn to_f32(self) -> f32;
@@ -120,30 +121,48 @@ impl<T> Key<T> {
     }
 }
 
+#[derive(Default, Deserialize)]
 pub struct State {
+    #[serde(default, flatten)]
+    save: HashMap<String, f32>,
+    #[serde(skip)]
     keys: HashMap<&'static str, Key<()>>,
+    #[serde(skip)]
     data: HashMap<&'static str, AtomicCell<f32>>,
 }
 
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            keys: HashMap::new(),
-            data: HashMap::new(),
+/// Serialize to save file
+impl Serialize for State {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut s = serializer.serialize_map(None)?;
+        for (name, atom) in self.data.iter() {
+            let value = atom.load();
+            if value != self.keys[name].default.load() {
+                s.serialize_entry(name, &value)?;
+            }
         }
+        s.end()
     }
 }
 
 impl State {
     /// Read parameter from the saved value or use the default if it doesn't exist
-    pub fn init<T: Copy + Parameter>(&mut self, save: &Value, key: &Key<T>) {
-        let raw = if let Some(value) = save[key.name].as_f64() {
-            value as f32
-        } else {
-            key.default.load()
-        };
+    pub fn register<T: Copy + Parameter>(&mut self, key: &Key<T>) {
         self.keys.insert(key.name, key.clone());
-        self.data.insert(key.name, AtomicCell::new(raw));
+    }
+
+    /// Assigns values to registered parameters and frees memory used to load save state
+    pub fn init(&mut self) {
+        for key in self.keys.values() {
+            let data = if let Some(value) = self.save.get(key.name) {
+                *value
+            } else {
+                key.default.load()
+            };
+            self.data.insert(key.name, AtomicCell::new(data));
+        }
+        self.save.clear();
+        self.save.shrink_to_fit();
     }
 
     /// Gets the raw version of a parameter key by its name
@@ -178,13 +197,5 @@ impl State {
             (x, 3) => self.set(key, self.get(key) + x),
             _ => {}
         }
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&'static str, f32)> + '_ {
-        let keys = &self.keys;
-        self.data
-            .iter()
-            .map(|(&name, atom)| (name, atom.load()))
-            .filter(move |(name, value)| *value != keys[name].default.load())
     }
 }
