@@ -69,6 +69,7 @@ pub struct Key<T: 'static> {
     min: AtomicCell<f32>,
     max: AtomicCell<f32>,
     by: AtomicCell<i32>,
+    default: AtomicCell<f32>,
     _marker: &'static PhantomData<T>,
 }
 
@@ -80,6 +81,7 @@ impl<T> Key<T> {
             min: AtomicCell::new(f32::MIN),
             max: AtomicCell::new(f32::MAX),
             by: AtomicCell::new(1),
+            default: AtomicCell::new(0.),
             _marker: &PhantomData,
         }
     }
@@ -98,12 +100,21 @@ impl<T> Key<T> {
         self
     }
 
+    pub fn default(&self, default: T) -> &Self
+    where
+        T: Parameter,
+    {
+        self.default.store(default.to_f32());
+        self
+    }
+
     fn clone<U>(&self) -> Key<U> {
         Key {
             name: self.name,
             min: self.min.load().into(),
             max: self.max.load().into(),
             by: self.by.load().into(),
+            default: self.default.load().into(),
             _marker: &PhantomData,
         }
     }
@@ -125,11 +136,11 @@ impl Default for State {
 
 impl State {
     /// Read parameter from the saved value or use the default if it doesn't exist
-    pub fn init<T: Copy + Parameter>(&mut self, save: &Value, key: &Key<T>, default: T) {
+    pub fn init<T: Copy + Parameter>(&mut self, save: &Value, key: &Key<T>) {
         let raw = if let Some(value) = save[key.name].as_f64() {
             value as f32
         } else {
-            default.to_f32()
+            key.default.load()
         };
         self.keys.insert(key.name, key.clone());
         self.data.insert(key.name, AtomicCell::new(raw));
@@ -169,7 +180,11 @@ impl State {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&str, f32)> {
-        self.data.iter().map(|(&name, atom)| (name, atom.load()))
+    pub fn iter(&self) -> impl Iterator<Item = (&'static str, f32)> + '_ {
+        let keys = &self.keys;
+        self.data
+            .iter()
+            .map(|(&name, atom)| (name, atom.load()))
+            .filter(move |(name, value)| *value != keys[name].default.load())
     }
 }

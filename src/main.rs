@@ -93,8 +93,7 @@ impl<'a> UI<f32> for StateInitUi<'a> {
     fn add_num_entry(&mut self, s: &'static str, _: ParamIndex, n: f32, lo: f32, hi: f32, by: f32) {
         self.state.init(
             self.save,
-            Key::new(s).between(lo, hi).nudge_by(by as i32),
-            n,
+            Key::new(s).between(lo, hi).nudge_by(by as i32).default(n),
         );
     }
 }
@@ -159,6 +158,12 @@ struct Step {
     keys: [Change; KEY_COUNT as usize],
 }
 
+impl Step {
+    fn has_active(&self) -> bool {
+        self.keys.iter().any(|change| change.active.load())
+    }
+}
+
 #[derive(Debug)]
 enum View {
     OutOfBounds,
@@ -203,23 +208,32 @@ impl Serialize for Track {
             "live",
             &self.live().iter().map(AtomicCell::load).collect::<Vec<_>>(),
         )?;
-        s.serialize_entry("sequence", &self.sequence)?;
+        s.serialize_entry(
+            "sequence",
+            &self
+                .sequence
+                .iter()
+                .enumerate()
+                .filter(|(_, step)| step.has_active())
+                .collect::<Vec<_>>(),
+        )?;
         s.end()
     }
 }
 
 impl Track {
     fn init(&mut self, value: &Value) {
-        if let Some(live) = value["live"].as_array() {
+        if let Ok(live) = Vec::<f32>::deserialize(&value["live"]) {
             self.live_length.store(live.len());
-            for (atom, x) in self.live_sample.iter().zip(live) {
-                let _ = serde_json::from_value(x.clone()).map(|x| atom.store(x));
-            }
+            self.live_sample
+                .iter()
+                .zip(live)
+                .for_each(|(atom, x)| atom.store(x));
         }
-        if let Some(sequence) = value["sequence"].as_array() {
-            for (step, x) in self.sequence.iter_mut().zip(sequence) {
-                let _ = serde_json::from_value(x.clone()).map(|x| *step = x);
-            }
+        if let Ok(sequence) = Vec::<(usize, Step)>::deserialize(&value["sequence"]) {
+            sequence
+                .into_iter()
+                .for_each(|(i, step)| self.sequence[i] = step);
         }
     }
 
@@ -340,6 +354,7 @@ struct Controls {
     step: AtomicCell<i32>,
     frames_since_last_step: AtomicCell<i32>,
     tracks: [Track; TRACK_COUNT as usize],
+    version: AtomicCell<usize>,
 }
 
 impl Serialize for Controls {
@@ -625,6 +640,7 @@ impl Audio {
                     self.controls.get_state(state_id).nudge(&key, data)
                 }
             }
+            self.controls.version.fetch_add(1);
         }
 
         // Update DSP parameters
@@ -799,53 +815,60 @@ impl Rpc {
 }
 
 struct Autosave {
+    last_version: usize,
     controls: Arc<Controls>,
 }
+
 impl Autosave {
-    fn start(&self) -> anyhow::Result<!> {
+    fn start(&mut self) -> ! {
         loop {
             std::thread::sleep(Duration::from_secs(2));
-            let file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(".typebeat")?;
-            serde_json::to_writer_pretty(file, self.controls.as_ref())?;
+            let version = self.controls.version.load();
+            if version != self.last_version {
+                let file = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(".typebeat")
+                    .unwrap();
+                serde_json::to_writer(file, self.controls.as_ref()).unwrap();
+                self.last_version = version;
+            }
         }
     }
 }
 
 fn main() -> Result<()> {
-    let save = &File::open(Path::new(&".typebeat"))
-        .map_err(Error::new)
-        .and_then(|path| serde_json::from_reader(BufReader::new(path)).map_err(Error::new))
-        .unwrap_or_default();
-
     let mut controls = Controls::default();
     let gate = &mut controls.gate;
     effects::insert::build_user_interface_static(&mut GateInitUi { gate });
 
+    let save = &File::open(Path::new(&".typebeat"))
+        .map_err(Error::new)
+        .and_then(|path| serde_json::from_reader(BufReader::new(path)).map_err(Error::new))
+        .unwrap_or_default();
     let state = &mut controls.state;
-    state.init(save, ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1), 0);
-    state.init(save, TEMPO.between(0, 999).nudge_by(10), 120);
-    state.init(save, ROOT.between(-12, 12).nudge_by(7), 0);
-    state.init(save, SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1), 0);
+    state.init(save, ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1));
+    state.init(save, TEMPO.between(0, 999).default(120).nudge_by(10));
+    state.init(save, ROOT.between(-12, 12).nudge_by(7));
+    state.init(save, SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1));
 
     for (i, track) in controls.tracks.iter_mut().enumerate() {
         let save = &save["tracks"][i];
         track.init(save);
         let state = &mut track.state;
-        state.init(save, &MUTED, false);
-        state.init(save, USE_KEY.nudge_by(0), true);
-        state.init(save, ACTIVE_KEY.between(0, KEY_COUNT), 12);
-        state.init(save, OCTAVE.between(2, 8).nudge_by(2), 4);
+        state.init(save, &MUTED);
+        state.init(save, USE_KEY.nudge_by(0).default(true));
+        state.init(save, ACTIVE_KEY.between(0, KEY_COUNT).default(12));
+        state.init(save, OCTAVE.between(2, 8).default(4).nudge_by(2));
         state.init(
             save,
-            LENGTH.between(MAX_RESOLUTION, MAX_LENGTH),
-            MAX_RESOLUTION,
+            LENGTH
+                .between(MAX_RESOLUTION, MAX_LENGTH)
+                .default(MAX_RESOLUTION),
         );
-        state.init(save, RESOLUTION.between(1, MAX_RESOLUTION), 16);
-        state.init(save, &SAMPLE_TYPE, SampleType::File);
+        state.init(save, RESOLUTION.between(1, MAX_RESOLUTION).default(16));
+        state.init(save, SAMPLE_TYPE.default(SampleType::File));
         effects::insert::build_user_interface_static(&mut StateInitUi { save, state });
         track.file_sample = samples::read_stereo_file(i)?;
     }
@@ -882,7 +905,8 @@ fn main() -> Result<()> {
         sender,
     };
 
-    let autosave = Autosave {
+    let mut autosave = Autosave {
+        last_version: 0,
         controls: Arc::clone(&audio.controls),
     };
 
