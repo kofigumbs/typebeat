@@ -86,8 +86,8 @@ const Bindings = ({ state, set }) => {
     ['A', { mode: 'Beat', actions: new Map([
       ['Y', title(() => 'tempo')],
       ...nudge(() => state.tempo, i => set('tempo', i)),
-      ['N', toggle('play', () => state.playing, () => set('play')) ],
-      ['M', toggle('arm', () => state.armed, () => set('arm')) ],
+      ['N', toggle('play', () => state.playing, () => set('playing')) ],
+      ['M', toggle('arm', () => state.armed, () => set('armed')) ],
       [',', bind({
         label: () => 'tap',
         title: () => !!state.tempoTaps.length,

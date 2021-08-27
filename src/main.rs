@@ -69,13 +69,13 @@ fn toggle(value: &AtomicCell<bool>) {
 }
 
 #[derive(Default)]
-struct ButtonInitUi {
-    map: HashMap<&'static str, ParamIndex>,
+struct ButtonRegisterUi {
+    registry: HashMap<&'static str, ParamIndex>,
 }
 
-impl UI<f32> for ButtonInitUi {
+impl UI<f32> for ButtonRegisterUi {
     fn add_button(&mut self, s: &'static str, id: ParamIndex) {
-        self.map.insert(s, id);
+        self.registry.insert(s, id);
     }
 }
 
@@ -771,26 +771,26 @@ impl Rpc {
     fn process(&self, context: &str, method: &str, data: i32) -> Option<i32> {
         let send = |setter| self.send(Message::Setter(data, setter));
         Some(match format!("{} {}", context, method).as_str() {
-            "set auditionDown" => send(|audio, i| audio.key_down(Some(i), None))?,
-            "set auditionUp" => send(|audio, i| audio.key_up(Some(i), None))?,
-            "set noteDown" => send(|audio, i| audio.key_down(None, Some(i)))?,
-            "set noteUp" => send(|audio, i| audio.key_up(None, Some(i)))?,
-            "set sampleType" => send(|audio, i| audio.set_sample_type(i))?,
+            "get armed" => self.song.armed.load().into(),
+            "get bars" => self.song.active_track().state.get(&LENGTH) / MAX_RESOLUTION,
+            "get canClear" => self.song.active_track().can_clear() as i32,
+            "get playing" => self.song.playing.load().into(),
             "get step" => self.song.step.load(),
             "get viewStart" => self.song.active_track().view_start(),
-            "set page" => send(|audio, i| audio.song.active_track().adjust_page(i))?,
-            "get bars" => self.song.active_track().state.get(&LENGTH) / MAX_RESOLUTION,
+            "set armed" => send(|audio, _| toggle(&audio.song.armed))?,
+            "set auditionDown" => send(|audio, i| audio.key_down(Some(i), None))?,
+            "set auditionUp" => send(|audio, i| audio.key_up(Some(i), None))?,
             "set bars" => send(|audio, i| audio.song.active_track().adjust_length(i))?,
-            "set zoomOut" => send(|audio, _| audio.song.active_track().zoom_out())?,
-            "set zoomIn" => send(|audio, _| audio.song.active_track().zoom_in())?,
-            "set sequence" => send(|audio, i| audio.song.active_track().toggle_step(i))?,
-            "get canClear" => self.song.active_track().can_clear() as i32,
             "set clear" => send(|audio, _| audio.song.active_track().clear())?,
-            "get playing" => self.song.playing.load().into(),
-            "set play" => send(|audio, _| audio.song.toggle_play())?,
-            "get armed" => self.song.armed.load().into(),
-            "set arm" => send(|audio, _| toggle(&audio.song.armed))?,
             "set muted" => send(|audio, i| audio.song.tracks[i as usize].state.toggle(&MUTED))?,
+            "set noteDown" => send(|audio, i| audio.key_down(None, Some(i)))?,
+            "set noteUp" => send(|audio, i| audio.key_up(None, Some(i)))?,
+            "set page" => send(|audio, i| audio.song.active_track().adjust_page(i))?,
+            "set playing" => send(|audio, _| audio.song.toggle_play())?,
+            "set sampleType" => send(|audio, i| audio.set_sample_type(i))?,
+            "set sequence" => send(|audio, i| audio.song.active_track().toggle_step(i))?,
+            "set zoomIn" => send(|audio, _| audio.song.active_track().zoom_in())?,
+            "set zoomOut" => send(|audio, _| audio.song.active_track().zoom_out())?,
             _ => {
                 if let Some((state_id, key)) = self.song.find_state(method) {
                     match context {
@@ -800,9 +800,9 @@ impl Rpc {
                     }
                 } else if let Some((name, i)) = Self::split(method) {
                     match format!("{} {}", context, name).as_str() {
-                        "get view" => self.song.active_track().view(i) as i32,
-                        "get note" => self.song.note(self.song.active_track(), i),
                         "get muted" => self.song.tracks[i as usize].state.get(&MUTED) as i32,
+                        "get note" => self.song.note(self.song.active_track(), i),
+                        "get view" => self.song.active_track().view(i) as i32,
                         _ => None?,
                     }
                 } else {
@@ -850,10 +850,10 @@ fn main() -> Result<(), Error> {
         .and_then(|file| serde_json::from_reader(BufReader::new(file)).map_err(Error::new))
         .unwrap_or_default();
 
-    let mut buttons = ButtonInitUi::default();
+    let mut buttons = ButtonRegisterUi::default();
     effects::insert::build_user_interface_static(&mut buttons);
-    song.gate_id = buttons.map["gate"];
-    song.note_id = buttons.map["note"];
+    song.gate_id = buttons.registry["gate"];
+    song.note_id = buttons.registry["note"];
 
     let state = &mut song.state;
     state.register(ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1));
