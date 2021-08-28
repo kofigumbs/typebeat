@@ -153,21 +153,9 @@ impl Serialize for State {
 impl State {
     /// Read parameter from the saved value or use the default if it doesn't exist
     pub fn register<T: Copy + Parameter>(&mut self, key: &Key<T>) {
+        let data = self.save.remove(key.name).unwrap_or(key.default.load());
         self.keys.insert(key.name, key.clone());
-    }
-
-    /// Assigns values to registered parameters and frees memory used to load save state
-    pub fn init(&mut self) {
-        for key in self.keys.values() {
-            let data = if let Some(value) = self.save.get(key.name) {
-                *value
-            } else {
-                key.default.load()
-            };
-            self.data.insert(key.name, AtomicCell::new(data));
-        }
-        self.save.clear();
-        self.save.shrink_to_fit();
+        self.data.insert(key.name, data.into());
     }
 
     /// Gets the raw version of a parameter key by its name

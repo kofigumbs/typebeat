@@ -833,7 +833,7 @@ fn main() -> Result<(), Error> {
     let mut song: Song = File::open(Path::new(&".typebeat"))
         .map_err(Error::new)
         .and_then(|file| serde_json::from_reader(BufReader::new(file)).map_err(Error::new))
-        .unwrap();
+        .unwrap_or_default();
 
     let mut buttons = ButtonRegisterUi::default();
     effects::insert::build_user_interface_static(&mut buttons);
@@ -859,7 +859,6 @@ fn main() -> Result<(), Error> {
         );
         state.register(RESOLUTION.between(1, MAX_RESOLUTION).default(16));
         effects::insert::build_user_interface_static(&mut StateRegisterUi { state });
-        state.init();
         track.file_sample = samples::read_stereo_file(i)?;
     }
 
@@ -873,7 +872,6 @@ fn main() -> Result<(), Error> {
         assert_eq!(dsp.get_num_outputs(), 2);
         builder(&mut StateRegisterUi { state });
     }
-    state.init();
 
     let (sender, receiver) = std::sync::mpsc::channel();
     let mut audio = Audio {
