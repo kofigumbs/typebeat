@@ -63,6 +63,12 @@ fn get_clamped<T>(values: &[T], index: i32) -> &T {
     &values[(index as usize).clamp(0, values.len() - 1)]
 }
 
+fn write_over(source: &[f32], destination: &mut [f32]) {
+    for (destination, source) in destination.iter_mut().zip(source) {
+        *destination += source;
+    }
+}
+
 fn toggle(value: &AtomicCell<bool>) {
     value.fetch_xor(true);
 }
@@ -466,12 +472,6 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
             &mut self.out.each_mut().map(std::slice::from_mut),
         );
     }
-
-    fn write_to(&self, destination: &mut [f32]) {
-        for (destination, source) in destination.iter_mut().zip(&self.out) {
-            *destination += source;
-        }
-    }
 }
 
 #[derive(Clone, Default)]
@@ -509,15 +509,15 @@ impl Voice {
                 let track = song.track(track_id);
                 let mix = &mut buffer.mix;
                 match track.state.get(&SAMPLE_TYPE) {
-                    SampleType::File => self.play_file(mix, &track.file_sample, f32::to_owned, 2),
+                    SampleType::File => self.play_back(mix, &track.file_sample, f32::to_owned, 2),
                     SampleType::Live => self.play_thru(mix, track, input, false),
                     SampleType::LiveRecord => self.play_thru(mix, track, input, true),
-                    SampleType::LivePlay => self.play_file(mix, track.live(), AtomicCell::load, 1),
+                    SampleType::LivePlay => self.play_back(mix, track.live(), AtomicCell::load, 1),
                 }
             }
         }
         buffer.compute(self.insert.dsp.as_mut());
-        buffer.write_to(output);
+        write_over(&buffer.out, output);
     }
 
     fn play_thru(&mut self, mix: &mut [f32], track: &Track, input: &[f32], record: bool) {
@@ -530,7 +530,8 @@ impl Voice {
         self.play(mix, |_| input);
     }
 
-    fn play_file<T>(&mut self, mix: &mut [f32], sample: &[T], f: fn(&T) -> f32, channels: usize) {
+    /// Yes, this is a pun -- I wanted a shorter name, and I couldn't help myself
+    fn play_back<T>(&mut self, mix: &mut [f32], sample: &[T], f: fn(&T) -> f32, channels: usize) {
         let position = self.position.floor() as usize;
         let position_fract = self.position.fract();
         self.play(mix, |channel| {
@@ -692,11 +693,11 @@ impl Audio {
             for voice in self.voices.iter_mut() {
                 voice.process(&self.song, input, &mut buffer.mix);
             }
-            buffer.write_to(output);
+            write_over(&buffer.mix, output);
             for DspDyn { dsp, .. } in self.sends.iter_mut() {
                 buffer.mix_start += 2;
                 buffer.compute(dsp.as_mut());
-                buffer.write_to(output);
+                write_over(&buffer.out, output);
             }
         }
     }
@@ -832,7 +833,7 @@ fn main() -> Result<(), Error> {
     let mut song: Song = File::open(Path::new(&".typebeat"))
         .map_err(Error::new)
         .and_then(|file| serde_json::from_reader(BufReader::new(file)).map_err(Error::new))
-        .unwrap_or_default();
+        .unwrap();
 
     let mut buttons = ButtonRegisterUi::default();
     effects::insert::build_user_interface_static(&mut buttons);
