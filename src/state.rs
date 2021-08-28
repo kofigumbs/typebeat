@@ -2,8 +2,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use crossbeam::atomic::AtomicCell;
-use serde::ser::{SerializeMap, Serializer};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 
 pub trait Parameter {
     fn to_f32(self) -> f32;
@@ -131,17 +130,23 @@ pub struct State {
     data: HashMap<&'static str, AtomicCell<f32>>,
 }
 
+impl<'a> From<HashMap<&'a str, f32>> for State {
+    fn from(save: HashMap<&'a str, f32>) -> Self {
+        Self {
+            save: save
+                .into_iter()
+                .map(|(name, value)| (name.to_owned(), value))
+                .collect(),
+            keys: HashMap::new(),
+            data: HashMap::new(),
+        }
+    }
+}
+
 /// Serialize to save file
 impl Serialize for State {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_map(None)?;
-        for (name, atom) in self.data.iter() {
-            let value = atom.load();
-            if value != self.keys[name].default.load() {
-                s.serialize_entry(name, &value)?;
-            }
-        }
-        s.end()
+        self.to_save().serialize(serializer)
     }
 }
 
@@ -197,5 +202,14 @@ impl State {
             (x, 3) => self.set(key, self.get(key) + x),
             _ => {}
         }
+    }
+
+    /// Formats state for saving
+    pub fn to_save(&self) -> HashMap<&'static str, f32> {
+        self.data
+            .iter()
+            .map(|(&name, atom)| (name, atom.load()))
+            .filter(move |(name, value)| *value != self.keys[name].default.load())
+            .collect()
     }
 }

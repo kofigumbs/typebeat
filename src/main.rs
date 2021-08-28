@@ -12,12 +12,10 @@ use std::time::Duration;
 use anyhow::Error;
 use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
-use serde::de::{Deserializer, MapAccess, Visitor};
-use serde::ser::{SerializeMap, Serializer};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use effects::{FaustDsp, ParamIndex, UI};
-use state::{Enum, Key, Parameter, State};
+use state::{Enum, Key, State};
 
 mod effects;
 mod samples;
@@ -155,6 +153,14 @@ impl Step {
     }
 }
 
+#[derive(Deserialize, Serialize)]
+struct SaveTrack<'a> {
+    #[serde(borrow)]
+    state: HashMap<&'a str, f32>,
+    live: Vec<f32>,
+    sequence: Vec<(usize, Step)>,
+}
+
 enum View {
     OutOfBounds,
     Empty,
@@ -190,63 +196,33 @@ impl Default for Track {
 
 impl Serialize for Track {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut s = serializer.serialize_map(None)?;
-        s.serialize_entry("state", &self.state)?;
-        s.serialize_entry(
-            "live",
-            &self.live().iter().map(AtomicCell::load).collect::<Vec<_>>(),
-        )?;
-        s.serialize_entry(
-            "sequence",
-            &self
+        let save = SaveTrack {
+            state: self.state.to_save(),
+            live: self.live().iter().map(AtomicCell::load).collect(),
+            sequence: self
                 .sequence
                 .iter()
                 .enumerate()
-                .filter(|(_, step)| step.has_active())
-                .collect::<Vec<_>>(),
-        )?;
-        s.end()
-    }
-}
-
-struct TrackVisitor();
-impl<'de> Visitor<'de> for TrackVisitor {
-    type Value = Track;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("Track")
-    }
-
-    fn visit_map<M: MapAccess<'de>>(self, mut map_access: M) -> Result<Self::Value, M::Error> {
-        let mut track = Track::default();
-        while let Some(key) = map_access.next_key::<String>()? {
-            match key.as_str() {
-                "state" => track.state = map_access.next_value()?,
-                "live" => {
-                    let live = map_access.next_value::<Vec<f32>>()?;
-                    track.live_length.store(live.len());
-                    for (atom, x) in track.live_sample.iter().zip(live) {
-                        atom.store(x);
-                    }
-                }
-                "sequence" => {
-                    let sequence = map_access.next_value::<Vec<(usize, Step)>>()?;
-                    for (i, step) in sequence {
-                        if i < track.sequence.len() {
-                            track.sequence[i] = step;
-                        }
-                    }
-                }
-                _ => map_access.next_value::<()>()?,
-            }
-        }
-        Ok(track)
+                .filter_map(|(i, step)| step.has_active().then(|| (i, step.clone())))
+                .collect(),
+        };
+        save.serialize(serializer)
     }
 }
 
 impl<'de> Deserialize<'de> for Track {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_map(TrackVisitor())
+        let save = SaveTrack::deserialize(deserializer)?;
+        let mut track = Track::default();
+        track.state = save.state.into();
+        track.live_length = save.live.len().into();
+        for (atom, x) in track.live_sample.iter().zip(save.live) {
+            atom.store(x);
+        }
+        for (i, step) in save.sequence {
+            track.sequence.get_mut(i).map(|s| *s = step);
+        }
+        Ok(track)
     }
 }
 
@@ -501,7 +477,7 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
 #[derive(Clone, Default)]
 struct Voice {
     key: i32,
-    gate: bool,
+    gate: usize,
     age: usize,
     position: f32,
     increment: f32,
@@ -518,7 +494,7 @@ impl Voice {
                 if track.state.get(&SAMPLE_TYPE).thru() {
                     0
                 } else {
-                    2 - self.gate as usize
+                    2 - self.gate
                 }
             }
             None => 4,
@@ -638,7 +614,7 @@ impl Audio {
         if old != new {
             song.active_track().state.set(&SAMPLE_TYPE, new);
             for voice in self.each_voice_for(song.state.get(&ACTIVE_TRACK_ID)) {
-                voice.gate = false;
+                voice.gate = 0;
                 voice.track_id = None;
             }
             if new.thru() {
@@ -667,7 +643,7 @@ impl Audio {
             if let Some(track_id) = voice.track_id {
                 let dsp = voice.insert.dsp.as_mut();
                 let state = &self.song.track(track_id).state;
-                dsp.set_param(self.song.gate_id, bool::to_f32(voice.gate));
+                dsp.set_param(self.song.gate_id, voice.gate as f32);
                 effects::insert::build_user_interface_static(&mut StateSyncUi { dsp, state });
             }
         }
@@ -743,7 +719,7 @@ impl Audio {
             .max_by_key(|voice| (voice.priority(&song), voice.age))
         {
             voice.key = key;
-            voice.gate = true;
+            voice.gate = 1;
             voice.age = 0;
             voice.position = 0.;
             voice.increment = ((note + track.state.get(&SAMPLE_DETUNE) / 10.) / 12.).exp2()
@@ -760,7 +736,7 @@ impl Audio {
     fn release(&mut self, track_id: i32, key: i32) {
         self.each_voice_for(track_id)
             .filter(|voice| voice.key == key)
-            .for_each(|voice| voice.gate = false);
+            .for_each(|voice| voice.gate = 0);
     }
 
     fn each_voice_for(&mut self, track_id: i32) -> impl Iterator<Item = &mut Voice> {
