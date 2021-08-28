@@ -25,17 +25,18 @@ fn main() -> Result<()> {
             .args(&["-C", "vendor/faust"])
             .status()?;
     }
-    let out_dir = std::env::var("OUT_DIR")?;
-    let entries = Path::new("src/effects").read_dir()?;
-    for (path, basename) in entries.flat_map(|x| dsp_file(x.ok()?)) {
-        let out = Path::new(&basename)
-            .with_extension("rs")
-            .to_string_lossy()
-            .into_owned();
+    for (path, basename) in Path::new("src/effects")
+        .read_dir()?
+        .flat_map(|x| dsp_file(x.ok()?))
+    {
+        let out = Path::new(&std::env::var("OUT_DIR")?)
+            .join(&basename)
+            .with_extension("rs");
+        let _ = std::fs::remove_file(&out);
         Command::new("vendor/faust/build/bin/faust")
             .args(&["-I", "vendor/faust/libraries"])
             .args(&["-lang", "rust", "-cn", &basename])
-            .args(&["-O", &out_dir, "-o", &out, &path])
+            .args(&["-o", &out.to_string_lossy(), &path])
             .status()?;
         println!("cargo:rerun-if-changed={}", &path);
     }
