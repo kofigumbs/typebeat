@@ -137,8 +137,7 @@ impl<'a> From<HashMap<&'a str, f32>> for State {
                 .into_iter()
                 .map(|(name, value)| (name.to_owned(), value))
                 .collect(),
-            keys: HashMap::new(),
-            data: HashMap::new(),
+            ..Self::default()
         }
     }
 }

@@ -2,8 +2,7 @@
 #![feature(array_methods)]
 
 use std::collections::HashMap;
-use std::fs::{File, OpenOptions};
-use std::io::BufReader;
+use std::fs::OpenOptions;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
@@ -830,9 +829,9 @@ impl Autosave {
 }
 
 fn main() -> Result<(), Error> {
-    let mut song: Song = File::open(Path::new(&".typebeat"))
+    let mut song: Song = std::fs::read(Path::new(&".typebeat"))
         .map_err(Error::new)
-        .and_then(|file| serde_json::from_reader(BufReader::new(file)).map_err(Error::new))
+        .and_then(|s| serde_json::from_slice(&s).map_err(Error::new))
         .unwrap_or_default();
 
     let mut buttons = ButtonRegisterUi::default();
