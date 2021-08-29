@@ -18,7 +18,7 @@ use state::{Enum, Key, State};
 
 mod effects;
 mod samples;
-mod serde_atomic;
+mod serde_atomic_cell;
 mod state;
 mod ui;
 
@@ -128,11 +128,11 @@ impl SampleType {
 
 #[derive(Default, Deserialize, Serialize)]
 struct Change {
-    #[serde(with = "serde_atomic")]
+    #[serde(with = "serde_atomic_cell")]
     value: AtomicCell<i32>,
-    #[serde(with = "serde_atomic")]
+    #[serde(with = "serde_atomic_cell")]
     active: AtomicCell<bool>,
-    #[serde(with = "serde_atomic")]
+    #[serde(skip)]
     skip_next: AtomicCell<bool>,
 }
 
@@ -162,7 +162,9 @@ impl Step {
 struct SaveTrack<'a> {
     #[serde(borrow)]
     state: HashMap<&'a str, f32>,
+    #[serde(default)]
     live: Vec<f32>,
+    #[serde(default)]
     sequence: Vec<(usize, Step)>,
 }
 
