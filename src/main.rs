@@ -160,10 +160,10 @@ impl Step {
 
 #[derive(Deserialize, Serialize)]
 struct SaveTrack<'a> {
-    #[serde(borrow)]
-    state: HashMap<&'a str, f32>,
+    #[serde(default, borrow)]
+    state: HashMap<&'a str, i32>,
     #[serde(default)]
-    live: Vec<f32>,
+    live: Vec<u8>,
     #[serde(default)]
     sequence: Vec<(usize, Step)>,
 }
@@ -205,7 +205,11 @@ impl Serialize for Track {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let save = SaveTrack {
             state: self.state.to_save(),
-            live: self.live().iter().map(AtomicCell::load).collect(),
+            live: self
+                .live()
+                .iter()
+                .flat_map(|atom| atom.load().to_le_bytes())
+                .collect(),
             sequence: self
                 .sequence
                 .iter()
@@ -222,9 +226,9 @@ impl<'de> Deserialize<'de> for Track {
         let save = SaveTrack::deserialize(deserializer)?;
         let mut track = Track::default();
         track.state = save.state.into();
-        track.live_length = save.live.len().into();
-        for (atom, x) in track.live_sample.iter().zip(save.live) {
-            atom.store(x);
+        track.live_length = (save.live.len() / 4).into();
+        for (atom, x) in track.live_sample.iter().zip(save.live.chunks_exact(4)) {
+            atom.store(f32::from_le_bytes([x[0], x[1], x[2], x[3]]));
         }
         for (i, step) in save.sequence {
             track.sequence.get_mut(i).map(|s| *s = step);

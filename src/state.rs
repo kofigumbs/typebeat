@@ -5,43 +5,34 @@ use crossbeam::atomic::AtomicCell;
 use serde::{Deserialize, Serialize, Serializer};
 
 pub trait Parameter {
-    fn to_f32(self) -> f32;
-    fn from_f32(raw: f32) -> Self;
+    fn to_i32(self) -> i32;
+    fn from_i32(raw: i32) -> Self;
 }
 
 impl Parameter for bool {
-    fn to_f32(self) -> f32 {
-        return if self { 1. } else { 0. };
+    fn to_i32(self) -> i32 {
+        self as i32
     }
-    fn from_f32(raw: f32) -> Self {
-        raw == 1.
-    }
-}
-
-impl Parameter for usize {
-    fn to_f32(self) -> f32 {
-        self as f32
-    }
-    fn from_f32(raw: f32) -> Self {
-        raw as usize
+    fn from_i32(raw: i32) -> Self {
+        raw != 0
     }
 }
 
 impl Parameter for i32 {
-    fn to_f32(self) -> f32 {
-        self as f32
+    fn to_i32(self) -> i32 {
+        self
     }
-    fn from_f32(raw: f32) -> Self {
-        raw as i32
+    fn from_i32(raw: i32) -> Self {
+        raw
     }
 }
 
 impl Parameter for f32 {
-    fn to_f32(self) -> f32 {
-        self
+    fn to_i32(self) -> i32 {
+        self as i32
     }
-    fn from_f32(raw: f32) -> Self {
-        raw
+    fn from_i32(raw: i32) -> Self {
+        raw as f32
     }
 }
 
@@ -50,26 +41,26 @@ pub trait Enum: Sized + 'static {
 }
 
 impl<T: Copy + PartialEq + Enum> Parameter for T {
-    fn to_f32(self) -> f32 {
-        Self::ALL.iter().position(|&x| x == self).unwrap() as f32
+    fn to_i32(self) -> i32 {
+        Self::ALL.iter().position(|&x| x == self).unwrap() as i32
     }
-    fn from_f32(raw: f32) -> Self {
+    fn from_i32(raw: i32) -> Self {
         Self::ALL[(raw as usize).min(Self::ALL.len() - 1)]
     }
 }
 
 /// Tags a parameter
-///   1. Parameters are bidirectionally convertible to f32s
+///   1. Parameters are bidirectionally convertible to i32s
 ///   2. Parameters are clamped
 ///   3. Parameters are persisted in the save file by name
 ///   4. Parameters are available to the front-end by name
 /// <https://matklad.github.io/2018/05/24/typed-key-pattern.html>
 pub struct Key<T: 'static> {
     name: &'static str,
-    min: AtomicCell<f32>,
-    max: AtomicCell<f32>,
+    min: AtomicCell<i32>,
+    max: AtomicCell<i32>,
     by: AtomicCell<i32>,
-    default: AtomicCell<f32>,
+    default: AtomicCell<i32>,
     _marker: &'static PhantomData<T>,
 }
 
@@ -78,10 +69,10 @@ impl<T> Key<T> {
     pub const fn new(name: &'static str) -> Self {
         Self {
             name,
-            min: AtomicCell::new(f32::MIN),
-            max: AtomicCell::new(f32::MAX),
+            min: AtomicCell::new(i32::MIN),
+            max: AtomicCell::new(i32::MAX),
             by: AtomicCell::new(1),
-            default: AtomicCell::new(0.),
+            default: AtomicCell::new(0),
             _marker: &PhantomData,
         }
     }
@@ -90,8 +81,8 @@ impl<T> Key<T> {
     where
         T: Parameter,
     {
-        self.min.store(min.to_f32());
-        self.max.store(max.to_f32());
+        self.min.store(min.to_i32());
+        self.max.store(max.to_i32());
         self
     }
 
@@ -104,7 +95,7 @@ impl<T> Key<T> {
     where
         T: Parameter,
     {
-        self.default.store(default.to_f32());
+        self.default.store(default.to_i32());
         self
     }
 
@@ -123,15 +114,15 @@ impl<T> Key<T> {
 #[derive(Default, Deserialize)]
 pub struct State {
     #[serde(default, flatten)]
-    save: HashMap<String, f32>,
+    save: HashMap<String, i32>,
     #[serde(skip)]
     keys: HashMap<&'static str, Key<()>>,
     #[serde(skip)]
-    data: HashMap<&'static str, AtomicCell<f32>>,
+    data: HashMap<&'static str, AtomicCell<i32>>,
 }
 
-impl<'a> From<HashMap<&'a str, f32>> for State {
-    fn from(save: HashMap<&'a str, f32>) -> Self {
+impl<'a> From<HashMap<&'a str, i32>> for State {
+    fn from(save: HashMap<&'a str, i32>) -> Self {
         Self {
             save: save
                 .into_iter()
@@ -164,18 +155,17 @@ impl State {
 
     /// Get the parameter's value
     pub fn get<T: Parameter>(&self, key: &Key<T>) -> T {
-        Parameter::from_f32(self.data[key.name].load())
+        Parameter::from_i32(self.data[key.name].load())
     }
 
     /// Set the parameter's value
     pub fn set<T: Copy + PartialOrd + Parameter>(&self, key: &Key<T>, value: T) {
-        self.data[key.name].store(value.to_f32().clamp(key.min.load(), key.max.load()));
+        self.data[key.name].store(value.to_i32().clamp(key.min.load(), key.max.load()));
     }
 
     /// Toggles the boolean parameter's value
     pub fn toggle<T>(&self, key: &Key<T>) {
-        let atom = &self.data[key.name];
-        atom.store(bool::to_f32(atom.load() == 0.));
+        self.data[key.name].fetch_xor(1);
     }
 
     /// Toggles, sets, or nudges a parameter depending on the Key's properties
@@ -192,7 +182,7 @@ impl State {
     }
 
     /// Formats state for saving
-    pub fn to_save(&self) -> HashMap<&'static str, f32> {
+    pub fn to_save(&self) -> HashMap<&'static str, i32> {
         self.data
             .iter()
             .map(|(&name, atom)| (name, atom.load()))
