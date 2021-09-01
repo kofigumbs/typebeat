@@ -31,8 +31,8 @@ const VIEWS_PER_PAGE: usize = 4;
 
 const KEY_COUNT: i32 = 15;
 const VOICE_COUNT: i32 = 5;
-const TRACK_COUNT: i32 = 15;
 const SAMPLE_RATE: i32 = 44100;
+const TRACK_COUNT: usize = 15;
 
 const SCALE_LENGTH: usize = 7;
 const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
@@ -43,10 +43,10 @@ const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
 ];
 
 // Song keys
-static ACTIVE_TRACK_ID: Key<i32> = Key::new("activeTrack");
 static TEMPO: Key<i32> = Key::new("tempo");
 static ROOT: Key<i32> = Key::new("root");
-static SCALE: Key<i32> = Key::new("scale");
+static SCALE: Key<usize> = Key::new("scale");
+static ACTIVE_TRACK_ID: Key<usize> = Key::new("activeTrack");
 
 // Track keys
 static MUTED: Key<bool> = Key::new("muted");
@@ -369,7 +369,7 @@ struct Song {
     #[serde(default)]
     state: State,
     #[serde(default)]
-    tracks: [Track; TRACK_COUNT as usize],
+    tracks: [Track; TRACK_COUNT],
     #[serde(skip)]
     gate_id: ParamIndex,
     #[serde(skip)]
@@ -387,12 +387,8 @@ struct Song {
 }
 
 impl Song {
-    fn track(&self, id: i32) -> &Track {
-        get_clamped(&self.tracks, id)
-    }
-
     fn active_track(&self) -> &Track {
-        self.track(self.state.get(&ACTIVE_TRACK_ID))
+        &self.tracks[self.state.get(&ACTIVE_TRACK_ID)]
     }
 
     fn toggle_play(&self) {
@@ -402,13 +398,12 @@ impl Song {
     }
 
     fn note(&self, track: &Track, key: i32) -> i32 {
-        let root = self.state.get(&ROOT);
-        let scale = self.state.get(&SCALE);
+        let note_id = key as usize % SCALE_LENGTH;
         (track.state.get(&OCTAVE) + key / 7) * 12
             + if track.state.get(&USE_KEY) {
-                SCALE_OFFSETS[scale as usize][key as usize % SCALE_LENGTH] + root
+                SCALE_OFFSETS[self.state.get(&SCALE)][note_id] + self.state.get(&ROOT)
             } else {
-                SCALE_OFFSETS[0][key as usize % SCALE_LENGTH]
+                SCALE_OFFSETS[0][note_id]
             }
     }
 
@@ -504,7 +499,7 @@ struct Voice {
     age: usize,
     position: f32,
     increment: f32,
-    track_id: Option<i32>,
+    track_id: Option<usize>,
     insert: DspBox<effects::insert>,
 }
 
@@ -513,7 +508,7 @@ impl Voice {
     fn priority(&self, song: &Song) -> usize {
         match self.track_id {
             Some(track_id) => {
-                let track = song.track(track_id);
+                let track = &song.tracks[track_id];
                 if track.state.get(&SAMPLE_TYPE).thru() {
                     0
                 } else {
@@ -529,7 +524,7 @@ impl Voice {
         match self.track_id {
             None => self.play(&mut buffer.mix, |_| 0.),
             Some(track_id) => {
-                let track = song.track(track_id);
+                let track = &song.tracks[track_id];
                 let mix = &mut buffer.mix;
                 match track.state.get(&SAMPLE_TYPE) {
                     SampleType::File => self.play_back(mix, &track.file_sample, f32::to_owned, 2),
@@ -590,9 +585,9 @@ struct Audio {
 }
 
 impl Audio {
-    fn key_down(&mut self, track_id: Option<i32>, key: Option<i32>) {
+    fn key_down(&mut self, track_id: Option<usize>, key: Option<i32>) {
         let track_id = track_id.unwrap_or(self.song.state.get(&ACTIVE_TRACK_ID));
-        let track = self.song.track(track_id);
+        let track = &self.song.tracks[track_id];
         let key = key.unwrap_or(track.state.get(&ACTIVE_KEY));
         let song_step = self.song.step.load();
         if self.song.playing.load() && self.song.armed.load() {
@@ -608,9 +603,9 @@ impl Audio {
         self.allocate(track_id, key);
     }
 
-    fn key_up(&mut self, track_id: Option<i32>, key: Option<i32>) {
+    fn key_up(&mut self, track_id: Option<usize>, key: Option<i32>) {
         let track_id = track_id.unwrap_or(self.song.state.get(&ACTIVE_TRACK_ID));
-        let track = self.song.track(track_id);
+        let track = &self.song.tracks[track_id];
         let key = key.unwrap_or(track.state.get(&ACTIVE_KEY));
         if self.song.playing.load() && self.song.armed.load() {
             let last_played = get_clamped(&track.last_played, key).load();
@@ -666,7 +661,7 @@ impl Audio {
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
                 let dsp = voice.insert.dsp.as_mut();
-                let state = &self.song.track(track_id).state;
+                let state = &self.song.tracks[track_id].state;
                 dsp.set_param(self.song.gate_id, voice.gate as f32);
                 effects::insert::build_user_interface_static(&mut StateSyncUi { dsp, state });
             }
@@ -693,14 +688,14 @@ impl Audio {
                         let duration = song_step - track.last_played[key].load();
                         let start_step = &track.sequence[track.last_played[key].load() % length];
                         if duration as i32 == start_step.keys[key].value.load() {
-                            self.release(track_id as i32, key as i32);
+                            self.release(track_id, key as i32);
                         }
 
                         // Check if key should be played
                         if change.skip_next.load() {
                             change.skip_next.store(false);
                         } else if change.active.load() && !track.state.get(&MUTED) {
-                            self.allocate(track_id as i32, key as i32);
+                            self.allocate(track_id, key as i32);
                         }
                     }
                 }
@@ -730,9 +725,9 @@ impl Audio {
         }
     }
 
-    fn allocate(&mut self, track_id: i32, key: i32) {
+    fn allocate(&mut self, track_id: usize, key: i32) {
         self.release(track_id, key);
-        let track = self.song.track(track_id);
+        let track = &self.song.tracks[track_id];
         let note = self.song.note(track, key) as f32;
         for voice in self.voices.iter_mut() {
             voice.age += 1;
@@ -762,13 +757,13 @@ impl Audio {
         get_clamped(&track.last_played, key).store(self.song.step.load());
     }
 
-    fn release(&mut self, track_id: i32, key: i32) {
+    fn release(&mut self, track_id: usize, key: i32) {
         self.each_voice_for(track_id)
             .filter(|voice| voice.key == key)
             .for_each(|voice| voice.gate = 0);
     }
 
-    fn each_voice_for(&mut self, track_id: i32) -> impl Iterator<Item = &mut Voice> {
+    fn each_voice_for(&mut self, track_id: usize) -> impl Iterator<Item = &mut Voice> {
         self.voices
             .iter_mut()
             .filter(move |voice| voice.track_id == Some(track_id))
@@ -791,8 +786,8 @@ impl Rpc {
             "get step" => self.song.step.load() as i32,
             "get viewStart" => self.song.active_track().view_start() as i32,
             "set armed" => send(|audio, _| toggle(&audio.song.armed))?,
-            "set auditionDown" => send(|audio, i| audio.key_down(Some(i), None))?,
-            "set auditionUp" => send(|audio, i| audio.key_up(Some(i), None))?,
+            "set auditionDown" => send(|audio, i| audio.key_down(Some(i as usize), None))?,
+            "set auditionUp" => send(|audio, i| audio.key_up(Some(i as usize), None))?,
             "set bars" => send(|audio, i| audio.song.active_track().adjust_length(i))?,
             "set clear" => send(|audio, _| audio.song.active_track().clear())?,
             "set muted" => send(|audio, i| audio.song.tracks[i as usize].state.toggle(&MUTED))?,
@@ -872,7 +867,7 @@ fn main() -> Result<(), Error> {
     state.register(ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1));
     state.register(TEMPO.between(0, 999).default(120).nudge_by(10));
     state.register(ROOT.between(-12, 12).nudge_by(7));
-    state.register(SCALE.between(0, SCALE_OFFSETS.len() as i32 - 1));
+    state.register(SCALE.between(0, SCALE_OFFSETS.len() - 1));
 
     for (i, track) in song.tracks.iter_mut().enumerate() {
         let state = &mut track.state;
