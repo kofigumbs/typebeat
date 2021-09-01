@@ -25,13 +25,13 @@ mod ui;
 const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
 
-const MAX_RESOLUTION: i32 = 512;
-const MAX_LENGTH: i32 = MAX_RESOLUTION * 16 * 8;
+const MAX_RESOLUTION: usize = 512;
+const MAX_LENGTH: usize = MAX_RESOLUTION * 16 * 8;
+const VIEWS_PER_PAGE: usize = 4;
 
 const KEY_COUNT: i32 = 15;
 const VOICE_COUNT: i32 = 5;
 const TRACK_COUNT: i32 = 15;
-const VIEWS_PER_PAGE: i32 = 4;
 const SAMPLE_RATE: i32 = 44100;
 
 const SCALE_LENGTH: usize = 7;
@@ -53,8 +53,8 @@ static MUTED: Key<bool> = Key::new("muted");
 static USE_KEY: Key<bool> = Key::new("useKey");
 static ACTIVE_KEY: Key<i32> = Key::new("activeKey");
 static OCTAVE: Key<i32> = Key::new("octave");
-static LENGTH: Key<i32> = Key::new("length");
-static RESOLUTION: Key<i32> = Key::new("resolution");
+static LENGTH: Key<usize> = Key::new("length");
+static RESOLUTION: Key<usize> = Key::new("resolution");
 static SAMPLE_DETUNE: Key<f32> = Key::new("sampleDetune"); // registered by dsp
 static SAMPLE_TYPE: Key<SampleType> = Key::new("sampleType"); // registered by dsp
 
@@ -70,6 +70,14 @@ fn write_over(source: &[f32], destination: &mut [f32]) {
 
 fn toggle(value: &AtomicCell<bool>) {
     value.fetch_xor(true);
+}
+
+fn adjust_usize(lhs: usize, diff: i32, rhs: usize) -> usize {
+    if diff.is_positive() {
+        lhs + diff as usize * rhs
+    } else {
+        lhs - diff.abs() as usize * rhs
+    }
 }
 
 #[derive(Default)]
@@ -180,9 +188,9 @@ struct Track {
     file_sample: Vec<f32>,
     live_sample: Vec<AtomicCell<f32>>,
     live_length: AtomicCell<usize>,
-    page_start: AtomicCell<i32>,
+    page_start: AtomicCell<usize>,
     sequence: Vec<Step>,
-    last_played: [AtomicCell<i32>; KEY_COUNT as usize],
+    last_played: [AtomicCell<usize>; KEY_COUNT as usize],
 }
 
 impl Default for Track {
@@ -238,22 +246,26 @@ impl<'de> Deserialize<'de> for Track {
 }
 
 impl Track {
-    fn view_start(&self) -> i32 {
+    fn bars(&self) -> usize {
+        self.state.get(&LENGTH) / MAX_RESOLUTION
+    }
+
+    fn view_start(&self) -> usize {
         self.page_start.load() / self.view_length()
     }
 
-    fn view_length(&self) -> i32 {
+    fn view_length(&self) -> usize {
         MAX_RESOLUTION / self.state.get(&RESOLUTION)
     }
 
-    fn view_from(&self, start: i32) -> View {
+    fn view_from(&self, start: usize) -> View {
         if start >= self.state.get(&LENGTH) {
             return View::OutOfBounds;
         }
         let mut active_count = 0;
         let mut last_active = 0;
         for i in start..(start + self.view_length()) {
-            let step = get_clamped(&self.sequence, i);
+            let step = &self.sequence[i];
             let change = get_clamped(&step.keys, self.state.get(&ACTIVE_KEY));
             if change.active.load() {
                 active_count += 1;
@@ -269,11 +281,11 @@ impl Track {
         }
     }
 
-    fn view_index_to_start(&self, i: i32) -> i32 {
+    fn view_index_to_start(&self, i: usize) -> usize {
         self.page_start.load() + i * self.view_length()
     }
 
-    fn view(&self, i: i32) -> View {
+    fn view(&self, i: usize) -> View {
         self.view_from(self.view_index_to_start(i))
     }
 
@@ -292,18 +304,24 @@ impl Track {
     }
 
     fn adjust_page(&self, diff: i32) {
-        let new_page_start = self.page_start.load() + diff * VIEWS_PER_PAGE * self.view_length();
+        let new_page_start = adjust_usize(
+            self.page_start.load(),
+            diff,
+            VIEWS_PER_PAGE * self.view_length(),
+        );
         if new_page_start < self.state.get(&LENGTH) {
             self.page_start.store(new_page_start.max(0));
         }
     }
 
     fn adjust_length(&self, diff: i32) {
-        self.state
-            .set(&LENGTH, self.state.get(&LENGTH) + diff * MAX_RESOLUTION);
+        self.state.set(
+            &LENGTH,
+            adjust_usize(self.state.get(&LENGTH), diff, MAX_RESOLUTION),
+        );
     }
 
-    fn toggle_step(&self, i: i32) {
+    fn toggle_step(&self, i: usize) {
         let start = self.view_index_to_start(i);
         match self.view_from(start) {
             View::OutOfBounds => {}
@@ -312,7 +330,7 @@ impl Track {
                     &self.sequence[start as usize].keys[self.state.get(&ACTIVE_KEY) as usize];
                 toggle(&change.active);
                 change.skip_next.store(false);
-                change.value.store(self.view_length());
+                change.value.store(self.view_length() as i32);
             }
             View::ContainsSteps => {
                 for i in start..(start + self.view_length()) {
@@ -361,9 +379,9 @@ struct Song {
     #[serde(skip)]
     armed: AtomicCell<bool>,
     #[serde(skip)]
-    step: AtomicCell<i32>,
+    step: AtomicCell<usize>,
     #[serde(skip)]
-    frames_since_last_step: AtomicCell<i32>,
+    frames_since_last_step: AtomicCell<usize>,
     #[serde(skip)]
     version: AtomicCell<usize>,
 }
@@ -394,16 +412,16 @@ impl Song {
             }
     }
 
-    fn quantized_step(&self, step: i32, resolution: i32) -> i32 {
+    fn quantized_step(&self, step: usize, resolution: usize) -> usize {
         let scale = MAX_RESOLUTION / resolution;
         let scaled_step = step / scale * scale;
         let snap_to_next = (step - scaled_step) as f32 * self.step_duration(MAX_RESOLUTION)
             + self.frames_since_last_step.load() as f32
             > self.step_duration(resolution) / 2.;
-        scaled_step + scale * (snap_to_next as i32)
+        scaled_step + scale * (snap_to_next as usize)
     }
 
-    fn step_duration(&self, resolution: i32) -> f32 {
+    fn step_duration(&self, resolution: usize) -> f32 {
         SAMPLE_RATE as f32 * 240. / (self.state.get(&TEMPO) as f32) / (resolution as f32)
     }
 
@@ -581,8 +599,7 @@ impl Audio {
             let quantized_step = self
                 .song
                 .quantized_step(song_step, track.state.get(&RESOLUTION));
-            let track_step =
-                get_clamped(&track.sequence, quantized_step % track.state.get(&LENGTH));
+            let track_step = &track.sequence[quantized_step % track.state.get(&LENGTH)];
             let change = get_clamped(&track_step.keys, key);
             change.active.store(true);
             change.skip_next.store(quantized_step > song_step);
@@ -600,9 +617,10 @@ impl Audio {
             let quantized_step = self
                 .song
                 .quantized_step(last_played, track.state.get(&RESOLUTION));
-            let step = get_clamped(&track.sequence, quantized_step % track.state.get(&LENGTH));
-            let change = get_clamped(&step.keys, key);
-            change.value.store(self.song.step.load() - last_played);
+            let step = &track.sequence[quantized_step % track.state.get(&LENGTH)];
+            get_clamped(&step.keys, key)
+                .value
+                .store((self.song.step.load() - last_played) as i32);
         }
         self.release(track_id, key);
     }
@@ -667,13 +685,18 @@ impl Audio {
             // If this is a new step, then replay any sequenced events
             if song.playing.load() && song.frames_since_last_step.load() == 0 {
                 for (track_id, track) in song.tracks.iter().enumerate() {
-                    let length = song.tracks[track_id].state.get(&LENGTH) as usize;
-                    let position = song.step.load();
-                    let step = &track.sequence[position as usize % length];
+                    let length = song.tracks[track_id].state.get(&LENGTH);
+                    let song_step = song.step.load();
+                    let step = &track.sequence[song_step as usize % length];
                     for (key, change) in step.keys.iter().enumerate() {
-                        if position - track.last_played[key].load() == change.value.load() {
+                        // Check if key should be released per its sequenced duration
+                        let duration = song_step - track.last_played[key].load();
+                        let start_step = &track.sequence[track.last_played[key].load() % length];
+                        if duration as i32 == start_step.keys[key].value.load() {
                             self.release(track_id as i32, key as i32);
                         }
+
+                        // Check if key should be played
                         if change.skip_next.load() {
                             change.skip_next.store(false);
                         } else if change.active.load() && !track.state.get(&MUTED) {
@@ -683,7 +706,7 @@ impl Audio {
                 }
             }
 
-            // Advance song position
+            // Advance song step
             if song.playing.load() {
                 let next_step = song.frames_since_last_step.load() + 1;
                 song.frames_since_last_step.store(next_step);
@@ -762,11 +785,11 @@ impl Rpc {
         let send = |setter| self.send(Message::Setter(data, setter));
         Some(match format!("{} {}", context, method).as_str() {
             "get armed" => self.song.armed.load().into(),
-            "get bars" => self.song.active_track().state.get(&LENGTH) / MAX_RESOLUTION,
+            "get bars" => self.song.active_track().bars() as i32,
             "get canClear" => self.song.active_track().can_clear() as i32,
             "get playing" => self.song.playing.load().into(),
-            "get step" => self.song.step.load(),
-            "get viewStart" => self.song.active_track().view_start(),
+            "get step" => self.song.step.load() as i32,
+            "get viewStart" => self.song.active_track().view_start() as i32,
             "set armed" => send(|audio, _| toggle(&audio.song.armed))?,
             "set auditionDown" => send(|audio, i| audio.key_down(Some(i), None))?,
             "set auditionUp" => send(|audio, i| audio.key_up(Some(i), None))?,
@@ -778,7 +801,7 @@ impl Rpc {
             "set page" => send(|audio, i| audio.song.active_track().adjust_page(i))?,
             "set playing" => send(|audio, _| audio.song.toggle_play())?,
             "set sampleType" => send(|audio, i| audio.set_sample_type(i))?,
-            "set sequence" => send(|audio, i| audio.song.active_track().toggle_step(i))?,
+            "set sequence" => send(|audio, i| audio.song.active_track().toggle_step(i as usize))?,
             "set zoomIn" => send(|audio, _| audio.song.active_track().zoom_in())?,
             "set zoomOut" => send(|audio, _| audio.song.active_track().zoom_out())?,
             _ => {
@@ -792,7 +815,7 @@ impl Rpc {
                     match format!("{} {}", context, name).as_str() {
                         "get muted" => self.song.tracks[i as usize].state.get(&MUTED) as i32,
                         "get note" => self.song.note(self.song.active_track(), i),
-                        "get view" => self.song.active_track().view(i) as i32,
+                        "get view" => self.song.active_track().view(i as usize) as i32,
                         _ => None?,
                     }
                 } else {

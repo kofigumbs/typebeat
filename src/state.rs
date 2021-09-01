@@ -36,6 +36,15 @@ impl Parameter for f32 {
     }
 }
 
+impl Parameter for usize {
+    fn to_i32(self) -> i32 {
+        self as i32
+    }
+    fn from_i32(raw: i32) -> Self {
+        raw as usize
+    }
+}
+
 pub trait Enum: Sized + 'static {
     const ALL: &'static [Self];
 }
