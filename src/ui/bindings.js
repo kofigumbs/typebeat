@@ -1,8 +1,6 @@
 const Bindings = ({ state, set }) => {
-  const camelCase = (first, ...rest) => [
-    first,
-    ...rest.map(word => word[0].toUpperCase() + word.substring(1)),
-  ].join('').replace(' ', '');
+  // join two method name parts with camel case
+  const join = (a, b) => `${a}${b[0].toUpperCase()}${b.substring(1)}`.replace(/[^\w]/, '');
 
   const noOp = () => '';
   const bind = options => Object.assign({ label: noOp, title: noOp, onDown: noOp, onUp: noOp }, options);
@@ -47,7 +45,7 @@ const Bindings = ({ state, set }) => {
       ...oneOf('YUIO', state, 'sound', ['sample', 'synth 1', 'synth 2', 'synth 3']),
       ...oneOf('NM,', state, 'soundControl', ['type', 'level', 'detune']),
       ...group('HJKL;', i => {
-        const soundMethod = () => camelCase(state.sound, state.soundControl);
+        const soundMethod = () => join(state.sound, state.soundControl);
         const soundNudge = nudge(() => state[soundMethod()], j => set(soundMethod(), j))[i][1];
         return {
           label: () => {
@@ -130,7 +128,7 @@ const Bindings = ({ state, set }) => {
     ['F', { mode: 'EQ', actions: new Map([
       ...oneOf('YUIOP', state, 'eqBand', ['low', 'band 1', 'band 2', 'band 3', 'high']),
       ...oneOf('NM', state, 'eqFilter', ['freq.', 'res.']),
-      ...nudge(() => state[camelCase(state.eqBand, state.eqFilter)], i => set(camelCase(state.eqBand, state.eqFilter), i)),
+      ...nudge(() => state[join(state.eqBand, state.eqFilter)], i => set(join(state.eqBand, state.eqFilter), i)),
     ])}],
     ['G', { mode: 'Mix', actions: new Map([
       ...oneOf('YUIOP', state, 'mix', ['main', 'pan', 'reverb', 'echo', 'drive']),
@@ -153,7 +151,7 @@ const Bindings = ({ state, set }) => {
     ])}],
     ['C', { mode: 'Send', actions: new Map([
       ...oneOf('YUI', state, 'effect', ['reverb', 'echo', 'drive']),
-      ...nudge(() => state[camelCase(state.effect, state.effectControl)], i => set(camelCase(state.effect, state.effectControl), i)),
+      ...nudge(() => state[join(state.effect, state.effectControl)], i => set(join(state.effect, state.effectControl), i)),
       ...oneOf('NM,', state, 'effectControl', ['gain', 'feed', 'space']),
     ])}],
     ['V', { mode: 'Tape', actions: new Map([
