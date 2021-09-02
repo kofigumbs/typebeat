@@ -421,9 +421,9 @@ impl Song {
     }
 
     fn find_state(&self, name: &str) -> Option<(StateId, Key<i32>)> {
-        Some(StateId::Song)
-            .zip(self.state.get_key(name))
-            .or_else(|| Some(StateId::ActiveTrack).zip(self.active_track().state.get_key(name)))
+        let find = move |id, state: &State| Some(id).zip(state.get_key(name));
+        find(StateId::Song, &self.state)
+            .or_else(|| find(StateId::ActiveTrack, &self.active_track().state))
     }
 
     fn get_state(&self, id: StateId) -> &State {
@@ -448,7 +448,7 @@ impl<T: FaustDsp> Clone for DspBox<T> {
 impl<T: FaustDsp> Default for DspBox<T> {
     fn default() -> Self {
         let mut dsp = Box::new(T::new());
-        dsp.instance_init(SAMPLE_RATE);
+        dsp.init(SAMPLE_RATE);
         DspBox { dsp }
     }
 }
