@@ -82,6 +82,12 @@ const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`)
  * sync
  */
 
+const forceClass = (el, className) => {
+  el.classList.remove(className);
+  void el.offsetWidth; // trigger a DOM reflow
+  el.classList.add(className);
+}
+
 const sync = async () => {
   clearCache();
   const binding = bindings.get(state.modifier);
@@ -91,6 +97,8 @@ const sync = async () => {
     labels[i].ariaLabel = await action?.label() ?? '';
     if (!!state.modifier)
       labels[i].classList.toggle('title', !!(await action?.title()));
+    if (await state[`recent ${i}`])
+      forceClass(minipads[i], 'pulse');
     minipads[i].classList.toggle('active', i === await state.activeTrack);
   };
   if (state.playing)
@@ -143,12 +151,8 @@ const handleDocumentKey = event => {
   else {
     const handler = bindings.get(state.modifier).actions.get(cap);
     down ? handler?.onDown(event.timeStamp) : handler?.onUp(event.timeStamp);
-    if (down) {
-      const key = keysOnRight.find(key => cap === key.dataset.cap);
-      key.classList.remove('pulse');
-      void key.offsetWidth; // trigger a DOM reflow
-      key.classList.add('pulse');
-    }
+    if (down)
+      forceClass(keysOnRight.find(key => cap === key.dataset.cap), 'pulse');
   }
   requestSync();
 };

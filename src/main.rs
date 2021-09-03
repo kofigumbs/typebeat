@@ -191,6 +191,7 @@ struct Track {
     page_start: AtomicCell<usize>,
     sequence: Vec<Step>,
     last_played: [AtomicCell<usize>; KEY_COUNT as usize],
+    recent: AtomicCell<bool>,
 }
 
 impl Default for Track {
@@ -205,6 +206,7 @@ impl Default for Track {
             page_start: 0.into(),
             sequence: vec![Step::default(); MAX_LENGTH as usize],
             last_played: Default::default(),
+            recent: false.into(),
         }
     }
 }
@@ -389,12 +391,6 @@ struct Song {
 impl Song {
     fn active_track(&self) -> &Track {
         &self.tracks[self.state.get(&ACTIVE_TRACK_ID)]
-    }
-
-    fn toggle_play(&self) {
-        toggle(&self.playing);
-        self.step.store(0);
-        self.frames_since_last_step.store(0);
     }
 
     fn note(&self, track: &Track, key: i32) -> i32 {
@@ -645,6 +641,15 @@ impl Audio {
         }
     }
 
+    fn toggle_play(&mut self) {
+        toggle(&self.song.playing);
+        self.song.step.store(0);
+        self.song.frames_since_last_step.store(0);
+        if !self.song.playing.load() {
+            self.voices.iter_mut().for_each(|voice| voice.gate = 0);
+        }
+    }
+
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
         // Process messages for the RPC queue
         while let Ok(setter) = self.receiver.try_recv() {
@@ -755,6 +760,9 @@ impl Audio {
 
         // Remember when this was played to for note length sequencer calculation
         get_clamped(&track.last_played, key).store(self.song.step.load());
+
+        // Inform UI
+        track.recent.store(true);
     }
 
     fn release(&mut self, track_id: usize, key: i32) {
@@ -794,7 +802,7 @@ impl Rpc {
             "set noteDown" => send(|audio, i| audio.key_down(None, Some(i)))?,
             "set noteUp" => send(|audio, i| audio.key_up(None, Some(i)))?,
             "set page" => send(|audio, i| audio.song.active_track().adjust_page(i))?,
-            "set playing" => send(|audio, _| audio.song.toggle_play())?,
+            "set playing" => send(|audio, _| audio.toggle_play())?,
             "set sampleType" => send(|audio, i| audio.set_sample_type(i))?,
             "set sequence" => send(|audio, i| audio.song.active_track().toggle_step(i as usize))?,
             "set zoomIn" => send(|audio, _| audio.song.active_track().zoom_in())?,
@@ -810,6 +818,7 @@ impl Rpc {
                     match format!("{} {}", context, name).as_str() {
                         "get muted" => self.song.tracks[i as usize].state.get(&MUTED) as i32,
                         "get note" => self.song.note(self.song.active_track(), i),
+                        "get recent" => self.song.tracks[i as usize].recent.swap(false) as i32,
                         "get view" => self.song.active_track().view(i as usize) as i32,
                         _ => None?,
                     }
