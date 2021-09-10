@@ -6,15 +6,16 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[derive(Default)]
 pub struct AtomicCell<T>(crossbeam::atomic::AtomicCell<T>);
 
-impl<T: Copy> Clone for AtomicCell<T> {
-    fn clone(&self) -> Self {
-        Self(self.load().into())
+impl<T> From<T> for AtomicCell<T> {
+    fn from(value: T) -> Self {
+        assert!(crossbeam::atomic::AtomicCell::<T>::is_lock_free());
+        Self(value.into())
     }
 }
 
-impl<T> From<T> for AtomicCell<T> {
-    fn from(value: T) -> Self {
-        Self(value.into())
+impl<T: Copy> Clone for AtomicCell<T> {
+    fn clone(&self) -> Self {
+        self.load().into()
     }
 }
 
