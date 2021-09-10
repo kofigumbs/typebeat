@@ -37,3 +37,9 @@ impl<T: Copy + Serialize> Serialize for AtomicCell<T> {
         self.load().serialize(serializer)
     }
 }
+
+impl AtomicCell<bool> {
+    pub fn toggle(&self) {
+        self.fetch_xor(true);
+    }
+}

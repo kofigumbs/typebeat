@@ -6,7 +6,6 @@ use std::fs::OpenOptions;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::Error;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
@@ -15,6 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use atomic_cell::AtomicCell;
 use effects::{FaustDsp, ParamIndex, UI};
 use state::{Enum, Key, State};
+use ui::Handler;
 
 mod atomic_cell;
 mod effects;
@@ -66,10 +66,6 @@ fn write_over(source: &[f32], destination: &mut [f32]) {
     for (destination, source) in destination.iter_mut().zip(source) {
         *destination += source;
     }
-}
-
-fn toggle(value: &AtomicCell<bool>) {
-    value.fetch_xor(true);
 }
 
 fn adjust_usize(lhs: usize, diff: i32, rhs: usize) -> usize {
@@ -318,7 +314,7 @@ impl Track {
             View::Empty | View::ExactlyOnStep => {
                 let change =
                     &self.sequence[start as usize].keys[self.state.get(&ACTIVE_KEY) as usize];
-                toggle(&change.active);
+                change.active.toggle();
                 change.skip_next.store(false);
                 change.value.store(self.view_length() as i32);
             }
@@ -372,8 +368,6 @@ struct Song {
     step: AtomicCell<usize>,
     #[serde(skip)]
     frames_since_last_step: AtomicCell<usize>,
-    #[serde(skip)]
-    version: AtomicCell<usize>,
 }
 
 impl Song {
@@ -630,7 +624,7 @@ impl Audio {
     }
 
     fn toggle_play(&mut self) {
-        toggle(&self.song.playing);
+        self.song.playing.toggle();
         self.song.step.store(0);
         self.song.frames_since_last_step.store(0);
         if !self.song.playing.load() {
@@ -639,7 +633,7 @@ impl Audio {
     }
 
     fn process(&mut self, input: &Frames, output: &mut FramesMut) {
-        // Process messages for the RPC queue
+        // Process messages for the Controller queue
         while let Ok(setter) = self.receiver.try_recv() {
             match setter {
                 Message::Setter(data, f) => f(self, data),
@@ -647,7 +641,6 @@ impl Audio {
                     self.song.get_state(state_id).nudge(&key, data)
                 }
             }
-            self.song.version.fetch_add(1);
         }
 
         // Update DSP parameters
@@ -766,13 +759,20 @@ impl Audio {
     }
 }
 
-struct Rpc {
+struct Controller {
     song: Arc<Song>,
     sender: Sender<Message>,
 }
 
-impl Rpc {
-    fn process(&self, context: &str, method: &str, data: i32) -> Option<i32> {
+impl Handler for Controller {
+    fn on_save(&self) {
+        let mut options = OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        let file = options.open(".typebeat").unwrap();
+        serde_json::to_writer(file, self.song.as_ref()).unwrap();
+    }
+
+    fn on_rpc(&self, context: &str, method: &str, data: i32) -> Option<i32> {
         let send = |setter| self.send(Message::Setter(data, setter));
         Some(match format!("{} {}", context, method).as_str() {
             "get armed" => self.song.armed.load().into(),
@@ -781,7 +781,7 @@ impl Rpc {
             "get playing" => self.song.playing.load().into(),
             "get step" => self.song.step.load() as i32,
             "get viewStart" => self.song.active_track().view_start() as i32,
-            "set armed" => send(|audio, _| toggle(&audio.song.armed))?,
+            "set armed" => send(|audio, _| audio.song.armed.toggle())?,
             "set auditionDown" => send(|audio, i| audio.key_down(Some(i as usize), None))?,
             "set auditionUp" => send(|audio, i| audio.key_up(Some(i as usize), None))?,
             "set bars" => send(|audio, i| audio.song.active_track().adjust_length(i))?,
@@ -816,7 +816,9 @@ impl Rpc {
             }
         })
     }
+}
 
+impl Controller {
     fn send<T>(&self, message: Message) -> Option<T> {
         let _ = self.sender.send(message);
         None
@@ -825,27 +827,6 @@ impl Rpc {
     fn split(method: &str) -> Option<(&str, i32)> {
         let mut iter = method.split(' ');
         iter.next().zip(iter.next()?.parse().ok())
-    }
-}
-
-struct Autosave {
-    version: usize,
-    song: Arc<Song>,
-}
-
-impl Autosave {
-    fn start(&mut self) -> ! {
-        loop {
-            std::thread::sleep(Duration::from_secs(1));
-            let song_version = self.song.version.load();
-            if song_version != self.version {
-                let mut options = OpenOptions::new();
-                options.write(true).create(true).truncate(true);
-                let file = options.open(".typebeat").unwrap();
-                serde_json::to_writer(file, self.song.as_ref()).unwrap();
-                self.version = song_version;
-            }
-        }
     }
 }
 
@@ -908,14 +889,9 @@ fn main() -> Result<(), Error> {
         );
     }
 
-    let rpc = Rpc {
+    let controller = Controller {
         song: Arc::clone(&audio.song),
         sender,
-    };
-
-    let mut autosave = Autosave {
-        version: 0,
-        song: Arc::clone(&audio.song),
     };
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
@@ -929,6 +905,5 @@ fn main() -> Result<(), Error> {
     device.set_data_callback(move |_, output, input| audio.process(input, output));
     device.start()?;
 
-    std::thread::spawn(move || autosave.start());
-    ui::start(move |method, context, data| rpc.process(method, context, data))?;
+    ui::start(controller)?;
 }
