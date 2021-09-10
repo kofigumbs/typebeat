@@ -9,16 +9,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Error;
-use crossbeam::atomic::AtomicCell;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use atomic_cell::AtomicCell;
 use effects::{FaustDsp, ParamIndex, UI};
 use state::{Enum, Key, State};
 
+mod atomic_cell;
 mod effects;
 mod samples;
-mod serde_atomic_cell;
 mod state;
 mod ui;
 
@@ -134,24 +134,12 @@ impl SampleType {
     }
 }
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 struct Change {
-    #[serde(with = "serde_atomic_cell")]
     value: AtomicCell<i32>,
-    #[serde(with = "serde_atomic_cell")]
     active: AtomicCell<bool>,
     #[serde(skip)]
     skip_next: AtomicCell<bool>,
-}
-
-impl Clone for Change {
-    fn clone(&self) -> Self {
-        Change {
-            value: self.value.load().into(),
-            active: self.active.load().into(),
-            skip_next: self.skip_next.load().into(),
-        }
-    }
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -526,7 +514,7 @@ impl Voice {
                     SampleType::File => self.play_back(mix, &track.file_sample, f32::to_owned, 2),
                     SampleType::Live => self.play_thru(mix, track, input, false),
                     SampleType::LiveRecord => self.play_thru(mix, track, input, true),
-                    SampleType::LivePlay => self.play_back(mix, track.live(), AtomicCell::load, 1),
+                    SampleType::LivePlay => self.play_back(mix, track.live(), |x| x.load(), 1),
                 }
             }
         }
