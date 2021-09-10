@@ -3,12 +3,14 @@
 
 use std::collections::HashMap;
 use std::fs::OpenOptions;
-use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::Error;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
+use rfd::FileDialog;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use atomic_cell::AtomicCell;
@@ -759,17 +761,57 @@ impl Audio {
     }
 }
 
+enum Location {
+    Dir(PathBuf),
+    File(PathBuf),
+}
+
+impl Location {
+    fn file_dialog(&self) -> FileDialog {
+        let dialog = FileDialog::new().add_filter("typebeat", &["typebeat"]);
+        match self {
+            Location::Dir(path) => dialog.set_directory(&*path),
+            Location::File(path) => dialog
+                .set_directory(path.parent().unwrap())
+                .set_file_name(&path.file_name().unwrap().to_string_lossy()),
+        }
+    }
+}
+
 struct Controller {
     song: Arc<Song>,
+    location: Arc<Mutex<Location>>,
     sender: Sender<Message>,
 }
 
 impl Handler for Controller {
+    fn on_open(&self) {
+        let location = Arc::clone(&self.location);
+        std::thread::spawn(move || {
+            if let Some((exe_path, open_path)) = std::env::current_exe()
+                .ok()
+                .zip(location.lock().unwrap().file_dialog().pick_file())
+            {
+                Command::new(exe_path)
+                    .env("TYPEBEAT_OPEN", open_path)
+                    .spawn()
+                    .unwrap();
+                std::process::exit(0);
+            }
+        });
+    }
+
     fn on_save(&self) {
-        let mut options = OpenOptions::new();
-        options.write(true).create(true).truncate(true);
-        let file = options.open(".typebeat").unwrap();
-        serde_json::to_writer(file, self.song.as_ref()).unwrap();
+        let song = Arc::clone(&self.song);
+        let location = Arc::clone(&self.location);
+        std::thread::spawn(move || {
+            if let Some(path) = location.lock().unwrap().file_dialog().save_file() {
+                let mut options = OpenOptions::new();
+                options.write(true).create(true).truncate(true);
+                serde_json::to_writer(options.open(&path).unwrap(), song.as_ref()).unwrap();
+                *location.lock().unwrap() = Location::File(path);
+            }
+        });
     }
 
     fn on_rpc(&self, context: &str, method: &str, data: i32) -> Option<i32> {
@@ -831,9 +873,10 @@ impl Controller {
 }
 
 fn main() -> Result<(), Error> {
-    let mut song: Song = std::fs::read(Path::new(&".typebeat"))
+    let mut song: Song = std::env::var("TYPEBEAT_OPEN")
         .map_err(Error::new)
-        .and_then(|s| serde_json::from_slice(&s).map_err(Error::new))
+        .and_then(|path| std::fs::read(path).map_err(Error::new))
+        .and_then(|json| serde_json::from_slice(&json).map_err(Error::new))
         .unwrap_or_default();
 
     let mut buttons = ButtonRegisterUi::default();
@@ -891,6 +934,10 @@ fn main() -> Result<(), Error> {
 
     let controller = Controller {
         song: Arc::clone(&audio.song),
+        location: Arc::new(Mutex::new(match std::env::var("TYPEBEAT_OPEN") {
+            Ok(path) => Location::File(PathBuf::from(path)),
+            Err(_) => Location::Dir(std::env::var("HOME").unwrap_or("/".to_owned()).into()),
+        })),
         sender,
     };
 

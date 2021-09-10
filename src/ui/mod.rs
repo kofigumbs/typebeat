@@ -11,6 +11,7 @@ use wry::application::window::WindowBuilder;
 use wry::webview::{RpcResponse, WebViewBuilder};
 
 pub trait Handler {
+    fn on_open(&self);
     fn on_save(&self);
     fn on_rpc(&self, context: &str, method: &str, data: i32) -> Option<i32>;
 }
@@ -25,6 +26,10 @@ pub fn start<T: Handler + 'static>(handler: T) -> Result<!> {
     menu.add_submenu("Typebeat", true, main_submenu);
 
     let mut file_submenu = MenuBar::new();
+    let open = file_submenu.add_item(
+        MenuItemAttributes::new("Open")
+            .with_accelerators(&Accelerator::new(SysMods::Cmd, KeyCode::KeyO)),
+    );
     let save = file_submenu.add_item(
         MenuItemAttributes::new("Save")
             .with_accelerators(&Accelerator::new(SysMods::Cmd, KeyCode::KeyS)),
@@ -79,6 +84,10 @@ pub fn start<T: Handler + 'static>(handler: T) -> Result<!> {
         })
         .build()?;
     event_loop.run(move |event, _, control_flow| match event {
+        Event::MenuEvent { menu_id, .. } if menu_id == open.clone().id() => {
+            event_loop_handler.on_open();
+            *control_flow = ControlFlow::Wait
+        }
         Event::MenuEvent { menu_id, .. } if menu_id == save.clone().id() => {
             event_loop_handler.on_save();
             *control_flow = ControlFlow::Wait
