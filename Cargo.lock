@@ -1527,6 +1527,7 @@ dependencies = [
  "rfd",
  "serde",
  "serde_json",
+ "wasm-bindgen-futures",
  "wry",
 ]
 

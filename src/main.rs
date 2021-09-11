@@ -1,12 +1,15 @@
-#![feature(never_type)]
 #![feature(array_methods)]
+#![feature(async_closure)]
+#![feature(get_mut_unchecked)]
+#![feature(never_type)]
 
 use std::collections::HashMap;
-use std::fs::OpenOptions;
+use std::fs::File;
+use std::future::Future;
+use std::ops::Deref;
 use std::path::PathBuf;
-use std::process::Command;
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, RwLock};
 
 use anyhow::Error;
 use directories::UserDirs;
@@ -79,6 +82,15 @@ fn adjust_usize(lhs: usize, diff: i32, rhs: usize) -> usize {
     }
 }
 
+/// Run a Future in another thread (or in a scheduled Promise on the web)
+/// https://github.com/PolyMeilex/rfd/blob/master/examples/async.rs
+fn execute<T: Future<Output = ()>>(f: impl FnOnce() -> T + Send + 'static) {
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_futures::spawn_local(f());
+    #[cfg(not(target_arch = "wasm32"))]
+    std::thread::spawn(move || futures::executor::block_on(f()));
+}
+
 #[derive(Default)]
 struct ButtonRegisterUi {
     registry: HashMap<&'static str, ParamIndex>,
@@ -109,6 +121,40 @@ struct StateSyncUi<'a, T: ?Sized> {
 impl<'a, T: FaustDsp<T = f32> + ?Sized> UI<f32> for StateSyncUi<'a, T> {
     fn add_num_entry(&mut self, s: &'static str, id: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
         self.dsp.set_param(id, self.state.get(&Key::new(s)));
+    }
+}
+
+/// Wrapper for FaustDsp that implements Clone and Default
+struct DspBox<T> {
+    dsp: Box<T>,
+}
+
+impl<T: FaustDsp> Clone for DspBox<T> {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl<T: FaustDsp> Default for DspBox<T> {
+    fn default() -> Self {
+        let mut dsp = Box::new(T::new());
+        dsp.init(SAMPLE_RATE);
+        DspBox { dsp }
+    }
+}
+
+/// Wrapper for FaustDsp that keeps track of its #build_user_interface fn
+struct DspDyn {
+    dsp: Box<dyn Send + Sync + FaustDsp<T = f32>>,
+    builder: fn(&mut dyn UI<f32>),
+}
+
+impl<T: 'static + Send + Sync + FaustDsp<T = f32>> From<DspBox<T>> for DspDyn {
+    fn from(dsp_box: DspBox<T>) -> Self {
+        Self {
+            dsp: dsp_box.dsp,
+            builder: T::build_user_interface_static,
+        }
     }
 }
 
@@ -374,6 +420,39 @@ struct Song {
 }
 
 impl Song {
+    fn register(&mut self, sends: &[DspDyn]) {
+        let mut buttons = ButtonRegisterUi::default();
+        effects::insert::build_user_interface_static(&mut buttons);
+        self.gate_id = buttons.registry["gate"];
+        self.note_id = buttons.registry["note"];
+
+        let state = &mut self.state;
+        state.register(ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1));
+        state.register(TEMPO.between(0, 999).default(120).nudge_by(10));
+        state.register(ROOT.between(-12, 12).nudge_by(7));
+        state.register(SCALE.between(0, SCALE_OFFSETS.len() - 1));
+
+        for (i, track) in self.tracks.iter_mut().enumerate() {
+            let state = &mut track.state;
+            state.register(&MUTED);
+            state.register(USE_KEY.nudge_by(0).default(true));
+            state.register(ACTIVE_KEY.between(0, KEY_COUNT).default(12));
+            state.register(OCTAVE.between(2, 8).default(4).nudge_by(2));
+            state.register(
+                LENGTH
+                    .between(MAX_RESOLUTION, MAX_LENGTH)
+                    .default(MAX_RESOLUTION),
+            );
+            state.register(RESOLUTION.between(1, MAX_RESOLUTION).default(16));
+            effects::insert::build_user_interface_static(&mut StateRegisterUi { state });
+            track.file_sample = samples::read_stereo_file(i).unwrap();
+        }
+
+        for DspDyn { builder, .. } in sends.iter() {
+            builder(&mut StateRegisterUi { state });
+        }
+    }
+
     fn active_track(&self) -> &Track {
         &self.tracks[self.state.get(&ACTIVE_TRACK_ID)]
     }
@@ -411,40 +490,6 @@ impl Song {
         match id {
             StateId::Song => &self.state,
             StateId::ActiveTrack => &self.active_track().state,
-        }
-    }
-}
-
-/// Wrapper for FaustDsp that implements Clone and Default
-struct DspBox<T> {
-    dsp: Box<T>,
-}
-
-impl<T: FaustDsp> Clone for DspBox<T> {
-    fn clone(&self) -> Self {
-        Self::default()
-    }
-}
-
-impl<T: FaustDsp> Default for DspBox<T> {
-    fn default() -> Self {
-        let mut dsp = Box::new(T::new());
-        dsp.init(SAMPLE_RATE);
-        DspBox { dsp }
-    }
-}
-
-/// Wrapper for FaustDsp that keeps track of its #build_user_interface fn
-struct DspDyn {
-    dsp: Box<dyn Send + FaustDsp<T = f32>>,
-    builder: fn(&mut dyn UI<f32>),
-}
-
-impl<T: 'static + Send + FaustDsp<T = f32>> From<DspBox<T>> for DspDyn {
-    fn from(dsp_box: DspBox<T>) -> Self {
-        Self {
-            dsp: dsp_box.dsp,
-            builder: T::build_user_interface_static,
         }
     }
 }
@@ -553,58 +598,40 @@ impl Voice {
     }
 }
 
-enum Message {
-    Setter(i32, fn(&mut Audio, i32)),
-    SetEntry(i32, StateId, Key<i32>),
-}
-
 struct Audio {
-    song: Arc<Song>,
     voices: Vec<Voice>,
     sends: [DspDyn; SEND_COUNT],
-    receiver: Receiver<Message>,
 }
 
 impl Audio {
-    fn key_down(&mut self, track_id: Option<usize>, key: Option<i32>) {
-        let track_id = track_id.unwrap_or(self.song.state.get(&ACTIVE_TRACK_ID));
-        let track = &self.song.tracks[track_id];
-        let key = key.unwrap_or(track.state.get(&ACTIVE_KEY));
-        let song_step = self.song.step.load();
-        if self.song.playing.load() && self.song.armed.load() {
-            let quantized_step = self
-                .song
-                .quantized_step(song_step, track.state.get(&RESOLUTION));
+    fn key_down(&mut self, song: &Song, track_id: usize, key: i32) {
+        let track = &song.tracks[track_id];
+        let song_step = song.step.load();
+        if song.playing.load() && song.armed.load() {
+            let quantized_step = song.quantized_step(song_step, track.state.get(&RESOLUTION));
             let track_step = &track.sequence[quantized_step % track.state.get(&LENGTH)];
             let change = get_clamped(&track_step.keys, key);
             change.active.store(true);
             change.skip_next.store(quantized_step > song_step);
         }
         track.state.set(&ACTIVE_KEY, key);
-        self.allocate(track_id, key);
+        self.allocate(song, track_id, key);
     }
 
-    fn key_up(&mut self, track_id: Option<usize>, key: Option<i32>) {
-        let track_id = track_id.unwrap_or(self.song.state.get(&ACTIVE_TRACK_ID));
-        let track = &self.song.tracks[track_id];
-        let key = key.unwrap_or(track.state.get(&ACTIVE_KEY));
-        if self.song.playing.load() && self.song.armed.load() {
+    fn key_up(&mut self, song: &Song, track_id: usize, key: i32) {
+        let track = &song.tracks[track_id];
+        if song.playing.load() && song.armed.load() {
             let last_played = get_clamped(&track.last_played, key).load();
-            let quantized_step = self
-                .song
-                .quantized_step(last_played, track.state.get(&RESOLUTION));
+            let quantized_step = song.quantized_step(last_played, track.state.get(&RESOLUTION));
             let step = &track.sequence[quantized_step % track.state.get(&LENGTH)];
             get_clamped(&step.keys, key)
                 .value
-                .store((self.song.step.load() - last_played) as i32);
+                .store((song.step.load() - last_played) as i32);
         }
         self.release(track_id, key);
     }
 
-    fn set_sample_type(&mut self, value: i32) {
-        // Clone for more convenient ownership rules
-        let song = Arc::clone(&self.song);
-
+    fn set_sample_type(&mut self, song: &Song, value: i32) {
         let track = song.active_track();
         let old = track.state.get(&SAMPLE_TYPE);
         let new = *get_clamped(&SampleType::ALL, value);
@@ -619,6 +646,7 @@ impl Audio {
             }
             if new.thru() {
                 self.allocate(
+                    song,
                     song.state.get(&ACTIVE_TRACK_ID),
                     track.state.get(&ACTIVE_KEY),
                 );
@@ -626,46 +654,33 @@ impl Audio {
         }
     }
 
-    fn toggle_play(&mut self) {
-        self.song.playing.toggle();
-        self.song.step.store(0);
-        self.song.frames_since_last_step.store(0);
-        if !self.song.playing.load() {
+    fn toggle_play(&mut self, song: &Song) {
+        song.playing.toggle();
+        song.step.store(0);
+        song.frames_since_last_step.store(0);
+        if !song.playing.load() {
             self.voices.iter_mut().for_each(|voice| voice.gate = 0);
         }
     }
 
-    fn process(&mut self, input: &Frames, output: &mut FramesMut) {
-        // Process messages for the Controller queue
-        while let Ok(setter) = self.receiver.try_recv() {
-            match setter {
-                Message::Setter(data, f) => f(self, data),
-                Message::SetEntry(data, state_id, key) => {
-                    self.song.get_state(state_id).nudge(&key, data)
-                }
-            }
-        }
-
+    fn process(&mut self, song: &Song, input: &Frames, output: &mut FramesMut) {
         // Update DSP parameters
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
                 let dsp = voice.insert.dsp.as_mut();
-                let state = &self.song.tracks[track_id].state;
-                dsp.set_param(self.song.gate_id, voice.gate as f32);
+                let state = &song.tracks[track_id].state;
+                dsp.set_param(song.gate_id, voice.gate as f32);
                 effects::insert::build_user_interface_static(&mut StateSyncUi { dsp, state });
             }
         }
         for DspDyn { dsp, builder } in self.sends.iter_mut() {
             let dsp = dsp.as_mut();
-            let state = &self.song.state;
+            let state = &song.state;
             builder(&mut StateSyncUi { dsp, state });
         }
 
         // Read input frames and calculate output frames
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
-            // Clone for more convenient ownership rules
-            let song = Arc::clone(&self.song);
-
             // If this is a new step, then replay any sequenced events
             if song.playing.load() && song.frames_since_last_step.load() == 0 {
                 for (track_id, track) in song.tracks.iter().enumerate() {
@@ -684,7 +699,7 @@ impl Audio {
                         if change.skip_next.load() {
                             change.skip_next.store(false);
                         } else if change.active.load() && !track.state.get(&MUTED) {
-                            self.allocate(track_id, key as i32);
+                            self.allocate(song, track_id, key as i32);
                         }
                     }
                 }
@@ -703,7 +718,7 @@ impl Audio {
             // Run voices and sends
             let mut buffer = Buffer::<INSERT_OUTPUT_COUNT, 2>::new();
             for voice in self.voices.iter_mut() {
-                voice.process(&self.song, input, &mut buffer.mix);
+                voice.process(song, input, &mut buffer.mix);
             }
             write_over(&buffer.mix, output);
             for DspDyn { dsp, .. } in self.sends.iter_mut() {
@@ -714,16 +729,13 @@ impl Audio {
         }
     }
 
-    fn allocate(&mut self, track_id: usize, key: i32) {
+    fn allocate(&mut self, song: &Song, track_id: usize, key: i32) {
         self.release(track_id, key);
-        let track = &self.song.tracks[track_id];
-        let note = self.song.note(track, key) as f32;
+        let track = &song.tracks[track_id];
+        let note = song.note(track, key) as f32;
         for voice in self.voices.iter_mut() {
             voice.age += 1;
         }
-
-        // Clone for more convenient ownership rules
-        let song = Arc::clone(&self.song);
 
         // Steal voie with highest priority number, breaking ties with age
         if let Some(voice) = self
@@ -739,11 +751,11 @@ impl Audio {
                 / (69.0_f32 / 12.).exp2();
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
-            voice.insert.dsp.set_param(self.song.note_id, note);
+            voice.insert.dsp.set_param(song.note_id, note);
         }
 
         // Remember when this was played to for note length sequencer calculation
-        get_clamped(&track.last_played, key).store(self.song.step.load());
+        get_clamped(&track.last_played, key).store(song.step.load());
 
         // Inform UI
         track.recent.store(true);
@@ -777,6 +789,15 @@ impl From<PathBuf> for Location {
     }
 }
 
+impl Default for Location {
+    fn default() -> Self {
+        Location {
+            directory: UserDirs::new().and_then(|x| x.audio_dir().map(PathBuf::from)),
+            file_name: None,
+        }
+    }
+}
+
 impl Location {
     fn file_dialog(&self) -> AsyncFileDialog {
         let mut dialog = AsyncFileDialog::new().add_filter("typebeat", &["typebeat"]);
@@ -790,80 +811,104 @@ impl Location {
     }
 }
 
+enum Message {
+    Setter(i32, fn(&mut Audio, &Song, i32)),
+    SetEntry(i32, StateId, Key<i32>),
+}
+
+#[derive(Clone)]
 struct Controller {
-    song: Arc<Song>,
-    location: Arc<Mutex<Location>>,
+    device: Device,
+    song: Arc<RwLock<Song>>,
+    audio: Arc<RwLock<Audio>>,
+    location: Arc<RwLock<Location>>,
     sender: Sender<Message>,
 }
 
 impl Handler for Controller {
     fn on_open(&self) {
-        let task = self.location.lock().unwrap().file_dialog().pick_file();
-        std::thread::spawn(move || {
-            if let Some((exe_path, file)) = std::env::current_exe()
-                .ok()
-                .zip(futures::executor::block_on(task))
-            {
-                Command::new(exe_path)
-                    .env("TYPEBEAT_OPEN", file.path())
-                    .spawn()
-                    .unwrap();
-                std::process::exit(0);
+        let this = self.clone();
+        let task = self.location.read().unwrap().file_dialog().pick_file();
+        execute(async move || {
+            if let Some(file) = task.await {
+                let json = file.read().await;
+                if let Ok(mut song) = serde_json::from_slice::<Song>(&json) {
+                    this.device.stop().unwrap();
+                    let audio = this.audio.read().unwrap();
+                    song.register(&audio.sends);
+                    *this.song.write().unwrap() = song;
+                    this.device.start().unwrap();
+                }
             }
         });
     }
 
     fn on_save(&self) {
-        let song = Arc::clone(&self.song);
-        let location = Arc::clone(&self.location);
-        let task = location.lock().unwrap().file_dialog().save_file();
-        std::thread::spawn(move || {
-            if let Some(file) = futures::executor::block_on(task) {
+        let this = self.clone();
+        let task = self.location.read().unwrap().file_dialog().save_file();
+        execute(async move || {
+            if let Some(file) = task.await {
                 let path = PathBuf::from(file.path());
-                let mut options = OpenOptions::new();
-                options.write(true).create(true).truncate(true);
-                serde_json::to_writer(options.open(&path).unwrap(), song.as_ref()).unwrap();
-                *location.lock().unwrap() = Location::from(path);
+                let file = File::create(&path).unwrap();
+                serde_json::to_writer(file, this.song.read().unwrap().deref()).unwrap();
+                *this.location.write().unwrap() = Location::from(path);
             }
         });
     }
 
     fn on_rpc(&self, context: &str, method: &str, data: i32) -> Option<i32> {
+        let song = self.song.read().unwrap();
         let send = |setter| self.send(Message::Setter(data, setter));
         Some(match format!("{} {}", context, method).as_str() {
-            "get armed" => self.song.armed.load().into(),
-            "get bars" => self.song.active_track().bars() as i32,
-            "get canClear" => self.song.active_track().can_clear() as i32,
-            "get playing" => self.song.playing.load().into(),
-            "get step" => self.song.step.load() as i32,
-            "get viewStart" => self.song.active_track().view_start() as i32,
-            "set armed" => send(|audio, _| audio.song.armed.toggle())?,
-            "set auditionDown" => send(|audio, i| audio.key_down(Some(i as usize), None))?,
-            "set auditionUp" => send(|audio, i| audio.key_up(Some(i as usize), None))?,
-            "set bars" => send(|audio, i| audio.song.active_track().adjust_length(i))?,
-            "set clear" => send(|audio, _| audio.song.active_track().clear())?,
-            "set muted" => send(|audio, i| audio.song.tracks[i as usize].state.toggle(&MUTED))?,
-            "set noteDown" => send(|audio, i| audio.key_down(None, Some(i)))?,
-            "set noteUp" => send(|audio, i| audio.key_up(None, Some(i)))?,
-            "set page" => send(|audio, i| audio.song.active_track().adjust_page(i))?,
-            "set playing" => send(|audio, _| audio.toggle_play())?,
-            "set sampleType" => send(|audio, i| audio.set_sample_type(i))?,
-            "set sequence" => send(|audio, i| audio.song.active_track().toggle_step(i as usize))?,
-            "set zoomIn" => send(|audio, _| audio.song.active_track().zoom_in())?,
-            "set zoomOut" => send(|audio, _| audio.song.active_track().zoom_out())?,
+            "get armed" => song.armed.load().into(),
+            "get bars" => song.active_track().bars() as i32,
+            "get canClear" => song.active_track().can_clear() as i32,
+            "get playing" => song.playing.load().into(),
+            "get step" => song.step.load() as i32,
+            "get viewStart" => song.active_track().view_start() as i32,
+            "set armed" => send(|_, song, _| song.armed.toggle())?,
+            "set auditionDown" => send(|audio, song, i| {
+                audio.key_down(
+                    song,
+                    (i as usize).min(TRACK_COUNT - 1),
+                    get_clamped(&song.tracks, i).state.get(&ACTIVE_KEY),
+                )
+            })?,
+            "set auditionUp" => send(|audio, song, i| {
+                audio.key_up(
+                    song,
+                    (i as usize).min(TRACK_COUNT - 1),
+                    get_clamped(&song.tracks, i).state.get(&ACTIVE_KEY),
+                )
+            })?,
+            "set bars" => send(|_, song, i| song.active_track().adjust_length(i))?,
+            "set clear" => send(|_, song, _| song.active_track().clear())?,
+            "set muted" => send(|_, song, i| get_clamped(&song.tracks, i).state.toggle(&MUTED))?,
+            "set noteDown" => {
+                send(|audio, song, i| audio.key_down(song, song.state.get(&ACTIVE_TRACK_ID), i))?
+            }
+            "set noteUp" => {
+                send(|audio, song, i| audio.key_up(song, song.state.get(&ACTIVE_TRACK_ID), i))?
+            }
+            "set page" => send(|_, song, i| song.active_track().adjust_page(i))?,
+            "set playing" => send(|audio, song, _| audio.toggle_play(song))?,
+            "set sampleType" => send(|audio, song, i| audio.set_sample_type(song, i))?,
+            "set sequence" => send(|_, song, i| song.active_track().toggle_step(i as usize))?,
+            "set zoomIn" => send(|_, song, _| song.active_track().zoom_in())?,
+            "set zoomOut" => send(|_, song, _| song.active_track().zoom_out())?,
             _ => {
-                if let Some((state_id, key)) = self.song.find_state(method) {
+                if let Some((state_id, key)) = song.find_state(method) {
                     match context {
-                        "get" => self.song.get_state(state_id).get(&key),
+                        "get" => song.get_state(state_id).get(&key),
                         "set" => self.send(Message::SetEntry(data, state_id, key))?,
                         _ => None?,
                     }
                 } else if let Some((name, i)) = Self::split(method) {
                     match format!("{} {}", context, name).as_str() {
-                        "get muted" => self.song.tracks[i as usize].state.get(&MUTED) as i32,
-                        "get note" => self.song.note(self.song.active_track(), i),
-                        "get recent" => self.song.tracks[i as usize].recent.swap(false) as i32,
-                        "get view" => self.song.active_track().view(i as usize) as i32,
+                        "get muted" => get_clamped(&song.tracks, i).state.get(&MUTED) as i32,
+                        "get note" => song.note(song.active_track(), i),
+                        "get recent" => get_clamped(&song.tracks, i).recent.swap(false) as i32,
+                        "get view" => song.active_track().view(i as usize) as i32,
                         _ => None?,
                     }
                 } else {
@@ -887,56 +932,13 @@ impl Controller {
 }
 
 fn main() -> Result<(), Error> {
-    let mut song: Song = std::env::var("TYPEBEAT_OPEN")
-        .map_err(Error::new)
-        .and_then(|path| std::fs::read(path).map_err(Error::new))
-        .and_then(|json| serde_json::from_slice(&json).map_err(Error::new))
-        .unwrap_or_default();
-
-    let mut buttons = ButtonRegisterUi::default();
-    effects::insert::build_user_interface_static(&mut buttons);
-    song.gate_id = buttons.registry["gate"];
-    song.note_id = buttons.registry["note"];
-
-    let state = &mut song.state;
-    state.register(ACTIVE_TRACK_ID.between(0, TRACK_COUNT - 1));
-    state.register(TEMPO.between(0, 999).default(120).nudge_by(10));
-    state.register(ROOT.between(-12, 12).nudge_by(7));
-    state.register(SCALE.between(0, SCALE_OFFSETS.len() - 1));
-
-    for (i, track) in song.tracks.iter_mut().enumerate() {
-        let state = &mut track.state;
-        state.register(&MUTED);
-        state.register(USE_KEY.nudge_by(0).default(true));
-        state.register(ACTIVE_KEY.between(0, KEY_COUNT).default(12));
-        state.register(OCTAVE.between(2, 8).default(4).nudge_by(2));
-        state.register(
-            LENGTH
-                .between(MAX_RESOLUTION, MAX_LENGTH)
-                .default(MAX_RESOLUTION),
-        );
-        state.register(RESOLUTION.between(1, MAX_RESOLUTION).default(16));
-        effects::insert::build_user_interface_static(&mut StateRegisterUi { state });
-        track.file_sample = samples::read_stereo_file(i)?;
-    }
-
-    let mut sends: [DspDyn; SEND_COUNT] = [
-        DspBox::<effects::reverb>::default().into(),
-        DspBox::<effects::echo>::default().into(),
-        DspBox::<effects::drive>::default().into(),
-    ];
-    for DspDyn { dsp, builder } in sends.iter_mut() {
-        assert_eq!(dsp.get_num_inputs(), 2);
-        assert_eq!(dsp.get_num_outputs(), 2);
-        builder(&mut StateRegisterUi { state });
-    }
-
-    let (sender, receiver) = std::sync::mpsc::channel();
-    let mut audio = Audio {
-        song: Arc::new(song),
+    let audio = Audio {
         voices: vec![Voice::default(); VOICE_COUNT as usize],
-        sends,
-        receiver,
+        sends: [
+            DspBox::<effects::reverb>::default().into(),
+            DspBox::<effects::echo>::default().into(),
+            DspBox::<effects::drive>::default().into(),
+        ],
     };
     for voice in audio.voices.iter() {
         assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
@@ -945,20 +947,13 @@ fn main() -> Result<(), Error> {
             INSERT_OUTPUT_COUNT as i32
         );
     }
+    for DspDyn { dsp, .. } in audio.sends.iter() {
+        assert_eq!(dsp.get_num_inputs(), 2);
+        assert_eq!(dsp.get_num_outputs(), 2);
+    }
 
-    let location = if let Ok(path) = std::env::var("TYPEBEAT_OPEN") {
-        Location::from(PathBuf::from(path))
-    } else {
-        Location {
-            directory: UserDirs::new().and_then(|x| x.audio_dir().map(PathBuf::from)),
-            file_name: None,
-        }
-    };
-    let controller = Controller {
-        song: Arc::clone(&audio.song),
-        location: Arc::new(Mutex::new(location)),
-        sender,
-    };
+    let mut song = Song::default();
+    song.register(&audio.sends);
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);
@@ -967,9 +962,31 @@ fn main() -> Result<(), Error> {
     device_config.playback_mut().set_format(Format::F32);
     device_config.set_sample_rate(SAMPLE_RATE as u32);
 
+    let song = Arc::new(RwLock::new(song));
+    let audio = Arc::new(RwLock::new(audio));
+    let controller_song = Arc::clone(&song);
+    let controller_audio = Arc::clone(&audio);
+    let (sender, receiver) = std::sync::mpsc::channel();
     let mut device = Device::new(None, &device_config)?;
-    device.set_data_callback(move |_, output, input| audio.process(input, output));
-    device.start()?;
+    device.set_data_callback(move |_, output, input| {
+        let mut audio = audio.try_write().unwrap();
+        let song = song.try_read().unwrap();
+        while let Ok(setter) = receiver.try_recv() {
+            match setter {
+                Message::Setter(data, f) => f(&mut audio, &song, data),
+                Message::SetEntry(data, id, key) => song.get_state(id).nudge(&key, data),
+            }
+        }
+        audio.process(&song, input, output);
+    });
 
+    let controller = Controller {
+        song: controller_song,
+        audio: controller_audio,
+        device,
+        location: Arc::default(),
+        sender,
+    };
+    controller.device.start()?;
     ui::start(controller)?;
 }
