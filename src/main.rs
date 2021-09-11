@@ -9,8 +9,9 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
 use anyhow::Error;
+use directories::UserDirs;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
-use rfd::FileDialog;
+use rfd::AsyncFileDialog;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use atomic_cell::AtomicCell;
@@ -761,20 +762,31 @@ impl Audio {
     }
 }
 
-enum Location {
-    Dir(PathBuf),
-    File(PathBuf),
+/// Tracks the last directory/file where the user saved/opened a .typebeat file
+struct Location {
+    directory: Option<PathBuf>,
+    file_name: Option<String>,
+}
+
+impl From<PathBuf> for Location {
+    fn from(value: PathBuf) -> Location {
+        Location {
+            directory: Some(value.parent().unwrap().to_path_buf()),
+            file_name: Some(value.file_name().unwrap().to_string_lossy().to_string()),
+        }
+    }
 }
 
 impl Location {
-    fn file_dialog(&self) -> FileDialog {
-        let dialog = FileDialog::new().add_filter("typebeat", &["typebeat"]);
-        match self {
-            Location::Dir(path) => dialog.set_directory(&*path),
-            Location::File(path) => dialog
-                .set_directory(path.parent().unwrap())
-                .set_file_name(&path.file_name().unwrap().to_string_lossy()),
+    fn file_dialog(&self) -> AsyncFileDialog {
+        let mut dialog = AsyncFileDialog::new().add_filter("typebeat", &["typebeat"]);
+        if let Some(directory) = self.directory.as_ref() {
+            dialog = dialog.set_directory(directory);
         }
+        if let Some(file_name) = self.file_name.as_deref() {
+            dialog = dialog.set_file_name(file_name);
+        }
+        dialog
     }
 }
 
@@ -786,14 +798,14 @@ struct Controller {
 
 impl Handler for Controller {
     fn on_open(&self) {
-        let location = Arc::clone(&self.location);
+        let task = self.location.lock().unwrap().file_dialog().pick_file();
         std::thread::spawn(move || {
-            if let Some((exe_path, open_path)) = std::env::current_exe()
+            if let Some((exe_path, file)) = std::env::current_exe()
                 .ok()
-                .zip(location.lock().unwrap().file_dialog().pick_file())
+                .zip(futures::executor::block_on(task))
             {
                 Command::new(exe_path)
-                    .env("TYPEBEAT_OPEN", open_path)
+                    .env("TYPEBEAT_OPEN", file.path())
                     .spawn()
                     .unwrap();
                 std::process::exit(0);
@@ -804,12 +816,14 @@ impl Handler for Controller {
     fn on_save(&self) {
         let song = Arc::clone(&self.song);
         let location = Arc::clone(&self.location);
+        let task = location.lock().unwrap().file_dialog().save_file();
         std::thread::spawn(move || {
-            if let Some(path) = location.lock().unwrap().file_dialog().save_file() {
+            if let Some(file) = futures::executor::block_on(task) {
+                let path = PathBuf::from(file.path());
                 let mut options = OpenOptions::new();
                 options.write(true).create(true).truncate(true);
                 serde_json::to_writer(options.open(&path).unwrap(), song.as_ref()).unwrap();
-                *location.lock().unwrap() = Location::File(path);
+                *location.lock().unwrap() = Location::from(path);
             }
         });
     }
@@ -932,12 +946,17 @@ fn main() -> Result<(), Error> {
         );
     }
 
+    let location = if let Ok(path) = std::env::var("TYPEBEAT_OPEN") {
+        Location::from(PathBuf::from(path))
+    } else {
+        Location {
+            directory: UserDirs::new().and_then(|x| x.audio_dir().map(PathBuf::from)),
+            file_name: None,
+        }
+    };
     let controller = Controller {
         song: Arc::clone(&audio.song),
-        location: Arc::new(Mutex::new(match std::env::var("TYPEBEAT_OPEN") {
-            Ok(path) => Location::File(PathBuf::from(path)),
-            Err(_) => Location::Dir(std::env::var("HOME").unwrap_or("/".to_owned()).into()),
-        })),
+        location: Arc::new(Mutex::new(location)),
         sender,
     };
 

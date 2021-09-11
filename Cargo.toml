@@ -13,6 +13,8 @@ overflow-checks = false
 [dependencies]
 anyhow = "1.0"
 crossbeam = "0.8"
+directories = "3.0"
+futures = "0.3"
 libm = "0.2.1"
 miniaudio = { git = "https://github.com/ExPixel/miniaudio-rs", rev = "e001ba" }
 rfd = "0.4"
