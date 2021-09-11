@@ -6,7 +6,6 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::future::Future;
-use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
@@ -850,7 +849,7 @@ impl Handler for Controller {
             if let Some(file) = task.await {
                 let path = PathBuf::from(file.path());
                 let file = File::create(&path).unwrap();
-                serde_json::to_writer(file, this.song.read().unwrap().deref()).unwrap();
+                serde_json::to_writer(file, &*this.song.read().unwrap()).unwrap();
                 *this.location.write().unwrap() = Location::from(path);
             }
         });
@@ -981,9 +980,9 @@ fn main() -> Result<(), Error> {
     });
 
     let controller = Controller {
+        device,
         song: controller_song,
         audio: controller_audio,
-        device,
         location: Arc::default(),
         sender,
     };
