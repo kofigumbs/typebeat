@@ -1,7 +1,5 @@
 #![feature(array_methods)]
 #![feature(async_closure)]
-#![feature(get_mut_unchecked)]
-#![feature(never_type)]
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -19,13 +17,11 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use atomic_cell::AtomicCell;
 use effects::{FaustDsp, ParamIndex, UI};
 use state::{Enum, Key, State};
-use ui::Handler;
 
 mod atomic_cell;
 mod effects;
 mod samples;
 mod state;
-mod ui;
 
 const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
@@ -816,7 +812,7 @@ enum Message {
 }
 
 #[derive(Clone)]
-struct Controller {
+pub struct Controller {
     device: Device,
     song: Arc<RwLock<Song>>,
     audio: Arc<RwLock<Audio>>,
@@ -824,8 +820,8 @@ struct Controller {
     sender: Sender<Message>,
 }
 
-impl Handler for Controller {
-    fn on_open(&self) {
+impl Controller {
+    pub fn open(&self) {
         let this = self.clone();
         let task = self.location.read().unwrap().file_dialog().pick_file();
         execute(async move || {
@@ -842,7 +838,7 @@ impl Handler for Controller {
         });
     }
 
-    fn on_save(&self) {
+    pub fn save(&self) {
         let this = self.clone();
         let task = self.location.read().unwrap().file_dialog().save_file();
         execute(async move || {
@@ -855,7 +851,7 @@ impl Handler for Controller {
         });
     }
 
-    fn on_rpc(&self, context: &str, method: &str, data: i32) -> Option<i32> {
+    pub fn handle_rpc(&self, context: &str, method: &str, data: i32) -> Option<i32> {
         let song = self.song.read().unwrap();
         let send = |setter| self.send(Message::Setter(data, setter));
         Some(match format!("{} {}", context, method).as_str() {
@@ -916,9 +912,7 @@ impl Handler for Controller {
             }
         })
     }
-}
 
-impl Controller {
     fn send<T>(&self, message: Message) -> Option<T> {
         let _ = self.sender.send(message);
         None
@@ -930,7 +924,7 @@ impl Controller {
     }
 }
 
-fn main() -> Result<(), Error> {
+pub fn start() -> Result<Controller, Error> {
     let audio = Audio {
         voices: vec![Voice::default(); VOICE_COUNT as usize],
         sends: [
@@ -987,5 +981,5 @@ fn main() -> Result<(), Error> {
         sender,
     };
     controller.device.start()?;
-    ui::start(controller)?;
+    Ok(controller)
 }

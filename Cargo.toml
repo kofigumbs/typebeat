@@ -3,12 +3,15 @@ name = "typebeat"
 version = "0.1.0"
 edition = "2018"
 
-[[bin]]
-name = "typebeat"
-
 [profile.dev]
 opt-level = 2
 overflow-checks = false
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wry = { version = "0.11", default-features = false, features = [ "file-drop", "protocol", "win32" ] }
 
 [dependencies]
 anyhow = "1.0"
@@ -20,8 +23,6 @@ miniaudio = { git = "https://github.com/ExPixel/miniaudio-rs", rev = "e001ba" }
 rfd = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-wasm-bindgen-futures = "0.4"
-wry = { version = "0.11", default-features = false, features = [ "file-drop", "protocol", "win32" ] }
 
 [build-dependencies]
 anyhow = "1.0"
