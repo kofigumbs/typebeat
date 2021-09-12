@@ -54,7 +54,7 @@ fn main() -> Result<(), Error> {
         window = window_builder.with_decorations(false).build(&event_loop)?;
     }
     let html = std::env::current_dir()?
-        .join("src")
+        .join("static")
         .join("ui")
         .join("index.html");
     let _webview = WebViewBuilder::new(window)?

@@ -10,7 +10,9 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::Error;
 use directories::UserDirs;
-use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
+use miniaudio::{
+    Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
+};
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -20,7 +22,6 @@ use state::{Enum, Key, State};
 
 mod atomic_cell;
 mod effects;
-mod samples;
 mod state;
 
 const SEND_COUNT: usize = 3;
@@ -84,6 +85,19 @@ fn execute<T: Future<Output = ()>>(f: impl FnOnce() -> T + Send + 'static) {
     wasm_bindgen_futures::spawn_local(f());
     #[cfg(not(target_arch = "wasm32"))]
     std::thread::spawn(move || futures::executor::block_on(f()));
+}
+
+pub fn read_sample(i: usize) -> Result<Vec<f32>, Error> {
+    let path = std::env::current_dir()?
+        .join("static")
+        .join("samples")
+        .join(format!("{:02}.wav", i));
+    let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
+    let mut decoder = Decoder::from_file(&path, Some(&config))?;
+    let frame_count = decoder.length_in_pcm_frames() as usize;
+    let mut samples = vec![0.0; 2 * frame_count];
+    decoder.read_pcm_frames(&mut FramesMut::wrap(&mut samples[..], Format::F32, 2));
+    Ok(samples)
 }
 
 #[derive(Default)]
@@ -440,7 +454,7 @@ impl Song {
             );
             state.register(RESOLUTION.between(1, MAX_RESOLUTION).default(16));
             effects::insert::build_user_interface_static(&mut StateRegisterUi { state });
-            track.file_sample = samples::read_stereo_file(i).unwrap();
+            track.file_sample = read_sample(i).unwrap();
         }
 
         for DspDyn { builder, .. } in sends.iter() {

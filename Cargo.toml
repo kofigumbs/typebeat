@@ -2,6 +2,7 @@
 name = "typebeat"
 version = "0.1.0"
 edition = "2018"
+default-run = "typebeat"
 
 [profile.dev]
 opt-level = 2
