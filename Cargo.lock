@@ -435,7 +435,7 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 [[package]]
 name = "ep-miniaudio-sys"
 version = "2.4.0"
-source = "git+https://github.com/ExPixel/miniaudio-rs?rev=e001ba#e001baafe3fd87aeb8b30ba3e3eb0c2d1e33d50d"
+source = "git+https://github.com/kofigumbs/miniaudio-rs?rev=3d3579e#3d3579eb5fa03a7ee1bfbcf25f2c32c613e2d4a9"
 dependencies = [
  "bindgen",
  "bitflags",
@@ -961,7 +961,7 @@ dependencies = [
 [[package]]
 name = "miniaudio"
 version = "0.10.0"
-source = "git+https://github.com/ExPixel/miniaudio-rs?rev=e001ba#e001baafe3fd87aeb8b30ba3e3eb0c2d1e33d50d"
+source = "git+https://github.com/kofigumbs/miniaudio-rs?rev=3d3579e#3d3579eb5fa03a7ee1bfbcf25f2c32c613e2d4a9"
 dependencies = [
  "bitflags",
  "ep-miniaudio-sys",

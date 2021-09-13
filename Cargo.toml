@@ -12,7 +12,7 @@ overflow-checks = false
 wasm-bindgen-futures = "0.4"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wry = { version = "0.11", default-features = false, features = [ "file-drop", "protocol", "win32" ] }
+wry = { version = "0.11", default-features = false, features = ["file-drop", "protocol", "win32"] }
 
 [dependencies]
 anyhow = "1.0"
@@ -20,7 +20,7 @@ crossbeam = "0.8"
 directories = "3.0"
 futures = "0.3"
 libm = "0.2.1"
-miniaudio = { git = "https://github.com/ExPixel/miniaudio-rs", rev = "e001ba" }
+miniaudio = { git = "https://github.com/kofigumbs/miniaudio-rs", rev = "3d3579e", features = ["bindgen"] }
 rfd = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
