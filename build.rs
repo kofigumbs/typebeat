@@ -4,19 +4,19 @@ use std::fs::DirEntry;
 use std::path::Path;
 use std::process::Command;
 
-use anyhow::Result;
+use anyhow::Error;
 
 fn dsp_file(entry: DirEntry) -> Option<(String, String)> {
-    if entry.path().extension()? != "dsp" {
-        return None;
+    match entry.path().extension()?.to_str()? {
+        "dsp" => Some((
+            entry.path().to_str()?.to_owned(),
+            entry.path().file_stem()?.to_str()?.to_owned(),
+        )),
+        _ => None,
     }
-    Some((
-        entry.path().to_string_lossy().into_owned(),
-        entry.path().file_stem()?.to_string_lossy().into_owned(),
-    ))
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Error> {
     if !Path::new("vendor/faust/build/bin/faust").exists() {
         Command::new("git")
             .args(&["submodule", "update", "--init", "--recursive"])
