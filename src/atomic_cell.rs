@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// Small wrapper around crossbeam's AtomicCell, which adds Clone and serde support
+/// Wrapper around crossbeam's AtomicCell, which adds Clone and serde support
 #[derive(Default)]
 pub struct AtomicCell<T>(crossbeam::atomic::AtomicCell<T>);
 

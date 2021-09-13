@@ -3,25 +3,23 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::future::Future;
-use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Error;
-use directories::UserDirs;
 use miniaudio::{
     Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
 };
-use rfd::AsyncFileDialog;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use atomic_cell::AtomicCell;
 use effects::{FaustDsp, ParamIndex, UI};
+use platform::Location;
 use state::{Enum, Key, State};
 
 mod atomic_cell;
 mod effects;
+mod platform;
 mod state;
 
 const SEND_COUNT: usize = 3;
@@ -76,15 +74,6 @@ fn adjust_usize(lhs: usize, diff: i32, rhs: usize) -> usize {
     } else {
         lhs - diff.abs() as usize * rhs
     }
-}
-
-/// Run a Future in another thread (or in a scheduled Promise on the web)
-/// https://github.com/PolyMeilex/rfd/blob/master/examples/async.rs
-fn execute<T: Future<Output = ()>>(f: impl FnOnce() -> T + Send + 'static) {
-    #[cfg(target_arch = "wasm32")]
-    wasm_bindgen_futures::spawn_local(f());
-    #[cfg(not(target_arch = "wasm32"))]
-    std::thread::spawn(move || futures::executor::block_on(f()));
 }
 
 pub fn read_sample(i: usize) -> Result<Vec<f32>, Error> {
@@ -783,43 +772,6 @@ impl Audio {
     }
 }
 
-/// Tracks the last directory/file where the user saved/opened a .typebeat file
-struct Location {
-    directory: Option<PathBuf>,
-    file_name: Option<String>,
-}
-
-impl From<PathBuf> for Location {
-    fn from(value: PathBuf) -> Location {
-        Location {
-            directory: Some(value.parent().unwrap().to_path_buf()),
-            file_name: Some(value.file_name().unwrap().to_string_lossy().to_string()),
-        }
-    }
-}
-
-impl Default for Location {
-    fn default() -> Self {
-        Location {
-            directory: UserDirs::new().and_then(|x| x.audio_dir().map(PathBuf::from)),
-            file_name: None,
-        }
-    }
-}
-
-impl Location {
-    fn file_dialog(&self) -> AsyncFileDialog {
-        let mut dialog = AsyncFileDialog::new().add_filter("typebeat", &["typebeat"]);
-        if let Some(directory) = self.directory.as_ref() {
-            dialog = dialog.set_directory(directory);
-        }
-        if let Some(file_name) = self.file_name.as_deref() {
-            dialog = dialog.set_file_name(file_name);
-        }
-        dialog
-    }
-}
-
 enum Message {
     Setter(i32, fn(&mut Audio, &Song, i32)),
     SetEntry(i32, StateId, Key<i32>),
@@ -838,7 +790,7 @@ impl Controller {
     pub fn open(&self) {
         let this = self.clone();
         let task = self.location.read().unwrap().file_dialog().pick_file();
-        execute(async move || {
+        platform::execute(async move || {
             if let Some(file) = task.await {
                 let json = file.read().await;
                 if let Ok(mut song) = serde_json::from_slice::<Song>(&json) {
@@ -854,10 +806,9 @@ impl Controller {
 
     pub fn save(&self) {
         let this = self.clone();
-        let task = self.location.read().unwrap().file_dialog().save_file();
-        execute(async move || {
-            if let Some(file) = task.await {
-                let path = PathBuf::from(file.path());
+        let task = platform::save_file(&self.location.read().unwrap());
+        platform::execute(async move || {
+            if let Some(path) = task.await {
                 let file = File::create(&path).unwrap();
                 serde_json::to_writer(file, &*this.song.read().unwrap()).unwrap();
                 *this.location.write().unwrap() = Location::from(path);
@@ -927,7 +878,7 @@ impl Controller {
         })
     }
 
-    fn send<T>(&self, message: Message) -> Option<T> {
+    fn send<U>(&self, message: Message) -> Option<U> {
         let _ = self.sender.send(message);
         None
     }
