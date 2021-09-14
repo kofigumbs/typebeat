@@ -1,11 +1,11 @@
 [submodule "vendor/tare"]
-	path = vendor/tare
+	path = static/ui/tare
 	url = https://github.com/kofigumbs/tare
 [submodule "vendor/Themes"]
-	path = vendor/Themes
+	path = static/ui/Themes
 	url = https://github.com/hundredrabbits/Themes
 [submodule "vendor/FiraCode"]
-	path = vendor/FiraCode
+	path = static/ui/FiraCode
 	url = https://github.com/tonsky/FiraCode
 [submodule "vendor/faust"]
 	path = vendor/faust
