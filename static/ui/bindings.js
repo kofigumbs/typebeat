@@ -1,4 +1,4 @@
-const Bindings = ({ state, set }) => {
+window.Bindings = ({ state, set }) => {
   // join two method name parts with camel case
   const join = (a, b) => `${a}${b[0].toUpperCase()}${b.substring(1)}`.replace(/[^\w]/, '');
 

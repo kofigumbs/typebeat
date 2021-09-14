@@ -1,4 +1,4 @@
-const State = ({ get, defaults }) => {
+window.State = ({ get, defaults }) => {
   const local = new Map(defaults);
   const cache = new Map();
   return [

@@ -3,7 +3,7 @@
 	url = https://github.com/kofigumbs/tare
 [submodule "vendor/Themes"]
 	path = static/ui/Themes
-	url = https://github.com/hundredrabbits/Themes
+	url = https://github.com/kofigumbs/Themes
 [submodule "vendor/FiraCode"]
 	path = static/ui/FiraCode
 	url = https://github.com/tonsky/FiraCode
