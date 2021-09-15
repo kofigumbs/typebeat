@@ -767,8 +767,8 @@ impl Audio {
 }
 
 enum Message {
-    Setter(i32, fn(&mut Audio, &Song, i32)),
-    SetEntry(i32, StateId, Key<i32>),
+    Fn(fn(&mut Audio, &Song, i32)),
+    Entry(StateId, Key<i32>),
 }
 
 #[derive(Clone)]
@@ -776,82 +776,69 @@ pub struct Controller {
     device: Device,
     song: Arc<RwLock<Song>>,
     audio: Arc<RwLock<Audio>>,
-    sender: Arc<Mutex<Sender<Message>>>,
+    sender: Arc<Mutex<Sender<(i32, Message)>>>,
 }
 
 impl Controller {
     pub fn get(&self, method: &str) -> Option<i32> {
         let song = self.song.read().expect("song");
-        let response = match method {
+        Some(match method {
             "armed" => song.armed.load().into(),
             "bars" => song.active_track().bars() as i32,
             "canClear" => song.active_track().can_clear() as i32,
             "playing" => song.playing.load().into(),
             "step" => song.step.load() as i32,
             "viewStart" => song.active_track().view_start() as i32,
-            _ => {
-                if let Some((state_id, key)) = song.find_state(method) {
-                    song.get_state(state_id).get(&key)
-                } else if let Some((name, i)) = Self::split(method) {
-                    match name {
-                        "muted" => get_clamped(&song.tracks, i).state.get(&MUTED) as i32,
-                        "note" => song.note(song.active_track(), i),
-                        "recent" => get_clamped(&song.tracks, i).recent.swap(false) as i32,
-                        "view" => song.active_track().view(i as usize) as i32,
-                        _ => None?,
-                    }
-                } else {
-                    None?
-                }
-            }
-        };
-        Some(response)
+            _ => match Self::split(method) {
+                Some(("muted", i)) => get_clamped(&song.tracks, i).state.get(&MUTED) as i32,
+                Some(("note", i)) => song.note(song.active_track(), i),
+                Some(("recent", i)) => get_clamped(&song.tracks, i).recent.swap(false) as i32,
+                Some(("view", i)) => song.active_track().view(i as usize) as i32,
+                _ => song
+                    .find_state(method)
+                    .map(|(state_id, key)| song.get_state(state_id).get(&key))?,
+            },
+        })
     }
 
     pub fn set(&self, method: &str, data: i32) {
-        let send = |setter| self.send(Message::Setter(data, setter));
-        match method {
-            "armed" => send(|_, song, _| song.armed.toggle()),
-            "auditionDown" => send(|audio, song, i| {
+        let message = match method {
+            "armed" => Message::Fn(|_, song, _| song.armed.toggle()),
+            "auditionDown" => Message::Fn(|audio, song, i| {
                 audio.key_down(
                     song,
                     (i as usize).min(TRACK_COUNT - 1),
                     get_clamped(&song.tracks, i).state.get(&ACTIVE_KEY),
                 )
             }),
-            "auditionUp" => send(|audio, song, i| {
+            "auditionUp" => Message::Fn(|audio, song, i| {
                 audio.key_up(
                     song,
                     (i as usize).min(TRACK_COUNT - 1),
                     get_clamped(&song.tracks, i).state.get(&ACTIVE_KEY),
                 )
             }),
-            "bars" => send(|_, song, i| song.active_track().adjust_length(i)),
-            "clear" => send(|_, song, _| song.active_track().clear()),
-            "muted" => send(|_, song, i| get_clamped(&song.tracks, i).state.toggle(&MUTED)),
-            "noteDown" => {
-                send(|audio, song, i| audio.key_down(song, song.state.get(&ACTIVE_TRACK_ID), i))
-            }
-            "noteUp" => {
-                send(|audio, song, i| audio.key_up(song, song.state.get(&ACTIVE_TRACK_ID), i))
-            }
-            "page" => send(|_, song, i| song.active_track().adjust_page(i)),
-            "playing" => send(|audio, song, _| audio.toggle_play(song)),
-            "sampleType" => send(|audio, song, i| audio.set_sample_type(song, i)),
-            "sequence" => send(|_, song, i| song.active_track().toggle_step(i as usize)),
-            "zoomIn" => send(|_, song, _| song.active_track().zoom_in()),
-            "zoomOut" => send(|_, song, _| song.active_track().zoom_out()),
-            _ => {
-                let song = self.song.read().expect("song");
-                if let Some((state_id, key)) = song.find_state(method) {
-                    self.send(Message::SetEntry(data, state_id, key));
-                }
-            }
-        }
-    }
-
-    fn send(&self, message: Message) {
-        let _ = self.sender.lock().expect("sender").send(message);
+            "bars" => Message::Fn(|_, song, i| song.active_track().adjust_length(i)),
+            "clear" => Message::Fn(|_, song, _| song.active_track().clear()),
+            "muted" => Message::Fn(|_, song, i| get_clamped(&song.tracks, i).state.toggle(&MUTED)),
+            "noteDown" => Message::Fn(|audio, song, i| {
+                audio.key_down(song, song.state.get(&ACTIVE_TRACK_ID), i)
+            }),
+            "noteUp" => Message::Fn(|audio, song, i| {
+                audio.key_up(song, song.state.get(&ACTIVE_TRACK_ID), i)
+            }),
+            "page" => Message::Fn(|_, song, i| song.active_track().adjust_page(i)),
+            "playing" => Message::Fn(|audio, song, _| audio.toggle_play(song)),
+            "sampleType" => Message::Fn(|audio, song, i| audio.set_sample_type(song, i)),
+            "sequence" => Message::Fn(|_, song, i| song.active_track().toggle_step(i as usize)),
+            "zoomIn" => Message::Fn(|_, song, _| song.active_track().zoom_in()),
+            "zoomOut" => Message::Fn(|_, song, _| song.active_track().zoom_out()),
+            _ => match self.song.read().expect("song").find_state(method) {
+                None => return,
+                Some((state_id, key)) => Message::Entry(state_id, key),
+            },
+        };
+        let _ = self.sender.lock().expect("sender").send((data, message));
     }
 
     fn split(method: &str) -> Option<(&str, i32)> {
@@ -900,10 +887,10 @@ pub fn start(samples: &Path) -> Result<Controller, Box<dyn Error>> {
     device.set_data_callback(move |_, output, input| {
         let mut audio = audio.try_write().expect("audio");
         let song = song.try_read().expect("song");
-        while let Ok(setter) = receiver.try_recv() {
+        while let Ok((data, setter)) = receiver.try_recv() {
             match setter {
-                Message::Setter(data, f) => f(&mut audio, &song, data),
-                Message::SetEntry(data, id, key) => song.get_state(id).nudge(&key, data),
+                Message::Fn(f) => f(&mut audio, &song, data),
+                Message::Entry(id, key) => song.get_state(id).nudge(&key, data),
             }
         }
         audio.process(&song, input, output);
