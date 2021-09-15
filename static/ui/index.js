@@ -3,11 +3,11 @@ const rpc = (context, f) => {
 };
 const [state, clearCache] = State({
   defaults: [['modifier', undefined], ['tempoTaps', []]],
-  get: rpc('get', window.__TAURI_INVOKE__ ?? console.log),
+  get: rpc('get', window.__TAURI__?.invoke ?? console.log),
 });
 const bindings = Bindings({
   state,
-  set: rpc('set', window.__TAURI_INVOKE__ ?? console.log),
+  set: rpc('set', window.__TAURI__?.invoke ?? console.log),
 });
 
 
