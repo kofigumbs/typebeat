@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Sets up the build environment for Emscripten
+#
+# Q: Why is this so complicated?
+# A: - https://github.com/rust-lang/rust/issues/85821
+#    - https://github.com/rust-lang/rust-bindgen/issues/751
+#    - https://github.com/rust-lang/rust-bindgen/issues/1780
+#    - https://github.com/ExPixel/miniaudio-rs/pull/73
+
+set -xeo pipefail
+
+TARGET="wasm32-unknown-emscripten"
+SYSROOT="`emconfigure env 2> /dev/null | sed -n -e 's/^EMSCRIPTEN=//p'`/cache/sysroot"
+
+CARGO_BUILD_TARGET="$TARGET" \
+  BINDGEN_EXTRA_CLANG_ARGS="--target=$TARGET --sysroot=$SYSROOT -fvisibility=default" \
+  EMMAKEN_CFLAGS="-s ERROR_ON_UNDEFINED_SYMBOLS=0" \
+  cargo "$@" --package typebeat-web

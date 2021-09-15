@@ -1,13 +1,13 @@
-const foreign = (context, f = console.log) => {
-  return (method, data = 0) => f('[Typebeat]', { context, method, data });
+const rpc = (context, f) => {
+  return (method, data = 0) => f('rpc', { context, method, data });
 };
 const [state, clearCache] = State({
   defaults: [['modifier', undefined], ['tempoTaps', []]],
-  get: foreign('get', window.rpc?.call),
+  get: rpc('get', window.__TAURI_INVOKE__ ?? console.log),
 });
 const bindings = Bindings({
   state,
-  set: foreign('set', window.rpc?.notify),
+  set: rpc('set', window.__TAURI_INVOKE__ ?? console.log),
 });
 
 

@@ -1,0 +1,12 @@
+[package]
+name = "typebeat-web"
+version = "0.1.0"
+edition = "2018"
+
+[[bin]]
+name = "typebeat"
+path = "main.rs"
+
+[dependencies]
+typebeat = { path = ".." }
+wasm-bindgen-futures = "0.4"

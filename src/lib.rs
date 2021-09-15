@@ -2,11 +2,11 @@
 #![feature(async_closure)]
 
 use std::collections::HashMap;
-use std::fs::File;
+use std::error::Error;
+use std::path::Path;
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
-use anyhow::Error;
 use miniaudio::{
     Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
 };
@@ -14,12 +14,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use atomic_cell::AtomicCell;
 use effects::{FaustDsp, ParamIndex, UI};
-use platform::Location;
 use state::{Enum, Key, State};
 
 mod atomic_cell;
 mod effects;
-mod platform;
 mod state;
 
 const SEND_COUNT: usize = 3;
@@ -76,11 +74,8 @@ fn adjust_usize(lhs: usize, diff: i32, rhs: usize) -> usize {
     }
 }
 
-pub fn read_sample(i: usize) -> Result<Vec<f32>, Error> {
-    let path = std::env::current_dir()?
-        .join("static")
-        .join("samples")
-        .join(format!("{:02}.wav", i));
+pub fn read_sample(root: &Path, i: usize) -> Result<Vec<f32>, Box<dyn Error>> {
+    let path = root.join("samples").join(format!("{:02}.wav", i));
     let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
     let mut decoder = Decoder::from_file(&path, Some(&config))?;
     let frame_count = decoder.length_in_pcm_frames() as usize;
@@ -418,7 +413,7 @@ struct Song {
 }
 
 impl Song {
-    fn register(&mut self, sends: &[DspDyn]) {
+    fn register(&mut self, root: &Path, sends: &[DspDyn]) {
         let mut buttons = ButtonRegisterUi::default();
         effects::insert::build_user_interface_static(&mut buttons);
         self.gate_id = buttons.registry["gate"];
@@ -443,7 +438,7 @@ impl Song {
             );
             state.register(RESOLUTION.between(1, MAX_RESOLUTION).default(16));
             effects::insert::build_user_interface_static(&mut StateRegisterUi { state });
-            track.file_sample = read_sample(i).unwrap();
+            track.file_sample = read_sample(root, i).expect("track.file_sample");
         }
 
         for DspDyn { builder, .. } in sends.iter() {
@@ -782,42 +777,12 @@ pub struct Controller {
     device: Device,
     song: Arc<RwLock<Song>>,
     audio: Arc<RwLock<Audio>>,
-    location: Arc<RwLock<Location>>,
-    sender: Sender<Message>,
+    sender: Arc<Mutex<Sender<Message>>>,
 }
 
 impl Controller {
-    pub fn open(&self) {
-        let this = self.clone();
-        let task = self.location.read().unwrap().file_dialog().pick_file();
-        platform::execute(async move || {
-            if let Some(file) = task.await {
-                let json = file.read().await;
-                if let Ok(mut song) = serde_json::from_slice::<Song>(&json) {
-                    this.device.stop().unwrap();
-                    let audio = this.audio.read().unwrap();
-                    song.register(&audio.sends);
-                    *this.song.write().unwrap() = song;
-                    this.device.start().unwrap();
-                }
-            }
-        });
-    }
-
-    pub fn save(&self) {
-        let this = self.clone();
-        let task = platform::save_file(&self.location.read().unwrap());
-        platform::execute(async move || {
-            if let Some(path) = task.await {
-                let file = File::create(&path).unwrap();
-                serde_json::to_writer(file, &*this.song.read().unwrap()).unwrap();
-                *this.location.write().unwrap() = Location::from(path);
-            }
-        });
-    }
-
     pub fn handle_rpc(&self, context: &str, method: &str, data: i32) -> Option<i32> {
-        let song = self.song.read().unwrap();
+        let song = self.song.read().expect("song");
         let send = |setter| self.send(Message::Setter(data, setter));
         Some(match format!("{} {}", context, method).as_str() {
             "get armed" => song.armed.load().into(),
@@ -879,7 +844,7 @@ impl Controller {
     }
 
     fn send<U>(&self, message: Message) -> Option<U> {
-        let _ = self.sender.send(message);
+        let _ = self.sender.lock().expect("sender").send(message);
         None
     }
 
@@ -889,7 +854,7 @@ impl Controller {
     }
 }
 
-pub fn start() -> Result<Controller, Error> {
+pub fn start(root: &Path) -> Result<Controller, Box<dyn Error>> {
     let audio = Audio {
         voices: vec![Voice::default(); VOICE_COUNT as usize],
         sends: [
@@ -911,7 +876,7 @@ pub fn start() -> Result<Controller, Error> {
     }
 
     let mut song = Song::default();
-    song.register(&audio.sends);
+    song.register(root, &audio.sends);
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);
@@ -927,8 +892,8 @@ pub fn start() -> Result<Controller, Error> {
     let (sender, receiver) = std::sync::mpsc::channel();
     let mut device = Device::new(None, &device_config)?;
     device.set_data_callback(move |_, output, input| {
-        let mut audio = audio.try_write().unwrap();
-        let song = song.try_read().unwrap();
+        let mut audio = audio.try_write().expect("audio");
+        let song = song.try_read().expect("song");
         while let Ok(setter) = receiver.try_recv() {
             match setter {
                 Message::Setter(data, f) => f(&mut audio, &song, data),
@@ -942,8 +907,7 @@ pub fn start() -> Result<Controller, Error> {
         device,
         song: controller_song,
         audio: controller_audio,
-        location: Arc::default(),
-        sender,
+        sender: Arc::new(Mutex::new(sender)),
     };
     controller.device.start()?;
     Ok(controller)

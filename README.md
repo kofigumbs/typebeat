@@ -2,15 +2,20 @@
   <img src="./static/ui/logo/screenshot.png" alt="Typebeat logo" width="200" />
 </h1>
 
-```
-cargo run
+Typebeat uses the following build dependencies:
+
+- [Rust](https://www.rust-lang.org/learn/get-started)
+- [Faust](https://github.com/grame-cncm/faust/releases)
+- [Emscripten](https://emscripten.org/docs/getting_started/downloads.html) (only required for web)
+
+Run the native app with:
+
+```bash
+cargo run -p typebeat-tauri # ✨ QUICK-START COMMAND 💫
 ```
 
-## Web build (on macOS)
+Build the web app with:
 
-1. `brew install llvm emscripten`
-2. ```
-   LLVM_CONFIG_PATH="/usr/local/opt/llvm/bin/llvm-config" \
-   BINDGEN_EXTRA_CLANG_ARGS="--target=wasm32-unknown-emscripten --sysroot=/usr/local/opt/emscripten/libexec/cache/sysroot -fvisibility=default" \
-   cargo build --target wasm32-unknown-emscripten --bin typebeat-lite
-   ```
+```bash
+src-wrb/run-cargo build
+```

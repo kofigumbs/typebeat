@@ -1,0 +1,20 @@
+[package]
+name = "typebeat-tauri"
+description = ""
+version = "0.1.0"
+edition = "2018"
+
+[[bin]]
+name = "typebeat"
+path = "main.rs"
+
+[build-dependencies]
+tauri-build = { version = "1.0.0-beta.4" }
+
+[dependencies]
+tauri = { version = "1.0.0-beta.8", features = ["api-all"] }
+typebeat = { path = ".." }
+
+[features]
+default = [ "custom-protocol" ]
+custom-protocol = [ "tauri/custom-protocol" ]
