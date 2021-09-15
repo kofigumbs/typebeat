@@ -5,8 +5,13 @@ use tauri::{Builder, Menu, MenuItem, State, Submenu};
 use typebeat::Controller;
 
 #[tauri::command]
-fn rpc(method: &'_ str, context: &'_ str, data: i32, state: State<'_, Controller>) -> Option<i32> {
-    state.handle_rpc(context, method, data)
+fn get(method: &'_ str, state: State<'_, Controller>) -> Option<i32> {
+    state.get(method)
+}
+
+#[tauri::command]
+fn set(method: &'_ str, data: i32, state: State<'_, Controller>) {
+    state.set(method, data)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -31,7 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Builder::default()
         .menu(menu)
         .manage(typebeat::start(&samples)?)
-        .invoke_handler(tauri::generate_handler![rpc])
+        .invoke_handler(tauri::generate_handler![get, set])
         .run(context)?;
     Ok(())
 }

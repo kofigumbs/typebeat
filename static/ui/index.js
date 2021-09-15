@@ -1,24 +1,12 @@
-const rpc = (context, f) => {
-  return (method, data = 0) => f('rpc', { context, method, data });
-};
+const typebeat = window.typebeat ?? console.log;
 const [state, clearCache] = State({
   defaults: [['modifier', undefined], ['tempoTaps', []]],
-  get: rpc('get', window.__TAURI__?.invoke ?? console.log),
+  get: method => typebeat('get', { method }),
 });
 const bindings = Bindings({
   state,
-  set: rpc('set', window.__TAURI__?.invoke ?? console.log),
+  set: (method, data) => typebeat('set', { method, data }),
 });
-
-
-/*
- * movable window
- * https://github.com/tauri-apps/wry/blob/134af020c0058a84c8b6d640613d6d001aa42f82/examples/custom_titlebar.rs#L52-L58
- */
-document.addEventListener('mousedown', event => {
-  if (event.buttons === 1)
-    event.detail === 2 ? window.rpc?.notify('maximize') : window.rpc?.notify('move');
-})
 
 
 /*

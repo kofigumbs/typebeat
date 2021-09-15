@@ -780,71 +780,78 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub fn handle_rpc(&self, context: &str, method: &str, data: i32) -> Option<i32> {
+    pub fn get(&self, method: &str) -> Option<i32> {
         let song = self.song.read().expect("song");
-        let send = |setter| self.send(Message::Setter(data, setter));
-        Some(match format!("{} {}", context, method).as_str() {
-            "get armed" => song.armed.load().into(),
-            "get bars" => song.active_track().bars() as i32,
-            "get canClear" => song.active_track().can_clear() as i32,
-            "get playing" => song.playing.load().into(),
-            "get step" => song.step.load() as i32,
-            "get viewStart" => song.active_track().view_start() as i32,
-            "set armed" => send(|_, song, _| song.armed.toggle())?,
-            "set auditionDown" => send(|audio, song, i| {
-                audio.key_down(
-                    song,
-                    (i as usize).min(TRACK_COUNT - 1),
-                    get_clamped(&song.tracks, i).state.get(&ACTIVE_KEY),
-                )
-            })?,
-            "set auditionUp" => send(|audio, song, i| {
-                audio.key_up(
-                    song,
-                    (i as usize).min(TRACK_COUNT - 1),
-                    get_clamped(&song.tracks, i).state.get(&ACTIVE_KEY),
-                )
-            })?,
-            "set bars" => send(|_, song, i| song.active_track().adjust_length(i))?,
-            "set clear" => send(|_, song, _| song.active_track().clear())?,
-            "set muted" => send(|_, song, i| get_clamped(&song.tracks, i).state.toggle(&MUTED))?,
-            "set noteDown" => {
-                send(|audio, song, i| audio.key_down(song, song.state.get(&ACTIVE_TRACK_ID), i))?
-            }
-            "set noteUp" => {
-                send(|audio, song, i| audio.key_up(song, song.state.get(&ACTIVE_TRACK_ID), i))?
-            }
-            "set page" => send(|_, song, i| song.active_track().adjust_page(i))?,
-            "set playing" => send(|audio, song, _| audio.toggle_play(song))?,
-            "set sampleType" => send(|audio, song, i| audio.set_sample_type(song, i))?,
-            "set sequence" => send(|_, song, i| song.active_track().toggle_step(i as usize))?,
-            "set zoomIn" => send(|_, song, _| song.active_track().zoom_in())?,
-            "set zoomOut" => send(|_, song, _| song.active_track().zoom_out())?,
+        let response = match method {
+            "armed" => song.armed.load().into(),
+            "bars" => song.active_track().bars() as i32,
+            "canClear" => song.active_track().can_clear() as i32,
+            "playing" => song.playing.load().into(),
+            "step" => song.step.load() as i32,
+            "viewStart" => song.active_track().view_start() as i32,
             _ => {
                 if let Some((state_id, key)) = song.find_state(method) {
-                    match context {
-                        "get" => song.get_state(state_id).get(&key),
-                        "set" => self.send(Message::SetEntry(data, state_id, key))?,
-                        _ => None?,
-                    }
+                    song.get_state(state_id).get(&key)
                 } else if let Some((name, i)) = Self::split(method) {
-                    match format!("{} {}", context, name).as_str() {
-                        "get muted" => get_clamped(&song.tracks, i).state.get(&MUTED) as i32,
-                        "get note" => song.note(song.active_track(), i),
-                        "get recent" => get_clamped(&song.tracks, i).recent.swap(false) as i32,
-                        "get view" => song.active_track().view(i as usize) as i32,
+                    match name {
+                        "muted" => get_clamped(&song.tracks, i).state.get(&MUTED) as i32,
+                        "note" => song.note(song.active_track(), i),
+                        "recent" => get_clamped(&song.tracks, i).recent.swap(false) as i32,
+                        "view" => song.active_track().view(i as usize) as i32,
                         _ => None?,
                     }
                 } else {
                     None?
                 }
             }
-        })
+        };
+        Some(response)
     }
 
-    fn send<U>(&self, message: Message) -> Option<U> {
+    pub fn set(&self, method: &str, data: i32) {
+        let send = |setter| self.send(Message::Setter(data, setter));
+        match method {
+            "armed" => send(|_, song, _| song.armed.toggle()),
+            "auditionDown" => send(|audio, song, i| {
+                audio.key_down(
+                    song,
+                    (i as usize).min(TRACK_COUNT - 1),
+                    get_clamped(&song.tracks, i).state.get(&ACTIVE_KEY),
+                )
+            }),
+            "auditionUp" => send(|audio, song, i| {
+                audio.key_up(
+                    song,
+                    (i as usize).min(TRACK_COUNT - 1),
+                    get_clamped(&song.tracks, i).state.get(&ACTIVE_KEY),
+                )
+            }),
+            "bars" => send(|_, song, i| song.active_track().adjust_length(i)),
+            "clear" => send(|_, song, _| song.active_track().clear()),
+            "muted" => send(|_, song, i| get_clamped(&song.tracks, i).state.toggle(&MUTED)),
+            "noteDown" => {
+                send(|audio, song, i| audio.key_down(song, song.state.get(&ACTIVE_TRACK_ID), i))
+            }
+            "noteUp" => {
+                send(|audio, song, i| audio.key_up(song, song.state.get(&ACTIVE_TRACK_ID), i))
+            }
+            "page" => send(|_, song, i| song.active_track().adjust_page(i)),
+            "playing" => send(|audio, song, _| audio.toggle_play(song)),
+            "sampleType" => send(|audio, song, i| audio.set_sample_type(song, i)),
+            "sequence" => send(|_, song, i| song.active_track().toggle_step(i as usize)),
+            "zoomIn" => send(|_, song, _| song.active_track().zoom_in()),
+            "zoomOut" => send(|_, song, _| song.active_track().zoom_out()),
+            _ => {
+                let song = self.song.read().expect("song");
+                if let Some((state_id, key)) = song.find_state(method) {
+                    self.send(Message::SetEntry(data, state_id, key));
+                }
+            }
+        }
+    }
+
+    fn send(&self, message: Message) {
         let _ = self.sender.lock().expect("sender").send(message);
-        None
     }
 
     fn split(method: &str) -> Option<(&str, i32)> {
