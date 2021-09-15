@@ -4,8 +4,8 @@
     "version": "0.1.0"
   },
   "build": {
-    "distDir": ["../static/ui", "typebeat.js"],
-    "devPath": ["../static/ui", "typebeat.js"],
+    "distDir": ["index.html", "../static/ui/"],
+    "devPath": ["index.html", "../static/ui/"],
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
     "withGlobalTauri": true
