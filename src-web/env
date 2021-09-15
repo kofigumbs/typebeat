@@ -16,4 +16,4 @@ SYSROOT="`emconfigure env 2> /dev/null | sed -n -e 's/^EMSCRIPTEN=//p'`/cache/sy
 CARGO_BUILD_TARGET="$TARGET" \
   BINDGEN_EXTRA_CLANG_ARGS="--target=$TARGET --sysroot=$SYSROOT -fvisibility=default" \
   EMMAKEN_CFLAGS="-s ERROR_ON_UNDEFINED_SYMBOLS=0" \
-  cargo "$@" --package typebeat-web
+  "$@"

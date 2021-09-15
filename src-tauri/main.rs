@@ -1,11 +1,6 @@
-#![cfg_attr(
-    all(not(debug_assertions), target_os = "windows"),
-    windows_subsystem = "windows"
-)]
-
 use std::error::Error;
-use std::path::Path;
 
+use tauri::api::path::BaseDirectory;
 use tauri::{Builder, State};
 use typebeat::Controller;
 
@@ -16,13 +11,15 @@ fn rpc(method: &'_ str, context: &'_ str, data: i32, state: State<'_, Controller
 
 fn main() -> Result<(), Box<dyn Error>> {
     let context = tauri::generate_context!();
-    let resource_dir = if cfg!(debug_assertions) {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../static")
-    } else {
-        tauri::api::path::resource_dir(context.package_info()).unwrap()
-    };
+    let samples = tauri::api::path::resolve_path(
+        context.config(),
+        context.package_info(),
+        "../static/samples",
+        Some(BaseDirectory::Resource),
+    )?;
+    println!("{:?}", samples);
     Builder::default()
-        .manage(typebeat::start(&resource_dir)?)
+        .manage(typebeat::start(&samples)?)
         .invoke_handler(tauri::generate_handler![rpc])
         .run(context)?;
     Ok(())

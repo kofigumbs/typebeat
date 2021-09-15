@@ -74,10 +74,9 @@ fn adjust_usize(lhs: usize, diff: i32, rhs: usize) -> usize {
     }
 }
 
-pub fn read_sample(root: &Path, i: usize) -> Result<Vec<f32>, Box<dyn Error>> {
-    let path = root.join("samples").join(format!("{:02}.wav", i));
+pub fn read_sample(samples: &Path, i: usize) -> Result<Vec<f32>, Box<dyn Error>> {
     let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
-    let mut decoder = Decoder::from_file(&path, Some(&config))?;
+    let mut decoder = Decoder::from_file(&samples.join(format!("{:02}.wav", i)), Some(&config))?;
     let frame_count = decoder.length_in_pcm_frames() as usize;
     let mut samples = vec![0.0; 2 * frame_count];
     decoder.read_pcm_frames(&mut FramesMut::wrap(&mut samples[..], Format::F32, 2));
@@ -413,7 +412,7 @@ struct Song {
 }
 
 impl Song {
-    fn register(&mut self, root: &Path, sends: &[DspDyn]) {
+    fn register(&mut self, samples: &Path, sends: &[DspDyn]) {
         let mut buttons = ButtonRegisterUi::default();
         effects::insert::build_user_interface_static(&mut buttons);
         self.gate_id = buttons.registry["gate"];
@@ -438,7 +437,7 @@ impl Song {
             );
             state.register(RESOLUTION.between(1, MAX_RESOLUTION).default(16));
             effects::insert::build_user_interface_static(&mut StateRegisterUi { state });
-            track.file_sample = read_sample(root, i).expect("track.file_sample");
+            track.file_sample = read_sample(samples, i).expect("track.file_sample");
         }
 
         for DspDyn { builder, .. } in sends.iter() {
@@ -854,7 +853,7 @@ impl Controller {
     }
 }
 
-pub fn start(root: &Path) -> Result<Controller, Box<dyn Error>> {
+pub fn start(samples: &Path) -> Result<Controller, Box<dyn Error>> {
     let audio = Audio {
         voices: vec![Voice::default(); VOICE_COUNT as usize],
         sends: [
@@ -876,7 +875,7 @@ pub fn start(root: &Path) -> Result<Controller, Box<dyn Error>> {
     }
 
     let mut song = Song::default();
-    song.register(root, &audio.sends);
+    song.register(samples, &audio.sends);
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);

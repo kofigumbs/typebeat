@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -xeo pipefail
+
+# https://github.com/tauri-apps/tauri/blob/tauri-v1.0.0-beta.8/tooling/cli.rs/src/interface/rust.rs#L280-L326
+CARGO_TARGET_DIR="$(realpath "$(dirname $0)/../target")" "$@"
