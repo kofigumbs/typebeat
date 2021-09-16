@@ -2,13 +2,19 @@
 <meta charset="utf-8">
 
 <script>
-  const lib = new Promise(resolve => {
+  const controller = new Promise(resolve => {
     window.Module = {
-      postRun: resolve,
+      noExitRuntime: true,
+      onRuntimeInitialized: () => resolve(_start()),
       locateFile: () => "../target/wasm32-unknown-emscripten/debug/typebeat_web.wasm",
     };
-  })
-  window.typebeat = (method, argument) => lib.then(() => window.Module.asm[method](argument));
+  });
+  window.typebeat = (method, argument) => controller.then(handle => {
+    switch (method) {
+      case "get": return _get(handle, argument.method);
+      case "set": return _set(handle, argument.method, argument.data);
+    }
+  });
 </script>
 <script defer src="../target/wasm32-unknown-emscripten/debug/typebeat-web.js"></script>
 

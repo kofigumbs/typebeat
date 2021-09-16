@@ -19,7 +19,17 @@ impl Platform for StaticPlatform {
     }
 }
 
-#[wasm_bindgen::prelude::wasm_bindgen]
+#[no_mangle]
+pub fn set(controller: *const Controller, method: &str, data: i32) {
+    unsafe { (&*controller).set(method, data) }
+}
+
+#[no_mangle]
+pub fn get(controller: *const Controller, method: &str) -> i32 {
+    unsafe { (&*controller).get(method).unwrap_or_default() }
+}
+
+#[no_mangle]
 pub fn start() -> *const Controller {
     Box::leak(typebeat::start(StaticPlatform).expect("controller").into())
 }

@@ -9,4 +9,3 @@ path = "main.rs"
 
 [dependencies]
 typebeat = { path = ".." }
-wasm-bindgen = "0.2"
