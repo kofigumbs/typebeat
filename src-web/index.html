@@ -2,17 +2,17 @@
 <meta charset="utf-8">
 
 <script>
-  const controller = new Promise(resolve => {
+  const lib = new Promise(resolve => {
     window.Module = {
       noExitRuntime: true,
-      onRuntimeInitialized: () => resolve(_start()),
+      onRuntimeInitialized: resolve,
       locateFile: () => "../target/wasm32-unknown-emscripten/debug/typebeat_web.wasm",
     };
   });
-  window.typebeat = (method, argument) => controller.then(handle => {
+  window.typebeat = (method, argument) => lib.then(handle => {
     switch (method) {
-      case "get": return _get(handle, argument.method);
-      case "set": return _set(handle, argument.method, argument.data);
+      case "get": return _get(argument.method);
+      case "set": return _set(argument.method, argument.data);
     }
   });
 </script>

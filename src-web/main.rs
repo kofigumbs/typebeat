@@ -1,4 +1,8 @@
+use std::sync::atomic::{AtomicPtr, Ordering};
+
 use typebeat::{Controller, Platform};
+
+static CONTROLLER: AtomicPtr<Controller> = AtomicPtr::new(std::ptr::null_mut());
 
 struct StaticPlatform;
 
@@ -20,18 +24,20 @@ impl Platform for StaticPlatform {
 }
 
 #[no_mangle]
-pub fn set(controller: *const Controller, method: &str, data: i32) {
-    unsafe { (&*controller).set(method, data) }
+pub fn set(method: &str, data: i32) {
+    unsafe { &*CONTROLLER.load(Ordering::Relaxed) }.set(method, data)
 }
 
 #[no_mangle]
-pub fn get(controller: *const Controller, method: &str) -> i32 {
-    unsafe { (&*controller).get(method).unwrap_or_default() }
+pub fn get(method: &str) -> i32 {
+    unsafe { &*CONTROLLER.load(Ordering::Relaxed) }
+        .get(method)
+        .unwrap_or_default()
 }
 
-#[no_mangle]
-pub fn start() -> *const Controller {
-    Box::leak(typebeat::start(StaticPlatform).expect("controller").into())
+pub fn main() {
+    CONTROLLER.store(
+        Box::leak(typebeat::start(StaticPlatform).expect("controller").into()),
+        Ordering::Relaxed,
+    );
 }
-
-fn main() {}
