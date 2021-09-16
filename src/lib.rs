@@ -3,13 +3,10 @@
 
 use std::collections::HashMap;
 use std::error::Error;
-use std::path::Path;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, RwLock};
 
-use miniaudio::{
-    Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
-};
+use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use atomic_cell::AtomicCell;
@@ -19,6 +16,7 @@ use state::{Enum, Key, State};
 mod atomic_cell;
 mod effects;
 mod state;
+pub use miniaudio;
 
 const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
@@ -29,8 +27,8 @@ const VIEWS_PER_PAGE: usize = 4;
 
 const KEY_COUNT: i32 = 15;
 const VOICE_COUNT: i32 = 5;
-const SAMPLE_RATE: i32 = 44100;
-const TRACK_COUNT: usize = 15;
+pub const SAMPLE_RATE: i32 = 44100;
+pub const TRACK_COUNT: usize = 15;
 
 const SCALE_LENGTH: usize = 7;
 const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
@@ -72,15 +70,6 @@ fn adjust_usize(lhs: usize, diff: i32, rhs: usize) -> usize {
     } else {
         lhs - diff.abs() as usize * rhs
     }
-}
-
-pub fn read_sample(samples: &Path, i: usize) -> Result<Vec<f32>, Box<dyn Error>> {
-    let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
-    let mut decoder = Decoder::from_file(&samples.join(format!("{:02}.wav", i)), Some(&config))?;
-    let frame_count = decoder.length_in_pcm_frames() as usize;
-    let mut samples = vec![0.0; 2 * frame_count];
-    decoder.read_pcm_frames(&mut FramesMut::wrap(&mut samples[..], Format::F32, 2));
-    Ok(samples)
 }
 
 #[derive(Default)]
@@ -386,6 +375,10 @@ impl Track {
     }
 }
 
+pub trait Platform {
+    fn get_stereo_sample(&self, i: usize) -> Vec<f32>;
+}
+
 enum StateId {
     Song,
     ActiveTrack,
@@ -412,7 +405,7 @@ struct Song {
 }
 
 impl Song {
-    fn register(&mut self, samples: &Path, sends: &[DspDyn]) {
+    fn register(&mut self, platform: impl Platform, sends: &[DspDyn]) {
         let mut buttons = ButtonRegisterUi::default();
         effects::insert::build_user_interface_static(&mut buttons);
         self.gate_id = buttons.registry["gate"];
@@ -437,7 +430,7 @@ impl Song {
             );
             state.register(RESOLUTION.between(1, MAX_RESOLUTION).default(16));
             effects::insert::build_user_interface_static(&mut StateRegisterUi { state });
-            track.file_sample = read_sample(samples, i).expect("track.file_sample");
+            track.file_sample = platform.get_stereo_sample(i);
         }
 
         for DspDyn { builder, .. } in sends.iter() {
@@ -847,7 +840,7 @@ impl Controller {
     }
 }
 
-pub fn start(samples: &Path) -> Result<Controller, Box<dyn Error>> {
+pub fn start(platform: impl Platform) -> Result<Controller, Box<dyn Error>> {
     let audio = Audio {
         voices: vec![Voice::default(); VOICE_COUNT as usize],
         sends: [
@@ -869,7 +862,7 @@ pub fn start(samples: &Path) -> Result<Controller, Box<dyn Error>> {
     }
 
     let mut song = Song::default();
-    song.register(samples, &audio.sends);
+    song.register(platform, &audio.sends);
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);

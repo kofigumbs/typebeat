@@ -13,7 +13,8 @@ set -xeo pipefail
 TARGET="wasm32-unknown-emscripten"
 SYSROOT="`emconfigure env 2> /dev/null | sed -n -e 's/^EMSCRIPTEN=//p'`/cache/sysroot"
 
+cd `dirname $0`
 CARGO_BUILD_TARGET="$TARGET" \
   BINDGEN_EXTRA_CLANG_ARGS="--target=$TARGET --sysroot=$SYSROOT -fvisibility=default" \
-  EMMAKEN_CFLAGS="-s ERROR_ON_UNDEFINED_SYMBOLS=0" \
+  EMMAKEN_CFLAGS="-s ERROR_ON_UNDEFINED_SYMBOLS=0 -s ENVIRONMENT=web" \
   "$@"

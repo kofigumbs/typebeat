@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<script>
+  const lib = new Promise(resolve => {
+    window.Module = {
+      postRun: resolve,
+      locateFile: () => "../target/wasm32-unknown-emscripten/debug/typebeat_web.wasm",
+    };
+  })
+  window.typebeat = (method, argument) => lib.then(() => window.Module.asm[method](argument));
+</script>
+<script defer src="../target/wasm32-unknown-emscripten/debug/typebeat-web.js"></script>
+
+<link rel="stylesheet" href="../static/ui/FiraCode/distr/fira_code.css">
+<link rel="stylesheet" href="../static/ui/index.css">
+<script defer src="../static/ui/Themes/scripts/lib/theme.js"></script>
+<script defer src="../static/ui/tare/dist/tare.min.js"></script>
+<script defer src="../static/ui/typed-label.js"></script>
+<script defer src="../static/ui/state.js"></script>
+<script defer src="../static/ui/bindings.js"></script>
+<script defer src="../static/ui/index.js"></script>
