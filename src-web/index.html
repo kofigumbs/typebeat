@@ -5,8 +5,12 @@
   const lib = new Promise(resolve => {
     window.Module = {
       noExitRuntime: true,
-      onRuntimeInitialized: () => resolve(_start()),
-      locateFile: () => "../target/wasm32-unknown-emscripten/debug/typebeat_web.wasm",
+      onRuntimeInitialized: () => {
+        document.addEventListener('click', () => {
+          resolve(_start());
+        }, { once: true });
+      },
+      locateFile: () => '../target/wasm32-unknown-emscripten/debug/typebeat_web.wasm',
     };
   });
   const withString = (string, f) => {
@@ -18,8 +22,8 @@
   window.typebeat = async (context, { method, data }) => {
     const controller = await lib;
     switch (context) {
-      case "get": return withString(method, x => _get(controller, x));
-      case "set": return withString(method, x => _set(controller, x, data));
+      case 'get': return withString(method, x => _get(controller, x));
+      case 'set': return withString(method, x => _set(controller, x, data));
     }
   };
 </script>

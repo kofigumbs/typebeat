@@ -1,24 +1,18 @@
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tauri::api::path::BaseDirectory;
 use tauri::{Builder, Menu, MenuItem, State, Submenu};
 
-use typebeat::miniaudio::{Decoder, DecoderConfig, Format, FramesMut};
-use typebeat::{Controller, Platform, SAMPLE_RATE};
+use typebeat::{Controller, Platform};
 
-struct FilePlatform {
+struct TauriPlatform {
     root: PathBuf,
 }
 
-impl Platform for FilePlatform {
-    fn get_stereo_sample(&self, i: usize) -> Vec<f32> {
-        let path = self.root.join("samples").join(format!("{:02}.wav", i));
-        let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
-        let mut decoder = Decoder::from_file(&path, Some(&config)).expect("decoder");
-        let mut samples = vec![0.0; 2 * decoder.length_in_pcm_frames() as usize];
-        decoder.read_pcm_frames(&mut FramesMut::wrap(&mut samples[..], Format::F32, 2));
-        samples
+impl Platform for TauriPlatform {
+    fn root(&self) -> &Path {
+        &self.root
     }
 }
 
@@ -45,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .add_native_item(MenuItem::Paste),
         ));
     let context = tauri::generate_context!();
-    let platform = FilePlatform {
+    let platform = TauriPlatform {
         root: tauri::api::path::resolve_path(
             context.config(),
             context.package_info(),

@@ -1,13 +1,14 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
+use std::path::Path;
 
 use typebeat::{Controller, Platform};
 
-struct StaticPlatform;
+struct WebPlatform;
 
-impl Platform for StaticPlatform {
-    fn get_stereo_sample(&self, _i: usize) -> Vec<f32> {
-        Vec::new() // TODO
+impl Platform for WebPlatform {
+    fn root(&self) -> &Path {
+        Path::new("/")
     }
 }
 
@@ -33,7 +34,7 @@ pub fn get(controller: *const Controller, method: *const c_char) -> i32 {
 
 #[no_mangle]
 pub fn start() -> *const Controller {
-    Box::leak(typebeat::start(StaticPlatform).expect("controller").into())
+    Box::leak(typebeat::start(WebPlatform).expect("controller").into())
 }
 
 pub fn main() {}
