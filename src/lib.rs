@@ -1,11 +1,11 @@
 #![feature(array_methods)]
-#![feature(async_closure)]
 
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, RwLock};
 
+use default_boxed::DefaultBoxed;
 use miniaudio::{Device, DeviceConfig, DeviceType, Format, Frames, FramesMut};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -106,19 +106,14 @@ impl<'a, T: FaustDsp<T = f32> + ?Sized> UI<f32> for StateSyncUi<'a, T> {
 }
 
 /// Wrapper for FaustDsp that implements Clone and Default
+#[derive(Clone)]
 struct DspBox<T> {
     dsp: Box<T>,
 }
 
-impl<T: FaustDsp> Clone for DspBox<T> {
-    fn clone(&self) -> Self {
-        Self::default()
-    }
-}
-
-impl<T: FaustDsp> Default for DspBox<T> {
+impl<T: FaustDsp + DefaultBoxed> Default for DspBox<T> {
     fn default() -> Self {
-        let mut dsp = Box::new(T::new());
+        let mut dsp = T::default_boxed();
         dsp.init(SAMPLE_RATE);
         DspBox { dsp }
     }

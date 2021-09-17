@@ -6,7 +6,7 @@
     window.Module = {
       noExitRuntime: true,
       onRuntimeInitialized: resolve,
-      locateFile: () => "../target/wasm32-unknown-emscripten/debug/typebeat_web.wasm",
+      locateFile: () => "../target/wasm32-unknown-emscripten/release/typebeat_web.wasm",
     };
   });
   window.typebeat = (method, argument) => lib.then(handle => {
@@ -16,7 +16,7 @@
     }
   });
 </script>
-<script defer src="../target/wasm32-unknown-emscripten/debug/typebeat-web.js"></script>
+<script defer src="../target/wasm32-unknown-emscripten/release/typebeat-web.js"></script>
 
 <link rel="stylesheet" href="../static/ui/FiraCode/distr/fira_code.css">
 <link rel="stylesheet" href="../static/ui/index.css">

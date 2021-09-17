@@ -13,6 +13,7 @@ overflow-checks = false
 
 [dependencies]
 crossbeam = "0.8"
+default-boxed = "0.1"
 directories = "3.0"
 futures = "0.3"
 libm = "0.2.1"

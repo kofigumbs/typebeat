@@ -22,10 +22,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             .join(&basename)
             .with_extension("rs");
         let _ = std::fs::remove_file(&out);
-        Command::new("faust")
-            .args(&["-lang", "rust", "-cn", &basename])
-            .args(&["-o", &out.to_string_lossy(), &path])
-            .status()?;
+        let dsp = Command::new("faust")
+            .args(&["-lang", "rust", "-cn", &basename, &path])
+            .output()?
+            .stdout;
+        let ident = format!("pub struct {} {{", basename);
+        let with_derive = format!("#[derive(Clone, default_boxed::DefaultBoxed)]\n{}", ident);
+        std::fs::write(&out, String::from_utf8(dsp)?.replace(&ident, &with_derive))?;
         println!("cargo:rerun-if-changed={}", &path);
     }
     Ok(())
