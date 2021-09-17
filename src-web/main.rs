@@ -8,13 +8,12 @@ struct WebPlatform;
 
 impl Platform for WebPlatform {
     fn root(&self) -> &Path {
-        Path::new("/")
+        Path::new("/static")
     }
 }
 
 fn c_str(chars: *const c_char) -> Option<&'static str> {
-    unsafe { chars.as_ref().map(|chars| CStr::from_ptr(chars)) }
-        .and_then(|chars| chars.to_str().ok())
+    unsafe { CStr::from_ptr(chars.as_ref()?).to_str().ok() }
 }
 
 #[no_mangle]
