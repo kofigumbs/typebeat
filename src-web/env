@@ -15,5 +15,5 @@ TARGET="wasm32-unknown-emscripten"
 
 CARGO_BUILD_TARGET="$TARGET" \
   BINDGEN_EXTRA_CLANG_ARGS="--target=$TARGET --sysroot=$SYSROOT -fvisibility=default" \
-  EMMAKEN_CFLAGS="-s ERROR_ON_UNDEFINED_SYMBOLS=0 -s ENVIRONMENT=web -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_FUNCTIONS=\"['_start','_get','_set']\" --embed-file static/samples" \
+  EMMAKEN_CFLAGS="-s ERROR_ON_UNDEFINED_SYMBOLS=0 -s ENVIRONMENT=web -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_RUNTIME_METHODS=\"['ccall']\" --embed-file static/samples" \
   "$@"

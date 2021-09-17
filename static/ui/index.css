@@ -1,33 +1,36 @@
-* {
-  transition: .1s ease;
-}
-
-html {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
+html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden;
-  font-size: 16px;
-  font-family: 'Fira Code';
-  font-feature-settings: "ss07";
-  background: var(--background);
+}
+
+html {
+  background: #eeeeee;
 }
 
 body {
+  font-size: 16px;
+  font-family: 'Fira Code';
+  font-feature-settings: "ss07";
+}
+
+.mount {
+  position: absolute;
+  height: 100%;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  margin: 0;
-  padding: 0;
   cursor: default;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+  background: var(--background);
+}
+
+.mount * {
+  transition: .1s ease;
 }
 
 .row, .minirow {

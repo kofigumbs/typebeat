@@ -30,7 +30,7 @@ const capsOnLeft = 'ZXCVBASDFGQWERT';
 const capsOnRight = 'NM,./HJKL;YUIOP';
 
 const mapJoin = (iterable, f) => Array.from(iterable).map(f).join('');
-document.body.innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], row => `
+document.querySelector('.mount').innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], row => `
   <div class="row">
     ${mapJoin(row, cap => {
       if (cap === 'Q')
@@ -145,8 +145,11 @@ const handleDocumentKey = event => {
   requestSync();
 };
 
-document.addEventListener('keydown', handleDocumentKey);
-document.addEventListener('keyup', handleDocumentKey);
-document.addEventListener('keypress', event => !hasModifier(event));
+(async () => {
+  await window.typebeat?.ready;
+  document.addEventListener('keydown', handleDocumentKey);
+  document.addEventListener('keyup', handleDocumentKey);
+  document.addEventListener('keypress', event => !hasModifier(event));
+})();
 
 sync();

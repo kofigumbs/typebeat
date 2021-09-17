@@ -2,32 +2,33 @@
 <meta charset="utf-8">
 
 <script>
-  const lib = new Promise(resolve => {
-    window.Module = {
-      noExitRuntime: true,
-      onRuntimeInitialized: () => {
-        document.addEventListener('click', () => {
-          resolve(_start());
-        }, { once: true });
-      },
-      locateFile: () => '../target/wasm32-unknown-emscripten/debug/typebeat_web.wasm',
-    };
-  });
-  const withString = (string, f) => {
-    let cString = allocateUTF8(string);
-    let result = f(cString);
-    _free(cString);
-    return result;
+  window.Module = {
+    locateFile: () => '../target/wasm32-unknown-emscripten/debug/typebeat_web.wasm',
+    noExitRuntime: true,
   };
   window.typebeat = async (context, { method, data }) => {
-    const controller = await lib;
+    const controller = await window.typebeat.ready;
     switch (context) {
-      case 'get': return withString(method, x => _get(controller, x));
-      case 'set': return withString(method, x => _set(controller, x, data));
+      case 'get': return Module.ccall('get', 'number', ['number', 'string'], [controller, method]);
+      case 'set': return Module.ccall('set', 'number', ['number', 'string', 'number'], [controller, method, data]);
     }
   };
+  window.typebeat.ready = new Promise(resolve => {
+    Module.onRuntimeInitialized = () => {
+      document.querySelector('.start').addEventListener('click', () => {
+        document.querySelector('.mount').classList.add('ready');
+        resolve(Module.ccall('start', 'number', [], []));
+      }, { once: true });
+    };
+  });
 </script>
 <script defer src="../target/wasm32-unknown-emscripten/debug/typebeat-web.js"></script>
+
+<style>
+.mount:not(.ready) {
+  display: none;
+}
+</style>
 
 <link rel="stylesheet" href="../static/ui/FiraCode/distr/fira_code.css">
 <link rel="stylesheet" href="../static/ui/index.css">
@@ -37,3 +38,6 @@
 <script defer src="../static/ui/state.js"></script>
 <script defer src="../static/ui/bindings.js"></script>
 <script defer src="../static/ui/index.js"></script>
+
+<button class='start'>Start</button>
+<div class="mount"></div>
