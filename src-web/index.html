@@ -9,12 +9,19 @@
       locateFile: () => "../target/wasm32-unknown-emscripten/debug/typebeat_web.wasm",
     };
   });
-  window.typebeat = (method, argument) => lib.then(controller => {
-    switch (method) {
-      case "get": return _get(controller, argument.method);
-      case "set": return _set(controller, argument.method, argument.data);
+  const withString = (string, f) => {
+    let cString = allocateUTF8(string);
+    let result = f(cString);
+    _free(cString);
+    return result;
+  };
+  window.typebeat = async (context, { method, data }) => {
+    const controller = await lib;
+    switch (context) {
+      case "get": return withString(method, x => _get(controller, x));
+      case "set": return withString(method, x => _set(controller, x, data));
     }
-  });
+  };
 </script>
 <script defer src="../target/wasm32-unknown-emscripten/debug/typebeat-web.js"></script>
 
