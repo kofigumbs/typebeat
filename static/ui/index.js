@@ -89,7 +89,7 @@ const sync = async () => {
       forceClass(minipads[i], 'pulse');
     minipads[i].classList.toggle('active', i === await state.activeTrack);
   };
-  if (state.playing)
+  if (await state.playing)
     requestSync();
 };
 

@@ -5,18 +5,18 @@
   const lib = new Promise(resolve => {
     window.Module = {
       noExitRuntime: true,
-      onRuntimeInitialized: resolve,
-      locateFile: () => "../target/wasm32-unknown-emscripten/release/typebeat_web.wasm",
+      onRuntimeInitialized: () => resolve(_start()),
+      locateFile: () => "../target/wasm32-unknown-emscripten/debug/typebeat_web.wasm",
     };
   });
-  window.typebeat = (method, argument) => lib.then(handle => {
+  window.typebeat = (method, argument) => lib.then(controller => {
     switch (method) {
-      case "get": return _get(argument.method);
-      case "set": return _set(argument.method, argument.data);
+      case "get": return _get(controller, argument.method);
+      case "set": return _set(controller, argument.method, argument.data);
     }
   });
 </script>
-<script defer src="../target/wasm32-unknown-emscripten/release/typebeat-web.js"></script>
+<script defer src="../target/wasm32-unknown-emscripten/debug/typebeat-web.js"></script>
 
 <link rel="stylesheet" href="../static/ui/FiraCode/distr/fira_code.css">
 <link rel="stylesheet" href="../static/ui/index.css">
