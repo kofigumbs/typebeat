@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "vite build"
+    "postinstall": "vite build"
   },
   "devDependencies": {
     "vite": "^2.5.8"
