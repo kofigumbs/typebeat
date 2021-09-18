@@ -1,0 +1,11 @@
+{
+  "name": "typebeat",
+  "devDependencies": {
+    "vite": "^2.5.8"
+  },
+  "workspaces": [
+    "src-tauri",
+    "src-ui",
+    "src-web"
+  ]
+}

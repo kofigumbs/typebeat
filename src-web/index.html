@@ -1,33 +1,30 @@
 <!DOCTYPE html>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+  <title>Typebeat</title>
 
-<script type="module">
-  import wasmUrl from '../target/wasm32-unknown-emscripten/release/typebeat_web.wasm?url';
+  <script type="module">
+    import run from 'typebeat-ui/index.js';
+    import wasmUrl from '../target/wasm32-unknown-emscripten/release/typebeat_web.wasm?url';
 
-  window.typebeat = async (context, { method, data }) => {
-    const { lib, controller } = await window.typebeat.ready;
-    switch (context) {
-      case 'get': return lib.ccall('get', 'number', ['number', 'string'], [controller, method]);
-      case 'set': return lib.ccall('set', 'number', ['number', 'string', 'number'], [controller, method, data]);
-    }
-  };
-
-  window.typebeat.ready = import('../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async factory => {
-    const lib = await factory.default({
-      locateFile: () => wasmUrl,
-      noExitRuntime: true,
-    });
-    return new Promise(resolve => {
-      document.querySelector('.start').addEventListener('click', () => {
+    import('../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async factory => {
+      const lib = await factory.default({ locateFile: () => wasmUrl, noExitRuntime: true });
+      const init = () => {
+        const controller = lib.ccall('start', 'number', [], []);
+        run((context, { method, data }) => {
+          switch (context) {
+            case 'get': return lib.ccall('get', 'number', ['number', 'string'], [controller, method]);
+            case 'set': return lib.ccall('set', 'number', ['number', 'string', 'number'], [controller, method, data]);
+          }
+        });
         document.querySelector('.mount').classList.add('ready');
-        resolve({ lib, controller: lib.ccall('start', 'number', [], []) });
-      }, { once: true });
+      };
+      document.querySelector('.start').addEventListener('click', init, { once: true });
     });
-  });
-</script>
+  </script>
 
-<style>
+  <style>
 .mount:not(.ready) {
   display: none;
 }
@@ -43,23 +40,15 @@
 .logo {
   max-width: 200px;
 }
-</style>
-
-<link rel="stylesheet" href="../static/ui/FiraCode/distr/fira_code.css">
-<link rel="stylesheet" href="../static/ui/index.css">
-<script type="module" src="../static/ui/Themes/scripts/lib/theme.js"></script>
-<script type="module" src="../static/ui/tare/dist/tare.min.js"></script>
-<script type="module" src="../static/ui/typed-label.js"></script>
-<script type="module" src="../static/ui/state.js"></script>
-<script type="module" src="../static/ui/bindings.js"></script>
-<script type="module" src="../static/ui/index.js"></script>
+  </style>
+</head>
 
 <div class="mount"></div>
 <div class="info">
-  <img class="logo" src="../static/logo/screenshot.png" alt="Typebeat logo">
+  <img class="logo" src="../static/logo/screenshot.png" alt="Typebeat.">
   <p>A music toy played with your QWERTY keyboard.</p>
   <p>
-    <a class="start" href="#">Try it online</a> (with latency) or
+    <a class="start" href="javascript:void(0)">Try it online</a> (with latency) or
     <a href="https://github.com/kofigumbs/typebeat">run it on your computer</a>.
   </p>
 </div>

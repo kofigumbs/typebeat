@@ -1,8 +1,3 @@
 {
-  "scripts": {
-    "postinstall": "vite build"
-  },
-  "devDependencies": {
-    "vite": "^2.5.8"
-  }
+  "name": "typebeat-web"
 }
