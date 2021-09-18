@@ -5,7 +5,7 @@ html, body {
 }
 
 html {
-  background: #eeeeee;
+  background: var(--background, #eee);
 }
 
 body {
