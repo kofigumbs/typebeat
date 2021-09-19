@@ -8,7 +8,7 @@ struct WebPlatform;
 
 impl Platform for WebPlatform {
     fn root(&self) -> &Path {
-        Path::new("/static")
+        Path::new("/src")
     }
 }
 

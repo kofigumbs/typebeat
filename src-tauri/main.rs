@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         root: tauri::api::path::resolve_path(
             context.config(),
             context.package_info(),
-            "../static",
+            "../src",
             Some(BaseDirectory::Resource),
         )?,
     };

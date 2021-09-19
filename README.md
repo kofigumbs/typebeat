@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="./static/logo/screenshot.png" alt="Typebeat logo" width="200" />
+  <img src="./src/icons/icon.png" alt="Typebeat logo" width="200" />
 </h1>
 
 Building Typebeat locally requires the following build dependencies:

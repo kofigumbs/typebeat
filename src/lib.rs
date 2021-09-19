@@ -19,7 +19,6 @@ use state::{Enum, Key, State};
 mod atomic_cell;
 mod effects;
 mod state;
-use miniaudio;
 
 const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;

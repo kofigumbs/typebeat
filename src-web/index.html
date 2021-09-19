@@ -6,10 +6,14 @@
 
   <script type="module">
     import init from 'typebeat-ui/index.js';
-    import wasmUrl from '../target/wasm32-unknown-emscripten/release/typebeat_web.wasm?url';
+    import wasm from '../target/wasm32-unknown-emscripten/release/typebeat_web.wasm?url';
+
+    // This is probably a bug with emscripten. Seems like it's missing a `var`
+    // before using miniaudio. I don't understand it well enough to report tho.
+    globalThis.miniaudio = undefined;
 
     import('../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async factory => {
-      const lib = await factory.default({ locateFile: () => wasmUrl, noExitRuntime: true });
+      const lib = await factory.default({ locateFile: () => wasm, noExitRuntime: true });
       const start = () => {
         document.querySelector('.info').remove();
         document.body.classList.add('mount');
@@ -40,8 +44,7 @@
 </head>
 
 <div class="info">
-  <img class="logo" src="../static/logo/screenshot.png" alt="Typebeat.">
-  <p>A music toy played with your QWERTY keyboard.</p>
+  <p>Typebeat musical instrument played with your QWERTY keyboard.</p>
   <p>
     <a class="start" href="javascript:void(0)">Try it online</a> (with latency) or
     <a href="https://github.com/kofigumbs/typebeat">run it on your computer</a>.

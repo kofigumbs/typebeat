@@ -5,7 +5,7 @@
   },
   "workspaces": [
     "src-tauri",
-    "src-ui",
-    "src-web"
+    "src-web",
+    "src/ui"
   ]
 }

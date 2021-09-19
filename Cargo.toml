@@ -5,7 +5,7 @@ edition = "2018"
 build = "src/build.rs"
 
 [workspace]
-members = ["src-tauri", "src-web"]
+members = ["src-*"]
 
 [profile.dev]
 opt-level = 2
