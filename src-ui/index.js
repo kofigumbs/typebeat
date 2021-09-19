@@ -306,7 +306,7 @@ export default (callback) => {
   const capsOnLeft = 'ZXCVBASDFGQWERT';
   const capsOnRight = 'NM,./HJKL;YUIOP';
   const mapJoin = (iterable, f) => Array.from(iterable).map(f).join('');
-  document.querySelector('.mount').innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], row => `
+  document.body.innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], row => `
     <div class="row">
       ${mapJoin(row, cap => {
         if (cap === 'Q')
