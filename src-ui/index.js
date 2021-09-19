@@ -228,7 +228,7 @@ const sync = async () => {
   for (let i = 0; i < keysOnRight.length; i++) {
     const key = keysOnRight[i];
     const action = binding.actions.get(key.dataset.cap);
-    labels[i].ariaLabel = await action?.label() ?? '';
+    labels[i].setAttribute('aria-label', await action?.label() ?? '');
     if (!!state.modifier)
       labels[i].classList.toggle('title', !!(await action?.title()));
     if (await state[`recent ${i}`])
