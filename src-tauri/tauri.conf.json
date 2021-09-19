@@ -4,10 +4,10 @@
     "version": "0.1.0"
   },
   "build": {
-    "distDir": ["index.html", "../static/ui/"],
-    "devPath": ["index.html", "../static/ui/"],
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "",
+    "distDir": "dist",
+    "devPath": "http://localhost:3000",
+    "beforeDevCommand": "npx vite src-tauri",
+    "beforeBuildCommand": "npx vite build src-tauri",
     "withGlobalTauri": true
   },
   "tauri": {
@@ -25,7 +25,7 @@
       "resources": ["../static/samples"],
       "externalBin": [],
       "copyright": "",
-      "category": "DeveloperTool",
+      "category": "Music",
       "shortDescription": "",
       "longDescription": "",
       "deb": {
