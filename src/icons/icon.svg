@@ -5,19 +5,19 @@
       <feDropShadow result="drop-shadow-0" in="SourceGraphic" style="flood-opacity: 0.3;" stdDeviation="10" dx="0" dy="10"/>
     </filter>
     <g id="row">
-      <rect x="0"   width="130" height="130" fill="#0a0a0a"></rect>
-      <rect x="140" width="130" height="130" fill="#0a0a0a"></rect>
-      <rect x="280" width="130" height="130" fill="#0a0a0a"></rect>
-      <rect x="420" width="130" height="130" fill="#0a0a0a"></rect>
-      <rect x="560" width="130" height="130" fill="#0a0a0a"></rect>
+      <rect x="0"   width="120" height="120" fill="#0a0a0a"></rect>
+      <rect x="140" width="120" height="120" fill="#0a0a0a"></rect>
+      <rect x="280" width="120" height="120" fill="#0a0a0a"></rect>
+      <rect x="420" width="120" height="120" fill="#0a0a0a"></rect>
+      <rect x="560" width="120" height="120" fill="#0a0a0a"></rect>
     </g>
     <g id="grid">
-      <use  x="0"   y="0"   href="#row" />
-      <use  x="50"  y="140" href="#row" />
-      <use  x="100" y="280" href="#row" />
-      <rect x="100" y="280" width="130" height="130" fill="#ffb545"></rect>
+      <use  x="0"  y="0"   href="#row" />
+      <use  x="40" y="140" href="#row" />
+      <use  x="80" y="280" href="#row" />
+      <rect x="80" y="280" width="120" height="120" fill="#ffb545"></rect>
     </g>
   </defs>
   <rect x="100" y="100" width="1000" height="1000" fill="#eee" rx="156.25" style="filter: url(#shadow);"></rect>
-  <use  x="200" y="420" href="#grid" />
+  <use  x="215" y="425" href="#grid" />
 </svg>
