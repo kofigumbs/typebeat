@@ -1,8 +1,8 @@
-<h1 align="center">
-  <img src="./src/icons/icon.png" alt="Typebeat logo" width="200" />
-</h1>
+<img align="left" src="./src/icons/icon.svg" alt="Typebeat logo" style="width: 80px; height: 80px;" width="80px" height="80px" />
 
-Building Typebeat locally requires the following build dependencies:
+# Typebeat
+
+Building locally requires the following build dependencies:
 
 - [Rust](https://www.rust-lang.org/learn/get-started)
 - [Node/NPM](https://nodejs.org/)
