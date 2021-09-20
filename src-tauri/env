@@ -2,5 +2,5 @@
 
 set -xeo pipefail
 
-# https://github.com/tauri-apps/tauri/blob/tauri-v1.0.0-beta.8/tooling/cli.rs/src/interface/rust.rs#L280-L326
+# https://github.com/tauri-apps/tauri/issues/2614
 CARGO_TARGET_DIR="$(realpath "$(dirname $0)/../target")" "$@"
