@@ -2,7 +2,7 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 
 use tauri::api::path::BaseDirectory;
-use tauri::{Builder, Menu, MenuItem, State, Submenu};
+use tauri::{Builder, Event, Manager, Menu, MenuItem, State, Submenu};
 
 use typebeat::{Controller, Platform};
 
@@ -47,10 +47,24 @@ fn main() -> Result<(), Box<dyn Error>> {
             Some(BaseDirectory::Resource),
         )?,
     };
-    Builder::default()
+    let app = Builder::default()
         .menu(menu)
         .manage(typebeat::start(platform)?)
         .invoke_handler(tauri::generate_handler![get, set])
-        .run(context)?;
+        .build(context)?;
+    app.run(|handle, event| match event {
+        // https://github.com/tauri-apps/tao/issues/208
+        #[cfg(target_os = "macos")]
+        Event::Ready => {
+            use cocoa::appkit::NSWindow;
+            let handle = handle.clone();
+            tauri::async_runtime::spawn(async move {
+                let window =
+                    handle.get_window("main").unwrap().ns_window().unwrap() as cocoa::base::id;
+                unsafe { window.makeFirstResponder_(window.contentView()) };
+            });
+        }
+        _ => {}
+    });
     Ok(())
 }

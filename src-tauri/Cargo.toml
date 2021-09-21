@@ -15,6 +15,9 @@ tauri-build = { version = "1.0.0-beta.4" }
 tauri = { version = "1.0.0-beta.8", features = ["api-all"] }
 typebeat = { path = ".." }
 
+[target."cfg(target_os = \"macos\")".dependencies]
+cocoa = "0.24"
+
 [features]
 default = [ "custom-protocol" ]
 custom-protocol = [ "tauri/custom-protocol" ]
