@@ -9,7 +9,7 @@ header, p {
   line-height: 2;
 }
 
-code {
+kbd {
   font-family: inherit;
   font-style: normal;
   color: var(--background);
