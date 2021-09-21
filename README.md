@@ -2,7 +2,7 @@
 
 # Typebeat
 
-Building locally requires the following build dependencies:
+Building locally requires the following dependencies:
 
 - [Rust](https://www.rust-lang.org/learn/get-started)
 - [Node/NPM](https://nodejs.org/)
