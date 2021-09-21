@@ -10,5 +10,5 @@ Building locally requires the following dependencies:
 - [Tauri CLI](https://github.com/tauri-apps/tauri/tree/dev/tooling/cli.rs)
 
 ```bash
-src-tauri/env cargo tauri dev # ✨ QUICK-START COMMAND 💫
+src-tauri/env cargo tauri build # ✨ QUICK-START COMMAND 💫
 ```
