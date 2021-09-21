@@ -1,7 +1,19 @@
-.info {
-  padding-top: 10vw;
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-  margin: 0 auto;
+body {
+  height: unset;
+}
+
+header, p {
+  margin: 3rem auto;
+  padding: 0 1.5rem;
   max-width: 42rem;
+  line-height: 2;
+}
+
+kbd {
+  font-family: inherit;
+  font-style: normal;
+  font-weight: bold;
+  border: solid 1px currentColor;
+  border-radius: 0;
+  padding: .375rem;
 }
