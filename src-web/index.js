@@ -29,19 +29,32 @@ const content = [
   `],
 ];
 
-let step = -1;
+let step = 0;
 const tutorial = document.querySelector('.tutorial');
-const advance = () => {
-  step++;
-  tutorial.innerHTML = content[step][0];
-};
-advance();
+const setContent = () => tutorial.innerHTML = content[step][0];
+setContent();
 
-const attemptAdvance = (method, data) => {
+const advance = (method, data) => {
   const current = content[step];
-  if (current && current[1] === method && current[2] === data)
-    advance();
+  if (current && current[1] === method && current[2] === data) {
+    step++;
+    setContent();
+  }
 };
+
+const mount = document.querySelector('.mount');
+const rows = Array.from(mount.children);
+const resize = () => requestAnimationFrame(() => {
+  const left = Math.min(...rows.map(el => el.offsetLeft));
+  const right = Math.max(...rows.map(el => el.offsetLeft + el.offsetWidth));
+  const scale = Math.min(1, mount.parentElement.offsetWidth / (right - left));
+  const margin = `${-.5 * mount.offsetHeight * (1 - scale)}px`;
+  mount.style.transform = `scale(${scale})`;
+  mount.style.marginTop = mount.style.marginBottom = margin;
+});
+window.addEventListener("resize", resize);
+window.addEventListener("DOMContentLoaded", resize);
+
 
 import('../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async factory => {
   const lib = await factory.default({ locateFile: () => wasm, noExitRuntime: true });
@@ -55,7 +68,7 @@ import('../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async
         case 'get':
           return lib.ccall('get', 'number', ['number', 'string'], [controller, method]);
         case 'set':
-          attemptAdvance(method, data);
+          advance(method, data);
           return lib.ccall('set', 'number', ['number', 'string', 'number'], [controller, method, data]);
       }
     });
