@@ -9,7 +9,7 @@ globalThis.miniaudio = undefined;
 const content = [
   [`
     <p>
-      Press <kbd>SPACE</kbd> to start the tutorial.
+      Press <code>SPACE</code> to start the tutorial.
     </p>
   `],
   [`
@@ -19,7 +19,7 @@ const content = [
       trigger sound.
     </p>
     <p>
-      Try tapping the <kbd>K</kbd> key on your keyboard to trigger a clap.
+      Try tapping the <code>K</code> key on your keyboard to trigger a clap.
     </p>
   `, 'auditionDown', 7],
   [`
@@ -58,9 +58,7 @@ window.addEventListener("DOMContentLoaded", resize);
 
 import('../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async factory => {
   const lib = await factory.default({ locateFile: () => wasm, noExitRuntime: true });
-  const start = event => {
-    if (event.key !== ' ')
-      return;
+  const start = () => {
     const controller = lib.ccall('start', 'number', [], []);
     advance();
     init((context, { method, data }) => {
@@ -73,5 +71,6 @@ import('../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async
       }
     });
   };
-  document.addEventListener('keypress', start, { once: true });
+  document.addEventListener('keypress', e => e.key === ' ' && start(), { once: true });
+  document.querySelector('.tutorial code').addEventListener('click', start);
 });

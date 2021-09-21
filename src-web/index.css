@@ -9,11 +9,11 @@ header, p {
   line-height: 2;
 }
 
-kbd {
+code {
   font-family: inherit;
   font-style: normal;
-  font-weight: bold;
-  border: solid 1px currentColor;
-  border-radius: 0;
-  padding: .375rem;
+  color: var(--background);
+  background: var(--f_med);
+  padding: .375rem .75rem;
+  cursor: pointer;
 }
