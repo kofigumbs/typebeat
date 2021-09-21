@@ -2,11 +2,15 @@ body {
   height: unset;
 }
 
-header, p {
+header, p, ol, ul {
   margin: 3rem auto;
   padding: 0 1.5rem;
   max-width: 42rem;
   line-height: 2;
+}
+
+ol, ul {
+  list-style-position: inside;
 }
 
 kbd {

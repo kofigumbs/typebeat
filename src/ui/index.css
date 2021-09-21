@@ -66,12 +66,12 @@ body {
   transition-property: background, border;
 }
 
-.minipad.active {
-  --pad_background: var(--b_inv);
-}
-
 .mode .minipad {
   --pad_background: var(--f_med);
+}
+
+.minipad.active {
+  --pad_background: var(--b_inv);
 }
 
 .label {

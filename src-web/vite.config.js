@@ -13,7 +13,7 @@ const guide = () => {
         const content = md
           .replace(trailingNewlinesAndCodeFenceChecks, '')
           .split(paragraphBreaks)
-          .map(x => `<p>${x}</p>`)
+          .map(x => x.startsWith('<') ? x : `<p>${x}</p>`)
           .join('');
         const checks = [];
         for (let match of md.matchAll(codeFenceChecks))
