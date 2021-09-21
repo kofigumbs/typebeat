@@ -20,11 +20,6 @@ theme.onLoad = () => {
 
 
 /*
- * Map modifier caps to modes
- */
-
-
-/*
  * Mount elements (this is eager)
  */
 
@@ -77,7 +72,8 @@ const forceClass = (el, className) => {
   el.classList.add(className);
 }
 
-const sync = async (local, proxy, actions) => {
+const sync = async (state) => {
+  const { local, proxy, actions } = state;
   proxy.invalidate();
   const mode = modes.get(local.modifier);
   for (let i = 0; i < capsOnRight.length; i++) {
@@ -90,17 +86,17 @@ const sync = async (local, proxy, actions) => {
     minipads[i].classList.toggle('active', i === await proxy.activeTrack);
   };
   if (await proxy.playing)
-    requestSync(local, proxy, actions);
+    requestSync(state);
 };
 
 let nextSyncId;
-const clearNextSyncIdAndSync = (local, proxy, actions) => {
+const clearNextSyncIdAndSync = (state) => {
   nextSyncId = null;
-  sync(local, proxy, actions);
+  sync(state);
 };
-const requestSync = (local, proxy, actions) => {
+const requestSync = (state) => {
   if (!nextSyncId)
-    nextSyncId = requestAnimationFrame(() => clearNextSyncIdAndSync(local, proxy, actions));
+    nextSyncId = requestAnimationFrame(() => clearNextSyncIdAndSync(state));
 };
 
 
@@ -117,7 +113,8 @@ const capsByEventCode = new Map([
   ...Array.from('QWERTYUIOPASDFGHJKLZXCVBNM', cap => [`Key${cap}`, cap]),
 ]);
 
-const handleCap = (cap, down, local, proxy, actions) => {
+const handleCap = (cap, down, state) => {
+  const { local, proxy, actions } = state;
   if (!modes.has(cap)) {
     const action = actions.get(modes.get(local.modifier)).get(cap);
     down ? action?.onDown(event.timeStamp) : action?.onUp(event.timeStamp);
@@ -130,10 +127,10 @@ const handleCap = (cap, down, local, proxy, actions) => {
       key.classList.toggle('mode', !!local.modifier && key.dataset.cap === local.modifier);
     local.tempoTaps = [];
   }
-  requestSync(local, proxy, actions);
+  requestSync(state);
 }
 
-const handleDocumentKey = (event, local, proxy, actions) => {
+const handleDocumentKey = (event, state) => {
   if (hasModifier(event))
     return;
   event.preventDefault();
@@ -142,7 +139,7 @@ const handleDocumentKey = (event, local, proxy, actions) => {
   const cap = capsByEventCode.get(event.code);
   if (!cap)
     return;
-  handleCap(cap, event.type === 'keydown', local, proxy, actions);
+  handleCap(cap, event.type === 'keydown', state);
 };
 
 export default (callback) => {
@@ -158,10 +155,13 @@ export default (callback) => {
     },
   });
   const set = (method, data = 0) => callback('set', { method, data });
-  const actions = bindActions(local, proxy, set);
-  const handler = event => handleDocumentKey(event, local, proxy, actions);
-  document.addEventListener('keydown', handler);
-  document.addEventListener('keyup', handler);
+  const state = { local, proxy, actions: bindActions(local, proxy, set) };
+  document.addEventListener('keydown', event => handleDocumentKey(event, state));
+  document.addEventListener('keyup', event => handleDocumentKey(event, state));
   document.addEventListener('keypress', event => !hasModifier(event));
-  sync(local, proxy, actions);
+  for (let key of document.querySelectorAll('.key')) {
+    key.addEventListener('pointerdown', () => handleCap(key.dataset.cap, true, state));
+    key.addEventListener('pointerup', () => handleCap(key.dataset.cap, false, state));
+  }
+  sync(state);
 };
