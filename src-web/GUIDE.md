@@ -33,7 +33,7 @@ Press <kbd>T</kbd> to enter <b>NOTE</b> mode.
 
 ---
 
-You are now in <b>NOTE</b> mode, where every key on the right triggers a different note.
+In <b>NOTE</b> mode, every key on the right triggers a different note.
 This illustrates the main idea behind Typebeat's controls:
 
 <ol>
