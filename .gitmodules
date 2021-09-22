@@ -1,6 +1,6 @@
 [submodule "vendor/tare"]
-	path = src/ui/tare
+	path = src/client/tare
 	url = https://github.com/kofigumbs/tare
 [submodule "vendor/FiraCode"]
-	path = src/ui/FiraCode
+	path = src/client/FiraCode
 	url = https://github.com/tonsky/FiraCode

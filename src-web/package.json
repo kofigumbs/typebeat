@@ -1,3 +1,4 @@
 {
-  "name": "typebeat-web"
+  "name": "typebeat-web",
+  "main": "client/index.js"
 }

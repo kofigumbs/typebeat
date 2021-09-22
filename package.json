@@ -6,6 +6,6 @@
   "workspaces": [
     "src-tauri",
     "src-web",
-    "src/ui"
+    "src/client"
   ]
 }

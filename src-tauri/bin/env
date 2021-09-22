@@ -3,4 +3,4 @@
 set -xeo pipefail
 
 # https://github.com/tauri-apps/tauri/issues/2614
-CARGO_TARGET_DIR="$(realpath "$(dirname $0)/../target")" "$@"
+CARGO_TARGET_DIR="$(realpath "$(dirname $0)/../../target")" "$@"

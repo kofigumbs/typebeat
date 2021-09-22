@@ -23,7 +23,10 @@ const guide = () => {
           checks.push([match[1], match[2]]);
         return { content, checks };
       });
-      return { code: `export default ${JSON.stringify(sections)}` };
+      return {
+        code: `export default ${JSON.stringify(sections)}`,
+        map: null,
+      };
     },
   };
 };

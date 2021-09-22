@@ -1,5 +1,5 @@
 import init from 'typebeat-ui/index.js';
-import wasm from '../target/wasm32-unknown-emscripten/release/typebeat_web.wasm?url';
+import wasm from '../../target/wasm32-unknown-emscripten/release/typebeat_web.wasm?url';
 import sections from './GUIDE.md'
 import './index.css';
 
@@ -33,7 +33,7 @@ window.addEventListener("resize", resize);
 window.addEventListener("DOMContentLoaded", resize);
 
 
-import('../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async factory => {
+import('../../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async factory => {
   const lib = await factory.default({
     locateFile: () => wasm,
     noInitialRun: true,

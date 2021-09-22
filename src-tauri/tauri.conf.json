@@ -4,10 +4,10 @@
     "version": "0.1.0"
   },
   "build": {
-    "distDir": "dist",
+    "distDir": "client/dist",
     "devPath": "http://localhost:3000",
-    "beforeDevCommand": "npx vite src-tauri",
-    "beforeBuildCommand": "npx vite build src-tauri",
+    "beforeDevCommand": "npx vite src-tauri/client",
+    "beforeBuildCommand": "npx vite build src-tauri/client",
     "withGlobalTauri": true
   },
   "tauri": {

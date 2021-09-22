@@ -3,10 +3,11 @@ name = "typebeat-tauri"
 description = ""
 version = "0.1.0"
 edition = "2018"
+build = "bin/build.rs"
 
 [[bin]]
 name = "typebeat-tauri"
-path = "main.rs"
+path = "bin/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "1.0.0-beta.4" }
