@@ -7,15 +7,28 @@ import { modes, bindActions } from './bindings.js';
 
 
 /*
+ * Only keep localStorage.theme if it was explicitly loaded
+ */
+if (!localStorage.themeLoaded)
+  localStorage.removeItem('theme');
+
+
+/*
  * Setup theme
  */
 
 const theme = new window.Theme();
+theme.default = {
+  background: "#282828",
+  b_high: "#000000", b_med: "#000000", b_low: "#000000", b_inv: "#d79921",
+  f_high: "#ebdbb2", f_med: "#d65d0e", f_low: "#ffffff", f_inv: "#ffffff",
+};
 theme.install();
 theme.start();
 theme.onLoad = () => {
   for (const [name, value] of Object.entries(theme.active))
     document.documentElement.style.setProperty(`--${name}`, value);
+  localStorage.setItem('themeLoaded', '1');
 };
 
 

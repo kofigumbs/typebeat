@@ -17,7 +17,7 @@ kbd {
   font-family: inherit;
   font-style: normal;
   color: var(--background);
-  background: var(--f_med);
+  background: var(--f_high);
   padding: .375rem .75rem;
   cursor: pointer;
 }

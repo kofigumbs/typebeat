@@ -1,3 +1,7 @@
+* {
+  transition: .1s ease;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -5,7 +9,9 @@ html, body {
 }
 
 html {
-  background: var(--background, #eee);
+  color: var(--f_high, #3c3836);
+  background: var(--background, #282828);
+  transition-property: color, background;
 }
 
 body {
@@ -24,10 +30,6 @@ body {
   -webkit-user-select: none;
   user-select: none;
   background: var(--background);
-}
-
-.mount * {
-  transition: .1s ease;
 }
 
 .row, .minirow {
@@ -57,7 +59,7 @@ body {
 
 .minipad {
   --pad_background: var(--f_high);
-  --pad_pulse: var(--b_low);
+  --pad_pulse: var(--background);
   width: 1rem;
   height: 0;
   padding-bottom: 1rem;
