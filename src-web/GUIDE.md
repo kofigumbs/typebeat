@@ -43,10 +43,10 @@ This illustrates the main idea behind Typebeat's controls:
 
 The default mode lets you preview any of your tracks.
 <b>NOTE</b> mode lets you play different pitches on one of your tracks: whichever one is active.
-<kbd>Q</kbd> is a special mode that lets you selct the active track.
+<kbd>Q</kbd> is a special mode that lets you select the active track.
+Let's try that now.
 
-Let's change the active track.
-Press <kbd>Q</kbd> to enter the track select mode, and then press <kbd>K</kbd> to activate the clap track.
+Press <kbd>Q</kbd> to enter the track select mode, and then press <kbd>K</kbd> to select the clap track.
 
 `method=activeTrack` `data=7`
 
@@ -62,7 +62,7 @@ Go back to <b>NOTE</b> mode and play a different clap pitch.
 ---
 
 Two final remarks about <b>NOTE</b> mode.
-First, the grid uses a southwest-to-northeast ordering where <kbd>N</kbd> is the lowest pitch and <kbd>P</kbd> is the highest.
+First, the grid is ordered southwest-to-northeast, where <kbd>N</kbd> is the lowest pitch and <kbd>P</kbd> is the highest.
 
 Second, whichever note you select last becomes the active note, as indicated by the underline.
 The active note is relevant for other modes like <b>LOOP</b>, which we'll discuss next.
