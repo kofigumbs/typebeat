@@ -1,3 +1,0 @@
-[build]
-command = "./env cargo build --release && npx vite build"
-publish = "dist"

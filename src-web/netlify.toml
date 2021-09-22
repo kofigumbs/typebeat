@@ -1,0 +1,11 @@
+[build]
+command = """
+./bin/env cargo build --release && \
+npx vite build client && \
+cp ../src/icons/icon.svg client/dist/icon.svg
+"""
+publish = "client/dist"
+
+[[redirects]]
+from = "https://typebeat.netlify.app/*"
+to = "https://typebeat.xyz/:splat"
