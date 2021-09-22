@@ -10,7 +10,7 @@ html, body {
 }
 
 html {
-  color: var(--f_high, #3c3836);
+  color: var(--f_high, #ebdbb2);
   background: var(--background, #282828);
 }
 
