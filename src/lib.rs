@@ -807,6 +807,13 @@ impl Controller {
 
     pub fn set(&self, method: &str, data: i32) {
         let message = match method {
+            "activeTrack" => Message::Fn(|audio, song, i| {
+                song.state.set(&ACTIVE_TRACK_ID, i as usize);
+                if !song.playing.load() {
+                    let id = song.state.get(&ACTIVE_TRACK_ID);
+                    audio.key_down(song, id, song.tracks[id].state.get(&ACTIVE_KEY));
+                }
+            }),
             "armed" => Message::Fn(|_, song, _| song.armed.toggle()),
             "auditionDown" => Message::Fn(|audio, song, i| {
                 audio.key_down(

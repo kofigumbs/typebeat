@@ -1,8 +1,8 @@
 export const modes = new Map([
-  ['Q', 'Track'], ['W', 'Sound'], ['E', 'Chop'], ['R', 'Poly'], ['T', 'Note'],
-  ['A', 'Beat'],  ['S', 'Loop'],  ['D', 'Hold'], ['F', 'EQ'],   ['G', 'Mix'],
-  ['Z', 'Key'],   ['X', 'Auto'],  ['C', 'Send'], ['V', 'Tape'], ['B', 'Mute'],
-  [undefined, 'Audition'],
+  ['Q', 'TRACK'], ['W', 'SOUND'], ['E', 'CHOP'], ['R', 'POLY'], ['T', 'NOTE'],
+  ['A', 'BEAT'],  ['S', 'LOOP'],  ['D', 'HOLD'], ['F', 'EQ'],   ['G', 'MIX'],
+  ['Z', 'KEY'],   ['X', 'AUTO'],  ['C', 'SEND'], ['V', 'TAPE'], ['B', 'MUTE'],
+  [undefined, 'AUDITION'],
 ]);
 
 export const bindActions = (local, proxy, set) => {
@@ -40,14 +40,14 @@ export const bindActions = (local, proxy, set) => {
   };
 
   return new Map([
-    ['Track', new Map([
+    ['TRACK', new Map([
       ...all(i => ({
         label: async () => i === await proxy.activeTrack ? 'active' : '',
-        title: async () => i === await proxy.activeTrack,
+        title: async () => !await proxy.playing,
         onDown: () => set('activeTrack', i),
       })),
     ])],
-    ['Sound', new Map([
+    ['SOUND', new Map([
       ...oneOf('YUIO', 'sound', ['sample', 'synth 1', 'synth 2', 'synth 3']),
       ...oneOf('NM,', 'soundControl', ['type', 'level', 'detune']),
       ...group('HJKL;', i => {
@@ -71,15 +71,15 @@ export const bindActions = (local, proxy, set) => {
         };
       }),
     ])],
-    ['Chop', new Map([
+    ['CHOP', new Map([
     ])],
-    ['Poly', new Map([
+    ['POLY', new Map([
       ['Y', toggle('use key', () => proxy.useKey, () => set('useKey')) ],
       ['J', bind({ label: () => 'oct. -', onDown: () => set('octave', 1) }) ],
       ['K', title(() => proxy.octave) ],
       ['L', bind({ label: () => 'oct. +', onDown: () => set('octave', 2) }) ],
     ])],
-    ['Note', new Map([
+    ['NOTE', new Map([
       ...all(i => ({
         label: async () => note(await proxy[`note ${i}`]),
         title: async () => i == await proxy.activeKey,
@@ -87,7 +87,7 @@ export const bindActions = (local, proxy, set) => {
         onUp: () => set('noteUp', i),
       })),
     ])],
-    ['Beat', new Map([
+    ['BEAT', new Map([
       ['Y', title(() => 'tempo')],
       ...nudge(() => proxy.tempo, i => set('tempo', i)),
       ['N', toggle('play', () => proxy.playing, () => set('playing')) ],
@@ -106,7 +106,7 @@ export const bindActions = (local, proxy, set) => {
         },
       })],
     ])],
-    ['Loop', new Map([
+    ['LOOP', new Map([
       ...group('YUHJL;', i => ({
         label: () => ['bars -', 'bars +','zoom -', 'page -', 'page +', 'zoom +'][i],
         onDown: () => set(...[['bars', -1], ['bars', 1], ['zoomOut'], ['page', -1], ['page', 1], ['zoomIn']][i]),
@@ -126,7 +126,7 @@ export const bindActions = (local, proxy, set) => {
       ['P', bind({ label: () => 'clear', title: () => proxy.canClear, onDown: () => set('clear') }) ],
       ['K', title(async () => `bar ${((await proxy.viewStart / await proxy.resolution)|0) + 1}/${await proxy.bars}`) ],
     ])],
-    ['Hold', new Map([
+    ['HOLD', new Map([
       ...oneOf('YUIOP', 'hold', ['attack', 'decay', 'sustain', 'release', 'cutoff']),
       ...nudge(async () => await proxy[local.hold], i => set(local.hold, i)),
       ['N', toggle('sample', async () => await proxy.holdSample, () => set('holdSample')) ],
@@ -136,11 +136,11 @@ export const bindActions = (local, proxy, set) => {
       ...oneOf('NM', 'eqFilter', ['freq.', 'res.']),
       ...nudge(() => proxy[join(local.eqBand, local.eqFilter)], i => set(join(local.eqBand, local.eqFilter), i)),
     ])],
-    ['Mix', new Map([
+    ['MIX', new Map([
       ...oneOf('YUIOP', 'mix', ['main', 'pan', 'reverb', 'echo', 'drive']),
       ...nudge(async () => await proxy[local.mix], i => set(local.mix, i)),
     ])],
-    ['Key', new Map([
+    ['KEY', new Map([
       ['Y', title(() => 'root')],
       ['K', title(async () => note(await proxy.root + 12)) ],
       ...group('HJL;', i => ({
@@ -153,22 +153,22 @@ export const bindActions = (local, proxy, set) => {
         onDown: () => set('scale', i),
       })),
     ])],
-    ['Auto', new Map([
+    ['AUTO', new Map([
     ])],
-    ['Send', new Map([
+    ['SEND', new Map([
       ...oneOf('YUI', 'effect', ['reverb', 'echo', 'drive']),
       ...nudge(() => proxy[join(local.effect, local.effectControl)], i => set(join(local.effect, local.effectControl), i)),
       ...oneOf('NM,', 'effectControl', ['gain', 'feed', 'space']),
     ])],
-    ['Tape', new Map([
+    ['TAPE', new Map([
     ])],
-    ['Mute', new Map([
+    ['MUTE', new Map([
       ...all(i => ({
         label: async () => await proxy[`muted ${i}`] ? '</>' : '==',
         onDown: () => set('muted', i),
       })),
     ])],
-    ['Audition', new Map([
+    ['AUDITION', new Map([
       ...all(i => ({
         onDown: () => set('auditionDown', i),
         onUp: () => set('auditionUp', i),

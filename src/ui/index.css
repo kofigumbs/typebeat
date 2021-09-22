@@ -1,5 +1,6 @@
 * {
   transition: .1s ease;
+  transition-property: color, background, border;
 }
 
 html, body {
@@ -11,7 +12,6 @@ html, body {
 html {
   color: var(--f_high, #3c3836);
   background: var(--background, #282828);
-  transition-property: color, background;
 }
 
 body {
@@ -48,7 +48,6 @@ body {
   height: 4.5rem;
   padding: .75rem;
   margin: 1px;
-  transition-property: background;
 }
 
 .key.pad {
@@ -65,7 +64,6 @@ body {
   padding-bottom: 1rem;
   margin: 1px;
   background: var(--pad_background);
-  transition-property: background, border;
 }
 
 .mode .minipad {
@@ -82,7 +80,6 @@ body {
   align-self: flex-start;
   color: var(--background);
   box-sizing: border-box;
-  transition-property: border-bottom-color, color;
 }
 
 .label.title {
@@ -115,7 +112,6 @@ body {
 [data-tare-character] * {
   border-color: var(--f_high);
   border-width: 2px;
-  transition-property: border-width, border-color;
   pointer-events: none;
 }
 
