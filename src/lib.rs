@@ -780,6 +780,10 @@ pub struct Controller {
 }
 
 impl Controller {
+    pub fn stop(&self) {
+        let _ = self.device.stop();
+    }
+
     pub fn get(&self, method: &str) -> Option<i32> {
         let song = self.song.read().expect("song");
         Some(match method {

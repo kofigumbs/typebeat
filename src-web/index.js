@@ -34,17 +34,24 @@ window.addEventListener("DOMContentLoaded", resize);
 
 
 import('../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async factory => {
-  const lib = await factory.default({ locateFile: () => wasm, noExitRuntime: true });
+  const lib = await factory.default({
+    locateFile: () => wasm,
+    noInitialRun: true,
+    noExitRuntime: true,
+  });
   const start = () => {
     const controller = lib.ccall('start', 'number', [], []);
     advance();
     init((context, { method, data }) => {
       advance({ context, method, data });
       switch (context) {
-        case 'get': return lib.ccall('get', 'number', ['number', 'string'], [controller, method]);
-        case 'set': return lib.ccall('set', 'number', ['number', 'string', 'number'], [controller, method, data]);
+        case 'get':
+          return lib.ccall('get', 'number', ['number', 'string'], [controller, method]);
+        case 'set':
+          return lib.ccall('set', 'number', ['number', 'string', 'number'], [controller, method, data]);
       }
     });
+    window.addEventListener('beforeunload', () => lib.ccall('stop', null, ['number'], [controller]));
   };
   const handleKey = event => {
     if (event.key === ' ') {

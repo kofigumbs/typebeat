@@ -36,4 +36,9 @@ pub fn start() -> *const Controller {
     Box::leak(typebeat::start(WebPlatform).expect("controller").into())
 }
 
+#[no_mangle]
+pub fn stop(controller: *const Controller) {
+    unsafe { controller.as_ref() }.map(|controller| controller.stop());
+}
+
 pub fn main() {}
