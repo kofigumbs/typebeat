@@ -1,4 +1,4 @@
-Press <kbd role="button">SPACE</kbd> to start the tutorial.
+Press <kbd role="button">SPACE</kbd> to start the guide.
 
 ---
 
