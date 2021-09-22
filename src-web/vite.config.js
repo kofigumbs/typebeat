@@ -3,20 +3,21 @@ const guide = () => {
   const horizontalRules = /(?:\n+)---(?:\n+)/;
   const trailingNewlinesAndCodeFenceChecks = /\n+(:?`.+\n*)$/;
   const paragraphBreaks = /\n(:?\n+)/;
-  const codeFenceChecks = /`(\w+)=(\w+)`/g;
+  const codeFenceChecks = /`([^=]+)=([^`]+)`/g;
+  const emptyOrBlock = /^(:?\s+$|<(:?ul|ol)>)/;
   return {
     name: 'transform-guide',
     transform(src, path) {
       if (!path.endsWith('/GUIDE.md'))
         return;
-      const sections = src.split(horizontalRules).map(md => {
-        const content = md
+      const sections = src.split(horizontalRules).map(markup => {
+        const content = markup
           .replace(trailingNewlinesAndCodeFenceChecks, '')
           .split(paragraphBreaks)
-          .map(x => x.startsWith('<') ? x : `<p>${x}</p>`)
+          .map(x => x.match(emptyOrBlock) ? x : `<p>${x}</p>`)
           .join('');
         const checks = [];
-        for (let match of md.matchAll(codeFenceChecks))
+        for (let match of markup.matchAll(codeFenceChecks))
           checks.push([match[1], match[2]]);
         return { content, checks };
       });
@@ -26,5 +27,6 @@ const guide = () => {
 };
 
 export default {
+  hmr: false,
   plugins: [guide()]
 }

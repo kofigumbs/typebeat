@@ -19,5 +19,8 @@ kbd {
   color: var(--background);
   background: var(--f_high);
   padding: .375rem .75rem;
+}
+
+kbd[role=button] {
   cursor: pointer;
 }

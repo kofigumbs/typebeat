@@ -1,4 +1,4 @@
-Press <kbd>SPACE</kbd> to start the tutorial.
+Press <kbd role="button">SPACE</kbd> to start the tutorial.
 
 ---
 
@@ -43,12 +43,52 @@ This illustrates the main idea behind Typebeat's controls:
 
 The default mode lets you preview any of your tracks.
 <b>NOTE</b> mode lets you play different pitches on one of your tracks: whichever one is active.
-<kbd>Q</kbd> is a special mode that lets you determine which track is active.
+<kbd>Q</kbd> is a special mode that lets you selct the active track.
 
 Let's change the active track.
 Press <kbd>Q</kbd> to enter the track select mode, and then press <kbd>K</kbd> to activate the clap track.
 
 `method=activeTrack` `data=7`
+
+---
+
+You can always tell which track is active by the highlighted box in the top-left corner.
+Now that the clap (<kbd>K</kbd>) is active, <b>NOTE</b> mode will change its pitch.
+
+Go back to <b>NOTE</b> mode and play a different clap pitch.
+
+`method=noteDown`
+
+---
+
+Two final remarks about <b>NOTE</b> mode.
+First, the grid uses a southwest-to-northeast ordering where <kbd>N</kbd> is the lowest pitch and <kbd>P</kbd> is the highest.
+
+Second, whichever note you select last becomes the active note, as indicated by the underline.
+The active note is relevant for other modes like <b>LOOP</b>, which we'll discuss next.
+
+Press <kbd>S</kbd> to enter <b>LOOP</b> mode.
+
+`method=viewStart`
+
+---
+
+<b>LOOP</b> mode is Typebeat's step sequencer.
+You can use it to program notes with the precise timing.
+If you're unfamiliar with sequencers, it's easiest to learn by doing.
+
+Press <kbd>N</kbd> to sequence a note on the first step.
+
+`method=sequence` `data=0`
+
+---
+
+The █ means you've placed a note on that step, but you won't hear anything until you play the beat.
+You control playback from <b>BEAT</b> mode.
+
+Press <kbd>A</kbd> to enter <b>BEAT</b> mode, and then press <kbd>N</kbd> to play.
+
+`context=set` `method=play`
 
 ---
 
