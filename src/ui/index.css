@@ -10,13 +10,17 @@ html, body {
 }
 
 html {
-  color: var(--f_high, #ebdbb2);
-  background: var(--background, #282828);
+  --light: #ebdbb2;
+  --highlight: #d65d0e;
+  --lowlight: #d79921;
+  --dark: #282828;
+  color: var(--light);
+  background: var(--dark);
 }
 
 body {
   font-size: 16px;
-  font-family: 'Fira Code';
+  font-family: 'Fira Code', monospace;
   font-feature-settings: "ss07";
 }
 
@@ -29,7 +33,7 @@ body {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  background: var(--background);
+  background: var(--dark);
 }
 
 .row, .minirow {
@@ -51,14 +55,14 @@ body {
 }
 
 .key.pad {
-  --pad_background: var(--f_med);
-  --pad_pulse: var(--b_inv);
+  --pad_background: var(--highlight);
+  --pad_pulse: var(--lowlight);
   background: var(--pad_background);
 }
 
 .minipad {
-  --pad_background: var(--f_high);
-  --pad_pulse: var(--background);
+  --pad_background: var(--light);
+  --pad_pulse: var(--dark);
   width: 1rem;
   height: 0;
   padding-bottom: 1rem;
@@ -67,23 +71,23 @@ body {
 }
 
 .mode .minipad {
-  --pad_background: var(--f_med);
+  --pad_background: var(--highlight);
 }
 
 .minipad.active {
-  --pad_background: var(--b_inv);
+  --pad_background: var(--lowlight);
 }
 
 .label {
   width: fit-content;
   height: 1.5rem;
   align-self: flex-start;
-  color: var(--background);
+  color: var(--dark);
   box-sizing: border-box;
 }
 
 .label.title {
-  border-bottom: solid 2px var(--background);
+  border-bottom: solid 2px var(--dark);
 }
 
 .pulse {
@@ -110,14 +114,14 @@ body {
 }
 
 [data-tare-character] * {
-  border-color: var(--f_high);
+  border-color: var(--light);
   border-width: 2px;
   pointer-events: none;
 }
 
 .mode [data-tare-character] * {
   border-width: 5px;
-  border-color: var(--f_med);
+  border-color: var(--highlight);
 }
 
 

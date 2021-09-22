@@ -16,8 +16,8 @@ ol, ul {
 kbd {
   font-family: inherit;
   font-style: normal;
-  color: var(--background);
-  background: var(--f_high);
+  color: var(--dark);
+  background: var(--light);
   padding: .375rem .75rem;
 }
 

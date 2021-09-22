@@ -1,4 +1,6 @@
-// Parse guide markdown for content and checks (encoded like `key=value`)
+/* 
+ * Parse guide markdown for content and checks (encoded like `key=value`)
+ */
 const guide = () => {
   const horizontalRules = /(?:\n+)---(?:\n+)/;
   const trailingNewlinesAndCodeFenceChecks = /\n+(:?`.+\n*)$/;
@@ -27,6 +29,7 @@ const guide = () => {
 };
 
 export default {
+  plugins: [guide()],
   hmr: false,
-  plugins: [guide()]
-}
+  build: { sourcemap: true },
+};
