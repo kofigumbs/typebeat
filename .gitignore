@@ -2,4 +2,4 @@ dist/
 icons/
 node_modules/
 target/
-*.typebeat
+.netlify/
