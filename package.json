@@ -2,6 +2,7 @@
   "name": "typebeat",
   "devDependencies": {
     "firacode": "^5.2.0",
+    "tare": "github:kofigumbs/tare",
     "vite": "^2.5.8"
   },
   "workspaces": [

@@ -1,3 +1,0 @@
-[submodule "vendor/tare"]
-	path = src/client/tare
-	url = https://github.com/kofigumbs/tare

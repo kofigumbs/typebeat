@@ -1,6 +1,6 @@
 import 'firacode';
+import 'tare';
 import './index.css';
-import './tare/dist/tare.min.js';
 import './typed-label.js';
 import { modes, bindActions } from './bindings.js';
 
