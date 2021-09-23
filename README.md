@@ -1,4 +1,4 @@
-<img align="left" src="./src/icons/icon.svg" alt="Typebeat logo" style="width: 80px; height: 80px;" width="80px" height="80px" />
+<img align="left" src="./src/icons/icon.svg" alt="Logo" style="width: 80px; height: 80px;" width="80px" height="80px" />
 
 # Typebeat
 
@@ -10,5 +10,5 @@ Building locally requires the following dependencies:
 - [Tauri CLI](https://github.com/tauri-apps/tauri/tree/dev/tooling/cli.rs)
 
 ```bash
-src-tauri/env cargo tauri build # ✨ QUICK-START COMMAND 💫
+cargo tauri build # ✨ QUICK-START COMMAND 💫
 ```
