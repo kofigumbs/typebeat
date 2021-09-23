@@ -3,10 +3,9 @@
  */
 const guide = () => {
   const horizontalRules = /(?:\n+)---(?:\n+)/;
-  const trailingNewlinesAndCodeFenceChecks = /\n+(:?`.+\n*)$/;
-  const paragraphBreaks = /\n(:?\n+)/;
+  const trailingNewlinesAndCodeFenceChecks = /\n+(?:`.+\n*)$/;
+  const paragraphBreaks = /\n(?:\n+)/;
   const codeFenceChecks = /`([^=]+)=([^`]+)`/g;
-  const emptyOrBlock = /^(:?\s+$|<(:?ul|ol)>)/;
   return {
     name: 'transform-guide',
     transform(src, path) {
@@ -16,7 +15,7 @@ const guide = () => {
         const content = markup
           .replace(trailingNewlinesAndCodeFenceChecks, '')
           .split(paragraphBreaks)
-          .map(x => x.match(emptyOrBlock) ? x : `<p>${x}</p>`)
+          .map(x => x.startsWith('<') ? x : `<p>${x}</p>`)
           .join('');
         const checks = [];
         for (let match of markup.matchAll(codeFenceChecks))
