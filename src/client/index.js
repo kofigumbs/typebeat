@@ -1,4 +1,4 @@
-import './FiraCode/distr/fira_code.css';
+import 'firacode';
 import './index.css';
 import './tare/dist/tare.min.js';
 import './typed-label.js';
