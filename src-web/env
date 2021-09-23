@@ -6,7 +6,6 @@
 # A: - https://github.com/rust-lang/rust/issues/85821
 #    - https://github.com/rust-lang/rust-bindgen/issues/751
 #    - https://github.com/rust-lang/rust-bindgen/issues/1780
-#    - https://github.com/ExPixel/miniaudio-rs/pull/73
 
 set -xeo pipefail
 
@@ -15,5 +14,5 @@ TARGET="wasm32-unknown-emscripten"
 
 CARGO_BUILD_TARGET="$TARGET" \
   BINDGEN_EXTRA_CLANG_ARGS="--target=$TARGET --sysroot=$SYSROOT -fvisibility=default" \
-  EMMAKEN_CFLAGS="-s ERROR_ON_UNDEFINED_SYMBOLS=0 -s ENVIRONMENT=web -s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=\"['ccall']\" --embed-file src/samples" \
+  EMMAKEN_CFLAGS="-s ERROR_ON_UNDEFINED_SYMBOLS=0 -s ENVIRONMENT=web -s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=\"['ccall']\" --embed-file src/samples -gsource-map" \
   "$@"
