@@ -1,5 +1,4 @@
 dist/
-icons/
 node_modules/
 target/
 .netlify/
