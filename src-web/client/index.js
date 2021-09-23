@@ -1,4 +1,4 @@
-import init from 'typebeat-ui/index.js';
+import init from '../../src/client';
 import wasm from '../../target/wasm32-unknown-emscripten/release/typebeat_web.wasm?url';
 import sections from './GUIDE.md'
 import './index.css';

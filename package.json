@@ -1,13 +1,11 @@
 {
   "name": "typebeat",
-  "devDependencies": {
+  "dependencies": {
     "firacode": "^5.2.0",
-    "tare": "github:kofigumbs/tare",
+    "tare": "github:kofigumbs/tare"
+  },
+  "devDependencies": {
     "vite": "^2.5.8"
   },
-  "workspaces": [
-    "src-tauri",
-    "src-web",
-    "src/client"
-  ]
+  "workspaces": []
 }
