@@ -1,9 +1,8 @@
 [build]
-base = "src-web"
 command = """
-./bin/env cargo build --release && \
-npx vite build client && \
-cp ../src/icons/icon.svg client/dist/icon.svg
+src-web/env cargo build --package typebeat-web --release && \
+npx vite build src-web/client && \
+cp src/icons/icon.svg src-web/client/dist
 """
 publish = "src-web/client/dist"
 

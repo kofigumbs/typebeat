@@ -5,7 +5,7 @@ edition = "2018"
 
 [[bin]]
 name = "typebeat-web"
-path = "bin/main.rs"
+path = "main.rs"
 
 [dependencies]
 typebeat = { path = ".." }
