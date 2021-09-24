@@ -2,7 +2,7 @@
 
 # Typebeat
 
-Building locally requires the following dependencies:
+Building the native app locally requires the following dependencies:
 
 - [Rust](https://www.rust-lang.org/learn/get-started)
 - [Node/NPM](https://nodejs.org/)
@@ -11,4 +11,17 @@ Building locally requires the following dependencies:
 
 ```bash
 cargo tauri build # ✨ QUICK-START COMMAND 💫
+```
+
+Building the web app requires additional dependencies:
+
+- [Emscripten](https://emscripten.org/docs/getting_started/downloads.html)
+- [Netlify CLI](https://docs.netlify.com/cli/get-started/)
+
+```bash
+# Workaround for https://github.com/rust-lang/rust-bindgen/issues/1780
+# Only required for building miniaudio the first time since cargo will cache the artifact
+export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=`emconfigure env 2> /dev/null | sed -n -e 's/^EMSCRIPTEN=//p'`/cache/sysroot"
+
+netlify build
 ```

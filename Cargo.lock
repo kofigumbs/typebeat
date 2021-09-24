@@ -836,7 +836,7 @@ dependencies = [
 [[package]]
 name = "ep-miniaudio-sys"
 version = "2.4.0"
-source = "git+https://github.com/kofigumbs/miniaudio-rs?rev=3d3579e#3d3579eb5fa03a7ee1bfbcf25f2c32c613e2d4a9"
+source = "git+https://github.com/kofigumbs/miniaudio-rs?rev=772b8e0#772b8e009431da515a64063b386f4b285987c267"
 dependencies = [
  "bindgen",
  "bitflags 1.2.1",
@@ -1670,7 +1670,7 @@ dependencies = [
 [[package]]
 name = "miniaudio"
 version = "0.10.0"
-source = "git+https://github.com/kofigumbs/miniaudio-rs?rev=3d3579e#3d3579eb5fa03a7ee1bfbcf25f2c32c613e2d4a9"
+source = "git+https://github.com/kofigumbs/miniaudio-rs?rev=772b8e0#772b8e009431da515a64063b386f4b285987c267"
 dependencies = [
  "bitflags 1.2.1",
  "ep-miniaudio-sys",
