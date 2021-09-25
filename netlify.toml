@@ -1,8 +1,7 @@
 [build]
 command = """
-cargo build --target wasm32-unknown-emscripten --package typebeat-web --release && \
-npx vite build src-web/client && \
-cp src/icons/icon.svg src-web/client/dist
+cargo build -vv --target wasm32-unknown-emscripten --package typebeat-web --release && \
+npx vite build src-web/client
 """
 publish = "src-web/client/dist"
 

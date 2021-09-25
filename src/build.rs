@@ -14,15 +14,30 @@ fn dsp_file(entry: DirEntry) -> Option<(String, String)> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let out = std::env::var("OUT_DIR")?;
+    let faust_repo = Path::new(&out).join("faust");
+    let faust_bin = faust_repo.join("build/bin/faust");
+    if !faust_bin.exists() {
+        Command::new("git")
+            .args(&["clone", "--single-branch", "--branch", "master"])
+            .arg("https://github.com/grame-cncm/faust")
+            .arg(&faust_repo)
+            .status()?;
+        Command::new("make")
+            .arg("-C")
+            .arg(&faust_repo)
+            .arg("compiler")
+            .status()?;
+    }
     for (path, basename) in Path::new("src/effects")
         .read_dir()?
         .flat_map(|x| dsp_file(x.ok()?))
     {
-        let out = Path::new(&std::env::var("OUT_DIR")?)
-            .join(&basename)
-            .with_extension("rs");
+        let out = Path::new(&out).join(&basename).with_extension("rs");
         let _ = std::fs::remove_file(&out);
-        let dsp = Command::new("faust")
+        let dsp = Command::new(&faust_bin)
+            .arg("-I")
+            .arg(faust_repo.join("libraries").as_path())
             .args(&["-lang", "rust", "-cn", &basename, &path])
             .output()?
             .stdout;
