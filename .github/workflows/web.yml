@@ -20,7 +20,7 @@ jobs:
     - uses: Swatinem/rust-cache@v1
       with:
         cache-on-failure: true
-    - uses: mymindstorm/setup-emsdk@v9
+    - uses: kofigumbs/setup-emsdk@master # FIXME(https://github.com/mymindstorm/setup-emsdk/pull/22)
       with:
         version: '2.0.29'
         update-tags: true
