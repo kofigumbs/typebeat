@@ -22,5 +22,6 @@ jobs:
         NETLIFY_API_KEY: ${{ secrets.NETLIFY_API_KEY }}
         NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       run: |-
+        npm install --global npm@7 netlify-cli@6
         npm install
-        npx netlify-cli deploy --build --prod
+        netlify deploy --build --prod
