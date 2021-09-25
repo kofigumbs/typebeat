@@ -27,4 +27,5 @@ jobs:
     - env:
         NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        NODE_OPTIONS: '--max_old_space_size=6000' # https://github.com/vitejs/vite/issues/4162
       run: netlify deploy --build --prod
