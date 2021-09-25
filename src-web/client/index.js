@@ -3,8 +3,7 @@ import wasm from '../../target/wasm32-unknown-emscripten/release/typebeat_web.wa
 import sections from './GUIDE.md'
 import './index.css';
 
-// This is probably a bug with Emscripten. Seems like it's missing a `var`
-// before using miniaudio. I don't understand it well enough to report tho.
+// FIXME(https://github.com/mackron/miniaudio/issues/363)
 globalThis.miniaudio = undefined;
 
 let step = 0;

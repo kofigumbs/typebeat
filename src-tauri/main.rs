@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .invoke_handler(tauri::generate_handler![get, set])
         .build(context)?;
     app.run(|handle, event| match event {
-        // https://github.com/tauri-apps/tao/issues/208
+        // FIXME(https://github.com/tauri-apps/tao/issues/208)
         #[cfg(target_os = "macos")]
         Event::Ready => {
             use cocoa::appkit::NSWindow;

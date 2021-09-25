@@ -21,11 +21,14 @@ jobs:
       with:
         cache-on-failure: true
     - uses: mymindstorm/setup-emsdk@v9
+      with:
+        version: '2.0.29'
+        actions-cache-folder: 'emsdk-cache'
     - run: |-
         npm install --global npm@7 netlify-cli@6
         npm install
     - env:
         NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-        NODE_OPTIONS: '--max_old_space_size=6000' # https://github.com/vitejs/vite/issues/4162
+        NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
       run: netlify deploy --build --prod
