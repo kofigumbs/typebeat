@@ -23,6 +23,7 @@ jobs:
     - uses: mymindstorm/setup-emsdk@v9
       with:
         version: '2.0.29'
+        update-tags: true
         actions-cache-folder: 'emsdk-cache'
     - run: |-
         npm install --global npm@7 netlify-cli@6
