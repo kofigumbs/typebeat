@@ -15,13 +15,14 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
+        override: true
         target: wasm32-unknown-emscripten
     - uses: Swatinem/rust-cache@v1
     - uses: mymindstorm/setup-emsdk@v9
+    - run: |-
+        npm install --global npm@7 netlify-cli@6
+        npm install
     - env:
         NETLIFY_API_KEY: ${{ secrets.NETLIFY_API_KEY }}
         NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-      run: |-
-        npm install --global npm@7 netlify-cli@6
-        npm install
-        netlify deploy --build --prod
+      run: netlify deploy --build --prod
