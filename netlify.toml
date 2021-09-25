@@ -1,6 +1,6 @@
 [build]
 command = """
-cargo build -vv --target wasm32-unknown-emscripten --package typebeat-web --release && \
+cargo +nightly build -vv --target wasm32-unknown-emscripten --package typebeat-web --release && \
 npx vite build src-web/client
 """
 publish = "src-web/client/dist"

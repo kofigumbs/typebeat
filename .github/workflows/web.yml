@@ -18,11 +18,13 @@ jobs:
         override: true
         target: wasm32-unknown-emscripten
     - uses: Swatinem/rust-cache@v1
+      with:
+        cache-on-failure: true
     - uses: mymindstorm/setup-emsdk@v9
     - run: |-
         npm install --global npm@7 netlify-cli@6
         npm install
     - env:
-        NETLIFY_API_KEY: ${{ secrets.NETLIFY_API_KEY }}
+        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       run: netlify deploy --build --prod
