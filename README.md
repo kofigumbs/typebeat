@@ -18,9 +18,5 @@ Building the web app requires additional dependencies:
 - [Netlify CLI](https://docs.netlify.com/cli/get-started/)
 
 ```bash
-# Workaround for https://github.com/rust-lang/rust-bindgen/issues/1780
-# Only required for building miniaudio the first time since cargo will cache the artifact
-export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=`emconfigure env 2> /dev/null | sed -n -e 's/^EMSCRIPTEN=//p'`/cache/sysroot"
-
 netlify build
 ```
