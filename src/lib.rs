@@ -784,6 +784,10 @@ impl Controller {
         let _ = self.device.stop();
     }
 
+    pub fn start(&self) {
+        let _ = self.device.start();
+    }
+
     pub fn get(&self, method: &str) -> Option<i32> {
         let song = self.song.read().expect("song");
         Some(match method {
@@ -858,7 +862,7 @@ impl Controller {
     }
 }
 
-pub fn start(platform: impl Platform) -> Result<Controller, Box<dyn Error>> {
+pub fn init(platform: impl Platform) -> Result<Controller, Box<dyn Error>> {
     let audio = Audio {
         voices: vec![Voice::default(); VOICE_COUNT as usize],
         sends: [
@@ -907,12 +911,10 @@ pub fn start(platform: impl Platform) -> Result<Controller, Box<dyn Error>> {
         audio.process(&song, input, output);
     });
 
-    let controller = Controller {
+    Ok(Controller {
         device,
         song: controller_song,
         audio: controller_audio,
         sender: Arc::new(Mutex::new(sender)),
-    };
-    controller.device.start()?;
-    Ok(controller)
+    })
 }

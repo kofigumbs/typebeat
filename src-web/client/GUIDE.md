@@ -1,8 +1,9 @@
-Press <kbd role="button">SPACE</kbd> to start the guide.
+Press <kbd>N</kbd> to start the guide.
 
+`method=auditionDown` `data=7`
 ---
 
-Let's start by triggering a sample.
+You just triggered a sample!
 Typebeat's controls are laid out in two halves.
 By default, any key on the right half of your keyboard triggers a sample.
 

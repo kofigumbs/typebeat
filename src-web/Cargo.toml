@@ -9,3 +9,4 @@ path = "main.rs"
 
 [dependencies]
 typebeat = { path = ".." }
+lazy_static = "1.4"

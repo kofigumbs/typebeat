@@ -6,6 +6,8 @@ import './index.css';
 // FIXME(https://github.com/mackron/miniaudio/issues/363)
 globalThis.miniaudio = undefined;
 
+
+// Setup guide
 let step = 0;
 const guide = document.querySelector('.guide');
 const setContent = () => guide.innerHTML = sections[step].content;
@@ -18,6 +20,8 @@ const advance = (x) => {
   }
 };
 
+
+// Resize mount node so that it never requires horizontal scroll
 const mount = document.querySelector('.mount');
 const rows = Array.from(mount.children);
 const resize = () => requestAnimationFrame(() => {
@@ -28,36 +32,39 @@ const resize = () => requestAnimationFrame(() => {
   mount.style.transform = `scale(${scale})`;
   mount.style.marginTop = mount.style.marginBottom = margin;
 });
-window.addEventListener("resize", resize);
-window.addEventListener("DOMContentLoaded", resize);
+window.addEventListener('resize', resize);
+window.addEventListener('DOMContentLoaded', resize);
 
 
-import('../../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(async factory => {
-  const lib = await factory.default({
-    locateFile: () => wasm,
-    noInitialRun: true,
-    noExitRuntime: true,
-  });
-  const start = () => {
-    const controller = lib.ccall('start', 'number', [], []);
-    advance();
-    init((context, { method, data }) => {
-      advance({ context, method, data });
-      switch (context) {
-        case 'get':
-          return lib.ccall('get', 'number', ['number', 'string'], [controller, method]);
-        case 'set':
-          return lib.ccall('set', 'number', ['number', 'string', 'number'], [controller, method, data]);
-      }
-    });
-    window.addEventListener('beforeunload', () => lib.ccall('stop', null, ['number'], [controller]));
-  };
-  const handleKey = event => {
-    if (event.key === ' ') {
-      start();
-      document.removeEventListener('keypress', handleKey);
-    }
-  };
-  document.addEventListener('keypress', handleKey);
-  document.querySelector('.guide kbd').addEventListener('click', start);
+// Start loading the (large) JS runtime
+const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(factory => {
+  return factory.default({ locateFile: () => wasm, noExitRuntime: true });
 });
+
+
+// If Typebeat is running, sometimes the browser won't let you navigate away immediately.
+// This doesn't seem to happen if we explicitly stop the audio device.
+lib.then(() => {
+  window.addEventListener('beforeunload', () => controller.ccall('stop', null))
+});
+
+
+// Setup the main app, but only start the audio device once we receive a set.
+// Until then, all gets return 0.
+let started = false;
+lib.then(controller => init((context, { method, data }) => {
+  advance({ context, method, data });
+  switch (context) {
+    case 'get':
+      if (!started) {
+        return 0;
+      }
+      return controller.ccall('get', 'number', ['string'], [method]);
+    case 'set':
+      if (!started) {
+        controller.ccall('start', null);
+        started = true;
+      }
+      return controller.ccall('set', null, ['string', 'number'], [method, data]);
+  }
+}));

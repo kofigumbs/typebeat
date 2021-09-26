@@ -47,9 +47,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             Some(BaseDirectory::Resource),
         )?,
     };
+    let controller = typebeat::init(platform)?;
+    controller.start();
     let app = Builder::default()
         .menu(menu)
-        .manage(typebeat::start(platform)?)
+        .manage(controller)
         .invoke_handler(tauri::generate_handler![get, set])
         .build(context)?;
     app.run(|handle, event| match event {

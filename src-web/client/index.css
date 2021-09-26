@@ -20,7 +20,3 @@ kbd {
   background: var(--light);
   padding: .375rem .75rem;
 }
-
-kbd[role=button] {
-  cursor: pointer;
-}
