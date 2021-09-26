@@ -1,5 +1,6 @@
 body {
-  height: unset;
+  display: flex;
+  flex-direction: column;
 }
 
 h1 {
@@ -12,26 +13,33 @@ header, p, ol, ul {
   margin: 3rem auto;
   padding: 0 1.5rem;
   max-width: 42rem;
-  line-height: 2;
+  line-height: 1.75;
 }
 
 ol, ul {
   list-style-position: inside;
 }
 
+.grow {
+  flex: 1;
+}
+
 .key {
   position: relative;
 }
 
-.key:after {
+.mount.labeled .key:after {
   content: attr(data-cap);
+}
+
+.key:after {
   position: absolute;
   bottom: var(--offset);
   left: var(--offset);
   z-index: 1;
   background: var(--pad_background);
   --pad_background: var(--light);
-  --offset: calc(var(--size) / 4 * -1);
+  --offset: -.35rem;
 }
 
 .key.mode:after {
@@ -49,13 +57,23 @@ kbd {
 }
 
 .key:after, kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--size);
-  height: var(--size);
+  display: inline-block;
   color: var(--dark);
   border: solid 2px var(--dark);
-  border-radius: 50%;
-  --size: 1.75rem;
+  border-radius: 1rem;
+  padding: .25rem .75rem;
+  line-height: 1;
+}
+
+button {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
 }

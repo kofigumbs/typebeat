@@ -20,6 +20,7 @@ const advance = (x) => {
   }
 };
 document.addEventListener('keypress', event => advance({ code: event.code }));
+guide.querySelector('button').addEventListener('click', () => advance({ code: 'Space' }));
 
 
 // Resize mount node so that it never requires horizontal scroll
@@ -35,6 +36,17 @@ const resize = () => requestAnimationFrame(() => {
 });
 window.addEventListener('resize', resize);
 window.addEventListener('DOMContentLoaded', resize);
+
+
+// Setup keyboard label toggle
+const toggle = document.querySelector('.toggle-labels');
+toggle.addEventListener('click', () => {
+  if (mount.classList.toggle('labeled')) {
+    toggle.innerText = toggle.innerText.replace('Show', 'Hide');
+  } else {
+    toggle.innerText = toggle.innerText.replace('Hide', 'Show');
+  }
+});
 
 
 // Start loading the (large) JS runtime

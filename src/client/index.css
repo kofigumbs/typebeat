@@ -87,8 +87,8 @@ body {
   box-sizing: border-box;
 }
 
-.label.title {
-  border-bottom: solid 2px var(--dark);
+.title {
+  border-bottom: solid 2px currentColor;
 }
 
 .pulse {

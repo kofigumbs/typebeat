@@ -1,4 +1,4 @@
-Press <kbd>SPACE</kbd> to start the guide.
+Press <button><kbd>SPACE</kbd></button> to start the guide.
 
 `code=Space`
 
