@@ -1,90 +1,125 @@
 on:
   workflow_dispatch: {}
   schedule:
-  - cron: "0 14 * * *"
+    - cron: "0 14 * * *"
+
+env:
+  NODE_VERSION: 16
+  NPM_VERSION: 16
+  FAUST_VERSION: 2.33.1
+  EMSCRIPTEN_VERSION: 2.0.29
+  TAURI_CLI_VERSION: 1.0.0-beta.7
+  NETLIFY_CLI_VERSION: 6
 
 jobs:
-  build-tauri-macos:
-    runs-on: macos-11
+  build-faust:
+    strategy:
+      matrix:
+        include:
+          - { os: 'macos-11', shell: 'bash' }
+          - { os: 'ubuntu-20.04', shell: 'bash' }
+          - { os: 'windows-2019', shell: 'msys2 {0}' }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-node@v2
-      with: { node-version: '16', cache: 'npm' }
-    - uses: actions-rs/toolchain@v1
-      with: { profile: minimal, toolchain: nightly, override: true }
-    - uses: Swatinem/rust-cache@v1
-      with: { cache-on-failure: true }
-    - run: |-
-        npm install --global npm@7
-        npm install
-    - uses: ./.github/workflows/setup-faust
-      with: { version: 2.33.1 }
-    - run: |-
-        cargo install tauri-cli --version 1.0.0-beta.7
-        cargo tauri build
-      env:
-        NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
-    - uses: actions/upload-artifact@v2
-      with: { name: Typebeat.dmg, path: target/release/bundle/dmg/Typebeat*.dmg }
+      - if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            git
+            base-devel
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+      - id: cache-faust
+        uses: actions/cache@v2
+        with:
+          path: |
+            faust/build/bin/faust
+            faust/libraries
+          key: faust-${{ env.FAUST_VERSION }}-${{ matrix.os }}
+      - if: steps.cache-faust.outputs.cache-hit != 'true'
+        run: |-
+          git clone --depth 1 https://github.com/grame-cncm/faust --branch $FAUST_VERSION $RUNNER_TEMP/faust
+          echo 'set (RUST_BACKEND COMPILER STATIC DYNAMIC CACHE STRING "Include Rust backend" FORCE)' > $RUNNER_TEMP/faust/build/backends/rust.cmake
+          make -C $RUNNER_TEMP/faust BACKENDS=rust.cmake compiler
 
-  build-tauri-windows:
-    runs-on: windows-2019
-    steps:
-    - uses: msys2/setup-msys2@v2
-    - uses: actions/checkout@v2
-    - uses: actions/setup-node@v2
-      with: { node-version: '16', cache: 'npm' }
-    - uses: actions-rs/toolchain@v1
-      with: { profile: minimal, toolchain: nightly, override: true }
-    - uses: Swatinem/rust-cache@v1
-      with: { cache-on-failure: true }
-    - run: |-
-        npm install --global npm@7
-        npm install
-    - uses: ./.github/workflows/setup-faust
-      with: { version: 2.33.1, shell: msys2 }
-    - run: |-
-        cargo install tauri-cli --version 1.0.0-beta.7
-        cargo tauri build
-      env:
-        NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
-    - uses: actions/upload-artifact@v2
-      with: { name: Typebeat.msi, path: target/release/bundle/msi/Typebeat*.msi }
+# build-tauri:
+#   strategy:
+#     matrix:
+#       include:
+#         - { os: macos-11, shell: bash, bundle: dmg }
+#         - { os: windows-2019, shell: msys2 {0}, bundle: msi }
+#   runs-on: ${{ matrix.os }}
+#   defaults:
+#     run: { shell: ${{ matrix.shell }} }
+#   steps:
+#     - uses: actions/checkout@v2
+#     - uses: actions/setup-node@v2
+#       with: { node-version: ${{ env.NODE_VERSION }}, cache: 'npm' }
+#     - uses: actions-rs/toolchain@v1
+#       with: { profile: minimal, toolchain: nightly, override: true }
+#     - uses: Swatinem/rust-cache@v1
+#       with: { cache-on-failure: true }
+#     - run: |-
+#         npm install --global npm@${{ env.NPM_VERSION }}
+#         npm install
+#     - run: |-
+#         # Install Faust to node_modules, so that it's cached by setup-node
+#         [[ -x node_modules/.faust/faust && -d node_modules/.faust/libraries ]] || (
+#           git clone --depth 1 https://github.com/grame-cncm/faust --branch $FAUST_VERSION $RUNNER_TEMP/faust
+#           echo 'set (RUST_BACKEND COMPILER STATIC DYNAMIC CACHE STRING "Include Rust backend" FORCE)' > $RUNNER_TEMP/faust/build/backends/rust.cmake
+#           make -C $RUNNER_TEMP/faust BACKENDS=rust.cmake compiler
+#           mkdir -p node_modules/.faust
+#           cp -r $RUNNER_TEMP/faust/{build/bin/faust*,libraries} node_modules/.faust
+#         )
+#         echo $(pwd)/node_modules/.faust >> $GITHUB_PATH
+#     - run: |-
+#         cargo install tauri-cli --version ${{ env.TAURI_CLI_VERSION }}
+#         cargo tauri build
+#       env:
+#         NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
+#     - uses: actions/upload-artifact@v2
+#       with:
+#         name: Typebeat.${{ matrix.bundle }}
+#         path: target/release/bundle/${{ matrix.bundle }}/Typebeat*.${{ matrix.bundle }}
 
-  build-web:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-node@v2
-      with: { node-version: '16', cache: 'npm' }
-    - uses: actions-rs/toolchain@v1
-      with: { profile: minimal, toolchain: nightly, override: true, target: wasm32-unknown-emscripten }
-    - uses: Swatinem/rust-cache@v1
-      with: { cache-on-failure: true }
-    - uses: kofigumbs/setup-emsdk@master # FIXME(https://github.com/mymindstorm/setup-emsdk/pull/22)
-      with: { version: '2.0.29', update-tags: true, actions-cache-folder: 'emsdk-cache' }
-    - run: |-
-        npm install --global npm@7 netlify-cli@6
-        npm install
-    - uses: ./.github/workflows/setup-faust
-      with: { version: 2.33.1 }
-    - env:
-        FAUST_LIB_PATH: node_modules/.faust/libraries
-        NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
-      run: netlify build --offline
+# build-web:
+#   runs-on: ubuntu-latest
+#   steps:
+#   - uses: actions/checkout@v2
+#   - uses: actions/setup-node@v2
+#     with: { node-version: '16', cache: 'npm' }
+#   - uses: actions-rs/toolchain@v1
+#     with: { profile: minimal, toolchain: nightly, override: true, target: wasm32-unknown-emscripten }
+#   - uses: Swatinem/rust-cache@v1
+#     with: { cache-on-failure: true }
+#   - uses: kofigumbs/setup-emsdk@master # FIXME(https://github.com/mymindstorm/setup-emsdk/pull/22)
+#     with: { version: ${{ env.EMSCRIPTEN_VERSION }}, update-tags: true, actions-cache-folder: 'emsdk-cache' }
+#   - run: |-
+#       npm install --global npm@7 netlify-cli@6
+#       npm install
+#   - uses: ./.github/workflows/setup-faust
+#     with: { version: 2.33.1 }
+#   - env:
+#       FAUST_LIB_PATH: node_modules/.faust/libraries
+#       NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
+#     run: netlify build --offline
 
-  deploy-web:
-    needs: [build-web, build-tauri-macos, build-tauri-windows]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-node@v2
-      with: { node-version: '16', cache: 'npm' }
-    - uses: actions/download-artifact@v2
-      with: { name: Typebeat.dmg, path: src-web/client/dist/Typebeat.dmg }
-    - uses: actions/download-artifact@v2
-      with: { name: Typebeat.msi, path: src-web/client/dist/Typebeat.msi }
-    - env:
-        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-      run: netlify deploy --prod
+# deploy-web:
+#   needs: [build-web, build-tauri-macos, build-tauri-windows]
+#   runs-on: ubuntu-latest
+#   steps:
+#   - uses: actions/checkout@v2
+#   - uses: actions/setup-node@v2
+#     with: { node-version: '16', cache: 'npm' }
+#   - uses: actions/download-artifact@v2
+#     with: { name: Typebeat.dmg, path: src-web/client/dist/Typebeat.dmg }
+#   - uses: actions/download-artifact@v2
+#     with: { name: Typebeat.msi, path: src-web/client/dist/Typebeat.msi }
+#   - env:
+#       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+#       NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+#     run: netlify deploy --prod
