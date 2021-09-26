@@ -19,10 +19,43 @@ ol, ul {
   list-style-position: inside;
 }
 
+.key {
+  position: relative;
+}
+
+.key:after {
+  content: attr(data-cap);
+  position: absolute;
+  bottom: var(--offset);
+  left: var(--offset);
+  z-index: 1;
+  background: var(--pad_background);
+  --pad_background: var(--light);
+  --offset: calc(var(--size) / 4 * -1);
+}
+
+.key.mode:after {
+  background: var(--highlight);
+}
+
+.key.pulse:after {
+  animation: pulse .5s ease-out;
+}
+
 kbd {
   font-family: inherit;
   font-style: normal;
-  color: var(--dark);
   background: var(--light);
-  padding: .375rem .75rem;
+}
+
+.key:after, kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size);
+  height: var(--size);
+  color: var(--dark);
+  border: solid 2px var(--dark);
+  border-radius: 50%;
+  --size: 1.75rem;
 }
