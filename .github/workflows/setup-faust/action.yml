@@ -1,9 +1,13 @@
 name: Setup Faust
 description: Install Faust to node_modules, so that it's cached by setup-node
+inputs:
+  version:
+    description: 'Faust version'
+    required: true
 runs:
   using: 'composite'
   steps:
-    shell: bash
+  - shell: bash
     run: |-
       [[ -x node_modules/.faust/faust && -d node_modules/.faust/libraries ]] || (
         git clone --depth 1 https://github.com/grame-cncm/faust --branch ${{ inputs.version }} $RUNNER_TEMP/faust
