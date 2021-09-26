@@ -20,7 +20,7 @@ jobs:
     - uses: ./.github/workflows/setup-faust
       with: { version: 2.33.1 }
     - run: |-
-        cargo install tauri-cli 1.0.0-beta.7
+        cargo install tauri-cli --version 1.0.0-beta.7
         cargo tauri build
       env:
         NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
@@ -30,6 +30,7 @@ jobs:
   build-tauri-windows:
     runs-on: windows-2019
     steps:
+    - uses: msys2/setup-msys2@v2
     - uses: actions/checkout@v2
     - uses: actions/setup-node@v2
       with: { node-version: '16', cache: 'npm' }
@@ -41,9 +42,9 @@ jobs:
         npm install --global npm@7
         npm install
     - uses: ./.github/workflows/setup-faust
-      with: { version: 2.33.1 }
+      with: { version: 2.33.1, shell: msys2 }
     - run: |-
-        cargo install tauri-cli 1.0.0-beta.7
+        cargo install tauri-cli --version 1.0.0-beta.7
         cargo tauri build
       env:
         NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
@@ -70,7 +71,7 @@ jobs:
     - env:
         FAUST_LIB_PATH: node_modules/.faust/libraries
         NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
-      run: netlify build
+      run: netlify build --offline
 
   deploy-web:
     needs: [build-web, build-tauri-macos, build-tauri-windows]
