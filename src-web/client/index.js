@@ -50,15 +50,11 @@ lib.then(controller => {
 
 
 // Setup the main app, but only start the audio device once we receive a set
-// Until then, all gets return 0.
 let started = false;
 lib.then(controller => init((context, { method, data }) => {
   advance({ context, method, data });
   switch (context) {
     case 'get':
-      if (!started) {
-        return 0;
-      }
       return controller.ccall('get', 'number', ['string'], [method]);
     case 'set':
       if (!started) {
