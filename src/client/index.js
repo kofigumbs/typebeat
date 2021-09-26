@@ -101,7 +101,8 @@ const getCap = event => {
   return capsByEventCode.get(event.code);
 };
 
-const handleCap = (cap, down, state) => {
+const handleCap = (event, cap, state) => {
+  const down = event.type.endsWith('down');
   const { local, proxy, actions } = state;
   if (!modes.has(cap)) {
     const action = actions.get(modes.get(local.modifier)).get(cap);
@@ -123,8 +124,13 @@ const handleDocumentKey = (event, state) => {
   if (cap) {
     event.preventDefault();
     if (!event.repeat)
-      handleCap(cap, event.type === 'keydown', state);
+      handleCap(event, cap, state);
   }
+};
+
+const handlePointer = (event, cap, state) => {
+  event.preventDefault();
+  handleCap(event, cap, state);
 };
 
 export default (callback) => {
@@ -145,8 +151,8 @@ export default (callback) => {
   document.addEventListener('keyup', event => handleDocumentKey(event, state));
   document.addEventListener('keypress', event => !getCap(event));
   for (let key of document.querySelectorAll('.key')) {
-    key.addEventListener('pointerdown', () => handleCap(key.dataset.cap, true, state));
-    key.addEventListener('pointerup', () => handleCap(key.dataset.cap, false, state));
+    key.addEventListener('pointerdown', event => handlePointer(event, key.dataset.cap, state));
+    key.addEventListener('pointerup', event => handlePointer(event, key.dataset.cap, state));
   }
   sync(state);
 };
