@@ -24,6 +24,28 @@ body {
   font-feature-settings: "ss07";
 }
 
+button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  box-sizing: content-box;
+}
+
+button::-moz-focus-inner,
+input[type="button"]::-moz-focus-inner,
+input[type="submit"]::-moz-focus-inner,
+input[type="reset"]::-moz-focus-inner {
+  padding: 0 !important;
+  border: 0 none !important;
+}
+
 .mount {
   display: flex;
   align-items: center;
@@ -81,7 +103,7 @@ body {
 
 .label {
   width: fit-content;
-  height: 1.5rem;
+  height: 1.25rem;
   align-self: flex-start;
   color: var(--dark);
   box-sizing: border-box;

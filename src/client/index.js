@@ -17,25 +17,25 @@ document.querySelector('.mount').innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;
     ${mapJoin(row, cap => {
       if (cap === 'Q')
         return `
-          <div class="key" data-cap="${cap}">
+          <button class="key" data-cap="${cap}">
             ${mapJoin(capsOnRight.match(/.{1,5}/g).reverse(), minirow => `
               <div class="minirow">
                 ${mapJoin(minirow, c => `<div class="minipad" data-cap="${c}"></div>`)}
               </div>`
             )}
-          </div>
+          </button>
         `;
       else if (modes.has(cap))
         return `
-          <div class="key" data-cap="${cap}">
+          <button class="key" data-cap="${cap}">
             ${Tare.html(modes.get(cap))}
-          </div>
+          </button>
         `;
       else
         return `
-          <div class="key pad" data-cap="${cap}">
+          <button class="key pad" data-cap="${cap}">
             <typed-label class="label" aria-label=""></typed-label>
-          </div>
+          </button>
         `;
     })}
   </div>
