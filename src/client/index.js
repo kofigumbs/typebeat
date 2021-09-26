@@ -52,10 +52,11 @@ const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`)
  * Sync the UI with the proxy state
  */
 
-const forceClass = (el, className) => {
-  el.classList.remove(className);
+const unpulse = event => event.target.classList.remove('pulse');
+const pulse = el => {
+  el.classList.remove('pulse');
   void el.offsetWidth; // trigger a DOM reflow
-  el.classList.add(className);
+  el.classList.add('pulse');
 }
 
 const sync = async (state) => {
@@ -68,7 +69,7 @@ const sync = async (state) => {
     if (!!local.modifier)
       labels[i].classList.toggle('title', !!(await action?.title()));
     if (await proxy[`recent ${i}`])
-      forceClass(minipads[i], 'pulse');
+      pulse(minipads[i]);
     minipads[i].classList.toggle('active', i === await proxy.activeTrack);
   };
   if (await proxy.playing)
@@ -108,7 +109,7 @@ const handleCap = (event, cap, state) => {
     const action = actions.get(modes.get(local.modifier)).get(cap);
     down ? action?.onDown(event.timeStamp) : action?.onUp(event.timeStamp);
     if (down)
-      forceClass(keysOnRight.find(key => cap === key.dataset.cap), 'pulse');
+      pulse(keysOnRight.find(key => cap === key.dataset.cap));
   }
   else if (down) {
     local.modifier = local.modifier === cap ? undefined : cap;
@@ -154,5 +155,7 @@ export default (callback) => {
     key.addEventListener('pointerdown', event => handlePointer(event, key.dataset.cap, state));
     key.addEventListener('pointerup', event => handlePointer(event, key.dataset.cap, state));
   }
+  minipads.forEach(el => el.addEventListener('animationend', unpulse));
+  keysOnRight.forEach(el => el.addEventListener('animationend', unpulse));
   sync(state);
 };
