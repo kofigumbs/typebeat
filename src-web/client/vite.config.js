@@ -6,6 +6,7 @@ const transformGuide = () => {
   const trailingNewlinesAndCodeFenceChecks = /\n+(?:`.+\n*)$/;
   const paragraphBreaks = /\n(?:\n+)/;
   const codeFenceChecks = /`([^=]+)=([^`]+)`/g;
+  const blockElement = /^<(?:ul|ol)>/
   return {
     name: 'transform-guide',
     transform(src, path) {
@@ -15,7 +16,7 @@ const transformGuide = () => {
         content: markup
           .replace(trailingNewlinesAndCodeFenceChecks, '')
           .split(paragraphBreaks)
-          .map(x => x.startsWith('<') ? x : `<p>${x}</p>`)
+          .map(x => x.match(blockElement) ? x : `<p>${x}</p>`)
           .join(''),
         checks: Array.from(markup.matchAll(codeFenceChecks), match => (
           [match[1], match[2]]

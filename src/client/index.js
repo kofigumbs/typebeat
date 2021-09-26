@@ -90,14 +90,16 @@ const requestSync = (state) => {
  * Event listeners
  */
 
-const hasModifier = event => (
-  event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
-);
-
 const capsByEventCode = new Map([
   ['Semicolon', ';'], ['Comma', ','], ['Period', '.'], ['Slash', '/'],
   ...Array.from('QWERTYUIOPASDFGHJKLZXCVBNM', cap => [`Key${cap}`, cap]),
 ]);
+
+const getCap = event => {
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+    return;
+  return capsByEventCode.get(event.code);
+};
 
 const handleCap = (cap, down, state) => {
   const { local, proxy, actions } = state;
@@ -117,15 +119,12 @@ const handleCap = (cap, down, state) => {
 }
 
 const handleDocumentKey = (event, state) => {
-  if (hasModifier(event))
-    return;
-  event.preventDefault();
-  if (event.repeat)
-    return;
-  const cap = capsByEventCode.get(event.code);
-  if (!cap)
-    return;
-  handleCap(cap, event.type === 'keydown', state);
+  const cap = getCap(event);
+  if (cap) {
+    event.preventDefault();
+    if (!event.repeat)
+      handleCap(cap, event.type === 'keydown', state);
+  }
 };
 
 export default (callback) => {
@@ -144,7 +143,7 @@ export default (callback) => {
   const state = { local, proxy, actions: bindActions(local, proxy, set) };
   document.addEventListener('keydown', event => handleDocumentKey(event, state));
   document.addEventListener('keyup', event => handleDocumentKey(event, state));
-  document.addEventListener('keypress', event => !hasModifier(event));
+  document.addEventListener('keypress', event => !getCap(event));
   for (let key of document.querySelectorAll('.key')) {
     key.addEventListener('pointerdown', () => handleCap(key.dataset.cap, true, state));
     key.addEventListener('pointerup', () => handleCap(key.dataset.cap, false, state));

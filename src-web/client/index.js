@@ -19,6 +19,7 @@ const advance = (x) => {
     setContent();
   }
 };
+document.addEventListener('keypress', event => advance({ code: event.code }));
 
 
 // Resize mount node so that it never requires horizontal scroll
@@ -42,14 +43,13 @@ const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-web.
 });
 
 
-// If Typebeat is running, sometimes the browser won't let you navigate away immediately.
-// This doesn't seem to happen if we explicitly stop the audio device.
-lib.then(() => {
+// If Typebeat is running, the browser might prevent you from navigating away
+lib.then(controller => {
   window.addEventListener('beforeunload', () => controller.ccall('stop', null))
 });
 
 
-// Setup the main app, but only start the audio device once we receive a set.
+// Setup the main app, but only start the audio device once we receive a set
 // Until then, all gets return 0.
 let started = false;
 lib.then(controller => init((context, { method, data }) => {
