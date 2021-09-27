@@ -17,8 +17,8 @@ jobs:
       matrix:
         include:
           - { os: macos-11, shell: 'bash' }
+          - { os: ubuntu-20.04, shell: 'bash' }
           - { os: windows-2019, shell: 'msys2 {0}' }
-          - { os: 'ubuntu-20.04', shell: 'bash' }
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -56,12 +56,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: macos-11, shell: 'bash', bundle: dmg }
-          - { os: windows-2019, shell: 'msys2 {0}', bundle: msi }
+          - { os: macos-11, bundle: dmg }
+          - { os: windows-2019, bundle: msi }
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
@@ -77,11 +74,8 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         with: { cache-on-failure: true }
       - if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          release: false
-          install: >-
-            mingw-w64-x86_64-clang
+        uses: KyleMayes/install-llvm-action@v1
+        with: { version: 10 }
       - run: |-
           npm install --global "npm@$NPM_VERSION" "netlify-cli@$NETLIFY_CLI_VERSION"
           npm install
