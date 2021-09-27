@@ -16,9 +16,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: 'macos-11', shell: 'bash' }
+          - { os: macos-11, shell: 'bash' }
+          - { os: windows-2019, shell: 'msys2 {0}' }
           - { os: 'ubuntu-20.04', shell: 'bash' }
-          - { os: 'windows-2019', shell: 'msys2 {0}' }
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -55,9 +55,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: macos-11, bundle: dmg }
-          - { os: windows-2019, bundle: msi }
+          - { os: macos-11, shell: 'bash', bundle: dmg }
+          - { os: windows-2019, shell: 'msys2 {0}', bundle: msi }
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
@@ -76,9 +79,12 @@ jobs:
           npm install --global "npm@$NPM_VERSION" "netlify-cli@$NETLIFY_CLI_VERSION"
           npm install
           cargo install tauri-cli --version $TAURI_CLI_VERSION
+          ls -la $RUNNER_TEMP/faust
+          chmod +x $RUNNER_TEMP/faust/faust
           PATH="$RUNNER_TEMP/faust:$PATH" cargo tauri build
         env:
           NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
+        shell: bash
       - uses: actions/upload-artifact@v2
         with:
           name: Typebeat.${{ matrix.bundle }}
@@ -109,6 +115,7 @@ jobs:
       - run: |-
           npm install --global npm@7 netlify-cli@6
           npm install
+          chmod +x $RUNNER_TEMP/faust/faust
           PATH="$RUNNER_TEMP/faust:$PATH" netlify build --offline
         env:
           FAUST_LIB_PATH: ${{ runner.temp }}/faust/libraries
