@@ -10,6 +10,7 @@ env:
   NODE_VERSION: 16
   NPM_VERSION: 7
   TAURI_CLI_VERSION: 1.0.0-beta.7
+  WINDOWS_LLVM_VERSION: 10
 
 jobs:
   build-faust:
@@ -75,13 +76,15 @@ jobs:
         with: { cache-on-failure: true }
       - if: runner.os == 'Windows'
         uses: KyleMayes/install-llvm-action@v1
-        with: { version: 10 }
+        with:
+          version: ${{ env.WINDOWS_LLVM_VERSION }}
       - run: |-
           npm install --global "npm@$NPM_VERSION" "netlify-cli@$NETLIFY_CLI_VERSION"
           npm install
           cargo install tauri-cli --version $TAURI_CLI_VERSION
           chmod +x $RUNNER_TEMP/faust/faust
           PATH="$RUNNER_TEMP/faust:$PATH" cargo tauri build
+          cp target/release/bundle/${{ matrix.bundle }}/Typebeat*.${{ matrix.bundle }} $RUNNER_TEMP/Typebeat.${{ matrix.bundle }}
         env:
           FAUST_LIB_PATH: ${{ runner.temp }}/faust/libraries
           NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
@@ -89,7 +92,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: Typebeat.${{ matrix.bundle }}
-          path: target/release/bundle/${{ matrix.bundle }}/Typebeat*.${{ matrix.bundle }}
+          path: ${{ runner.temp }}/Typebeat.${{ matrix.bundle }}
 
   build-web-app:
     needs: build-faust
@@ -139,9 +142,9 @@ jobs:
       - uses: actions/download-artifact@v2
         with: { name: site, path: src-web/client/dist }
       - uses: actions/download-artifact@v2
-        with: { name: Typebeat.dmg, path: src-web/client/dist/Typebeat.dmg }
+        with: { name: Typebeat.dmg, path: src-web/client/dist/download }
       - uses: actions/download-artifact@v2
-        with: { name: Typebeat.msi, path: src-web/client/dist/Typebeat.msi }
+        with: { name: Typebeat.msi, path: src-web/client/dist/download }
       - run: netlify deploy --prod
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
