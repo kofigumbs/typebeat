@@ -27,6 +27,7 @@ jobs:
       - if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
+          release: false
           install: >-
             git
             base-devel
@@ -83,6 +84,7 @@ jobs:
           chmod +x $RUNNER_TEMP/faust/faust
           PATH="$RUNNER_TEMP/faust:$PATH" cargo tauri build
         env:
+          FAUST_LIB_PATH: ${{ runner.temp }}/faust/libraries
           NODE_OPTIONS: '--max_old_space_size=6000' # FIXME(https://github.com/vitejs/vite/issues/4162)
         shell: bash
       - uses: actions/upload-artifact@v2
@@ -90,7 +92,7 @@ jobs:
           name: Typebeat.${{ matrix.bundle }}
           path: target/release/bundle/${{ matrix.bundle }}/Typebeat*.${{ matrix.bundle }}
 
-  build-web:
+  build-web-app:
     needs: build-faust
     runs-on: ubuntu-latest
     steps:
@@ -113,7 +115,7 @@ jobs:
           update-tags: true,
           actions-cache-folder: emsdk-cache
       - run: |-
-          npm install --global npm@7 netlify-cli@6
+          npm install --global "npm@$NPM_VERSION" "netlify-cli@$NETLIFY_CLI_VERSION"
           npm install
           chmod +x $RUNNER_TEMP/faust/faust
           PATH="$RUNNER_TEMP/faust:$PATH" netlify build --offline
@@ -126,8 +128,8 @@ jobs:
           path: src-web/client/dist
           if-no-files-found: error
 
-  deploy-web:
-    needs: [ build-web, build-tauri-apps ]
+  deploy-web-app:
+    needs: [ build-web-app, build-tauri-apps ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

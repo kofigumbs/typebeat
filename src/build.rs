@@ -31,5 +31,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         std::fs::write(&out, String::from_utf8(dsp)?.replace(&ident, &with_derive))?;
         println!("cargo:rerun-if-changed={}", &path);
     }
+    println!("cargo:rerun-if-env-changed=FAUST_LIB_PATH");
     Ok(())
 }
