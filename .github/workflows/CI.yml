@@ -4,12 +4,12 @@ on:
     - cron: "0 14 * * *"
 
 env:
+  EMSCRIPTEN_VERSION: 2.0.29
+  FAUST_VERSION: 2.33.1
+  NETLIFY_CLI_VERSION: 6
   NODE_VERSION: 16
   NPM_VERSION: 7
-  FAUST_VERSION: 2.33.1
-  EMSCRIPTEN_VERSION: 2.0.29
   TAURI_CLI_VERSION: 1.0.0-beta.7
-  NETLIFY_CLI_VERSION: 6
 
 jobs:
   build-faust:
@@ -76,11 +76,16 @@ jobs:
         with: { profile: minimal, toolchain: nightly, override: true }
       - uses: Swatinem/rust-cache@v1
         with: { cache-on-failure: true }
+      - if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          release: false
+          install: >-
+            mingw-w64-x86_64-clang
       - run: |-
           npm install --global "npm@$NPM_VERSION" "netlify-cli@$NETLIFY_CLI_VERSION"
           npm install
           cargo install tauri-cli --version $TAURI_CLI_VERSION
-          ls -la $RUNNER_TEMP/faust
           chmod +x $RUNNER_TEMP/faust/faust
           PATH="$RUNNER_TEMP/faust:$PATH" cargo tauri build
         env:
