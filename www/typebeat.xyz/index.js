@@ -1,5 +1,5 @@
-import init from '../../src/client';
-import wasm from '../../target/wasm32-unknown-emscripten/release/typebeat_web.wasm?url';
+import init from '..';
+import wasm from '../../target/wasm32-unknown-emscripten/release/typebeat_dot_xyz.wasm?url';
 import sections from './GUIDE.md'
 import './index.css';
 
@@ -50,7 +50,7 @@ toggle.addEventListener('click', () => {
 
 
 // Start loading the (large) JS runtime
-const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-web.js').then(factory => {
+const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-xyz.js').then(factory => {
   return factory.default({ locateFile: () => wasm, noExitRuntime: true });
 });
 

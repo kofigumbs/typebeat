@@ -32,5 +32,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("cargo:rerun-if-changed={}", &path);
     }
     println!("cargo:rerun-if-env-changed=FAUST_LIB_PATH");
+
+    #[cfg(any(unix, windows))]
+    tauri_build::build();
+
     Ok(())
 }

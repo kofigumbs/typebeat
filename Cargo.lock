@@ -3242,33 +3242,19 @@ dependencies = [
 name = "typebeat"
 version = "0.1.0"
 dependencies = [
+ "cocoa",
  "crossbeam",
  "default-boxed",
  "directories",
  "futures",
+ "lazy_static",
  "libm",
  "miniaudio",
  "rfd 0.4.4",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "typebeat-tauri"
-version = "0.1.0"
-dependencies = [
- "cocoa",
  "tauri",
  "tauri-build",
- "typebeat",
-]
-
-[[package]]
-name = "typebeat-web"
-version = "0.1.0"
-dependencies = [
- "lazy_static",
- "typebeat",
 ]
 
 [[package]]

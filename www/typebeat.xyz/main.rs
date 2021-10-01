@@ -1,19 +1,14 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
-use std::path::Path;
+use std::path::PathBuf;
 
 use typebeat::{Controller, Platform};
 
-struct WebPlatform;
-
-impl Platform for WebPlatform {
-    fn root(&self) -> &Path {
-        Path::new("/src")
-    }
-}
-
 lazy_static::lazy_static! {
-    static ref CONTROLLER: Controller = typebeat::init(WebPlatform).expect("controller");
+    static ref CONTROLLER: Controller = {
+        let root = PathBuf::from("/assets");
+        typebeat::init(Platform { root }).expect("controller")
+    };
 }
 
 fn c_str(chars: *const c_char) -> Option<&'static str> {
@@ -42,6 +37,6 @@ pub fn set(method: *const c_char, data: i32) {
     c_str(method).map(|method| CONTROLLER.set(method, data));
 }
 
-pub fn main() {
+fn main() {
     lazy_static::initialize(&CONTROLLER);
 }

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::error::Error;
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -372,11 +372,13 @@ impl Track {
     }
 }
 
-pub trait Platform {
-    fn root(&self) -> &Path;
+pub struct Platform {
+    pub root: PathBuf,
+}
 
+impl Platform {
     fn read_sample(&self, i: usize) -> Result<Vec<f32>, Box<dyn Error>> {
-        let path = self.root().join(format!("samples/{:02}.wav", i));
+        let path = self.root.join(format!("samples/{:02}.wav", i));
         let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
         let mut decoder = Decoder::from_file(&path, Some(&config))?;
         let frame_count = decoder.length_in_pcm_frames() as usize;
@@ -412,7 +414,7 @@ struct Song {
 }
 
 impl Song {
-    fn register<T: Platform>(&mut self, platform: &T, sends: &[DspDyn]) {
+    fn register(&mut self, platform: &Platform, sends: &[DspDyn]) {
         let mut buttons = ButtonRegisterUi::default();
         effects::insert::build_user_interface_static(&mut buttons);
         self.gate_id = buttons.registry["gate"];
@@ -862,7 +864,7 @@ impl Controller {
     }
 }
 
-pub fn init(platform: impl Platform) -> Result<Controller, Box<dyn Error>> {
+pub fn init(platform: Platform) -> Result<Controller, Box<dyn Error>> {
     let audio = Audio {
         voices: vec![Voice::default(); VOICE_COUNT as usize],
         sends: [

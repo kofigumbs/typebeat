@@ -1,20 +1,7 @@
-use std::error::Error;
-use std::path::{Path, PathBuf};
-
 use tauri::api::path::BaseDirectory;
 use tauri::{Builder, Event, Manager, Menu, MenuItem, State, Submenu};
 
 use typebeat::{Controller, Platform};
-
-struct TauriPlatform {
-    root: PathBuf,
-}
-
-impl Platform for TauriPlatform {
-    fn root(&self) -> &Path {
-        &self.root
-    }
-}
 
 #[tauri::command]
 fn get(method: &'_ str, state: State<'_, Controller>) -> Option<i32> {
@@ -26,7 +13,7 @@ fn set(method: &'_ str, data: i32, state: State<'_, Controller>) {
     state.set(method, data)
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let menu = Menu::new()
         .add_submenu(Submenu::new(
             "Typebeat",
@@ -39,15 +26,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .add_native_item(MenuItem::Paste),
         ));
     let context = tauri::generate_context!();
-    let platform = TauriPlatform {
-        root: tauri::api::path::resolve_path(
-            context.config(),
-            context.package_info(),
-            "../src",
-            Some(BaseDirectory::Resource),
-        )?,
-    };
-    let controller = typebeat::init(platform)?;
+    let root = tauri::api::path::resolve_path(
+        context.config(),
+        context.package_info(),
+        "assets",
+        Some(BaseDirectory::Resource),
+    )?;
+    let controller = typebeat::init(Platform { root })?;
     controller.start();
     let app = Builder::default()
         .menu(menu)
