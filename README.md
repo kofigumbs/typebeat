@@ -1,4 +1,4 @@
-<img align="left" src="./core/icons/icon.svg" alt="Logo" style="width: 80px; height: 80px;" width="80px" height="80px" />
+<img align="left" src="./assets/icons/icon.svg" alt="Logo" style="width: 80px; height: 80px;" width="80px" height="80px" />
 
 # Typebeat
 
