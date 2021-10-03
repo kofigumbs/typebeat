@@ -28,10 +28,6 @@ ol, ul {
   margin-top: 0;
 }
 
-.key {
-  position: relative;
-}
-
 .mount.labeled .key:after {
   content: attr(data-cap);
 }
@@ -41,8 +37,8 @@ ol, ul {
   bottom: var(--offset);
   left: var(--offset);
   z-index: 1;
-  background: var(--pad_background);
-  --pad_background: var(--light);
+  background: var(--key_background);
+  --key_background: var(--light);
   --offset: -.35rem;
 }
 

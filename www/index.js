@@ -2,7 +2,27 @@ import 'firacode';
 import Tare from 'tare';
 import './index.css';
 import './typed-label.js';
-import { modes, bindActions } from './bindings.js';
+
+
+/*
+ * Bind modes
+ */
+
+const modes = new Map([
+  ['Q', 'track'], ['W', 'sound'], ['E', 'chop'], ['R', 'poly'], ['T', 'note'],
+  ['A', 'beat'],  ['S', 'loop'],  ['D', 'hold'], ['F', 'eq'],   ['G', 'mix'],
+  ['Z', 'key'],   ['X', 'auto'],  ['C', 'send'], ['V', 'tape'], ['B', 'mute'],
+  [undefined, 'audition'],
+]);
+
+const modules = import.meta.globEager('./mode/*.js')
+const bindActions = (local, proxy, set) => {
+  const map = new Map();
+  for (let mode of modes.values()) {
+    map.set(mode, modules[`./mode/${mode}.js`].bindings(local, proxy, set));
+  }
+  return map;
+};
 
 
 /*
@@ -15,25 +35,16 @@ const mapJoin = (iterable, f) => Array.from(iterable).map(f).join('');
 document.querySelector('.mount').innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], row => `
   <div class="row">
     ${mapJoin(row, cap => {
-      if (cap === 'Q')
+      if (modes.has(cap))
         return `
-          <button class="key" data-cap="${cap}">
-            ${mapJoin(capsOnRight.match(/.{1,5}/g).reverse(), minirow => `
-              <div class="minirow">
-                ${mapJoin(minirow, c => `<div class="minipad" data-cap="${c}"></div>`)}
-              </div>`
-            )}
-          </button>
-        `;
-      else if (modes.has(cap))
-        return `
-          <button class="key" data-cap="${cap}">
+          <button class="key mode" data-cap="${cap}">
             ${Tare.html(modes.get(cap))}
+            <div class="visual"></div>
           </button>
         `;
       else
         return `
-          <button class="key pad" data-cap="${cap}">
+          <button class="key action" data-cap="${cap}">
             <typed-label class="label" aria-label=""></typed-label>
           </button>
         `;
@@ -45,18 +56,17 @@ const findElements = (caps, f) => Array.from(caps).map(cap => document.querySele
 const keysOnLeft = findElements(capsOnLeft, cap => `.key[data-cap="${cap}"]`);
 const keysOnRight = findElements(capsOnRight, cap => `.key[data-cap="${cap}"]`);
 const labels = findElements(capsOnRight, cap => `.key[data-cap="${cap}"] .label`);
-const minipads = findElements(capsOnRight, cap => `.minipad[data-cap="${cap}"]`);
 
 
 /*
  * Sync the UI with the proxy state
  */
 
-const unpulse = event => event.target.classList.remove('pulse');
 const pulse = el => {
   el.classList.remove('pulse');
   void el.offsetWidth; // trigger a DOM reflow
   el.classList.add('pulse');
+  el.addEventListener('animationend', () => el.classList.remove('pulse'), { once: true })
 }
 
 const sync = async (state) => {
@@ -68,9 +78,6 @@ const sync = async (state) => {
     labels[i].setAttribute('aria-label', await action?.label() ?? '');
     if (!!local.modifier)
       labels[i].classList.toggle('title', !!(await action?.title()));
-    if (await proxy[`recent ${i}`])
-      pulse(minipads[i]);
-    minipads[i].classList.toggle('active', i === await proxy.activeTrack);
   };
   if (await proxy.playing)
     requestSync(state);
@@ -114,7 +121,7 @@ const handleCap = (event, cap, state) => {
   else if (down) {
     local.modifier = local.modifier === cap ? undefined : cap;
     for (const key of keysOnLeft)
-      key.classList.toggle('mode', !!local.modifier && key.dataset.cap === local.modifier);
+      key.classList.toggle('active', !!local.modifier && key.dataset.cap === local.modifier);
     local.tempoTaps = [];
   }
   requestSync(state);
@@ -130,6 +137,8 @@ const handleDocumentKey = (event, state) => {
 };
 
 const handlePointer = (event, cap, state) => {
+  if (event.button)
+    return; // don't hijack right-click
   event.preventDefault();
   handleCap(event, cap, state);
 };
@@ -155,7 +164,5 @@ export default (callback) => {
     key.addEventListener('pointerdown', event => handlePointer(event, key.dataset.cap, state));
     key.addEventListener('pointerup', event => handlePointer(event, key.dataset.cap, state));
   }
-  minipads.forEach(el => el.addEventListener('animationend', unpulse));
-  keysOnRight.forEach(el => el.addEventListener('animationend', unpulse));
   sync(state);
 };
