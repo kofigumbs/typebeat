@@ -1,6 +1,8 @@
 import bind from '../bind';
 
-export const bindings = (local, proxy, set) => new Map([
+export const cap = 'A';
+
+export const actions = (local, proxy, set) => new Map([
   ['Y', bind.title(() => 'tempo')],
   ...bind.nudge(() => proxy.tempo, i => set('tempo', i)),
   ['N', bind.toggle('play', () => proxy.playing, () => set('playing')) ],
@@ -19,6 +21,3 @@ export const bindings = (local, proxy, set) => new Map([
     },
   })],
 ]);
-
-export const visual = () => {};
-export const sync = () => {};

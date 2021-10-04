@@ -31,4 +31,9 @@ const note = n => {
   return `${name}${octave}`;
 };
 
-export default { one, title, toggle, group, oneOf, all, nudge, join, note };
+const comingSoon = new Map([
+  ['N', one({ label: () => 'coming' })],
+  ['M', one({ label: () => 'soon...' })],
+]);
+
+export default { one, title, toggle, group, oneOf, all, nudge, join, note, comingSoon };

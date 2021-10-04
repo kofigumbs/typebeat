@@ -59,7 +59,7 @@ input[type="reset"]::-moz-focus-inner {
   background: var(--dark);
 }
 
-.row, .minirow {
+.row {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -92,32 +92,17 @@ input[type="reset"]::-moz-focus-inner {
   --key_background: var(--highlight);
 }
 
-.visual {
+.key.mode .visual {
   position: absolute;
   left: 0;
   bottom: 0;
   width: 100%;
   height: calc(50% - 2px);
-  color: var(--dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
   background: var(--key_background);
-}
-
-.minipad {
-  --key_background: var(--light);
-  --key_pulse: var(--dark);
-  width: 1rem;
-  height: 0;
-  padding-bottom: 1rem;
-  margin: 1px;
-  background: var(--key_background);
-}
-
-.active .minipad {
-  --key_background: var(--highlight);
-}
-
-.minipad.active {
-  --key_background: var(--lowlight);
 }
 
 .label {
@@ -137,8 +122,14 @@ input[type="reset"]::-moz-focus-inner {
 }
 
 @keyframes pulse {
-  from { background: var(--key_pulse); }
-  to { background: var(--key_background); }
+  from {
+    fill: var(--key_pulse);
+    background: var(--key_pulse);
+  }
+  to {
+    fill: var(--key_background);
+    background: var(--key_background);
+  }
 }
 
 
@@ -180,12 +171,4 @@ input[type="reset"]::-moz-focus-inner {
 
 .key:nth-of-type(6) {
   margin-left: 3rem;
-}
-
-.minirow:nth-of-type(1) {
-  margin-left: -.5rem;
-}
-
-.minirow:nth-of-type(3) {
-  margin-left: .5rem;
 }

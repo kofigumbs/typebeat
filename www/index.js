@@ -1,28 +1,19 @@
 import 'firacode';
 import Tare from 'tare';
+import pulse from './pulse';
+import './components/typed-label';
 import './index.css';
-import './typed-label.js';
-
 
 /*
- * Bind modes
+ * Map caps mode modules
  */
 
-const modes = new Map([
-  ['Q', 'track'], ['W', 'sound'], ['E', 'chop'], ['R', 'poly'], ['T', 'note'],
-  ['A', 'beat'],  ['S', 'loop'],  ['D', 'hold'], ['F', 'eq'],   ['G', 'mix'],
-  ['Z', 'key'],   ['X', 'auto'],  ['C', 'send'], ['V', 'tape'], ['B', 'mute'],
-  [undefined, 'audition'],
-]);
-
-const modules = import.meta.globEager('./mode/*.js')
-const bindActions = (local, proxy, set) => {
-  const map = new Map();
-  for (let mode of modes.values()) {
-    map.set(mode, modules[`./mode/${mode}.js`].bindings(local, proxy, set));
-  }
-  return map;
-};
+const modes = new Map();
+const basename = /\/(\w+)-mode\./;
+for (let [path, module] of Object.entries(import.meta.globEager('./components/*-mode.js'))) {
+  const label = path.match(basename)[1];
+  modes.set(module.cap, { label, ...module });
+}
 
 
 /*
@@ -34,47 +25,41 @@ const capsOnRight = 'NM,./HJKL;YUIOP';
 const mapJoin = (iterable, f) => Array.from(iterable).map(f).join('');
 document.querySelector('.mount').innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], row => `
   <div class="row">
-    ${mapJoin(row, cap => {
-      if (modes.has(cap))
-        return `
-          <button class="key mode" data-cap="${cap}">
-            ${Tare.html(modes.get(cap))}
-            <div class="visual"></div>
-          </button>
-        `;
-      else
-        return `
-          <button class="key action" data-cap="${cap}">
-            <typed-label class="label" aria-label=""></typed-label>
-          </button>
-        `;
-    })}
+    ${mapJoin(row, cap => modes.has(cap)
+      ? `
+        <button class="key mode" data-cap="${cap}">
+          ${Tare.html(modes.get(cap).label)}
+          <${modes.get(cap).label}-mode class="visual"></${modes.get(cap).label}>
+        </button>
+      `
+      : `
+        <button class="key action" data-cap="${cap}">
+          <typed-label class="label" aria-label=""></typed-label>
+        </button>
+      `
+    )}
   </div>
 `);
 
 const findElements = (caps, f) => Array.from(caps).map(cap => document.querySelector(f(cap)));
-const keysOnLeft = findElements(capsOnLeft, cap => `.key[data-cap="${cap}"]`);
-const keysOnRight = findElements(capsOnRight, cap => `.key[data-cap="${cap}"]`);
-const labels = findElements(capsOnRight, cap => `.key[data-cap="${cap}"] .label`);
+const keysOnLeft = findElements(capsOnLeft, cap => `[data-cap="${cap}"]`);
+const keysOnRight = findElements(capsOnRight, cap => `[data-cap="${cap}"]`);
+const visuals = findElements(capsOnLeft, cap => `[data-cap="${cap}"] .visual`);
+const labels = findElements(capsOnRight, cap => `[data-cap="${cap}"] .label`);
 
 
 /*
  * Sync the UI with the proxy state
  */
 
-const pulse = el => {
-  el.classList.remove('pulse');
-  void el.offsetWidth; // trigger a DOM reflow
-  el.classList.add('pulse');
-  el.addEventListener('animationend', () => el.classList.remove('pulse'), { once: true })
-}
-
 const sync = async (state) => {
   const { local, proxy, actions } = state;
   proxy.invalidate();
   const mode = modes.get(local.modifier);
+  for (let visual of visuals)
+    visual.sync?.(state);
   for (let i = 0; i < capsOnRight.length; i++) {
-    const action = actions.get(mode).get(capsOnRight[i]);
+    const action = actions.get(mode.label).get(capsOnRight[i]);
     labels[i].setAttribute('aria-label', await action?.label() ?? '');
     if (!!local.modifier)
       labels[i].classList.toggle('title', !!(await action?.title()));
@@ -113,7 +98,7 @@ const handleCap = (event, cap, state) => {
   const down = event.type.endsWith('down');
   const { local, proxy, actions } = state;
   if (!modes.has(cap)) {
-    const action = actions.get(modes.get(local.modifier)).get(cap);
+    const action = actions.get(modes.get(local.modifier).label).get(cap);
     down ? action?.onDown(event.timeStamp) : action?.onUp(event.timeStamp);
     if (down)
       pulse(keysOnRight.find(key => cap === key.dataset.cap));
@@ -156,7 +141,9 @@ export default (callback) => {
     },
   });
   const set = (method, data = 0) => callback('set', { method, data });
-  const state = { local, proxy, actions: bindActions(local, proxy, set) };
+  const state = { local, proxy, actions: new Map() };
+  for (let [cap, mode] of modes.entries())
+    state.actions.set(mode.label, mode.actions(local, proxy, set));
   document.addEventListener('keydown', event => handleDocumentKey(event, state));
   document.addEventListener('keyup', event => handleDocumentKey(event, state));
   document.addEventListener('keypress', event => !getCap(event));

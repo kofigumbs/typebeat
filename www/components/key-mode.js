@@ -1,6 +1,8 @@
 import bind from '../bind';
 
-export const bindings = (local, proxy, set) => new Map([
+export const cap = 'Z';
+
+export const actions = (local, proxy, set) => new Map([
   ['Y', bind.title(() => 'root')],
   ['K', bind.title(async () => bind.note(await proxy.root + 12)) ],
   ...bind.group('HJL;', i => ({
@@ -13,6 +15,3 @@ export const bindings = (local, proxy, set) => new Map([
     onDown: () => set('scale', i),
   })),
 ]);
-
-export const visual = () => {};
-export const sync = () => {};

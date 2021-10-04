@@ -1,10 +1,12 @@
 import bind from '../bind';
 
-export const bindings = (local, proxy, set) => new Map([
+export const cap = 'W';
+
+export const actions = (local, proxy, set) => new Map([
   ...bind.oneOf('YUIO', 'sound', ['sample', 'synth 1', 'synth 2', 'synth 3'], local),
   ...bind.oneOf('NM,', 'soundControl', ['type', 'level', 'detune'], local),
   ...bind.group('HJKL;', i => {
-    const soundMethod = () => join(local.sound, local.soundControl);
+    const soundMethod = () => bind.join(local.sound, local.soundControl);
     const soundNudge = bind.nudge(() => proxy[soundMethod()], j => set(soundMethod(), j))[i][1];
     return {
       label: () => {
@@ -24,9 +26,3 @@ export const bindings = (local, proxy, set) => new Map([
     };
   }),
 ]);
-
-export const visual = ({ el }) => {
-};
-
-export const sync = ({ el, local, proxy }) => {
-};
