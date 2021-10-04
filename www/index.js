@@ -49,10 +49,10 @@ const labels = findElements(capsOnRight, cap => `[data-cap="${cap}"] .label`);
 
 
 /*
- * Sync the UI with the proxy state
+ * Sync the UI with the proxy state, with a 24-frame catchup period
  */
 
-const sync = async (state) => {
+const sync = async (state, catchup = 0) => {
   const { local, proxy, actions } = state;
   proxy.invalidate();
   const mode = modes.get(local.modifier);
@@ -64,16 +64,17 @@ const sync = async (state) => {
     if (!!local.modifier)
       labels[i].classList.toggle('title', !!(await action?.title()));
   };
-  if (await proxy.playing)
-    requestSync(state);
+  if (catchup > 0 || await proxy.playing)
+    requestSync(state, catchup - 1);
 };
 
-let nextSyncId;
+let nextSyncId, nextCatchup;
 const clearNextSyncIdAndSync = (state) => {
   nextSyncId = null;
-  sync(state);
+  sync(state, nextCatchup);
 };
-const requestSync = (state) => {
+const requestSync = (state, catchup = 24) => {
+  nextCatchup = catchup;
   if (!nextSyncId)
     nextSyncId = requestAnimationFrame(() => clearNextSyncIdAndSync(state));
 };
