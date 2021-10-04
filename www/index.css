@@ -98,10 +98,6 @@ input[type="reset"]::-moz-focus-inner {
   bottom: 0;
   width: 100%;
   height: calc(50% - 2px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
   background: var(--key_background);
 }
 
@@ -124,10 +120,12 @@ input[type="reset"]::-moz-focus-inner {
 @keyframes pulse {
   from {
     fill: var(--key_pulse);
+    stroke: var(--key_pulse);
     background: var(--key_pulse);
   }
   to {
     fill: var(--key_background);
+    stroke: var(--key_background);
     background: var(--key_background);
   }
 }

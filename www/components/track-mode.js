@@ -13,44 +13,46 @@ export const actions = (local, proxy, set) => new Map([
 
 customElements.define('track-mode', class extends HTMLElement {
   connectedCallback() {
+    const width = 2;
+    const length = width * 6;
+    const offset = length + 1;
     const row = ({ x, y, id }) => `
-      <rect id="track-${id + 0}" x="${x + 0.00}" y="${y}" width="1.5" height=".25"></rect>
-      <rect id="track-${id + 1}" x="${x + 1.75}" y="${y}" width="1.5" height=".25"></rect>
-      <rect id="track-${id + 2}" x="${x + 3.50}" y="${y}" width="1.5" height=".25"></rect>
-      <rect id="track-${id + 3}" x="${x + 5.25}" y="${y}" width="1.5" height=".25"></rect>
-      <rect id="track-${id + 4}" x="${x + 7.00}" y="${y}" width="1.5" height=".25"></rect>
+      <path id="track-${id + 0}" d="M ${x + 0 * offset} ${y} h ${length}" stroke-width="${width}"></path>
+      <path id="track-${id + 1}" d="M ${x + 1 * offset} ${y} h ${length}" stroke-width="${width}"></path>
+      <path id="track-${id + 2}" d="M ${x + 2 * offset} ${y} h ${length}" stroke-width="${width}"></path>
+      <path id="track-${id + 3}" d="M ${x + 3 * offset} ${y} h ${length}" stroke-width="${width}"></path>
+      <path id="track-${id + 4}" d="M ${x + 4 * offset} ${y} h ${length}" stroke-width="${width}"></path>
     `;
     const grid = ({ x, y }) =>
       row({ x, y, id: 10 }) +
-        row({ x: x + 0.5, y: y + 1.5, id: 5 }) +
-        row({ x: x + 1.0, y: y + 3.0, id: 0 });
+        row({ x: x + length/3, y: y + length, id: 5 }) +
+        row({ x: x + length/3*2, y: y + length*2, id: 0 });
     this.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6">
+      <svg xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
         <style>
-          rect {
-            fill: var(--key_background);
+          path {
+            transform: translate(0, 0);
+            stroke: var(--key_background);
+            stroke-width: ${width}px;
             --key_background: var(--dark);
             --key_pulse: transparent;
           }
+          path.active {
+            stroke-width: ${length}px;
+          }
         </style>
-        ${grid({ x: 1.125, y: 1.375 })}
-        <rect id="active" width="1.5" height="1.5"></rect>
+        ${grid({ x: 11, y: 11 })}
       </svg>
     `;
-    this._active = this.querySelector('#active');
     this._tracks = Array.from({ length: 15 }).map((_, i) => this.querySelector(`#track-${i}`));
   }
 
   async sync({ proxy }) {
     const activeTrack = await proxy.activeTrack;
-    const row = parseInt(activeTrack / 5);
-    this._active.setAttribute('y', 0.75 + 1.5 * (2 - row));
-    this._active.setAttribute('x', 2.125 + 1.75 * (activeTrack % 5) - row * .5);
-    for (let i = 0; i < this._tracks.length; i++)
-      if (await proxy[`recent ${i}`]) {
-        pulse(this._tracks[i]);
-        if (activeTrack === i)
-          pulse(this._active);
-      }
+    this._tracks.forEach(async (track, i) => {
+      if (await proxy[`recent ${i}`])
+        pulse(track);
+      track.classList.toggle('active', i === activeTrack);
+    });
   }
 });
