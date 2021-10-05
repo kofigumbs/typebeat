@@ -1,6 +1,6 @@
 import bind from '../bind';
 import pulse from '../pulse';
-import TrackGrid from './track-grid';
+import grid from './track-grid';
 
 export const cap = 'Q';
 
@@ -12,7 +12,12 @@ export const actions = (local, proxy, set) => new Map([
   })),
 ]);
 
-customElements.define('track-mode', class extends TrackGrid {
+customElements.define('track-mode', class extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = grid({ scope: 'track-mode' });
+    this._tracks = Array.from({ length: 15 }).map((_, i) => this.querySelector(`#track-${i}`));
+  }
+
   async sync({ proxy }) {
     const activeTrack = await proxy.activeTrack;
     this._tracks.forEach(async (track, i) => {

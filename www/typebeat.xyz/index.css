@@ -43,7 +43,7 @@ ol, ul {
 }
 
 .key.mode:after {
-  background: var(--highlight);
+  background: var(--primary);
 }
 
 .key.pulse:after {

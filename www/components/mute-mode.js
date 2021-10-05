@@ -1,5 +1,5 @@
 import bind from '../bind';
-import TrackGrid from './track-grid';
+import grid from './track-grid';
 
 export const cap = 'B';
 
@@ -10,7 +10,12 @@ export const actions = (local, proxy, set) => new Map([
   })),
 ]);
 
-customElements.define('mute-mode', class extends TrackGrid {
+customElements.define('mute-mode', class extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = grid({ scope: 'mute-mode' });
+    this._tracks = Array.from({ length: 15 }).map((_, i) => this.querySelector(`#track-${i}`));
+  }
+
   async sync({ proxy }) {
     this._tracks.forEach(async (track, i) => {
       track.classList.toggle('active', await proxy[`muted ${i}`]);

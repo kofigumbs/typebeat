@@ -11,8 +11,8 @@ html, body {
 
 html {
   --light: #ebdbb2;
-  --highlight: #d65d0e;
-  --lowlight: #d79921;
+  --primary: #d65d0e;
+  --secondary: #d79921;
   --dark: #282828;
   color: var(--light);
   background: var(--dark);
@@ -77,28 +77,32 @@ input[type="reset"]::-moz-focus-inner {
   margin: 1px;
 }
 
-.key.action {
+.action {
   justify-content: center;
   background: var(--key_background);
-  --key_background: var(--highlight);
-  --key_pulse: var(--lowlight);
+  --key_background: var(--primary);
+  --key_pulse: var(--secondary);
 }
 
-.key.mode {
+.mode {
   --key_background: var(--light);
 }
 
-.key.mode.active {
-  --key_background: var(--highlight);
+.mode.active {
+  --key_background: var(--primary);
 }
 
-.key.mode .visual {
+.visual {
   position: absolute;
   left: 0;
   bottom: 0;
   width: 100%;
   height: calc(50% - 2px);
   background: var(--key_background);
+}
+
+.visual svg * {
+  stroke-width: 2px;
 }
 
 .label {
@@ -159,14 +163,14 @@ input[type="reset"]::-moz-focus-inner {
  * spacing
  */
 
-.row:nth-of-type(1) {
+.row:first-of-type {
   margin-left: -3rem;
 }
 
-.row:nth-of-type(3) {
+.row:last-of-type {
   margin-left: 3rem;
 }
 
-.key:nth-of-type(6) {
+.mode + .action {
   margin-left: 3rem;
 }
