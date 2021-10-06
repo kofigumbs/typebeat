@@ -17,7 +17,7 @@ customElements.define('note-mode', class extends HTMLElement {
 
   connectedCallback() {
     const whiteWidth = 14;
-    const whiteHeight = 48;
+    const whiteHeight = 49;
     const blackWidth = 10;
     const key = (x, w, h) => `
       <rect id="note-${this.zOrder.shift()}" x="${x-2}" y="-2" height="${h}" width="${w}" fill="none"></rect>

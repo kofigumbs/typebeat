@@ -1,9 +1,9 @@
 const width = 2;
-const length = width * 7;
+const length = width * 6;
 const offset = length + 5;
 const row = (n) => Array.from({ length: 5 }).map((_, i) => ({
-  x: n*length/3 + i*offset - 1,
-  y: (2*n+1)*length/2 + n + n*width - 1,
+  x: n*(1*length/3 + 1) + i*offset + 3,
+  y: (n*2 + 1)*length/2 + n*width + 3,
 }));
 
 const grid = row(2).concat(row(1), row(0));
