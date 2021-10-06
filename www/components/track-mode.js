@@ -1,6 +1,6 @@
 import bind from '../bind';
 import pulse from '../pulse';
-import grid from './track-grid';
+import { inert, active } from './track-grid';
 
 export const cap = 'Q';
 
@@ -14,16 +14,29 @@ export const actions = (local, proxy, set) => new Map([
 
 customElements.define('track-mode', class extends HTMLElement {
   connectedCallback() {
-    this.innerHTML = grid({ scope: 'track-mode' });
-    this._tracks = Array.from({ length: 15 }).map((_, i) => this.querySelector(`#track-${i}`));
+    this.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg">
+        <style>
+          track-mode path {
+            fill: var(--key_fill);
+            stroke: var(--key_stroke);
+            --key_stroke: var(--dark);
+            --key_fill: var(--secondary);
+            --key_pulse: transparent;
+          }
+        </style>
+        ${inert.map(d => `<path d="${d}"></path>`).join('')}
+      </svg>
+    `;
+    this._tracks = Array.from(this.querySelectorAll('path'));
   }
 
   async sync({ proxy }) {
     const activeTrack = await proxy.activeTrack;
     this._tracks.forEach(async (track, i) => {
+      track.setAttribute('d', i === activeTrack ? active[i] : inert[i]);
       if (await proxy[`recent ${i}`])
         pulse(track);
-      track.classList.toggle('active', i === activeTrack);
     });
   }
 });

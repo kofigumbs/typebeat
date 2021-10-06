@@ -1,6 +1,6 @@
 * {
   transition: .1s ease;
-  transition-property: color, background, border, stroke-width;
+  transition-property: color, background, border;
 }
 
 html, body {
@@ -101,6 +101,11 @@ input[type="reset"]::-moz-focus-inner {
   background: var(--key_background);
 }
 
+.visual svg {
+  width: 100%;
+  height: 100%;
+}
+
 .visual svg * {
   stroke-width: 2px;
 }
@@ -128,8 +133,8 @@ input[type="reset"]::-moz-focus-inner {
     background: var(--key_pulse);
   }
   to {
-    fill: var(--key_background);
-    stroke: var(--key_background);
+    fill: var(--key_fill);
+    stroke: var(--key_stroke);
     background: var(--key_background);
   }
 }

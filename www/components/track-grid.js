@@ -1,32 +1,12 @@
-export default ({ scope }) => {
-  const width = 2;
-  const length = width * 6;
-  const offset = length + 2;
-  const row = ({ x, y, id }) => `
-    <path id="track-${id + 0}" d="M ${x + 0 * offset} ${y} h ${length}" stroke-width="${width}"></path>
-    <path id="track-${id + 1}" d="M ${x + 1 * offset} ${y} h ${length}" stroke-width="${width}"></path>
-    <path id="track-${id + 2}" d="M ${x + 2 * offset} ${y} h ${length}" stroke-width="${width}"></path>
-    <path id="track-${id + 3}" d="M ${x + 3 * offset} ${y} h ${length}" stroke-width="${width}"></path>
-    <path id="track-${id + 4}" d="M ${x + 4 * offset} ${y} h ${length}" stroke-width="${width}"></path>
-  `;
-  return `
-    <svg xmlns="http://www.w3.org/2000/svg">
-      <style>
-        ${scope} path {
-          stroke: var(--key_background);
-          --key_background: var(--dark);
-          --key_pulse: transparent;
-          transform: translate(9px, 11px);
-        }
-        ${scope} path.active {
-          stroke-width: ${length}px;
-        }
-      </style>
-      ${
-        row({ x: 0, y: 0, id: 10 }) +
-          row({ x: length/3, y: length, id: 5 }) +
-          row({ x: length/3*2, y: length*2, id: 0 })
-      }
-    </svg>
-  `;
-};
+const width = 2;
+const length = width * 7;
+const offset = length + 5;
+const row = (n) => Array.from({ length: 5 }).map((_, i) => ({
+  x: n*length/3 + i*offset - 1,
+  y: (2*n+1)*length/2 + n + n*width - 1,
+}));
+
+const grid = row(2).concat(row(1), row(0));
+export const inert = grid.map(({ x, y }) => `M ${x} ${y} h ${length}`);
+export const active = grid.map(({ x, y }) => `M ${x} ${y - length/2} h ${length} v ${length} h -${length} Z`);
+export const muted = grid.map(({ x, y }) => `M ${x} ${y} l ${length/2} -${length/2} l ${length/2} ${length/2} l -${length/2} ${length/2} Z`);

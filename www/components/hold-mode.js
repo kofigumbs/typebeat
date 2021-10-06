@@ -29,10 +29,10 @@ customElements.define('hold-mode', class extends HTMLElement {
     const s = await proxy.sustain;
     const r = await proxy.release;
     this._path.setAttribute('d', `
-      M 8 40 l ${a*20/50} -34
-      l ${d*20/50} ${34 * (1-s/50)}
-      H ${88 - r*20/50}
-      L 88 40
+      M 3 42 l ${a*22/50} -39
+      l ${d*22/50} ${39 * (1-s/50)}
+      H ${92 - r*22/50}
+      L 92 42
     `);
   }
 });

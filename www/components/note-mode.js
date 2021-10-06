@@ -13,17 +13,14 @@ export const actions = (local, proxy, set) => new Map([
 
 customElements.define('note-mode', class extends HTMLElement {
   // DOM ids in z order (white keys then black keys)
-  ids = [
-    "note-0", "note-2", "note-4", "note-5", "note-7", "note-9", "note-11",
-    "note-1", "note-3",           "note-6", "note-8", "note-10",
-  ];
+  zOrder = [0, 2, 4, 5, 7, 9, 11, 1, 3, 6, 8, 10];
 
   connectedCallback() {
     const whiteWidth = 14;
     const whiteHeight = 48;
     const blackWidth = 10;
     const key = (x, w, h) => `
-      <rect id="${this.ids.shift()}" x="${x}" height="${h}" width="${w}" fill="none"></rect>
+      <rect id="note-${this.zOrder.shift()}" x="${x-2}" y="-2" height="${h}" width="${w}" fill="none"></rect>
     `;
     const white = i => key(i*whiteWidth, whiteWidth, whiteHeight);
     const black = i => key((i+1)*whiteWidth - blackWidth/2, blackWidth, whiteHeight/2);
@@ -33,7 +30,6 @@ customElements.define('note-mode', class extends HTMLElement {
           note-mode rect {
             stroke: var(--dark);
             fill: var(--key_background);
-            transform: translate(-1px, -1px);
           }
           note-mode rect.active {
             fill: var(--secondary);
