@@ -23,7 +23,7 @@ const nudge = (value, onDown) => [
   [';', one({ label: () => '+10', onDown: () => onDown(3) }) ],
 ];
 
-const join = (a, b) => `${a}${b[0].toUpperCase()}${b.substring(1)}`.replace(/[^\w]/, '');
+const join = (a, b) => `${a}${b[0].toUpperCase()}${b.substring(1)}`.replace(/[ .]/g, '');
 
 const note = n => {
   const name = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][n % 12];
