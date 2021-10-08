@@ -42,6 +42,5 @@ cocoa = "0.24"
 lazy_static = "1.4"
 
 [features]
-default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 netlify = []
