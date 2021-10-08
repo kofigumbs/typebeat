@@ -2,6 +2,17 @@ use std::ops::Deref;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+/// Unifies <T: Copy> and AtomicCell<T: Copy>
+pub trait CopyAs<T> {
+    fn copy_as(&self) -> T;
+}
+
+impl<T: Copy> CopyAs<T> for T {
+    fn copy_as(&self) -> T {
+        *self
+    }
+}
+
 /// Wrapper around crossbeam's AtomicCell, which adds Clone and serde support
 #[derive(Default)]
 pub struct AtomicCell<T>(crossbeam::atomic::AtomicCell<T>);
@@ -35,6 +46,12 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for AtomicCell<T> {
 impl<T: Copy + Serialize> Serialize for AtomicCell<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.load().serialize(serializer)
+    }
+}
+
+impl<T: Copy> CopyAs<T> for AtomicCell<T> {
+    fn copy_as(&self) -> T {
+        self.load()
     }
 }
 

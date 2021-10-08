@@ -12,7 +12,7 @@ use miniaudio::{
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use atomic_cell::AtomicCell;
+use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex, UI};
 use state::{Enum, Key, State};
 
@@ -31,6 +31,7 @@ const KEY_COUNT: i32 = 15;
 const VOICE_COUNT: i32 = 5;
 const SAMPLE_RATE: i32 = 44100;
 const TRACK_COUNT: usize = 15;
+const WAVEFORM_LENGTH: usize = 24;
 
 const SCALE_LENGTH: usize = 7;
 const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
@@ -63,14 +64,6 @@ fn get_clamped<T>(values: &[T], index: i32) -> &T {
 fn write_over(source: &[f32], destination: &mut [f32]) {
     for (destination, source) in destination.iter_mut().zip(source) {
         *destination += source;
-    }
-}
-
-fn adjust_usize(lhs: usize, diff: i32, rhs: usize) -> usize {
-    if diff.is_positive() {
-        lhs + diff as usize * rhs
-    } else {
-        lhs - diff.abs() as usize * rhs
     }
 }
 
@@ -317,7 +310,7 @@ impl Track {
     }
 
     fn adjust_page(&self, diff: i32) {
-        let new_page_start = adjust_usize(
+        let new_page_start = Track::adjust(
             self.page_start.load(),
             diff,
             VIEWS_PER_PAGE * self.view_length(),
@@ -330,7 +323,7 @@ impl Track {
     fn adjust_length(&self, diff: i32) {
         self.state.set(
             &LENGTH,
-            adjust_usize(self.state.get(&LENGTH), diff, MAX_RESOLUTION),
+            Track::adjust(self.state.get(&LENGTH), diff, MAX_RESOLUTION),
         );
     }
 
@@ -370,6 +363,33 @@ impl Track {
     fn live(&self) -> &[AtomicCell<f32>] {
         &self.live_sample[..self.live_length.load()]
     }
+
+    fn waveform(&self, i: i32) -> i32 {
+        match self.state.get(&SAMPLE_TYPE) {
+            SampleType::File => Track::sample_waveform(i, &self.file_sample),
+            SampleType::LivePlay => Track::sample_waveform(i, self.live()),
+            SampleType::Live | SampleType::LiveRecord => 0,
+        }
+    }
+
+    fn adjust(lhs: usize, diff: i32, rhs: usize) -> usize {
+        if diff.is_positive() {
+            lhs + diff as usize * rhs
+        } else {
+            lhs - diff.abs() as usize * rhs
+        }
+    }
+
+    fn sample_waveform<T: CopyAs<f32>>(i: i32, sample: &[T]) -> i32 {
+        let chunk_len = sample.len() / WAVEFORM_LENGTH;
+        let max = sample
+            .chunks(chunk_len)
+            .nth(i as usize)
+            .unwrap_or_default()
+            .into_iter()
+            .fold(0., |max, f| f.copy_as().abs().max(max));
+        (max * 100.) as i32
+    }
 }
 
 pub struct Platform {
@@ -406,7 +426,7 @@ struct Song {
     #[serde(skip)]
     playing: AtomicCell<bool>,
     #[serde(skip)]
-    armed: AtomicCell<bool>,
+    recording: AtomicCell<bool>,
     #[serde(skip)]
     step: AtomicCell<usize>,
     #[serde(skip)]
@@ -547,10 +567,10 @@ impl Voice {
                 let track = &song.tracks[track_id];
                 let mix = &mut buffer.mix;
                 match track.state.get(&SAMPLE_TYPE) {
-                    SampleType::File => self.play_back(mix, &track.file_sample, f32::to_owned, 2),
+                    SampleType::File => self.play_sample(mix, &track.file_sample, 2),
                     SampleType::Live => self.play_thru(mix, track, input, false),
                     SampleType::LiveRecord => self.play_thru(mix, track, input, true),
-                    SampleType::LivePlay => self.play_back(mix, track.live(), |x| x.load(), 1),
+                    SampleType::LivePlay => self.play_sample(mix, track.live(), 1),
                 }
             }
         }
@@ -568,17 +588,16 @@ impl Voice {
         self.play(mix, |_| input);
     }
 
-    /// Yes, this is a pun -- I wanted a shorter name, and I couldn't help myself
-    fn play_back<T>(&mut self, mix: &mut [f32], sample: &[T], f: fn(&T) -> f32, channels: usize) {
+    fn play_sample<T: CopyAs<f32>>(&mut self, mix: &mut [f32], sample: &[T], channels: usize) {
         let position = self.position.floor() as usize;
         let position_fract = self.position.fract();
         self.play(mix, |channel| {
             let index = |i| i * channels + channel % channels;
             if position_fract == 0. {
-                sample.get(index(position)).map_or(0., f)
+                sample.get(index(position)).map_or(0., T::copy_as)
             } else {
-                let a = sample.get(index(position)).map_or(0., f);
-                let b = sample.get(index(position + 1)).map_or(0., f);
+                let a = sample.get(index(position)).map_or(0., T::copy_as);
+                let b = sample.get(index(position + 1)).map_or(0., T::copy_as);
                 position_fract.mul_add(b - a, a)
             }
         });
@@ -601,7 +620,7 @@ impl Audio {
     fn key_down(&mut self, song: &Song, track_id: usize, key: i32) {
         let track = &song.tracks[track_id];
         let song_step = song.step.load();
-        if song.playing.load() && song.armed.load() {
+        if song.playing.load() && song.recording.load() {
             let quantized_step = song.quantized_step(song_step, track.state.get(&RESOLUTION));
             let track_step = &track.sequence[quantized_step % track.state.get(&LENGTH)];
             let change = get_clamped(&track_step.keys, key);
@@ -614,7 +633,7 @@ impl Audio {
 
     fn key_up(&mut self, song: &Song, track_id: usize, key: i32) {
         let track = &song.tracks[track_id];
-        if song.playing.load() && song.armed.load() {
+        if song.playing.load() && song.recording.load() {
             let last_played = get_clamped(&track.last_played, key).load();
             let quantized_step = song.quantized_step(last_played, track.state.get(&RESOLUTION));
             let step = &track.sequence[quantized_step % track.state.get(&LENGTH)];
@@ -793,7 +812,7 @@ impl Controller {
     pub fn get(&self, method: &str) -> Option<i32> {
         let song = self.song.read().expect("song");
         Some(match method {
-            "armed" => song.armed.load().into(),
+            "recording" => song.recording.load().into(),
             "bars" => song.active_track().bars() as i32,
             "canClear" => song.active_track().can_clear() as i32,
             "playing" => song.playing.load().into(),
@@ -804,9 +823,10 @@ impl Controller {
                 Some(("note", i)) => song.note(song.active_track(), i),
                 Some(("recent", i)) => get_clamped(&song.tracks, i).recent.swap(false) as i32,
                 Some(("view", i)) => song.active_track().view(i as usize) as i32,
+                Some(("waveform", i)) => song.active_track().waveform(i),
                 _ => song
                     .find_state(method)
-                    .map(|(state_id, key)| song.get_state(state_id).get(&key))?,
+                    .map(|(id, key)| song.get_state(id).get(&key))?,
             },
         })
     }
@@ -820,7 +840,7 @@ impl Controller {
                     audio.key_down(song, id, song.tracks[id].state.get(&ACTIVE_KEY));
                 }
             }),
-            "armed" => Message::Fn(|_, song, _| song.armed.toggle()),
+            "recording" => Message::Fn(|_, song, _| song.recording.toggle()),
             "auditionDown" => Message::Fn(|audio, song, i| {
                 audio.key_down(
                     song,
