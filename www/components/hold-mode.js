@@ -14,10 +14,10 @@ customElements.define('hold-mode', class extends HTMLElement {
       <svg xmlns="http://www.w3.org/2000/svg">
         <style>
           hold-mode path {
-            stroke: var(--dark);
+            fill: none;
           }
         </style>
-        <path id="hold" fill="none" stroke-width="2"></path>
+        <path id="hold"></path>
       </svg>
     `;
     this._path = this.querySelector('#hold');
@@ -29,10 +29,10 @@ customElements.define('hold-mode', class extends HTMLElement {
     const s = await proxy.sustain;
     const r = await proxy.release;
     this._path.setAttribute('d', `
-      M 3 42 l ${a*22/50} -39
-      l ${d*22/50} ${39 * (1-s/50)}
-      H ${92 - r*22/50}
-      L 92 42
+      M 3 43 l ${a*22/50} -40
+      l ${d*22/50} ${40 * (1-s/50)}
+      H ${93 - r*22/50}
+      L 93 43
     `);
   }
 });

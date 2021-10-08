@@ -6,7 +6,7 @@ export const actions = (local, proxy, set) => new Map([
   ['Y', bind.title(() => 'tempo')],
   ...bind.nudge(() => proxy.tempo, i => set('tempo', i)),
   ['N', bind.toggle('play', () => proxy.playing, () => set('playing')) ],
-  ['M', bind.toggle('arm', () => proxy.armed, () => set('armed')) ],
+  ['M', bind.toggle('record', () => proxy.recording, () => set('recording')) ],
   [',', bind.one({
     label: () => 'tap',
     title: () => !!local.tempoTaps.length,

@@ -19,7 +19,6 @@ customElements.define('track-mode', class extends HTMLElement {
         <style>
           track-mode path {
             fill: var(--key_fill);
-            stroke: var(--key_stroke);
             --key_stroke: var(--dark);
             --key_fill: var(--secondary);
             --key_pulse: transparent;

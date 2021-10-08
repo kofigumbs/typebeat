@@ -19,10 +19,10 @@ customElements.define('eq-mode', class extends HTMLElement {
       <svg xmlns="http://www.w3.org/2000/svg">
         <style>
           eq-mode path {
-            stroke: var(--dark);
+            fill: none;
           }
-          </style>
-        <path fill="none"></path>
+        </style>
+        <path></path>
       </svg>
     `;
     this._path = this.querySelector('path');
