@@ -10,15 +10,16 @@ html, body {
 }
 
 html {
+  color: var(--light);
+  background: var(--dark);
+  -webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape while allowing user zoom */
   --light: #ebdbb2;
   --primary: #d65d0e;
   --secondary: #d79921;
   --dark: #282828;
-  color: var(--light);
-  background: var(--dark);
 }
 
-body {
+body, button {
   font-size: 16px;
   font-family: 'Fira Code', monospace;
   font-feature-settings: "ss07";
@@ -31,8 +32,6 @@ button {
   border-radius: 0;
   background: none;
   color: inherit;
-  font-size: inherit;
-  font-family: inherit;
   font-weight: inherit;
   line-height: inherit;
   box-sizing: content-box;

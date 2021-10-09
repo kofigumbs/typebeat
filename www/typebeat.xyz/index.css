@@ -24,10 +24,6 @@ ol, ul {
   flex: 1;
 }
 
-.collapse-top {
-  margin-top: 0;
-}
-
 .mount.labeled .key:after {
   content: attr(data-cap);
 }
