@@ -10,7 +10,7 @@ customElements.define('chop-mode', class extends HTMLElement {
   connectedCallback() {
     this.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
-        ${this.eachWaveform(i => `<path></path>`).join('')}
+        ${this.eachWaveform(i => `<path stroke-width="2"></path>`).join('')}
       </svg>
     `;
     this._paths = Array.from(this.querySelectorAll('path'));

@@ -1,6 +1,6 @@
 * {
   transition: .1s ease;
-  transition-property: color, background, border, fill, stroke;
+  transition-property: color, background, border, fill;
 }
 
 html, body {
@@ -108,7 +108,6 @@ input[type="reset"]::-moz-focus-inner {
 
 .visual svg * {
   stroke: var(--dark);
-  stroke-width: 2px;
 }
 
 .label {

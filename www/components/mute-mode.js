@@ -14,7 +14,7 @@ customElements.define('mute-mode', class extends HTMLElement {
   connectedCallback() {
     this.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
-        ${inert.map(d => `<path d="${d}" fill="none"></path>`).join('')}
+        ${inert.map(d => `<path d="${d}" fill="none" stroke-width="2"></path>`).join('')}
       </svg>
     `;
     this._tracks = Array.from(this.querySelectorAll('path'));

@@ -35,8 +35,8 @@ customElements.define('key-mode', class extends HTMLElement {
             fill: var(--key_background);
           }
         </style>
-        <circle r="14" cx="48" cy="23" class="background"></circle>
-        <path></path>
+        <circle r="14" cx="48" cy="23" class="background" stroke-width="2"></circle>
+        <path stroke-width="2"></path>
       </svg>
     `;
     const circle = this.querySelector('circle');

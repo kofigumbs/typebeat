@@ -20,7 +20,7 @@ customElements.define('note-mode', class extends HTMLElement {
     const whiteHeight = 49;
     const blackWidth = 10;
     const key = (x, w, h) => `
-      <rect id="note-${this.zOrder.shift()}" x="${x-2}" y="-2" height="${h}" width="${w}"></rect>
+      <rect id="note-${this.zOrder.shift()}" x="${x-2}" y="-2" height="${h}" width="${w}" stroke-width="2"></rect>
     `;
     const white = i => key(i*whiteWidth, whiteWidth, whiteHeight);
     const black = i => key((i+1)*whiteWidth - blackWidth/2, blackWidth, whiteHeight/2);

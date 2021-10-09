@@ -12,7 +12,7 @@ customElements.define('hold-mode', class extends HTMLElement {
   connectedCallback() {
     this.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
-        <path fill="none"></path>
+        <path fill="none" stroke-width="2"></path>
       </svg>
     `;
     this._path = this.querySelector('path');

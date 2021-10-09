@@ -24,7 +24,7 @@ customElements.define('track-mode', class extends HTMLElement {
             --key_pulse: transparent;
           }
         </style>
-        ${inert.map(d => `<path d="${d}"></path>`).join('')}
+        ${inert.map(d => `<path d="${d}" stroke-width="2"></path>`).join('')}
       </svg>
     `;
     this._tracks = Array.from(this.querySelectorAll('path'));
