@@ -17,7 +17,7 @@ customElements.define('track-mode', class extends HTMLElement {
     this.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
         <style>
-          track-mode path {
+          track-mode.visual path {
             fill: var(--key_fill);
             --key_stroke: var(--dark);
             --key_fill: var(--secondary);

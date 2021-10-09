@@ -17,7 +17,7 @@ customElements.define('chop-mode', class extends HTMLElement {
   }
 
   async sync({ proxy }) {
-    const id = await proxy.activeTrack;
+    const id = `${await proxy.activeTrack}:${await proxy.sampleType}`;
     if (this._last !== id) {
       const waveforms = await Promise.all(this.eachWaveform(i => proxy[`waveform ${i}`]));
       this._paths.map((path, i) => {

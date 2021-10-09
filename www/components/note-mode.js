@@ -27,10 +27,10 @@ customElements.define('note-mode', class extends HTMLElement {
     this.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
         <style>
-          note-mode rect {
+          note-mode.visual rect {
             fill: var(--key_background);
           }
-          note-mode rect.active {
+          note-mode.visual rect.active {
             fill: var(--secondary);
           }
         </style>
