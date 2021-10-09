@@ -12,15 +12,10 @@ customElements.define('hold-mode', class extends HTMLElement {
   connectedCallback() {
     this.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
-        <style>
-          hold-mode path {
-            fill: none;
-          }
-        </style>
-        <path id="hold"></path>
+        <path fill="none"></path>
       </svg>
     `;
-    this._path = this.querySelector('#hold');
+    this._path = this.querySelector('path');
   }
 
   async sync({ proxy }) {

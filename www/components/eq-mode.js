@@ -17,12 +17,7 @@ customElements.define('eq-mode', class extends HTMLElement {
   connectedCallback() {
     this.innerHTML = `
       <svg xmlns="http://www.w3.org/2000/svg">
-        <style>
-          eq-mode path {
-            fill: none;
-          }
-        </style>
-        <path></path>
+        <path fill="none"></path>
       </svg>
     `;
     this._path = this.querySelector('path');
