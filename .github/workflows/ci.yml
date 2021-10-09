@@ -9,7 +9,7 @@ env:
   NETLIFY_CLI_VERSION: 6
   NODE_VERSION: 16
   NPM_VERSION: 7
-  TAURI_CLI_VERSION: 1.0.0-beta.7
+  TAURI_CLI_VERSION: 34509028627aa44c02ec38bf6c45e797c8ccfc69
   WINDOWS_LLVM_VERSION: 12
 
   # FIXME(https://github.com/vitejs/vite/issues/4162)
@@ -41,7 +41,7 @@ jobs:
       - run: |-
           npm install --global "npm@$NPM_VERSION" "netlify-cli@$NETLIFY_CLI_VERSION"
           npm install
-          cargo install tauri-cli --version $TAURI_CLI_VERSION
+          cargo install --git https://github.com/tauri-apps/tauri --rev $TAURI_CLI_VERSION tauri-cli
           cargo tauri build
       - run: netlify deploy --alias ${{ runner.os }} --dir target/release/bundle/${{ matrix.bundle }}
         env:
