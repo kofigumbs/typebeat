@@ -24,7 +24,7 @@ const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
 
 const MAX_RESOLUTION: usize = 512;
-const MAX_LENGTH: usize = MAX_RESOLUTION * 16 * 8;
+const MAX_LENGTH: usize = MAX_RESOLUTION * 8;
 const VIEWS_PER_PAGE: usize = 4;
 
 const KEY_COUNT: i32 = 15;
