@@ -9,6 +9,7 @@ export const actions = (local, proxy, set) => new Map([
     label: async () => i === await proxy.activeTrack ? 'active' : '',
     title: async () => !await proxy.playing,
     onDown: () => set('activeTrack', i),
+    onUp: () => set('auditionUp', i),
   })),
 ]);
 

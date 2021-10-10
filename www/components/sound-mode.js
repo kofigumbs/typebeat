@@ -57,7 +57,7 @@ customElements.define('sound-mode', class extends HTMLElement {
     const offset2 = await proxy.synth2Level/50 * 12
     const offset3 = await proxy.synth3Level/50 * 12
     for (let i = 0; i < length; i++) {
-      const x = 48 - 4*(i-length/2);
+      const x = 47 - 4*(i-length/2);
       const y = 23 - amplitude/2 +
         synth1(i, length) * offset1 +
         synth2(i, length) * offset2 +

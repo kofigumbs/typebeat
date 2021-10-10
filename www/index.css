@@ -1,6 +1,5 @@
 * {
   transition: .1s ease;
-  transition-property: color, background, border, fill;
 }
 
 html, body {
@@ -56,6 +55,7 @@ input[type="reset"]::-moz-focus-inner {
   user-select: none;
   touch-action: manipulation;
   background: var(--dark);
+  transition-property: background;
 }
 
 .row {
@@ -147,6 +147,7 @@ input[type="reset"]::-moz-focus-inner {
 [data-tare] {
   width: 100%;
   height: 50%;
+  transition-property: border;
 }
 
 [data-tare-character] + [data-tare-character] {
