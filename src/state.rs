@@ -120,12 +120,17 @@ impl<T> Key<T> {
     }
 }
 
+struct Meta {
+    key: Key<()>,
+    dirty: AtomicCell<bool>,
+}
+
 #[derive(Default, Deserialize)]
 pub struct State {
     #[serde(default, flatten)]
     save: HashMap<String, i32>,
     #[serde(skip)]
-    keys: HashMap<&'static str, Key<()>>,
+    meta: HashMap<&'static str, Meta>,
     #[serde(skip)]
     data: HashMap<&'static str, AtomicCell<i32>>,
 }
@@ -153,13 +158,17 @@ impl State {
     /// Read parameter from the saved value or use the default if it doesn't exist
     pub fn register<T: Copy + Parameter>(&mut self, key: &Key<T>) {
         let data = self.save.remove(key.name).unwrap_or(key.default.load());
-        self.keys.insert(key.name, key.clone());
+        let meta = Meta {
+            key: key.clone(),
+            dirty: false.into(),
+        };
+        self.meta.insert(key.name, meta);
         self.data.insert(key.name, data.into());
     }
 
     /// Gets the raw version of a parameter key by its name
     pub fn get_key<T>(&self, name: &str) -> Option<Key<T>> {
-        self.keys.get(name).map(Key::clone)
+        self.meta.get(name).map(|meta| meta.key.clone())
     }
 
     /// Get the parameter's value
@@ -169,12 +178,17 @@ impl State {
 
     /// Set the parameter's value
     pub fn set<T: Copy + PartialOrd + Parameter>(&self, key: &Key<T>, value: T) {
-        self.data[key.name].store(value.to_i32().clamp(key.min.load(), key.max.load()));
+        let new = value.to_i32().clamp(key.min.load(), key.max.load());
+        let old = self.data[key.name].swap(new);
+        if new != old {
+            self.meta[key.name].dirty.store(true);
+        }
     }
 
     /// Toggles the boolean parameter's value
     pub fn toggle<T>(&self, key: &Key<T>) {
         self.data[key.name].fetch_xor(1);
+        self.meta[key.name].dirty.store(true);
     }
 
     /// Toggles, sets, or nudges a parameter depending on the Key's properties
@@ -190,12 +204,19 @@ impl State {
         }
     }
 
+    /// Iterates through dirty state key names
+    pub fn dirty(&self) -> impl Iterator<Item = &'static str> + '_ {
+        self.meta
+            .iter()
+            .filter_map(|(&name, meta)| meta.dirty.swap(false).then_some(name))
+    }
+
     /// Formats state for saving
     pub fn to_save(&self) -> HashMap<&'static str, i32> {
         self.data
             .iter()
             .map(|(&name, atom)| (name, atom.load()))
-            .filter(move |(name, value)| *value != self.keys[name].default.load())
+            .filter(move |(name, value)| *value != self.meta[name].key.default.load())
             .collect()
     }
 }

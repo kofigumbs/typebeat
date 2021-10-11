@@ -1,9 +1,10 @@
 #![feature(array_methods)]
+#![feature(bool_to_option)]
 
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 
 use default_boxed::DefaultBoxed;
@@ -394,6 +395,7 @@ impl Track {
 
 pub struct Platform {
     pub root: PathBuf,
+    pub sender: Sender<(Option<usize>, &'static str)>,
 }
 
 impl Platform {
@@ -611,9 +613,16 @@ impl Voice {
     }
 }
 
+enum Message {
+    Fn(fn(&mut Audio, &Song, i32)),
+    Entry(StateId, Key<i32>),
+}
+
 struct Audio {
+    platform: Mutex<Platform>,
     voices: Vec<Voice>,
     sends: [DspDyn; SEND_COUNT],
+    receiver: Arc<Mutex<Receiver<(i32, Message)>>>,
 }
 
 impl Audio {
@@ -677,6 +686,16 @@ impl Audio {
     }
 
     fn process(&mut self, song: &Song, input: &Frames, output: &mut FramesMut) {
+        // Handle incoming messages
+        let receiver = Arc::clone(&self.receiver);
+        let receiver = receiver.lock().expect("receiver");
+        while let Ok((data, setter)) = receiver.try_recv() {
+            match setter {
+                Message::Fn(f) => f(self, &song, data),
+                Message::Entry(id, key) => song.get_state(id).nudge(&key, data),
+            }
+        }
+
         // Update DSP parameters
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
@@ -740,6 +759,17 @@ impl Audio {
                 write_over(&buffer.out, output);
             }
         }
+
+        // Inform UI of dirty state keys
+        let platform = self.platform.lock().expect("platform");
+        for name in song.state.dirty() {
+            platform.sender.send((None, name)).unwrap();
+        }
+        for (i, track) in song.tracks.iter().enumerate() {
+            for name in track.state.dirty() {
+                platform.sender.send((Some(i), name)).unwrap();
+            }
+        }
     }
 
     fn allocate(&mut self, song: &Song, track_id: usize, key: i32) {
@@ -787,11 +817,6 @@ impl Audio {
     }
 }
 
-enum Message {
-    Fn(fn(&mut Audio, &Song, i32)),
-    Entry(StateId, Key<i32>),
-}
-
 #[derive(Clone)]
 pub struct Controller {
     device: Device,
@@ -812,10 +837,10 @@ impl Controller {
     pub fn get(&self, method: &str) -> Option<i32> {
         let song = self.song.read().expect("song");
         Some(match method {
-            "recording" => song.recording.load().into(),
             "bars" => song.active_track().bars() as i32,
             "canClear" => song.active_track().can_clear() as i32,
             "playing" => song.playing.load().into(),
+            "recording" => song.recording.load().into(),
             "step" => song.step.load() as i32,
             "viewStart" => song.active_track().view_start() as i32,
             _ => match Self::split(method) {
@@ -885,13 +910,16 @@ impl Controller {
 }
 
 pub fn init(platform: Platform) -> Result<Controller, Box<dyn Error>> {
+    let (sender, receiver) = std::sync::mpsc::channel();
     let audio = Audio {
+        platform: Mutex::new(platform),
         voices: vec![Voice::default(); VOICE_COUNT as usize],
         sends: [
             DspBox::<effects::reverb>::default().into(),
             DspBox::<effects::echo>::default().into(),
             DspBox::<effects::drive>::default().into(),
         ],
+        receiver: Arc::new(Mutex::new(receiver)),
     };
     for voice in audio.voices.iter() {
         assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
@@ -906,7 +934,7 @@ pub fn init(platform: Platform) -> Result<Controller, Box<dyn Error>> {
     }
 
     let mut song = Song::default();
-    song.register(&platform, &audio.sends);
+    song.register(&audio.platform.lock().expect("platform"), &audio.sends);
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);
@@ -919,18 +947,12 @@ pub fn init(platform: Platform) -> Result<Controller, Box<dyn Error>> {
     let audio = Arc::new(RwLock::new(audio));
     let controller_song = Arc::clone(&song);
     let controller_audio = Arc::clone(&audio);
-    let (sender, receiver) = std::sync::mpsc::channel();
     let mut device = Device::new(None, &device_config)?;
     device.set_data_callback(move |_, output, input| {
-        let mut audio = audio.try_write().expect("audio");
-        let song = song.try_read().expect("song");
-        while let Ok((data, setter)) = receiver.try_recv() {
-            match setter {
-                Message::Fn(f) => f(&mut audio, &song, data),
-                Message::Entry(id, key) => song.get_state(id).nudge(&key, data),
-            }
-        }
-        audio.process(&song, input, output);
+        audio
+            .try_write()
+            .expect("audio")
+            .process(&song.try_read().expect("song"), input, output);
     });
 
     Ok(Controller {
