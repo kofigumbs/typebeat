@@ -153,5 +153,5 @@ export default (callback) => {
     key.addEventListener('pointerup', event => handlePointer(event, key.dataset.cap, state));
   }
   sync(state);
-  return ([id, method]) => console.log(id, method);
+  return (id, method) => console.log(id, method);
 };

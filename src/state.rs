@@ -70,6 +70,7 @@ pub struct Key<T: 'static> {
     max: AtomicCell<i32>,
     by: AtomicCell<i32>,
     default: AtomicCell<i32>,
+    persist: AtomicCell<bool>,
     _marker: &'static PhantomData<T>,
 }
 
@@ -82,6 +83,7 @@ impl<T> Key<T> {
             max: AtomicCell::new(i32::MAX),
             by: AtomicCell::new(1),
             default: AtomicCell::new(0),
+            persist: AtomicCell::new(true),
             _marker: &PhantomData,
         }
     }
@@ -115,8 +117,14 @@ impl<T> Key<T> {
             max: self.max.load().into(),
             by: self.by.load().into(),
             default: self.default.load().into(),
+            persist: self.persist.load().into(),
             _marker: &PhantomData,
         }
+    }
+
+    pub fn ephemeral(&self) -> &Self {
+        self.persist.store(false);
+        self
     }
 }
 
@@ -216,7 +224,10 @@ impl State {
         self.data
             .iter()
             .map(|(&name, atom)| (name, atom.load()))
-            .filter(move |(name, value)| *value != self.meta[name].key.default.load())
+            .filter(move |(name, value)| {
+                let key = &self.meta[name].key;
+                key.persist.load() && *value != key.default.load()
+            })
             .collect()
     }
 }
