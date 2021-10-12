@@ -6,11 +6,6 @@ use tauri::{Builder, Event, Manager, Menu, MenuItem, State, Submenu};
 use typebeat::{Controller, Platform};
 
 #[tauri::command]
-fn get(method: &'_ str, state: State<'_, Controller>) -> Option<i32> {
-    state.get(method)
-}
-
-#[tauri::command]
 fn set(method: &'_ str, data: i32, state: State<'_, Controller>) {
     state.set(method, data)
 }
@@ -45,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Builder::default()
         .menu(menu)
         .manage(controller)
-        .invoke_handler(tauri::generate_handler![get, set])
+        .invoke_handler(tauri::generate_handler![set])
         .build(context)?;
     let receiver = Arc::new(Mutex::new(receiver));
     app.run(move |handle, event| match event {

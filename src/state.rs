@@ -193,6 +193,12 @@ impl State {
         }
     }
 
+    /// Increment the parameter's value
+    pub fn increment<T>(&self, key: &Key<T>) {
+        self.data[key.name].fetch_add(1);
+        self.meta[key.name].dirty.store(true);
+    }
+
     /// Toggles the boolean parameter's value
     pub fn toggle<T>(&self, key: &Key<T>) {
         self.data[key.name].fetch_xor(1);
@@ -212,11 +218,18 @@ impl State {
         }
     }
 
-    /// Iterates through dirty state key names
-    pub fn dirty(&self) -> impl Iterator<Item = &'static str> + '_ {
-        self.meta
-            .iter()
-            .filter_map(|(&name, meta)| meta.dirty.swap(false).then_some(name))
+    /// Marks all state keys as dirty
+    pub fn sync(&self) {
+        self.meta.values().for_each(|meta| meta.dirty.store(true));
+    }
+
+    /// Calls function for each dirty state key name
+    pub fn dirty(&self, f: impl Fn(&'static str, i32)) {
+        for (name, meta) in self.meta.iter() {
+            if meta.dirty.swap(false) {
+                f(name, self.data[name].load());
+            }
+        }
     }
 
     /// Formats state for saving
