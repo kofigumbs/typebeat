@@ -90,7 +90,7 @@ You control playback from <b>BEAT</b> mode.
 
 Press <kbd>A</kbd> to enter <b>BEAT</b> mode, and then press <kbd>N</kbd> to play.
 
-`context=set` `method=play`
+`method=play`
 
 ---
 

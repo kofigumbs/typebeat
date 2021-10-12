@@ -4,8 +4,8 @@
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <script type="module">
     import init from '.';
-    const update = init(window.__TAURI__.invoke);
-    window.__TAURI__.event.listen('dirty', ({ payload }) => update(...payload));
+    const update = init((method, data) => window.__TAURI__.invoke('send', { method, data }));
+    window.__TAURI__.event.listen('update', ({ payload }) => update(...payload));
   </script>
 </head>
 <body class="mount"></body>

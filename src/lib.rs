@@ -852,7 +852,7 @@ impl Controller {
         let _ = self.device.start();
     }
 
-    pub fn set(&self, method: &str, data: i32) {
+    pub fn send(&self, method: &str, data: i32) {
         let message = match method {
             "activeTrack" => Message::Fn(|audio, song, i| {
                 song.state.set(&ACTIVE_TRACK_ID, i as usize);

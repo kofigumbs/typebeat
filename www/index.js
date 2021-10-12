@@ -131,10 +131,10 @@ export default (callback) => {
   const proxy = new Proxy({}, {
     get: (self, method) => song[method] ?? tracks[song.activeTrack][method],
   });
-  const set = (method, data = 0) => callback('set', { method, data });
+  const send = (method, data = 0) => callback(method, data);
   const state = { local, proxy, actions: new Map() };
   for (let [cap, mode] of modes.entries())
-    state.actions.set(mode.label, mode.actions(local, proxy, set));
+    state.actions.set(mode.label, mode.actions(local, proxy, send));
   document.addEventListener('keydown', event => handleDocumentKey(event, state));
   document.addEventListener('keyup', event => handleDocumentKey(event, state));
   document.addEventListener('keypress', event => !getCap(event));
@@ -142,7 +142,7 @@ export default (callback) => {
     key.addEventListener('pointerdown', event => handlePointer(event, key.dataset.cap, state));
     key.addEventListener('pointerup', event => handlePointer(event, key.dataset.cap, state));
   }
-  set('sync');
+  send('sync');
   return (id, method, value) => {
     id === 0 ? song[method] = value : tracks[id-1][method] = value;
     requestRender(state);

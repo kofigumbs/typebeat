@@ -1,42 +1,59 @@
-use std::ffi::CStr;
-use std::os::raw::c_char;
+use std::ffi::{CStr, CString};
+use std::os::raw::{c_char, c_int};
 use std::path::PathBuf;
+use std::sync::mpsc::Receiver;
+use std::sync::Mutex;
 
 use typebeat::{Controller, Platform};
 
+extern "C" {
+    pub fn typebeat_update(id: c_int, method: *const c_char, value: c_int);
+}
+
+struct App {
+    controller: Controller,
+    receiver: Mutex<Receiver<(usize, &'static str, i32)>>,
+}
+
 lazy_static::lazy_static! {
-    static ref CONTROLLER: Controller = {
+    static ref APP: App = {
+        let (sender, receiver) = std::sync::mpsc::channel();
         let root = PathBuf::from("/assets");
-        typebeat::init(Platform { root }).expect("controller")
+        App {
+            receiver: Mutex::new(receiver),
+            controller: typebeat::init(Platform { sender, root }).expect("controller"),
+        }
     };
 }
 
-fn c_str(chars: *const c_char) -> Option<&'static str> {
-    unsafe { CStr::from_ptr(chars.as_ref()?).to_str().ok() }
+fn from_c_str(s: *const c_char) -> Option<&'static str> {
+    unsafe { CStr::from_ptr(s.as_ref()?).to_str().ok() }
 }
 
 #[no_mangle]
-pub fn start() {
-    CONTROLLER.start();
+pub fn typebeat_start() {
+    APP.controller.start();
 }
 
 #[no_mangle]
-pub fn stop() {
-    CONTROLLER.stop();
+pub fn typebeat_stop() {
+    APP.controller.stop();
 }
 
 #[no_mangle]
-pub fn get(method: *const c_char) -> i32 {
-    c_str(method)
-        .and_then(|method| CONTROLLER.get(method))
-        .unwrap_or_default()
+pub fn typebeat_send(method: *const c_char, data: i32) {
+    APP.controller.send(from_c_str(method).expect("method"), data);
 }
 
 #[no_mangle]
-pub fn set(method: *const c_char, data: i32) {
-    c_str(method).map(|method| CONTROLLER.set(method, data));
+pub fn typebeat_poll() {
+    let receiver = APP.receiver.lock().expect("receiver");
+    while let Ok((id, method, value)) = receiver.try_recv() {
+        let method = CString::new(method).expect("method");
+        unsafe { typebeat_update(id as i32, method.as_ptr(), value) };
+    }
 }
 
 fn main() {
-    lazy_static::initialize(&CONTROLLER);
+    lazy_static::initialize(&APP);
 }

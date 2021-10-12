@@ -6,8 +6,8 @@ use tauri::{Builder, Event, Manager, Menu, MenuItem, State, Submenu};
 use typebeat::{Controller, Platform};
 
 #[tauri::command]
-fn set(method: &'_ str, data: i32, state: State<'_, Controller>) {
-    state.set(method, data)
+fn send(method: &'_ str, data: i32, state: State<'_, Controller>) {
+    state.send(method, data)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Builder::default()
         .menu(menu)
         .manage(controller)
-        .invoke_handler(tauri::generate_handler![set])
+        .invoke_handler(tauri::generate_handler![send])
         .build(context)?;
     let receiver = Arc::new(Mutex::new(receiver));
     app.run(move |handle, event| match event {
@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::thread::spawn(move || {
                 let receiver = receiver.lock().expect("receiver");
                 while let Ok(changed) = receiver.recv() {
-                    window.emit("dirty", Some(changed)).expect("emit");
+                    window.emit("update", Some(changed)).expect("emit");
                 }
             });
         }

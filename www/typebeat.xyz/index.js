@@ -41,38 +41,34 @@ window.addEventListener('DOMContentLoaded', resize);
 // Setup keyboard label toggle
 const toggle = document.querySelector('.toggle-labels');
 toggle.addEventListener('click', () => {
-  if (mount.classList.toggle('labeled')) {
-    toggle.innerText = toggle.innerText.replace('Show', 'Hide');
-  } else {
-    toggle.innerText = toggle.innerText.replace('Hide', 'Show');
-  }
+  toggle.innerText = toggle.innerText.replace(
+    /Show|Hide/, 
+    mount.classList.toggle('labeled') ? 'Hide' : 'Show'
+  );
 });
 
 
 // Start loading the (large) JS runtime
-const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-xyz.js').then(factory => {
-  return factory.default({ locateFile: () => wasm, noExitRuntime: true });
-});
+import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-xyz.js')
+  .then(factory => factory.default({ locateFile: () => wasm, noExitRuntime: true }))
+  .then(app => {
+    // If Typebeat is running, the browser might prevent you from navigating away
+    window.addEventListener('beforeunload', () => app.ccall('typebeat_stop', null));
 
+    // Start polling for state changes
+    (function poll() {
+      requestAnimationFrame(poll);
+      app.ccall('typebeat_poll', null)
+    })();
 
-// If Typebeat is running, the browser might prevent you from navigating away
-lib.then(controller => {
-  window.addEventListener('beforeunload', () => controller.ccall('stop', null))
-});
-
-
-// Setup the main app, but only start the audio device once we receive a set
-let started = false;
-lib.then(controller => init((context, { method, data }) => {
-  advance({ context, method, data });
-  switch (context) {
-    case 'get':
-      return controller.ccall('get', 'number', ['string'], [method]);
-    case 'set':
+    // Setup the main app, but only start the typebeat device once we receive a set
+    let started = false;
+    globalThis.update = init((method, data) => {
+      advance({ method, data });
       if (!started) {
-        controller.ccall('start', null);
+        app.ccall('typebeat_start', null)
         started = true;
       }
-      return controller.ccall('set', null, ['string', 'number'], [method, data]);
-  }
-}));
+      return app.ccall('typebeat_send', null, ['string', 'number'], [method, data]);
+    });
+  });

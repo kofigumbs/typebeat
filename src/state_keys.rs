@@ -24,7 +24,6 @@ pub static RECENT: Key<usize> = Key::new("recent");
 pub static SAMPLE_DETUNE: Key<f32> = Key::new("sampleDetune"); // registered by dsp
 pub static SAMPLE_TYPE: Key<SampleType> = Key::new("sampleType"); // registered by dsp
 
-
 // Slice track keys
 
 static NOTE_0: Key<i32> = Key::new("note 0");
