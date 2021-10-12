@@ -5,7 +5,7 @@
   <script type="module">
     import init from '.';
     const update = init(window.__TAURI__.invoke);
-    window.__TAURI__.event.listen('dirty', ({ payload }) => update(payload[0], payload[1]));
+    window.__TAURI__.event.listen('dirty', ({ payload }) => update(...payload));
   </script>
 </head>
 <body class="mount"></body>

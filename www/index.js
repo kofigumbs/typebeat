@@ -52,9 +52,8 @@ const labels = findElements(capsOnRight, cap => `[data-cap="${cap}"] .label`);
  * Sync the UI with the proxy state, with a 24-frame catchup period
  */
 
-const sync = async (state, catchup = 0) => {
+const render = async state => {
   const { local, proxy, actions } = state;
-  proxy.invalidate();
   const mode = modes.get(local.modifier);
   for (let visual of visuals)
     visual.sync?.(state);
@@ -63,20 +62,16 @@ const sync = async (state, catchup = 0) => {
     labels[i].setAttribute('aria-label', await action?.label() ?? '');
     if (!!local.modifier)
       labels[i].classList.toggle('title', !!(await action?.title()));
-  };
-  if (catchup > 0 || await proxy.playing)
-    requestSync(state, catchup - 1);
+  }
 };
 
-let nextSyncId, nextCatchup;
-const clearNextSyncIdAndSync = (state) => {
-  nextSyncId = null;
-  sync(state, nextCatchup);
-};
-const requestSync = (state, catchup = 24) => {
-  nextCatchup = catchup;
-  if (!nextSyncId)
-    nextSyncId = requestAnimationFrame(() => clearNextSyncIdAndSync(state));
+let nextRender;
+const requestRender = state => {
+  if (!nextRender)
+    nextRender = requestAnimationFrame(() => {
+      nextRender = null;
+      render(state);
+    });
 };
 
 
@@ -110,7 +105,7 @@ const handleCap = (event, cap, state) => {
       key.classList.toggle('active', !!local.modifier && key.dataset.cap === local.modifier);
     local.tempoTaps = [];
   }
-  requestSync(state);
+  requestRender(state);
 }
 
 const handleDocumentKey = (event, state) => {
@@ -131,15 +126,10 @@ const handlePointer = (event, cap, state) => {
 
 export default (callback) => {
   const local = { tempoTaps: [] };
-  const proxyCache = new Map();
+  const song = {};
+  const tracks = Array.from({ length: 15 }).map(() => ({}));
   const proxy = new Proxy({}, {
-    get: (self, method) => {
-      if (method === "invalidate")
-        return proxyCache.clear.bind(proxyCache);
-      if (!proxyCache.has(method))
-        proxyCache.set(method, callback('get', { method }));
-      return proxyCache.get(method);
-    },
+    get: (self, method) => song[method] ?? tracks[song.activeTrack][method],
   });
   const set = (method, data = 0) => callback('set', { method, data });
   const state = { local, proxy, actions: new Map() };
@@ -152,6 +142,9 @@ export default (callback) => {
     key.addEventListener('pointerdown', event => handlePointer(event, key.dataset.cap, state));
     key.addEventListener('pointerup', event => handlePointer(event, key.dataset.cap, state));
   }
-  sync(state);
-  return (id, method) => console.log(id, method);
+  set('sync');
+  return (id, method, value) => {
+    id === 0 ? song[method] = value : tracks[id-1][method] = value;
+    requestRender(state);
+  };
 };
