@@ -51,33 +51,32 @@ toggle.addEventListener('click', () => {
 // Start loading the (large) JS runtime
 import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-xyz.js')
   .then(factory => factory.default({ locateFile: () => wasm, noExitRuntime: true }))
-  .then(app => {
+  .then(({ ccall, _free, UTF8ToString }) => {
     // If Typebeat is running, the browser might prevent you from navigating away
-    window.addEventListener('beforeunload', () => app.ccall('typebeat_stop', null));
+    window.addEventListener('beforeunload', () => ccall('typebeat_stop', null));
+
+    // Parse the char* return value then free it
+    const getJson = (method) => {
+      const ptr = ccall(method, 'number');
+      const obj = JSON.parse(UTF8ToString(ptr));
+      _free(ptr);
+      return obj;
+    }
 
     // Setup the main app, but only start the typebeat device once we receive a set
     let started = false;
-    const update = init((method, data) => {
+    const update = init(getJson('typebeat_dump'), (method, data) => {
       advance({ method, data });
       if (!started) {
-        app.ccall('typebeat_start', null)
+        ccall('typebeat_start', null)
         started = true;
       }
-      return app.ccall('typebeat_send', null, ['string', 'number'], [method, data]);
+      return ccall('typebeat_send', null, ['string', 'number'], [method, data]);
     });
 
     // Start polling for state changes
-    // Before the app has started, we run the loop as many times as possible.
-    // After the app has started, restrict to one update per animation frame.
     (function poll() {
-      let change;
-      do {
-        change = app.ccall('typebeat_poll', 'string');
-        if (change) {
-          const [id, name, value] = change.split(',');
-          update(+id, name, +value);
-        }
-      } while (!started && change);
-      requestAnimationFrame(poll);
+      getJson('typebeat_changes').forEach(update);
+      requestIdleCallback(poll)
     })();
   });

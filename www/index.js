@@ -49,7 +49,7 @@ const labels = findElements(capsOnRight, cap => `[data-cap="${cap}"] .label`);
 
 
 /*
- * Sync the UI with the proxy state, with a 24-frame catchup period
+ * Re-render the UI
  */
 
 const render = async state => {
@@ -124,16 +124,10 @@ const handlePointer = (event, cap, state) => {
   handleCap(event, cap, state);
 };
 
-export default (callback) => {
+export default (dump, callback) => {
   const local = { tempoTaps: [] };
-  const song = {};
-  const tracks = Array.from({ length: 15 }).map(() => ({}));
   const proxy = new Proxy({}, {
-    get: (self, method) => {
-      return song[method] ??
-        tracks[song.activeTrack]?.[method] ??
-        new Promise(resolve => setTimeout(() => resolve(proxy[method]), 0));
-    },
+    get: (self, method) => dump.song[method] ?? dump.tracks[dump.song.activeTrack][method],
   });
   const send = (method, data = 0) => callback(method, data);
   const state = { local, proxy, actions: new Map() };
@@ -146,9 +140,10 @@ export default (callback) => {
     key.addEventListener('pointerdown', event => handlePointer(event, key.dataset.cap, state));
     key.addEventListener('pointerup', event => handlePointer(event, key.dataset.cap, state));
   }
-  send('sync');
-  return (id, method, value) => {
-    id === 0 ? song[method] = value : tracks[id-1][method] = value;
+  render(state);
+  return ([id, method, value]) => {
+    const object = id === 0 ? dump.song : dump.tracks[id-1];
+    object[method] = value;
     requestRender(state);
   };
 };

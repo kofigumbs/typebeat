@@ -3,7 +3,12 @@ use std::sync::{Arc, Mutex};
 use tauri::api::path::BaseDirectory;
 use tauri::{Builder, Event, Manager, Menu, MenuItem, State, Submenu};
 
-use typebeat::{Controller, Platform};
+use typebeat::{Controller, Dump, Platform};
+
+#[tauri::command]
+fn dump(state: State<'_, Controller>) -> Dump {
+    state.dump()
+}
 
 #[tauri::command]
 fn send(method: &'_ str, data: i32, state: State<'_, Controller>) {
@@ -45,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Builder::default()
         .menu(menu)
         .manage(controller)
-        .invoke_handler(tauri::generate_handler![send])
+        .invoke_handler(tauri::generate_handler![dump, send])
         .build(context)?;
     let receiver = Arc::new(Mutex::new(receiver));
     app.run(move |handle, event| match event {
@@ -63,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 });
             }
 
-            // Inform UI of dirty state keys
+            // Inform UI of changed state keys
             let receiver = Arc::clone(&receiver);
             std::thread::spawn(move || {
                 let receiver = receiver.lock().expect("receiver");

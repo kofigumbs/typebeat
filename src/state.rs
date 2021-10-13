@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use crossbeam::atomic::AtomicCell;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::Deserialize;
 
 pub trait Parameter {
     fn to_i32(self) -> i32;
@@ -130,8 +130,10 @@ impl<T> Key<T> {
 
 struct Meta {
     key: Key<()>,
-    dirty: AtomicCell<bool>,
+    changed: AtomicCell<bool>,
 }
+
+pub type SaveState<'a> = HashMap<&'a str, i32>;
 
 #[derive(Default, Deserialize)]
 pub struct State {
@@ -143,8 +145,8 @@ pub struct State {
     data: HashMap<&'static str, AtomicCell<i32>>,
 }
 
-impl<'a> From<HashMap<&'a str, i32>> for State {
-    fn from(save: HashMap<&'a str, i32>) -> Self {
+impl<'a> From<SaveState<'a>> for State {
+    fn from(save: SaveState<'a>) -> Self {
         Self {
             save: save
                 .into_iter()
@@ -155,20 +157,13 @@ impl<'a> From<HashMap<&'a str, i32>> for State {
     }
 }
 
-/// Serialize to save file
-impl Serialize for State {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.to_save().serialize(serializer)
-    }
-}
-
 impl State {
     /// Read parameter from the saved value or use the default if it doesn't exist
     pub fn register<T: Copy + Parameter>(&mut self, key: &Key<T>) {
         let data = self.save.remove(key.name).unwrap_or(key.default.load());
         let meta = Meta {
             key: key.clone(),
-            dirty: false.into(),
+            changed: false.into(),
         };
         self.meta.insert(key.name, meta);
         self.data.insert(key.name, data.into());
@@ -189,20 +184,20 @@ impl State {
         let new = value.to_i32().clamp(key.min.load(), key.max.load());
         let old = self.data[key.name].swap(new);
         if new != old {
-            self.meta[key.name].dirty.store(true);
+            self.meta[key.name].changed.store(true);
         }
     }
 
     /// Increment the parameter's value
     pub fn increment<T>(&self, key: &Key<T>) {
         self.data[key.name].fetch_add(1);
-        self.meta[key.name].dirty.store(true);
+        self.meta[key.name].changed.store(true);
     }
 
     /// Toggles the boolean parameter's value
     pub fn toggle<T>(&self, key: &Key<T>) {
         self.data[key.name].fetch_xor(1);
-        self.meta[key.name].dirty.store(true);
+        self.meta[key.name].changed.store(true);
     }
 
     /// Toggles, sets, or nudges a parameter depending on the Key's properties
@@ -218,22 +213,17 @@ impl State {
         }
     }
 
-    /// Marks all state keys as dirty
-    pub fn sync(&self) {
-        self.meta.values().for_each(|meta| meta.dirty.store(true));
-    }
-
-    /// Calls function for each dirty state key name
-    pub fn dirty(&self, f: impl Fn(&'static str, i32)) {
+    /// Calls function for each changed state key name
+    pub fn changed(&self, f: impl Fn(&'static str, i32)) {
         for (name, meta) in self.meta.iter() {
-            if meta.dirty.swap(false) {
+            if meta.changed.swap(false) {
                 f(name, self.data[name].load());
             }
         }
     }
 
-    /// Formats state for saving
-    pub fn to_save(&self) -> HashMap<&'static str, i32> {
+    /// Formats state for saving, filtering unchanged and ephemeral keys
+    pub fn save(&self) -> SaveState<'static> {
         self.data
             .iter()
             .map(|(&name, atom)| (name, atom.load()))
@@ -241,6 +231,14 @@ impl State {
                 let key = &self.meta[name].key;
                 key.persist.load() && *value != key.default.load()
             })
+            .collect()
+    }
+
+    /// Dumps state without filtering any keys
+    pub fn dump(&self) -> SaveState<'static> {
+        self.data
+            .iter()
+            .map(|(&name, atom)| (name, atom.load()))
             .collect()
     }
 }

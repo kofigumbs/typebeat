@@ -4,8 +4,11 @@
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <script type="module">
     import init from '.';
-    const update = init((method, data) => window.__TAURI__.invoke('send', { method, data }));
-    window.__TAURI__.event.listen('update', ({ payload }) => update(...payload));
+    const t = window.__TAURI__;
+    t.invoke('dump').then(dump => {
+      const update = init(dump, (method, data) => t.invoke('send', { method, data }));
+      t.event.listen('update', ({ payload }) => update(payload));
+    });
   </script>
 </head>
 <body class="mount"></body>

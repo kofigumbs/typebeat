@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::Mutex;
 
+use serde::Serialize;
+
 use typebeat::{Controller, Platform};
 
 extern "C" {
@@ -27,8 +29,13 @@ lazy_static::lazy_static! {
     };
 }
 
-fn from_c_str(s: *const c_char) -> Option<&'static str> {
-    unsafe { CStr::from_ptr(s.as_ref()?).to_str().ok() }
+fn from_c_str(s: *const c_char) -> &'static str {
+    unsafe { CStr::from_ptr(s).to_str().expect("CStr") }
+}
+
+fn to_c_str_json<T: Serialize>(s: T) -> *const c_char {
+    let json = serde_json::to_string(&s).expect("json");
+    CString::new(json).expect("CString").into_raw()
 }
 
 #[no_mangle]
@@ -42,18 +49,23 @@ pub fn typebeat_stop() {
 }
 
 #[no_mangle]
-pub fn typebeat_send(method: *const c_char, data: i32) {
-    APP.controller
-        .send(from_c_str(method).expect("method"), data);
+pub fn typebeat_dump() -> *const c_char {
+    to_c_str_json(APP.controller.dump())
 }
 
 #[no_mangle]
-pub fn typebeat_poll() -> *const c_char {
-    let s = match APP.receiver.lock().expect("receiver").try_recv() {
-        Ok((id, method, value)) => format!("{},{},{}", id, method, value),
-        Err(_) => "".to_string(),
-    };
-    CString::new(s).expect("CString").into_raw()
+pub fn typebeat_send(method: *const c_char, data: i32) {
+    APP.controller.send(from_c_str(method), data);
+}
+
+#[no_mangle]
+pub fn typebeat_changes() -> *const c_char {
+    let receiver = APP.receiver.lock().expect("receiver");
+    let mut changes = Vec::new();
+    while let Ok(change) = receiver.try_recv() {
+        changes.push(change);
+    }
+    to_c_str_json(changes)
 }
 
 fn main() {

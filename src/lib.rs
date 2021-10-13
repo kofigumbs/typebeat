@@ -15,7 +15,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex, UI};
-use state::{Enum, Key, State};
+use state::{Enum, Key, SaveState, State};
 use state_keys::*;
 
 mod atomic_cell;
@@ -155,10 +155,10 @@ impl Step {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 struct SaveTrack<'a> {
     #[serde(default, borrow)]
-    state: HashMap<&'a str, i32>,
+    state: SaveState<'a>,
     #[serde(default)]
     live: Vec<u8>,
     #[serde(default)]
@@ -209,7 +209,7 @@ impl Default for Track {
 impl Serialize for Track {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let save = SaveTrack {
-            state: self.state.to_save(),
+            state: self.state.save(),
             live: self
                 .live()
                 .iter()
@@ -410,19 +410,13 @@ enum StateId {
     ActiveTrack,
 }
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Default)]
 struct Song {
-    #[serde(default)]
     state: State,
-    #[serde(default)]
     tracks: [Track; TRACK_COUNT],
-    #[serde(skip)]
     gate_id: ParamIndex,
-    #[serde(skip)]
     note_id: ParamIndex,
-    #[serde(skip)]
     step: AtomicCell<usize>,
-    #[serde(skip)]
     frames_since_last_step: AtomicCell<usize>,
 }
 
@@ -468,6 +462,8 @@ impl Song {
         for DspDyn { builder, .. } in sends.iter() {
             builder(&mut StateRegisterUi { state });
         }
+
+        self.update_derived();
     }
 
     fn active_track(&self) -> &Track {
@@ -497,11 +493,6 @@ impl Song {
         SAMPLE_RATE as f32 * 240. / (self.state.get(&TEMPO) as f32) / (resolution as f32)
     }
 
-    fn sync(&self) {
-        self.state.sync();
-        self.tracks.iter().for_each(|track| track.state.sync());
-    }
-
     fn find_state(&self, name: &str) -> Option<(StateId, Key<i32>)> {
         let find = move |id, state: &State| Some(id).zip(state.get_key(name));
         find(StateId::Song, &self.state)
@@ -512,6 +503,22 @@ impl Song {
         match id {
             StateId::Song => &self.state,
             StateId::ActiveTrack => &self.active_track().state,
+        }
+    }
+
+    fn update_derived(&self) {
+        let track = self.active_track();
+        track.state.set(&CAN_CLEAR, track.can_clear());
+        track.state.set(&BARS, track.bars());
+        track.state.set(&VIEW_START, track.view_start());
+        for (i, key) in NOTES.iter().enumerate() {
+            track.state.set(key, self.note(track, i));
+        }
+        for (i, key) in VIEWS.iter().enumerate() {
+            track.state.set(key, track.view(i));
+        }
+        for (i, key) in WAVEFORMS.iter().enumerate() {
+            track.state.set(key, track.waveform(i));
         }
     }
 }
@@ -766,27 +773,15 @@ impl Audio {
             }
         }
 
-        // Compute derived state for the active track
-        let track = song.active_track();
-        track.state.set(&CAN_CLEAR, track.can_clear());
-        track.state.set(&BARS, track.bars());
-        track.state.set(&VIEW_START, track.view_start());
-        for (i, key) in NOTES.iter().enumerate() {
-            track.state.set(key, song.note(track, i));
-        }
-        for (i, key) in VIEWS.iter().enumerate() {
-            track.state.set(key, track.view(i));
-        }
-        for (i, key) in WAVEFORMS.iter().enumerate() {
-            track.state.set(key, track.waveform(i));
-        }
-
-        // Inform UI of dirty state keys
+        // Inform UI of changed state keys
+        song.update_derived();
         let platform = self.platform.lock().expect("platform");
         let send = move |change| platform.sender.send(change).unwrap();
-        song.state.dirty(|name, value| send((0, name, value)));
+        song.state.changed(|name, value| send((0, name, value)));
         for (i, track) in song.tracks.iter().enumerate() {
-            track.state.dirty(|name, value| send((i + 1, name, value)));
+            track
+                .state
+                .changed(|name, value| send((i + 1, name, value)));
         }
     }
 
@@ -835,6 +830,12 @@ impl Audio {
     }
 }
 
+#[derive(Serialize)]
+pub struct Dump {
+    song: SaveState<'static>,
+    tracks: Vec<SaveState<'static>>,
+}
+
 #[derive(Clone)]
 pub struct Controller {
     device: Device,
@@ -850,6 +851,14 @@ impl Controller {
 
     pub fn start(&self) {
         let _ = self.device.start();
+    }
+
+    pub fn dump(&self) -> Dump {
+        let song = self.song.read().expect("song");
+        Dump {
+            song: song.state.dump(),
+            tracks: song.tracks.iter().map(|track| track.state.dump()).collect(),
+        }
     }
 
     pub fn send(&self, method: &str, data: i32) {
@@ -888,7 +897,6 @@ impl Controller {
             "playing" => Message::Fn(|audio, song, _| audio.toggle_play(song)),
             "sampleType" => Message::Fn(|audio, song, i| audio.set_sample_type(song, i)),
             "sequence" => Message::Fn(|_, song, i| song.active_track().toggle_step(i as usize)),
-            "sync" => Message::Fn(|_, song, _| song.sync()),
             "zoomIn" => Message::Fn(|_, song, _| song.active_track().zoom_in()),
             "zoomOut" => Message::Fn(|_, song, _| song.active_track().zoom_out()),
             _ => match self.song.read().expect("song").find_state(method) {
