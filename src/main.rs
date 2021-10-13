@@ -12,6 +12,7 @@ fn send(method: &'_ str, data: i32, state: State<'_, Controller>) {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start Typebeat
+    let voice_count = 8;
     let (sender, receiver) = std::sync::mpsc::channel();
     let context = tauri::generate_context!();
     let root = tauri::api::path::resolve_path(
@@ -20,7 +21,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "assets",
         Some(BaseDirectory::Resource),
     )?;
-    let controller = typebeat::init(Platform { root, sender })?;
+    let controller = typebeat::init(Platform {
+        voice_count,
+        root,
+        sender,
+    })?;
     controller.start();
 
     // Build Tauri app

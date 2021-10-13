@@ -31,7 +31,6 @@ const MAX_LENGTH: usize = MAX_RESOLUTION * 8;
 const VIEWS_PER_PAGE: usize = 4;
 
 const KEY_COUNT: i32 = 15;
-const VOICE_COUNT: i32 = 5;
 const SAMPLE_RATE: i32 = 44100;
 const TRACK_COUNT: usize = 15;
 
@@ -389,6 +388,7 @@ impl Track {
 }
 
 pub struct Platform {
+    pub voice_count: usize,
     pub root: PathBuf,
     pub sender: Sender<(usize, &'static str, i32)>,
 }
@@ -783,7 +783,7 @@ impl Audio {
 
         // Inform UI of dirty state keys
         let platform = self.platform.lock().expect("platform");
-        let send = move |update| platform.sender.send(update).unwrap();
+        let send = move |change| platform.sender.send(change).unwrap();
         song.state.dirty(|name, value| send((0, name, value)));
         for (i, track) in song.tracks.iter().enumerate() {
             track.state.dirty(|name, value| send((i + 1, name, value)));
@@ -902,9 +902,10 @@ impl Controller {
 
 pub fn init(platform: Platform) -> Result<Controller, Box<dyn Error>> {
     let (sender, receiver) = std::sync::mpsc::channel();
+    let voice_count = platform.voice_count;
     let audio = Audio {
         platform: Mutex::new(platform),
-        voices: vec![Voice::default(); VOICE_COUNT as usize],
+        voices: vec![Voice::default(); voice_count],
         sends: [
             DspBox::<effects::reverb>::default().into(),
             DspBox::<effects::echo>::default().into(),
