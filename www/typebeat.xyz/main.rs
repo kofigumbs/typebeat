@@ -43,16 +43,17 @@ pub fn typebeat_stop() {
 
 #[no_mangle]
 pub fn typebeat_send(method: *const c_char, data: i32) {
-    APP.controller.send(from_c_str(method).expect("method"), data);
+    APP.controller
+        .send(from_c_str(method).expect("method"), data);
 }
 
 #[no_mangle]
-pub fn typebeat_poll() {
-    let receiver = APP.receiver.lock().expect("receiver");
-    while let Ok((id, method, value)) = receiver.try_recv() {
-        let method = CString::new(method).expect("method");
-        unsafe { typebeat_update(id as i32, method.as_ptr(), value) };
-    }
+pub fn typebeat_poll() -> *const c_char {
+    let s = match APP.receiver.lock().expect("receiver").try_recv() {
+        Ok((id, method, value)) => format!("{},{},{}", id, method, value),
+        Err(_) => "".to_string(),
+    };
+    CString::new(s).expect("CString").into_raw()
 }
 
 fn main() {

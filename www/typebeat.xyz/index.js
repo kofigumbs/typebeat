@@ -55,15 +55,9 @@ import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-xyz.js')
     // If Typebeat is running, the browser might prevent you from navigating away
     window.addEventListener('beforeunload', () => app.ccall('typebeat_stop', null));
 
-    // Start polling for state changes
-    (function poll() {
-      requestAnimationFrame(poll);
-      app.ccall('typebeat_poll', null)
-    })();
-
     // Setup the main app, but only start the typebeat device once we receive a set
     let started = false;
-    globalThis.update = init((method, data) => {
+    const update = init((method, data) => {
       advance({ method, data });
       if (!started) {
         app.ccall('typebeat_start', null)
@@ -71,4 +65,19 @@ import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-xyz.js')
       }
       return app.ccall('typebeat_send', null, ['string', 'number'], [method, data]);
     });
+
+    // Start polling for state changes
+    // Before the app has started, we run the loop as many times as possible.
+    // After the app has started, restrict to one update per animation frame.
+    (function poll() {
+      let change;
+      do {
+        change = app.ccall('typebeat_poll', 'string');
+        if (change) {
+          const [id, name, value] = change.split(',');
+          update(+id, name, +value);
+        }
+      } while (!started && change);
+      requestAnimationFrame(poll);
+    })();
   });

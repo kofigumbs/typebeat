@@ -129,7 +129,11 @@ export default (callback) => {
   const song = {};
   const tracks = Array.from({ length: 15 }).map(() => ({}));
   const proxy = new Proxy({}, {
-    get: (self, method) => song[method] ?? tracks[song.activeTrack][method],
+    get: (self, method) => {
+      return song[method] ??
+        tracks[song.activeTrack]?.[method] ??
+        new Promise(resolve => setTimeout(() => resolve(proxy[method]), 0));
+    },
   });
   const send = (method, data = 0) => callback(method, data);
   const state = { local, proxy, actions: new Map() };
