@@ -5,10 +5,9 @@
   <script type="module">
     import init from '.';
     const t = window.__TAURI__;
-    t.invoke('dump').then(dump => {
-      const update = init(dump, (method, data) => t.invoke('send', { method, data }));
-      t.event.listen('update', ({ payload }) => update(payload));
-    });
+    t.invoke('dump')
+      .then(dump => init(dump, (method, data) => t.invoke('send', { method, data })))
+      .then(update => t.event.listen('update', ({ payload }) => update(payload)));
   </script>
 </head>
 <body class="mount"></body>
