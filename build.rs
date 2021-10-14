@@ -1,40 +1,34 @@
 use std::error::Error;
-use std::fs::DirEntry;
+use std::ffi::OsStr;
 use std::path::Path;
 use std::process::Command;
 
-fn dsp_file(entry: DirEntry) -> Option<(String, String)> {
-    match entry.path().extension()?.to_str()? {
-        "dsp" => Some((
-            entry.path().to_str()?.to_owned(),
-            entry.path().file_stem()?.to_str()?.to_owned(),
-        )),
-        _ => None,
-    }
+fn compile_faust(path: &Path) -> Result<(), Box<dyn Error>> {
+    let out = std::env::var("OUT_DIR")?;
+    let stem = path.file_stem().expect("stem");
+    let rust = Path::new(&out).join(stem).with_extension("rs");
+    let _ = std::fs::remove_file(&rust);
+    let mut command = Command::new("faust");
+    command.args(&["-lang", "rust", "-json", "--output-dir", &out]);
+    command.arg("--class-name").arg(&stem).arg(&path);
+    let dsp = String::from_utf8(command.output()?.stdout)?;
+    let ident = format!("pub struct {} {{", stem.to_string_lossy());
+    let with_derive = format!("#[derive(Clone, default_boxed::DefaultBoxed)]\n{}", ident);
+    std::fs::write(&rust, dsp.replace(&ident, &with_derive))?;
+    println!("cargo:rerun-if-changed={}", path.display());
+    Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    for (path, basename) in Path::new("src/effects")
+    let effects = Path::new("src/effects")
         .read_dir()?
-        .flat_map(|x| dsp_file(x.ok()?))
-    {
-        let out = Path::new(&std::env::var("OUT_DIR")?)
-            .join(&basename)
-            .with_extension("rs");
-        let _ = std::fs::remove_file(&out);
-        let dsp = Command::new("faust")
-            .args(&["-lang", "rust", "-cn", &basename, &path])
-            .output()?
-            .stdout;
-        let ident = format!("pub struct {} {{", basename);
-        let with_derive = format!("#[derive(Clone, default_boxed::DefaultBoxed)]\n{}", ident);
-        std::fs::write(&out, String::from_utf8(dsp)?.replace(&ident, &with_derive))?;
-        println!("cargo:rerun-if-changed={}", &path);
+        .map(|entry| entry.expect("DirEntry").path())
+        .filter(|path| path.extension() == Some(OsStr::new("dsp")))
+        .collect::<Vec<_>>();
+    for path in effects.iter() {
+        compile_faust(path)?;
     }
-    println!("cargo:rerun-if-env-changed=FAUST_LIB_PATH");
-
-    #[cfg(any(unix, windows))]
+    #[cfg(not(feature = "netlify"))]
     tauri_build::build();
-
     Ok(())
 }

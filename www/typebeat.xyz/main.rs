@@ -8,10 +8,6 @@ use serde::Serialize;
 
 use typebeat::{Controller, Platform};
 
-extern "C" {
-    pub fn typebeat_update(id: c_int, method: *const c_char, value: c_int);
-}
-
 struct App {
     controller: Controller,
     receiver: Mutex<Receiver<(usize, &'static str, i32)>>,

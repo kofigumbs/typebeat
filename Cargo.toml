@@ -29,10 +29,10 @@ git = "https://github.com/kofigumbs/miniaudio-rs"
 rev = "772b8e0"
 features = ["bindgen"]
 
-[target.'cfg(any(target_os = "windows", target_os = "macos"))'.build-dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.build-dependencies]
 tauri-build = { git = "https://github.com/tauri-apps/tauri", branch = "next" }
 
-[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tauri = { git = "https://github.com/tauri-apps/tauri", branch = "next", features = ["api-all"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
