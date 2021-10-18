@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::collections::HashMap;
 use std::ops::Deref;
 
@@ -18,50 +19,11 @@ mod track {
     include!(concat!(env!("OUT_DIR"), "/track.rs"));
 }
 
-pub trait IsParam: Copy + Ord + PartialEq + Serialize + DeserializeOwned {
-    fn to_i32(self) -> i32;
-    fn from_i32(raw: i32) -> Self;
-}
-
-impl IsParam for bool {
-    fn to_i32(self) -> i32 {
-        self as i32
-    }
-    fn from_i32(raw: i32) -> Self {
-        raw != 0
-    }
-}
-
-impl IsParam for i32 {
-    fn to_i32(self) -> i32 {
-        self
-    }
-    fn from_i32(raw: i32) -> Self {
-        raw
-    }
-}
-
-impl IsParam for usize {
-    fn to_i32(self) -> i32 {
-        self as i32
-    }
-    fn from_i32(raw: i32) -> Self {
-        raw as Self
-    }
-}
-
-pub trait Enum: Sized + 'static {
-    const ALL: &'static [Self];
-}
-
-impl<T: Copy + Ord + PartialEq + DeserializeOwned + Serialize + Enum> IsParam for T {
-    fn to_i32(self) -> i32 {
-        Self::ALL.iter().position(|&x| x == self).unwrap() as i32
-    }
-    fn from_i32(i: i32) -> Self {
-        Self::ALL[i as usize]
-    }
-}
+pub trait IsParam: Any + Copy + PartialOrd + PartialEq + Serialize + DeserializeOwned {}
+impl IsParam for bool {}
+impl IsParam for i32 {}
+impl IsParam for f32 {}
+impl IsParam for usize {}
 
 /// Tracks whether this parameter originated from a effects/*.dsp file
 type DspId = Option<(&'static str, usize)>;
@@ -105,10 +67,10 @@ impl<T: IsParam> Param<T> {
 
     pub fn set(&self, mut value: T) {
         if let Some(min) = self.min {
-            value = T::max(min, value);
+            value = num_traits::clamp_max(min, value);
         }
         if let Some(max) = self.max {
-            value = T::min(max, value);
+            value = num_traits::clamp_min(max, value);
         }
         if value != self.atom.swap(value) {
             self.changed.store(true);
@@ -134,10 +96,11 @@ pub trait Visitor {
 struct ForEachDsp<T>(T);
 impl<T: FnMut(&'static str, ParamIndex, f32)> Visitor for ForEachDsp<T> {
     fn call<P: IsParam>(&mut self, _: &'static str, param: &Param<P>) {
-        match param.dsp_id.as_ref() {
-            None => {}
-            Some((name, i)) => self.0(name, ParamIndex(*i), param.get().to_i32() as f32),
-        }
+        param
+            .dsp_id
+            .as_ref()
+            .zip(Any::downcast_ref(&param.get()))
+            .map(|((name, i), x)| self.0(name, ParamIndex(*i), *x));
     }
 }
 

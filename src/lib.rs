@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use atomic_cell::{AtomicCell, CopyAs};
 use effects::FaustDsp;
-use state::{Enum, Format as SaveFormat, IsParam, Song as SongState, Track as TrackState};
+use state::{Format as SaveFormat, Song as SongState, Track as TrackState};
 
 mod atomic_cell;
 mod effects;
@@ -71,7 +71,7 @@ impl<T: 'static + Send + Sync + FaustDsp<T = f32>> From<DspBox<T>> for DspDyn {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub enum SampleType {
     File,
     Live,
@@ -79,8 +79,10 @@ pub enum SampleType {
     LivePlay,
 }
 
-impl Enum for SampleType {
-    const ALL: &'static [Self] = &[Self::File, Self::Live, Self::LiveRecord, Self::LivePlay];
+impl From<usize> for SampleType {
+    fn from(value: usize) -> Self {
+        [Self::File, Self::Live, Self::LiveRecord, Self::LivePlay][value]
+    }
 }
 
 impl SampleType {
@@ -112,21 +114,12 @@ impl Step {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Deserialize, Serialize)]
 pub enum View {
     OutOfBounds,
     Empty,
     ExactlyOnStep,
     ContainsSteps,
-}
-
-impl Enum for View {
-    const ALL: &'static [Self] = &[
-        Self::OutOfBounds,
-        Self::Empty,
-        Self::ExactlyOnStep,
-        Self::ContainsSteps,
-    ];
 }
 
 struct Track {
@@ -437,7 +430,7 @@ impl Voice {
         match self.track_id {
             Some(track_id) => {
                 let track = &song.tracks[track_id];
-                if SampleType::from_i32(track.state.sample_type.get()).thru() {
+                if SampleType::from(track.state.sample_type.get() as usize).thru() {
                     0
                 } else {
                     2 - self.gate
@@ -454,7 +447,7 @@ impl Voice {
             Some(track_id) => {
                 let track = &song.tracks[track_id];
                 let mix = &mut buffer.mix;
-                match SampleType::from_i32(track.state.sample_type.get()) {
+                match SampleType::from(track.state.sample_type.get() as usize) {
                     SampleType::File => self.play_sample(mix, &track.file_sample, 2),
                     SampleType::Live => self.play_thru(mix, track, input, false),
                     SampleType::LiveRecord => self.play_thru(mix, track, input, true),
@@ -541,13 +534,13 @@ impl Audio {
 
     fn set_sample_type(&mut self, song: &Song, value: usize) {
         let track = song.active_track();
-        let old = SampleType::from_i32(track.state.sample_type.get());
-        let new = SampleType::ALL[value];
+        let old = SampleType::from(track.state.sample_type.get() as usize);
+        let new = SampleType::from(value);
         if new == SampleType::LiveRecord {
             track.live_length.store(0);
         }
         if old != new {
-            song.active_track().state.sample_type.set(value as i32);
+            song.active_track().state.sample_type.set(value as f32);
             for voice in self.each_voice_for(song.state.active_track_id.get()) {
                 voice.gate = 0;
                 voice.track_id = None;
