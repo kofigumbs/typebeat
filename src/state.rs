@@ -1,15 +1,29 @@
 use std::collections::HashMap;
-use std::marker::PhantomData;
+use std::ops::Deref;
 
-use crossbeam::atomic::AtomicCell;
-use serde::Deserialize;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use serde_json::Value;
 
-pub trait Parameter {
+use crate::atomic_cell::AtomicCell;
+use crate::effects::ParamIndex;
+
+mod song {
+    use super::*;
+    include!(concat!(env!("OUT_DIR"), "/song.rs"));
+}
+
+mod track {
+    use super::*;
+    include!(concat!(env!("OUT_DIR"), "/track.rs"));
+}
+
+pub trait IsParam: Copy + Ord + PartialEq + Serialize + DeserializeOwned {
     fn to_i32(self) -> i32;
     fn from_i32(raw: i32) -> Self;
 }
 
-impl Parameter for bool {
+impl IsParam for bool {
     fn to_i32(self) -> i32 {
         self as i32
     }
@@ -18,7 +32,7 @@ impl Parameter for bool {
     }
 }
 
-impl Parameter for i32 {
+impl IsParam for i32 {
     fn to_i32(self) -> i32 {
         self
     }
@@ -27,21 +41,12 @@ impl Parameter for i32 {
     }
 }
 
-impl Parameter for f32 {
+impl IsParam for usize {
     fn to_i32(self) -> i32 {
         self as i32
     }
     fn from_i32(raw: i32) -> Self {
-        raw as f32
-    }
-}
-
-impl Parameter for usize {
-    fn to_i32(self) -> i32 {
-        self as i32
-    }
-    fn from_i32(raw: i32) -> Self {
-        raw as usize
+        raw as Self
     }
 }
 
@@ -49,196 +54,159 @@ pub trait Enum: Sized + 'static {
     const ALL: &'static [Self];
 }
 
-impl<T: Copy + PartialEq + Enum> Parameter for T {
+impl<T: Copy + Ord + PartialEq + DeserializeOwned + Serialize + Enum> IsParam for T {
     fn to_i32(self) -> i32 {
         Self::ALL.iter().position(|&x| x == self).unwrap() as i32
     }
-    fn from_i32(raw: i32) -> Self {
-        Self::ALL[(raw as usize).min(Self::ALL.len() - 1)]
+    fn from_i32(i: i32) -> Self {
+        Self::ALL[i as usize]
     }
 }
 
-/// Tags a parameter
-///   1. Parameters are bidirectionally convertible to i32s
-///   2. Parameters are clamped
-///   3. Parameters are persisted in the save file by name
-///   4. Parameters are available to the front-end by name
-/// <https://matklad.github.io/2018/05/24/typed-key-pattern.html>
-pub struct Key<T: 'static> {
-    name: &'static str,
-    min: AtomicCell<i32>,
-    max: AtomicCell<i32>,
-    by: AtomicCell<i32>,
-    default: AtomicCell<i32>,
-    persist: AtomicCell<bool>,
-    _marker: &'static PhantomData<T>,
-}
+/// Tracks whether this parameter originated from a effects/*.dsp file
+type DspId = Option<(&'static str, usize)>;
 
-impl<T> Key<T> {
-    /// Defines a persisted, unbounded parameter tag
-    pub const fn new(name: &'static str) -> Self {
-        Self {
-            name,
-            min: AtomicCell::new(i32::MIN),
-            max: AtomicCell::new(i32::MAX),
-            by: AtomicCell::new(1),
-            default: AtomicCell::new(0),
-            persist: AtomicCell::new(true),
-            _marker: &PhantomData,
-        }
-    }
-
-    pub fn between(&self, min: T, max: T) -> &Self
-    where
-        T: Parameter,
-    {
-        self.min.store(min.to_i32());
-        self.max.store(max.to_i32());
-        self
-    }
-
-    pub fn nudge_by(&self, by: i32) -> &Self {
-        self.by.store(by);
-        self
-    }
-
-    pub fn default(&self, default: T) -> &Self
-    where
-        T: Parameter,
-    {
-        self.default.store(default.to_i32());
-        self
-    }
-
-    fn clone<U>(&self) -> Key<U> {
-        Key {
-            name: self.name,
-            min: self.min.load().into(),
-            max: self.max.load().into(),
-            by: self.by.load().into(),
-            default: self.default.load().into(),
-            persist: self.persist.load().into(),
-            _marker: &PhantomData,
-        }
-    }
-
-    pub fn ephemeral(&self) -> &Self {
-        self.persist.store(false);
-        self
-    }
-}
-
-struct Meta {
-    key: Key<()>,
+#[derive(Clone)]
+pub struct Param<T: IsParam> {
+    atom: AtomicCell<T>,
+    default: T,
+    min: Option<T>,
+    max: Option<T>,
+    step: Option<T>,
+    ephemeral: bool,
+    dsp_id: DspId,
     changed: AtomicCell<bool>,
 }
 
-pub type SaveState<'a> = HashMap<&'a str, i32>;
-
-#[derive(Default, Deserialize)]
-pub struct State {
-    #[serde(default, flatten)]
-    save: HashMap<String, i32>,
-    #[serde(skip)]
-    meta: HashMap<&'static str, Meta>,
-    #[serde(skip)]
-    data: HashMap<&'static str, AtomicCell<i32>>,
-}
-
-impl<'a> From<SaveState<'a>> for State {
-    fn from(save: SaveState<'a>) -> Self {
+impl<T: IsParam> Param<T> {
+    pub fn new(
+        default: T,
+        min: Option<T>,
+        max: Option<T>,
+        step: Option<T>,
+        ephemeral: bool,
+        dsp_id: DspId,
+    ) -> Self {
         Self {
-            save: save
-                .into_iter()
-                .map(|(name, value)| (name.to_owned(), value))
-                .collect(),
-            ..Self::default()
-        }
-    }
-}
-
-impl State {
-    /// Read parameter from the saved value or use the default if it doesn't exist
-    pub fn register<T: Copy + Parameter>(&mut self, key: &Key<T>) {
-        let data = self.save.remove(key.name).unwrap_or(key.default.load());
-        let meta = Meta {
-            key: key.clone(),
+            atom: default.into(),
+            default,
+            min,
+            max,
+            step,
+            ephemeral,
+            dsp_id,
             changed: false.into(),
-        };
-        self.meta.insert(key.name, meta);
-        self.data.insert(key.name, data.into());
-    }
-
-    /// Gets the raw version of a parameter key by its name
-    pub fn get_key<T>(&self, name: &str) -> Option<Key<T>> {
-        self.meta.get(name).map(|meta| meta.key.clone())
-    }
-
-    /// Get the parameter's value
-    pub fn get<T: Parameter>(&self, key: &Key<T>) -> T {
-        Parameter::from_i32(self.data[key.name].load())
-    }
-
-    /// Set the parameter's value
-    pub fn set<T: Copy + PartialOrd + Parameter>(&self, key: &Key<T>, value: T) {
-        let new = value.to_i32().clamp(key.min.load(), key.max.load());
-        let old = self.data[key.name].swap(new);
-        if new != old {
-            self.meta[key.name].changed.store(true);
         }
     }
 
-    /// Increment the parameter's value
-    pub fn increment<T>(&self, key: &Key<T>) {
-        self.data[key.name].fetch_add(1);
-        self.meta[key.name].changed.store(true);
+    pub fn get(&self) -> T {
+        self.atom.load()
     }
 
-    /// Toggles the boolean parameter's value
-    pub fn toggle<T>(&self, key: &Key<T>) {
-        self.data[key.name].fetch_xor(1);
-        self.meta[key.name].changed.store(true);
-    }
-
-    /// Toggles, sets, or nudges a parameter depending on the Key's properties
-    pub fn nudge(&self, key: &Key<i32>, value: i32) {
-        match (key.by.load(), value) {
-            (0, _) => self.toggle(key),
-            (1, _) => self.set(key, value),
-            (x, 0) => self.set(key, self.get(key) - x),
-            (_, 1) => self.set(key, self.get(key) - 1),
-            (_, 2) => self.set(key, self.get(key) + 1),
-            (x, 3) => self.set(key, self.get(key) + x),
-            _ => {}
+    pub fn set(&self, mut value: T) {
+        if let Some(min) = self.min {
+            value = T::max(min, value);
+        }
+        if let Some(max) = self.max {
+            value = T::min(max, value);
+        }
+        if value != self.atom.swap(value) {
+            self.changed.store(true);
         }
     }
 
-    /// Calls function for each changed state key name
-    pub fn changed(&self, f: impl Fn(&'static str, i32)) {
-        for (name, meta) in self.meta.iter() {
-            if meta.changed.swap(false) {
-                f(name, self.data[name].load());
-            }
-        }
-    }
-
-    /// Formats state for saving, filtering unchanged and ephemeral keys
-    pub fn save(&self) -> SaveState<'static> {
-        self.data
-            .iter()
-            .map(|(&name, atom)| (name, atom.load()))
-            .filter(move |(name, value)| {
-                let key = &self.meta[name].key;
-                key.persist.load() && *value != key.default.load()
-            })
-            .collect()
-    }
-
-    /// Dumps state without filtering any keys
-    pub fn dump(&self) -> SaveState<'static> {
-        self.data
-            .iter()
-            .map(|(&name, atom)| (name, atom.load()))
-            .collect()
+    fn to_json(&self) -> Value {
+        serde_json::to_value(self.get()).expect("value")
     }
 }
+
+impl Param<bool> {
+    pub fn toggle(&self) {
+        self.atom.toggle();
+        self.changed.store(true);
+    }
+}
+
+pub trait Visitor {
+    fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>);
+}
+
+struct ForEachDsp<T>(T);
+impl<T: FnMut(&'static str, ParamIndex, f32)> Visitor for ForEachDsp<T> {
+    fn call<P: IsParam>(&mut self, _: &'static str, param: &Param<P>) {
+        match param.dsp_id.as_ref() {
+            None => {}
+            Some((name, i)) => self.0(name, ParamIndex(*i), param.get().to_i32() as f32),
+        }
+    }
+}
+
+struct ForEachChange<T>(T);
+impl<T: FnMut(&'static str, Value)> Visitor for ForEachChange<T> {
+    fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>) {
+        if param.changed.swap(false) {
+            self.0(label, param.to_json());
+        }
+    }
+}
+
+struct Load(Value);
+impl<'a> Visitor for Load {
+    fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>) {
+        if let Ok(value) = serde_json::from_value(self.0[label].clone()) {
+            param.set(value);
+        }
+    }
+}
+
+pub enum Format {
+    Dump,
+    Minimal,
+}
+
+struct Save<'a>(Format, &'a mut HashMap<&'static str, Value>);
+impl<'a> Visitor for Save<'a> {
+    fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>) {
+        match &self.0 {
+            Format::Minimal if param.get() == param.default => None,
+            Format::Minimal | Format::Dump => self.1.insert(label, param.to_json()),
+        };
+    }
+}
+
+pub trait IsState: Default {
+    fn visit_params<T: Visitor>(&self, visitor: &mut T);
+}
+
+#[derive(Default)]
+pub struct State<T>(T);
+
+impl<T> Deref for State<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: IsState> State<T> {
+    pub fn for_each_dsp<F: FnMut(&'static str, ParamIndex, f32)>(&self, f: F) {
+        self.visit_params(&mut ForEachDsp(f));
+    }
+
+    pub fn for_each_change<F: FnMut(&'static str, Value)>(&self, f: F) {
+        self.visit_params(&mut ForEachChange(f));
+    }
+
+    pub fn load(&self, value: Value) {
+        self.visit_params(&mut Load(value));
+    }
+
+    pub fn save(&self, format: Format) -> impl Serialize {
+        let mut bindings = HashMap::new();
+        self.visit_params(&mut Save(format, &mut bindings));
+        bindings
+    }
+}
+
+pub type Song = State<song::State>;
+pub type Track = State<track::State>;

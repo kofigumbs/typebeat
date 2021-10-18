@@ -1,12 +1,13 @@
 use std::sync::{Arc, Mutex};
 
+use serde::Serialize;
 use tauri::api::path::BaseDirectory;
 use tauri::{Builder, Event, Manager, Menu, MenuItem, State, Submenu};
 
-use typebeat::{Controller, Dump, Platform};
+use typebeat::{Controller, Platform};
 
 #[tauri::command]
-fn dump(state: State<'_, Controller>) -> Dump {
+fn dump(state: State<'_, Controller>) -> impl Serialize {
     state.dump()
 }
 
