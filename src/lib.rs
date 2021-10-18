@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use atomic_cell::{AtomicCell, CopyAs};
-use effects::FaustDsp;
+use effects::{FaustDsp, ParamIndex};
 use state::{Format as SaveFormat, Song as SongState, Track as TrackState};
 
 mod atomic_cell;
@@ -312,20 +312,30 @@ enum StateId {
     ActiveTrack,
 }
 
-#[derive(Default)]
 struct Song {
     state: SongState,
     tracks: [Track; TRACK_COUNT],
-    // gate_id: ParamIndex,
-    // note_id: ParamIndex,
+    gate_id: ParamIndex,
+    note_id: ParamIndex,
     step: AtomicCell<usize>,
     frames_since_last_step: AtomicCell<usize>,
 }
 
+impl Default for Song {
+    fn default() -> Self {
+        Song {
+            state: Default::default(),
+            tracks: Default::default(),
+            gate_id: ParamIndex(state::track::GATE),
+            note_id: ParamIndex(state::track::NOTE),
+            step: Default::default(),
+            frames_since_last_step: Default::default(),
+        }
+    }
+}
+
 impl Song {
     fn init(&mut self, platform: &Platform, sends: &[DspDyn]) {
-        // self.gate_id = buttons.registry["gate"];
-        // self.note_id = buttons.registry["note"];
         for (i, track) in self.tracks.iter_mut().enumerate() {
             track.file_sample = platform.read_sample(i).expect("track.file_sample");
         }
@@ -579,7 +589,7 @@ impl Audio {
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
                 let dsp = voice.insert.dsp.as_mut();
-                // dsp.set_param(song.gate_id, voice.gate as f32);
+                dsp.set_param(song.gate_id, voice.gate as f32);
                 // song.tracks[track_id].state.set_params(&mut dsp);
             }
         }
@@ -671,7 +681,7 @@ impl Audio {
                 / (69.0_f32 / 12.).exp2();
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
-            // voice.insert.dsp.set_param(song.note_id, note);
+            voice.insert.dsp.set_param(song.note_id, note);
         }
 
         // Remember when this was played to for note length sequencer calculation

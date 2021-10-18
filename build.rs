@@ -20,8 +20,6 @@ fn snake(ident: &str) -> String {
 
 #[derive(Deserialize)]
 struct FaustParam {
-    #[serde(rename = "type")]
-    type_: String,
     label: String,
     init: Option<f32>,
     min: Option<f32>,
@@ -99,6 +97,11 @@ impl Param {
         self
     }
 
+    fn rust_button(&self) -> String {
+        format!("pub const {}: usize", snake(&self.label).to_uppercase())
+            + &format!("= {};\n", self.dsp_id.as_ref().expect("dsp_id").1)
+    }
+
     fn rust_field(&self) -> String {
         let param = match self.type_ {
             Type::Bool(_) => "Param<bool>",
@@ -152,15 +155,20 @@ impl Param {
 }
 
 fn generate_rust(params: &[Param]) -> String {
+    let mut buttons = String::new();
     let mut fields = String::new();
     let mut defaults = String::new();
     let mut visits = String::new();
     for param in params {
-        fields += &param.rust_field();
-        defaults += &param.rust_default();
-        visits += &param.rust_visit();
+        if param.step_.is_none() && param.dsp_id.is_some() {
+            buttons += &param.rust_button();
+        } else {
+            fields += &param.rust_field();
+            defaults += &param.rust_default();
+            visits += &param.rust_visit();
+        }
     }
-    let mut s = String::new();
+    let mut s = buttons;
     s += "#[derive(Clone)]\n";
     s += &format!("pub struct State {{\n{}}}\n\n", fields);
     s += "impl Default for State {\n";
@@ -223,18 +231,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         let description = serde_json::from_slice::<Description>(&json)?;
         let params = if_(stem == "insert", &mut track_params, &mut song_params);
         for (i, faust_param) in description.ui.0.items.into_iter().enumerate() {
-            if faust_param.type_ == "nentry" {
-                params.push(Param {
-                    label: faust_param.label,
-                    type_: Type::F32(faust_param.init.expect("init")),
-                    step_: faust_param.step.map(Type::F32),
-                    min_: faust_param.min.map(Type::F32),
-                    max_: faust_param.max.map(Type::F32),
-                    array_: None,
-                    ephemeral_: false,
-                    dsp_id: Some((stem.to_string_lossy().into_owned(), i)),
-                });
-            }
+            params.push(Param {
+                label: faust_param.label,
+                type_: Type::F32(faust_param.init.unwrap_or_default()),
+                step_: faust_param.step.map(Type::F32),
+                min_: faust_param.min.map(Type::F32),
+                max_: faust_param.max.map(Type::F32),
+                array_: None,
+                ephemeral_: false,
+                dsp_id: Some((stem.to_string_lossy().into_owned(), i)),
+            });
         }
     }
     std::fs::write(&out.join("song.rs"), generate_rust(&song_params))?;

@@ -9,12 +9,12 @@ use serde_json::Value;
 use crate::atomic_cell::AtomicCell;
 use crate::effects::ParamIndex;
 
-mod song {
+pub mod song {
     use super::*;
     include!(concat!(env!("OUT_DIR"), "/song.rs"));
 }
 
-mod track {
+pub mod track {
     use super::*;
     include!(concat!(env!("OUT_DIR"), "/track.rs"));
 }
