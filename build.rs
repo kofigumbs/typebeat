@@ -221,8 +221,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         Param::new("viewStart", Type::Usize(0)).ephemeral(),
         Param::new("pageStart", Type::Usize(0)).ephemeral(),
         Param::new("recent", Type::Usize(0)).ephemeral(),
+        Param::new("note", Type::I32(0)).group(15).ephemeral(),
         Param::new("view", Type::Usize(0)).group(4).ephemeral(),
-        Param::new("waveform", Type::I32(0)).group(24).ephemeral(),
+        Param::new("waveform", Type::F32(0.)).group(24).ephemeral(),
     ];
     for path in effects.iter() {
         let stem = path.file_stem().expect("stem");

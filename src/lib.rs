@@ -21,6 +21,9 @@ mod atomic_cell;
 mod effects;
 mod state;
 
+const GATE_PARAM_INDEX: ParamIndex = ParamIndex(state::track::GATE);
+const NOTE_PARAM_INDEX: ParamIndex = ParamIndex(state::track::NOTE);
+
 const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
 
@@ -62,12 +65,16 @@ impl<T: FaustDsp + DefaultBoxed> Default for DspBox<T> {
 
 /// Type-erased wrapper for FaustDsp
 struct DspDyn {
+    name: &'static str,
     dsp: Box<dyn Send + Sync + FaustDsp<T = f32>>,
 }
 
-impl<T: 'static + Send + Sync + FaustDsp<T = f32>> From<DspBox<T>> for DspDyn {
-    fn from(dsp_box: DspBox<T>) -> Self {
-        Self { dsp: dsp_box.dsp }
+impl<T: 'static + Send + Sync + FaustDsp<T = f32>> From<(&'static str, DspBox<T>)> for DspDyn {
+    fn from(value: (&'static str, DspBox<T>)) -> Self {
+        Self {
+            name: value.0,
+            dsp: value.1.dsp,
+        }
     }
 }
 
@@ -262,13 +269,13 @@ impl Track {
         &self.live_sample[..self.live_length.load()]
     }
 
-    // fn waveform(&self, i: usize) -> f32 {
-    //     match SampleType::from_i32(self.state.sample_type.get()) {
-    //         SampleType::File => Track::sample_waveform(i, &self.file_sample),
-    //         SampleType::LivePlay => Track::sample_waveform(i, self.live()),
-    //         SampleType::Live | SampleType::LiveRecord => 0.,
-    //     }
-    // }
+    fn waveform(&self, i: usize) -> f32 {
+        match SampleType::from(self.state.sample_type.get() as usize) {
+            SampleType::File => self.sample_waveform(i, &self.file_sample),
+            SampleType::LivePlay => self.sample_waveform(i, self.live()),
+            SampleType::Live | SampleType::LiveRecord => 0.,
+        }
+    }
 
     fn adjust(lhs: usize, diff: i32, rhs: usize) -> usize {
         if diff.is_positive() {
@@ -278,15 +285,15 @@ impl Track {
         }
     }
 
-    // fn sample_waveform<T: CopyAs<f32>>(i: usize, sample: &[T]) -> f32 {
-    //     let chunk_len = sample.len() / WAVEFORMS.len();
-    //     100. * sample
-    //         .chunks(chunk_len)
-    //         .nth(i)
-    //         .unwrap_or_default()
-    //         .into_iter()
-    //         .fold(0., |max, f| f.copy_as().abs().max(max))
-    // }
+    fn sample_waveform<T: CopyAs<f32>>(&self, i: usize, sample: &[T]) -> f32 {
+        let chunk_len = sample.len() / self.state.waveform.len();
+        sample
+            .chunks(chunk_len)
+            .nth(i)
+            .unwrap_or_default()
+            .into_iter()
+            .fold(0., |max, f| f.copy_as().abs().max(max))
+    }
 }
 
 pub struct Platform {
@@ -312,26 +319,12 @@ enum StateId {
     ActiveTrack,
 }
 
+#[derive(Default)]
 struct Song {
     state: SongState,
     tracks: [Track; TRACK_COUNT],
-    gate_id: ParamIndex,
-    note_id: ParamIndex,
     step: AtomicCell<usize>,
     frames_since_last_step: AtomicCell<usize>,
-}
-
-impl Default for Song {
-    fn default() -> Self {
-        Song {
-            state: Default::default(),
-            tracks: Default::default(),
-            gate_id: ParamIndex(state::track::GATE),
-            note_id: ParamIndex(state::track::NOTE),
-            step: Default::default(),
-            frames_since_last_step: Default::default(),
-        }
-    }
 }
 
 impl Song {
@@ -387,15 +380,15 @@ impl Song {
         track.state.can_clear.set(track.can_clear());
         track.state.bars.set(track.bars());
         track.state.view_start.set(track.view_start());
-        // for (i, key) in NOTES.iter().enumerate() {
-        //     track.state.set(key, self.note(track, i));
-        // }
-        // for (i, key) in VIEWS.iter().enumerate() {
-        //     track.state.set(key, track.view(i));
-        // }
-        // for (i, key) in WAVEFORMS.iter().enumerate() {
-        //     track.state.set(key, track.waveform(i));
-        // }
+        for (i, param) in track.state.note.iter().enumerate() {
+            param.set(self.note(track, i));
+        }
+        for (i, param) in track.state.view.iter().enumerate() {
+            param.set(track.view(i) as usize);
+        }
+        for (i, param) in track.state.waveform.iter().enumerate() {
+            param.set(track.waveform(i));
+        }
     }
 }
 
@@ -589,12 +582,12 @@ impl Audio {
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
                 let dsp = voice.insert.dsp.as_mut();
-                dsp.set_param(song.gate_id, voice.gate as f32);
-                // song.tracks[track_id].state.set_params(&mut dsp);
+                dsp.set_param(GATE_PARAM_INDEX, voice.gate as f32);
+                song.tracks[track_id].state.set_params("insert", dsp);
             }
         }
-        for DspDyn { dsp } in self.sends.iter_mut() {
-            // song.state.set_params(dsp.as_mut());
+        for DspDyn { name, dsp } in self.sends.iter_mut() {
+            song.state.set_params(name, dsp.as_mut());
         }
 
         // Read input frames and calculate output frames
@@ -681,7 +674,7 @@ impl Audio {
                 / (69.0_f32 / 12.).exp2();
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
-            voice.insert.dsp.set_param(song.note_id, note);
+            voice.insert.dsp.set_param(NOTE_PARAM_INDEX, note);
         }
 
         // Remember when this was played to for note length sequencer calculation
@@ -793,9 +786,9 @@ pub fn init(platform: Platform) -> Result<Controller, Box<dyn Error>> {
         platform: Mutex::new(platform),
         voices: vec![Voice::default(); voice_count],
         sends: [
-            DspBox::<effects::reverb>::default().into(),
-            DspBox::<effects::echo>::default().into(),
-            DspBox::<effects::drive>::default().into(),
+            ("reverb", DspBox::<effects::reverb>::default()).into(),
+            ("echo", DspBox::<effects::echo>::default()).into(),
+            ("drive", DspBox::<effects::drive>::default()).into(),
         ],
         receiver: Arc::new(Mutex::new(receiver)),
     };

@@ -7,7 +7,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::atomic_cell::AtomicCell;
-use crate::effects::ParamIndex;
+pub use crate::effects::{FaustDsp, ParamIndex};
 
 pub mod song {
     use super::*;
@@ -93,14 +93,16 @@ pub trait Visitor {
     fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>);
 }
 
-struct ForEachDsp<T>(T);
-impl<T: FnMut(&'static str, ParamIndex, f32)> Visitor for ForEachDsp<T> {
+struct SetParams<'a>(&'static str, &'a mut dyn FaustDsp<T = f32>);
+impl<'a> Visitor for SetParams<'a> {
     fn call<P: IsParam>(&mut self, _: &'static str, param: &Param<P>) {
-        param
-            .dsp_id
-            .as_ref()
-            .zip(Any::downcast_ref(&param.get()))
-            .map(|((name, i), x)| self.0(name, ParamIndex(*i), *x));
+        match param.dsp_id.as_ref() {
+            Some((name, i)) if name == &self.0 => {
+                <dyn Any>::downcast_ref(&param.get())
+                    .map(|value| self.1.set_param(ParamIndex(*i), *value));
+            }
+            _ => {}
+        }
     }
 }
 
@@ -116,8 +118,9 @@ impl<T: FnMut(&'static str, Value)> Visitor for ForEachChange<T> {
 struct Load(Value);
 impl<'a> Visitor for Load {
     fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>) {
-        if let Ok(value) = serde_json::from_value(self.0[label].clone()) {
-            param.set(value);
+        match serde_json::from_value(self.0[label].clone()) {
+            Ok(value) if !param.ephemeral => param.set(value),
+            _ => {}
         }
     }
 }
@@ -131,7 +134,7 @@ struct Save<'a>(Format, &'a mut HashMap<&'static str, Value>);
 impl<'a> Visitor for Save<'a> {
     fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>) {
         match &self.0 {
-            Format::Minimal if param.get() == param.default => None,
+            Format::Minimal if param.ephemeral || param.get() == param.default => None,
             Format::Minimal | Format::Dump => self.1.insert(label, param.to_json()),
         };
     }
@@ -152,11 +155,11 @@ impl<T> Deref for State<T> {
 }
 
 impl<T: IsState> State<T> {
-    pub fn for_each_dsp<F: FnMut(&'static str, ParamIndex, f32)>(&self, f: F) {
-        self.visit_params(&mut ForEachDsp(f));
+    pub fn set_params(&self, dsp_name: &'static str, dsp: &mut dyn FaustDsp<T = f32>) {
+        self.visit_params(&mut SetParams(dsp_name, dsp));
     }
 
-    pub fn for_each_change<F: FnMut(&'static str, Value)>(&self, f: F) {
+    pub fn for_each_change(&self, f: impl FnMut(&'static str, Value)) {
         self.visit_params(&mut ForEachChange(f));
     }
 
