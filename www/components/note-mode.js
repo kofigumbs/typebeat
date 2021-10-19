@@ -4,7 +4,7 @@ export const cap = 'T';
 
 export const actions = (local, proxy, set) => new Map([
   ...bind.all(i => ({
-    label: async () => bind.note(await proxy[`note ${i}`]),
+    label: async () => bind.note(await proxy[`note${i}`]),
     title: async () => i == await proxy.activeKey,
     onDown: () => set('noteDown', i),
     onUp: () => set('noteUp', i),
@@ -43,7 +43,7 @@ customElements.define('note-mode', class extends HTMLElement {
   }
 
   async sync({ proxy }) {
-    const activeNote = await proxy[`note ${await proxy.activeKey}`] % 12;
+    const activeNote = await proxy[`note${await proxy.activeKey}`] % 12;
     this._notes.forEach((note, i) => note.classList.toggle('active', i === activeNote));
   }
 });

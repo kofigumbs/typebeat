@@ -127,7 +127,7 @@ const handlePointer = (event, cap, state) => {
 export default (dump, callback) => {
   const local = { tempoTaps: [] };
   const proxy = new Proxy({}, {
-    get: (self, method) => dump.song[method] ?? dump.tracks[dump.song.activeTrack][method],
+    get: (self, method) => dump.song[method] ?? dump.tracks[dump.song.activeTrackId][method],
   });
   const send = (method, data = 0) => callback(method, data);
   const state = { local, proxy, actions: new Map() };

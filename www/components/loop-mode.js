@@ -10,7 +10,7 @@ export const actions = (local, proxy, set) => new Map([
   ...bind.group('NM,.', i => ({
     label: async () => {
       const n = ((await proxy.viewStart + i) % await proxy.resolution) + 1;
-      switch (await proxy[`view ${i}`]) {
+      switch (await proxy[`view${i}`]) {
         case 0: return '';
         case 1: return `${n}/${await proxy.resolution}`;
         case 2: return `${n}█${await proxy.resolution}`;

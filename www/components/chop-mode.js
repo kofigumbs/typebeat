@@ -17,8 +17,7 @@ customElements.define('chop-mode', class extends HTMLElement {
   }
 
   async sync({ proxy }) {
-    const id = `${await proxy.activeTrack}:${await proxy.sampleType}`;
-    const waveforms = await Promise.all(this.eachWaveform(i => proxy[`waveform ${i}`]));
+    const waveforms = await Promise.all(this.eachWaveform(i => proxy[`waveform${i}`]));
     this._paths.map((path, i) => {
       const amplitude = waveforms[i]/5 + 1;
       path.setAttribute('d', `M ${i*4 + 3} ${23 - amplitude} v ${amplitude*2}`);

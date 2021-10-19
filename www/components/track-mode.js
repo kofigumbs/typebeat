@@ -6,7 +6,7 @@ export const cap = 'Q';
 
 export const actions = (local, proxy, set) => new Map([
   ...bind.all(i => ({
-    label: async () => i === await proxy.activeTrack ? 'active' : '',
+    label: async () => i === await proxy.activeTrackId ? 'active' : '',
     title: async () => !await proxy.playing,
     onDown: () => set('activeTrack', i),
     onUp: () => set('auditionUp', i),
@@ -32,7 +32,7 @@ customElements.define('track-mode', class extends HTMLElement {
   }
 
   async sync({ proxy }) {
-    const activeTrack = await proxy.activeTrack;
+    const activeTrack = await proxy.activeTrackId;
     this._tracks.forEach(async (track, i) => {
       track.setAttribute('d', i === activeTrack ? active[i] : inert[i]);
       if (await proxy[`recent ${i}`])
