@@ -67,10 +67,10 @@ impl<T: IsParam> Param<T> {
 
     pub fn set(&self, mut value: T) {
         if let Some(min) = self.min {
-            value = num_traits::clamp_max(min, value);
+            value = num_traits::clamp_min(value, min);
         }
         if let Some(max) = self.max {
-            value = num_traits::clamp_min(max, value);
+            value = num_traits::clamp_max(value, max);
         }
         if value != self.atom.swap(value) {
             self.changed.store(true);
@@ -89,36 +89,52 @@ impl Param<bool> {
     }
 }
 
-pub trait Visitor {
-    fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>);
+pub trait Visitor<S> {
+    fn call<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>);
 }
 
-struct SetParams<'a>(&'static str, &'a mut dyn FaustDsp<T = f32>);
-impl<'a> Visitor for SetParams<'a> {
-    fn call<P: IsParam>(&mut self, _: &'static str, param: &Param<P>) {
+struct SetParams<'a, S>(&'a S, &'static str, &'a mut dyn FaustDsp<T = f32>);
+impl<'a, S> Visitor<S> for SetParams<'a, S> {
+    fn call<P: IsParam>(&mut self, _: &'static str, get_param: fn(&S) -> &Param<P>) {
+        let param = get_param(self.0);
         match param.dsp_id.as_ref() {
-            Some((name, i)) if name == &self.0 => {
+            Some((name, i)) if name == &self.1 => {
                 <dyn Any>::downcast_ref(&param.get())
-                    .map(|value| self.1.set_param(ParamIndex(*i), *value));
+                    .map(|value| self.2.set_param(ParamIndex(*i), *value));
             }
             _ => {}
         }
     }
 }
 
-struct ForEachChange<T>(T);
-impl<T: FnMut(&'static str, Value)> Visitor for ForEachChange<T> {
-    fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>) {
+struct ForEachChange<'a, S, F>(&'a S, F);
+impl<'a, S, F: FnMut(&'static str, Value)> Visitor<S> for ForEachChange<'a, S, F> {
+    fn call<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
+        let param = get_param(self.0);
         if param.changed.swap(false) {
-            self.0(label, param.to_json());
+            self.1(label, param.to_json());
         }
     }
 }
 
-struct Load(Value);
-impl<'a> Visitor for Load {
-    fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>) {
-        match serde_json::from_value(self.0[label].clone()) {
+struct Setters<'a, S: 'static>(&'a mut HashMap<&'static str, Box<dyn Fn(&S, Value) + Sync>>);
+impl<'a, S> Visitor<S> for Setters<'a, S> {
+    fn call<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
+        self.0.insert(
+            label,
+            Box::new(move |state, value| match serde_json::from_value(value) {
+                Ok(value) => get_param(state).set(value),
+                Err(_) => {}
+            }),
+        );
+    }
+}
+
+struct Load<'a, S>(&'a S, Value);
+impl<'a, S> Visitor<S> for Load<'a, S> {
+    fn call<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
+        let param = get_param(&self.0);
+        match serde_json::from_value(self.1[label].clone()) {
             Ok(value) if !param.ephemeral => param.set(value),
             _ => {}
         }
@@ -130,49 +146,61 @@ pub enum Format {
     Minimal,
 }
 
-struct Save<'a>(Format, &'a mut HashMap<&'static str, Value>);
-impl<'a> Visitor for Save<'a> {
-    fn call<P: IsParam>(&mut self, label: &'static str, param: &Param<P>) {
-        match &self.0 {
+struct Save<'a, S>(&'a S, Format, &'a mut HashMap<&'static str, Value>);
+impl<'a, S> Visitor<S> for Save<'a, S> {
+    fn call<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
+        let param = get_param(&self.0);
+        match &self.1 {
             Format::Minimal if param.ephemeral || param.get() == param.default => None,
-            Format::Minimal | Format::Dump => self.1.insert(label, param.to_json()),
+            Format::Minimal | Format::Dump => self.2.insert(label, param.to_json()),
         };
     }
 }
 
 pub trait IsState: Default {
-    fn visit_params<T: Visitor>(&self, visitor: &mut T);
+    fn visit_params<V: Visitor<Self>>(visitor: &mut V);
 }
 
 #[derive(Default)]
-pub struct State<T>(T);
+pub struct State<S>(S);
 
-impl<T> Deref for State<T> {
-    type Target = T;
+impl<S> Deref for State<S> {
+    type Target = S;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T: IsState> State<T> {
+impl<S: IsState + 'static> State<S> {
+    fn setters() -> HashMap<&'static str, Box<dyn Fn(&S, Value) + Sync>> {
+        let mut bindings = HashMap::new();
+        S::visit_params(&mut Setters(&mut bindings));
+        bindings
+    }
+
     pub fn set_params(&self, dsp_name: &'static str, dsp: &mut dyn FaustDsp<T = f32>) {
-        self.visit_params(&mut SetParams(dsp_name, dsp));
+        S::visit_params(&mut SetParams(&self.0, dsp_name, dsp));
     }
 
     pub fn for_each_change(&self, f: impl FnMut(&'static str, Value)) {
-        self.visit_params(&mut ForEachChange(f));
+        S::visit_params(&mut ForEachChange(&self.0, f));
     }
 
     pub fn load(&self, value: Value) {
-        self.visit_params(&mut Load(value));
+        S::visit_params(&mut Load(&self.0, value));
     }
 
     pub fn save(&self, format: Format) -> impl Serialize {
         let mut bindings = HashMap::new();
-        self.visit_params(&mut Save(format, &mut bindings));
+        S::visit_params(&mut Save(&self.0, format, &mut bindings));
         bindings
     }
 }
 
 pub type Song = State<song::State>;
 pub type Track = State<track::State>;
+
+lazy_static::lazy_static! {
+    pub static ref SONG_SETTERS: HashMap<&'static str, Box<dyn Fn(&song::State, Value) + Sync>> = Song::setters();
+    pub static ref TRACK_SETTERS: HashMap<&'static str, Box<dyn Fn(&track::State, Value) + Sync>> = Track::setters();
+}

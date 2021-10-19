@@ -141,7 +141,7 @@ impl Param {
 
     fn rust_visit_call(&self, label_suffix: &str, field_suffix: &str) -> String {
         format!("visitor.call(\"{}{}\", ", self.label, label_suffix)
-            + &format!("&self.{}{});\n", snake(&self.label), field_suffix)
+            + &format!("|state| &state.{}{});\n", snake(&self.label), field_suffix)
     }
 
     fn rust_visit(&self) -> String {
@@ -174,7 +174,7 @@ fn generate_rust(params: &[Param]) -> String {
     s += "impl Default for State {\n";
     s += &format!("fn default() -> Self {{\nSelf {{\n{}}}\n}}\n}}\n", defaults);
     s += "impl IsState for State {\n";
-    s += "fn visit_params<T: Visitor>(&self, visitor: &mut T) {\n";
+    s += "fn visit_params<T: Visitor<Self>>(visitor: &mut T) {\n";
     s += &format!("{}}}\n}}\n", visits);
     s
 }
