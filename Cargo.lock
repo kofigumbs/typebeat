@@ -3254,6 +3254,7 @@ dependencies = [
  "rfd 0.4.4",
  "serde",
  "serde_json",
+ "serde_repr",
  "tauri",
  "tauri-build",
 ]

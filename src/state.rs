@@ -2,6 +2,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::ops::Deref;
 
+use num_traits::{AsPrimitive, Num, One, Zero};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
@@ -19,11 +20,37 @@ pub mod track {
     include!(concat!(env!("OUT_DIR"), "/track.rs"));
 }
 
-pub trait IsParam: Any + Copy + PartialOrd + PartialEq + Serialize + DeserializeOwned {}
-impl IsParam for bool {}
-impl IsParam for i32 {}
-impl IsParam for f32 {}
-impl IsParam for usize {}
+pub trait IsParam: Any + Copy + PartialOrd + PartialEq + DeserializeOwned + Serialize {
+    fn nudge(self, data: u8, step: u8) -> Self;
+}
+
+impl IsParam for bool {
+    fn nudge(self, _: u8, _: u8) -> Self {
+        !self
+    }
+}
+
+pub trait IsNumParam: Any + Copy + PartialOrd + PartialEq + DeserializeOwned + Serialize {}
+impl IsNumParam for f32 {}
+impl IsNumParam for i32 {}
+impl IsNumParam for usize {}
+
+impl<T: Num + IsNumParam> IsParam for T
+where
+    u8: AsPrimitive<T>,
+{
+    fn nudge(self, data: u8, step: u8) -> Self {
+        match data {
+            _ if step.is_zero() => T::one() - self,
+            _ if step.is_one() => data.as_(),
+            0 => self - step.as_(),
+            1 => self - T::one(),
+            2 => self + T::one(),
+            3 => self + step.as_(),
+            _ => self,
+        }
+    }
+}
 
 /// Tracks whether this parameter originated from a effects/*.dsp file
 type DspId = Option<(&'static str, usize)>;
@@ -34,7 +61,7 @@ pub struct Param<T: IsParam> {
     default: T,
     min: Option<T>,
     max: Option<T>,
-    step: Option<T>,
+    step: u8,
     ephemeral: bool,
     dsp_id: DspId,
     changed: AtomicCell<bool>,
@@ -45,7 +72,7 @@ impl<T: IsParam> Param<T> {
         default: T,
         min: Option<T>,
         max: Option<T>,
-        step: Option<T>,
+        step: u8,
         ephemeral: bool,
         dsp_id: DspId,
     ) -> Self {
@@ -77,6 +104,10 @@ impl<T: IsParam> Param<T> {
         }
     }
 
+    pub fn nudge(&self, data: u8) {
+        self.set(self.get().nudge(data, self.step))
+    }
+
     fn to_json(&self) -> Value {
         serde_json::to_value(self.get()).expect("value")
     }
@@ -90,12 +121,12 @@ impl Param<bool> {
 }
 
 pub trait Visitor<S> {
-    fn call<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>);
+    fn visit<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>);
 }
 
 struct SetParams<'a, S>(&'a S, &'static str, &'a mut dyn FaustDsp<T = f32>);
 impl<'a, S> Visitor<S> for SetParams<'a, S> {
-    fn call<P: IsParam>(&mut self, _: &'static str, get_param: fn(&S) -> &Param<P>) {
+    fn visit<P: IsParam>(&mut self, _: &'static str, get_param: fn(&S) -> &Param<P>) {
         let param = get_param(self.0);
         match param.dsp_id.as_ref() {
             Some((name, i)) if name == &self.1 => {
@@ -109,7 +140,7 @@ impl<'a, S> Visitor<S> for SetParams<'a, S> {
 
 struct ForEachChange<'a, S, F>(&'a S, F);
 impl<'a, S, F: FnMut(&'static str, Value)> Visitor<S> for ForEachChange<'a, S, F> {
-    fn call<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
+    fn visit<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
         let param = get_param(self.0);
         if param.changed.swap(false) {
             self.1(label, param.to_json());
@@ -117,13 +148,13 @@ impl<'a, S, F: FnMut(&'static str, Value)> Visitor<S> for ForEachChange<'a, S, F
     }
 }
 
-struct Setters<'a, S: 'static>(&'a mut HashMap<&'static str, Box<dyn Fn(&S, Value) + Sync>>);
-impl<'a, S> Visitor<S> for Setters<'a, S> {
-    fn call<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
+struct Nudges<'a, S: 'static>(&'a mut HashMap<&'static str, Box<dyn Fn(&S, Value) + Sync>>);
+impl<'a, S> Visitor<S> for Nudges<'a, S> {
+    fn visit<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
         self.0.insert(
             label,
             Box::new(move |state, value| match serde_json::from_value(value) {
-                Ok(value) => get_param(state).set(value),
+                Ok(value) => get_param(state).nudge(value),
                 Err(_) => {}
             }),
         );
@@ -132,7 +163,7 @@ impl<'a, S> Visitor<S> for Setters<'a, S> {
 
 struct Load<'a, S>(&'a S, Value);
 impl<'a, S> Visitor<S> for Load<'a, S> {
-    fn call<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
+    fn visit<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
         let param = get_param(&self.0);
         match serde_json::from_value(self.1[label].clone()) {
             Ok(value) if !param.ephemeral => param.set(value),
@@ -148,7 +179,7 @@ pub enum Format {
 
 struct Save<'a, S>(&'a S, Format, &'a mut HashMap<&'static str, Value>);
 impl<'a, S> Visitor<S> for Save<'a, S> {
-    fn call<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
+    fn visit<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
         let param = get_param(&self.0);
         match &self.1 {
             Format::Minimal if param.ephemeral || param.get() == param.default => None,
@@ -172,9 +203,9 @@ impl<S> Deref for State<S> {
 }
 
 impl<S: IsState + 'static> State<S> {
-    fn setters() -> HashMap<&'static str, Box<dyn Fn(&S, Value) + Sync>> {
+    fn nudges() -> HashMap<&'static str, Box<dyn Fn(&S, Value) + Sync>> {
         let mut bindings = HashMap::new();
-        S::visit_params(&mut Setters(&mut bindings));
+        S::visit_params(&mut Nudges(&mut bindings));
         bindings
     }
 
@@ -201,6 +232,6 @@ pub type Song = State<song::State>;
 pub type Track = State<track::State>;
 
 lazy_static::lazy_static! {
-    pub static ref SONG_SETTERS: HashMap<&'static str, Box<dyn Fn(&song::State, Value) + Sync>> = Song::setters();
-    pub static ref TRACK_SETTERS: HashMap<&'static str, Box<dyn Fn(&track::State, Value) + Sync>> = Track::setters();
+    pub static ref SONG_NUDGES: HashMap<&'static str, Box<dyn Fn(&song::State, Value) + Sync>> = Song::nudges();
+    pub static ref TRACK_NUDGES: HashMap<&'static str, Box<dyn Fn(&track::State, Value) + Sync>> = Track::nudges();
 }

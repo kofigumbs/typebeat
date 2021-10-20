@@ -12,11 +12,12 @@ use miniaudio::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex};
 use state::{
-    Format as SaveFormat, Song as SongState, Track as TrackState, SONG_SETTERS, TRACK_SETTERS,
+    Format as SaveFormat, Song as SongState, Track as TrackState, SONG_NUDGES, TRACK_NUDGES,
 };
 
 mod atomic_cell;
@@ -80,7 +81,8 @@ impl<T: 'static + Send + Sync + FaustDsp<T = f32>> From<(&'static str, DspBox<T>
     }
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Deserialize, Serialize)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Deserialize_repr, Serialize_repr)]
+#[repr(usize)]
 pub enum SampleType {
     File,
     Live,
@@ -123,7 +125,8 @@ impl Step {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, PartialOrd, Deserialize, Serialize)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Deserialize_repr, Serialize_repr)]
+#[repr(usize)]
 pub enum View {
     OutOfBounds,
     Empty,
@@ -720,34 +723,34 @@ impl Controller {
 
     pub fn send(&self, method: &str, data: i32) {
         let callback = match method {
-            "activeTrack" => Callback::U(|audio, song, u| {
+            "activeTrack" => Task::WithUsize(|audio, song, u| {
                 song.state.active_track_id.set(u);
                 if !song.state.playing.get() {
                     let id = song.state.active_track_id.get();
                     audio.key_down(song, id, song.tracks[id].state.active_key.get());
                 }
             }),
-            "auditionDown" => Callback::U(|audio, song, u| {
+            "auditionDown" => Task::WithUsize(|audio, song, u| {
                 audio.key_down(song, u, song.tracks[u].state.active_key.get())
             }),
-            "auditionUp" => Callback::U(|audio, song, u| {
+            "auditionUp" => Task::WithUsize(|audio, song, u| {
                 audio.key_up(song, u, song.tracks[u].state.active_key.get())
             }),
-            "length" => Callback::I(|_, song, i| song.active_track().adjust_length(i)),
-            "clear" => Callback::U(|_, song, _| song.active_track().clear()),
-            "muted" => Callback::U(|_, song, u| song.tracks[u].state.muted.toggle()),
-            "noteDown" => Callback::U(|audio, song, u| {
+            "length" => Task::WithI32(|_, song, i| song.active_track().adjust_length(i)),
+            "clear" => Task::WithUsize(|_, song, _| song.active_track().clear()),
+            "muted" => Task::WithUsize(|_, song, u| song.tracks[u].state.muted.toggle()),
+            "noteDown" => Task::WithUsize(|audio, song, u| {
                 audio.key_down(song, song.state.active_track_id.get(), u)
             }),
-            "noteUp" => Callback::U(|audio, song, u| {
+            "noteUp" => Task::WithUsize(|audio, song, u| {
                 audio.key_up(song, song.state.active_track_id.get(), u)
             }),
-            "page" => Callback::I(|_, song, i| song.active_track().adjust_page(i)),
-            "playing" => Callback::U(|audio, song, _| audio.toggle_play(song)),
-            "sampleType" => Callback::U(|audio, song, u| audio.set_sample_type(song, u)),
-            "sequence" => Callback::U(|_, song, u| song.active_track().toggle_step(u)),
-            "zoomIn" => Callback::U(|_, song, _| song.active_track().zoom_in()),
-            "zoomOut" => Callback::U(|_, song, _| song.active_track().zoom_out()),
+            "page" => Task::WithI32(|_, song, i| song.active_track().adjust_page(i)),
+            "playing" => Task::WithUsize(|audio, song, _| audio.toggle_play(song)),
+            "sampleType" => Task::WithUsize(|audio, song, u| audio.set_sample_type(song, u)),
+            "sequence" => Task::WithUsize(|_, song, u| song.active_track().toggle_step(u)),
+            "zoomIn" => Task::WithUsize(|_, song, _| song.active_track().zoom_in()),
+            "zoomOut" => Task::WithUsize(|_, song, _| song.active_track().zoom_out()),
             _ if SONG_NUDGES.contains_key(method) => Task::NudgeSong(&SONG_NUDGES[method]),
             _ if TRACK_NUDGES.contains_key(method) => Task::NudgeTrack(&TRACK_NUDGES[method]),
             _ => return,

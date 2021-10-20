@@ -24,7 +24,7 @@ struct FaustParam {
     init: Option<f32>,
     min: Option<f32>,
     max: Option<f32>,
-    step: Option<f32>,
+    step: Option<u8>,
 }
 
 #[derive(Deserialize)]
@@ -51,7 +51,7 @@ struct Param {
     type_: Type,
     min_: Option<Type>,
     max_: Option<Type>,
-    step_: Option<Type>,
+    step_: Option<u8>,
     array_: Option<usize>,
     ephemeral_: bool,
     dsp_id: Option<(String, usize)>,
@@ -71,8 +71,8 @@ impl Param {
         }
     }
 
-    fn step(mut self, step: i32) -> Self {
-        self.step_ = Some(Type::I32(step));
+    fn step(mut self, step: u8) -> Self {
+        self.step_ = Some(step);
         self
     }
 
@@ -130,7 +130,7 @@ impl Param {
         let param = format!("Param::new({}", value(self.type_))
             + &format!(", {}", maybe_value(self.min_))
             + &format!(", {}", maybe_value(self.max_))
-            + &format!(", {}", maybe_value(self.step_))
+            + &format!(", {}", self.step_.unwrap_or(1))
             + &format!(", {}", self.ephemeral_)
             + &format!(", {:?}),\n", self.dsp_id);
         match self.array_ {
@@ -140,7 +140,7 @@ impl Param {
     }
 
     fn rust_visit_call(&self, label_suffix: &str, field_suffix: &str) -> String {
-        format!("visitor.call(\"{}{}\", ", self.label, label_suffix)
+        format!("visitor.visit(\"{}{}\", ", self.label, label_suffix)
             + &format!("|state| &state.{}{});\n", snake(&self.label), field_suffix)
     }
 
@@ -235,7 +235,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             params.push(Param {
                 label: faust_param.label,
                 type_: Type::F32(faust_param.init.unwrap_or_default()),
-                step_: faust_param.step.map(Type::F32),
+                step_: faust_param.step,
                 min_: faust_param.min.map(Type::F32),
                 max_: faust_param.max.map(Type::F32),
                 array_: None,
