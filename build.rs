@@ -21,10 +21,10 @@ fn snake(ident: &str) -> String {
 #[derive(Deserialize)]
 struct FaustParam {
     label: String,
-    init: Option<f32>,
-    min: Option<f32>,
-    max: Option<f32>,
-    step: Option<u8>,
+    init: Option<i32>,
+    min: Option<i32>,
+    max: Option<i32>,
+    step: Option<i32>,
 }
 
 #[derive(Deserialize)]
@@ -41,7 +41,6 @@ struct Description {
 enum Type {
     Bool(bool),
     I32(i32),
-    F32(f32),
     Usize(usize),
 }
 
@@ -51,7 +50,7 @@ struct Param {
     type_: Type,
     min_: Option<Type>,
     max_: Option<Type>,
-    step_: Option<u8>,
+    step_: Option<i32>,
     array_: Option<usize>,
     ephemeral_: bool,
     dsp_id: Option<(String, usize)>,
@@ -71,7 +70,7 @@ impl Param {
         }
     }
 
-    fn step(mut self, step: u8) -> Self {
+    fn step(mut self, step: i32) -> Self {
         self.step_ = Some(step);
         self
     }
@@ -106,7 +105,6 @@ impl Param {
         let param = match self.type_ {
             Type::Bool(_) => "Param<bool>",
             Type::I32(_) => "Param<i32>",
-            Type::F32(_) => "Param<f32>",
             Type::Usize(_) => "Param<usize>",
         };
         let type_ = match self.array_ {
@@ -120,7 +118,6 @@ impl Param {
         let value = |type_| match type_ {
             Type::Bool(b) => b.to_string(),
             Type::I32(i) => i.to_string(),
-            Type::F32(f) => f.to_string() + "_f32",
             Type::Usize(u) => u.to_string(),
         };
         let maybe_value = |type_| match type_ {
@@ -223,7 +220,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Param::new("recent", Type::Usize(0)).ephemeral(),
         Param::new("note", Type::I32(0)).group(15).ephemeral(),
         Param::new("view", Type::Usize(0)).group(4).ephemeral(),
-        Param::new("waveform", Type::F32(0.)).group(24).ephemeral(),
+        Param::new("waveform", Type::I32(0)).group(24).ephemeral(),
     ];
     for path in effects.iter() {
         let stem = path.file_stem().expect("stem");
@@ -234,10 +231,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         for (i, faust_param) in description.ui.0.items.into_iter().enumerate() {
             params.push(Param {
                 label: faust_param.label,
-                type_: Type::F32(faust_param.init.unwrap_or_default()),
+                type_: Type::I32(faust_param.init.unwrap_or_default()),
                 step_: faust_param.step,
-                min_: faust_param.min.map(Type::F32),
-                max_: faust_param.max.map(Type::F32),
+                min_: faust_param.min.map(Type::I32),
+                max_: faust_param.max.map(Type::I32),
                 array_: None,
                 ephemeral_: false,
                 dsp_id: Some((stem.to_string_lossy().into_owned(), i)),

@@ -159,6 +159,10 @@ impl Default for Track {
 }
 
 impl Track {
+    fn sample_type(&self) -> SampleType {
+        SampleType::from(self.state.sample_type.get() as usize)
+    }
+
     fn bars(&self) -> usize {
         self.state.length.get() / MAX_RESOLUTION
     }
@@ -273,11 +277,11 @@ impl Track {
         &self.live_sample[..self.live_length.load()]
     }
 
-    fn waveform(&self, u: usize) -> f32 {
-        match SampleType::from(self.state.sample_type.get() as usize) {
-            SampleType::File => self.sample_waveform(u, &self.file_sample),
-            SampleType::LivePlay => self.sample_waveform(u, self.live()),
-            SampleType::Live | SampleType::LiveRecord => 0.,
+    fn waveform(&self, u: usize) -> i32 {
+        match self.sample_type() {
+            SampleType::File => self.sample_waveform(u, &self.file_sample) as i32,
+            SampleType::LivePlay => self.sample_waveform(u, self.live()) as i32,
+            SampleType::Live | SampleType::LiveRecord => 0,
         }
     }
 
@@ -291,7 +295,7 @@ impl Track {
 
     fn sample_waveform<T: CopyAs<f32>>(&self, u: usize, sample: &[T]) -> f32 {
         let chunk_len = sample.len() / self.state.waveform.len();
-        sample
+        100. * sample
             .chunks(chunk_len)
             .nth(u)
             .unwrap_or_default()
@@ -419,7 +423,7 @@ impl Voice {
         match self.track_id {
             Some(track_id) => {
                 let track = &song.tracks[track_id];
-                if SampleType::from(track.state.sample_type.get() as usize).thru() {
+                if track.sample_type().thru() {
                     0
                 } else {
                     2 - self.gate
@@ -436,7 +440,7 @@ impl Voice {
             Some(track_id) => {
                 let track = &song.tracks[track_id];
                 let mix = &mut buffer.mix;
-                match SampleType::from(track.state.sample_type.get() as usize) {
+                match track.sample_type() {
                     SampleType::File => self.play_sample(mix, &track.file_sample, 2),
                     SampleType::Live => self.play_thru(mix, track, input, false),
                     SampleType::LiveRecord => self.play_thru(mix, track, input, true),
@@ -525,13 +529,13 @@ impl Audio {
 
     fn set_sample_type(&mut self, song: &Song, value: usize) {
         let track = song.active_track();
-        let old = SampleType::from(track.state.sample_type.get() as usize);
+        let old = track.sample_type();
         let new = SampleType::from(value);
         if new == SampleType::LiveRecord {
             track.live_length.store(0);
         }
         if old != new {
-            song.active_track().state.sample_type.set(value as f32);
+            song.active_track().state.sample_type.set(value as i32);
             for voice in self.each_voice_for(song.state.active_track_id.get()) {
                 voice.gate = 0;
                 voice.track_id = None;

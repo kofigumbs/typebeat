@@ -1,8 +1,7 @@
-use std::any::Any;
 use std::collections::HashMap;
 use std::ops::Deref;
 
-use num_traits::{AsPrimitive, Num, One, Zero};
+use num_traits::AsPrimitive;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
@@ -20,35 +19,35 @@ pub mod track {
     include!(concat!(env!("OUT_DIR"), "/track.rs"));
 }
 
-pub trait IsParam: Any + Copy + PartialOrd + PartialEq + DeserializeOwned + Serialize {
-    fn nudge(self, data: u8, step: u8) -> Self;
+pub trait IsParam:
+    Copy + PartialOrd + PartialEq + DeserializeOwned + Serialize + AsPrimitive<i32>
+{
+    fn nudge(self, data: i32, step: i32) -> Self;
 }
 
 impl IsParam for bool {
-    fn nudge(self, _: u8, _: u8) -> Self {
+    fn nudge(self, _: i32, _: i32) -> Self {
         !self
     }
 }
 
-pub trait IsNumParam: Any + Copy + PartialOrd + PartialEq + DeserializeOwned + Serialize {}
-impl IsNumParam for f32 {}
-impl IsNumParam for i32 {}
-impl IsNumParam for usize {}
-
-impl<T: Num + IsNumParam> IsParam for T
-where
-    u8: AsPrimitive<T>,
-{
-    fn nudge(self, data: u8, step: u8) -> Self {
+impl IsParam for i32 {
+    fn nudge(self, data: i32, step: i32) -> Self {
         match data {
-            _ if step.is_zero() => T::one() - self,
-            _ if step.is_one() => data.as_(),
-            0 => self - step.as_(),
-            1 => self - T::one(),
-            2 => self + T::one(),
-            3 => self + step.as_(),
+            _ if step == 0 => self ^ 1,
+            _ if step == 1 => data,
+            0 => self.saturating_sub(step),
+            1 => self.saturating_sub(1),
+            2 => self.saturating_add(1),
+            3 => self.saturating_add(step),
             _ => self,
         }
+    }
+}
+
+impl IsParam for usize {
+    fn nudge(self, data: i32, step: i32) -> Self {
+        (self as i32).nudge(data, step) as usize
     }
 }
 
@@ -61,7 +60,7 @@ pub struct Param<T: IsParam> {
     default: T,
     min: Option<T>,
     max: Option<T>,
-    step: u8,
+    step: i32,
     ephemeral: bool,
     dsp_id: DspId,
     changed: AtomicCell<bool>,
@@ -72,7 +71,7 @@ impl<T: IsParam> Param<T> {
         default: T,
         min: Option<T>,
         max: Option<T>,
-        step: u8,
+        step: i32,
         ephemeral: bool,
         dsp_id: DspId,
     ) -> Self {
@@ -104,7 +103,7 @@ impl<T: IsParam> Param<T> {
         }
     }
 
-    pub fn nudge(&self, data: u8) {
+    pub fn nudge(&self, data: i32) {
         self.set(self.get().nudge(data, self.step))
     }
 
@@ -130,8 +129,7 @@ impl<'a, S> Visitor<S> for SetParams<'a, S> {
         let param = get_param(self.0);
         match param.dsp_id.as_ref() {
             Some((name, i)) if name == &self.1 => {
-                <dyn Any>::downcast_ref(&param.get())
-                    .map(|value| self.2.set_param(ParamIndex(*i), *value));
+                self.2.set_param(ParamIndex(*i), param.get().as_() as f32)
             }
             _ => {}
         }
