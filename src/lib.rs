@@ -478,18 +478,18 @@ impl Voice {
     }
 }
 
-enum Callback {
-    U(fn(&mut Audio, &Song, usize)),
-    I(fn(&mut Audio, &Song, i32)),
-    SetSong(&'static (dyn Fn(&state::song::State, Value) + Sync)),
-    SetTrack(&'static (dyn Fn(&state::track::State, Value) + Sync)),
+enum Task {
+    WithI32(fn(&mut Audio, &Song, i32)),
+    WithUsize(fn(&mut Audio, &Song, usize)),
+    NudgeSong(&'static (dyn Fn(&state::song::State, Value) + Sync)),
+    NudgeTrack(&'static (dyn Fn(&state::track::State, Value) + Sync)),
 }
 
 struct Audio {
     platform: Mutex<Platform>,
     voices: Vec<Voice>,
     sends: [DspDyn; SEND_COUNT],
-    receiver: Arc<Mutex<Receiver<(Callback, i32)>>>,
+    receiver: Arc<Mutex<Receiver<(Task, i32)>>>,
 }
 
 impl Audio {
@@ -553,15 +553,15 @@ impl Audio {
     }
 
     fn process(&mut self, song: &Song, input: &Frames, output: &mut FramesMut) {
-        // Handle incoming messages
+        // Handle incoming audio tasks
         let receiver = Arc::clone(&self.receiver);
         let receiver = receiver.lock().expect("receiver");
         while let Ok((callback, data)) = receiver.try_recv() {
             match callback {
-                Callback::U(f) => f(self, song, data as usize),
-                Callback::I(f) => f(self, song, data),
-                Callback::SetSong(f) => f(&song.state, data.into()),
-                Callback::SetTrack(f) => f(&song.active_track().state, data.into()),
+                Task::WithI32(f) => f(self, song, data),
+                Task::WithUsize(f) => f(self, song, data as usize),
+                Task::NudgeSong(f) => f(&song.state, data.into()),
+                Task::NudgeTrack(f) => f(&song.active_track().state, data.into()),
             }
         }
 
@@ -689,7 +689,7 @@ pub struct Controller {
     device: Device,
     song: Arc<RwLock<Song>>,
     audio: Arc<RwLock<Audio>>,
-    sender: Arc<Mutex<Sender<(Callback, i32)>>>,
+    sender: Arc<Mutex<Sender<(Task, i32)>>>,
 }
 
 impl Controller {
@@ -748,8 +748,8 @@ impl Controller {
             "sequence" => Callback::U(|_, song, u| song.active_track().toggle_step(u)),
             "zoomIn" => Callback::U(|_, song, _| song.active_track().zoom_in()),
             "zoomOut" => Callback::U(|_, song, _| song.active_track().zoom_out()),
-            _ if SONG_SETTERS.contains_key(method) => Callback::SetSong(&SONG_SETTERS[method]),
-            _ if TRACK_SETTERS.contains_key(method) => Callback::SetTrack(&TRACK_SETTERS[method]),
+            _ if SONG_NUDGES.contains_key(method) => Task::NudgeSong(&SONG_NUDGES[method]),
+            _ if TRACK_NUDGES.contains_key(method) => Task::NudgeTrack(&TRACK_NUDGES[method]),
             _ => return,
         };
         let _ = self.sender.lock().expect("sender").send((callback, data));
