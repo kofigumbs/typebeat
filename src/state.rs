@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::ops::Deref;
 
 use num_traits::AsPrimitive;
 use serde::de::DeserializeOwned;
@@ -8,16 +7,6 @@ use serde_json::Value;
 
 use crate::atomic_cell::AtomicCell;
 pub use crate::effects::{FaustDsp, ParamIndex};
-
-pub mod song {
-    use super::*;
-    include!(concat!(env!("OUT_DIR"), "/song.rs"));
-}
-
-pub mod track {
-    use super::*;
-    include!(concat!(env!("OUT_DIR"), "/track.rs"));
-}
 
 pub trait IsParam:
     Copy + PartialOrd + PartialEq + DeserializeOwned + Serialize + AsPrimitive<i32>
@@ -170,66 +159,54 @@ impl<'a, S> Visitor<S> for Load<'a, S> {
     }
 }
 
-pub enum Format {
+pub enum Strategy {
     Dump,
     Minimal,
 }
 
-struct Save<'a, S>(&'a S, Format, &'a mut HashMap<&'static str, Value>);
+struct Save<'a, S>(&'a S, Strategy, &'a mut HashMap<&'static str, Value>);
 impl<'a, S> Visitor<S> for Save<'a, S> {
     fn visit<P: IsParam>(&mut self, label: &'static str, get_param: fn(&S) -> &Param<P>) {
         let param = get_param(&self.0);
         match &self.1 {
-            Format::Minimal if param.ephemeral || param.get() == param.default => None,
-            Format::Minimal | Format::Dump => self.2.insert(label, param.to_json()),
+            Strategy::Minimal if param.ephemeral || param.get() == param.default => None,
+            Strategy::Minimal | Strategy::Dump => self.2.insert(label, param.to_json()),
         };
     }
 }
 
-pub trait IsState: Default {
+pub trait IsState: Default + 'static {
     fn visit_params<V: Visitor<Self>>(visitor: &mut V);
-}
 
-#[derive(Default)]
-pub struct State<S>(S);
-
-impl<S> Deref for State<S> {
-    type Target = S;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<S: IsState + 'static> State<S> {
-    fn nudges() -> HashMap<&'static str, Box<dyn Fn(&S, Value) + Sync>> {
+    fn nudges() -> HashMap<&'static str, Box<dyn Fn(&Self, Value) + Sync>> {
         let mut bindings = HashMap::new();
-        S::visit_params(&mut Nudges(&mut bindings));
+        Self::visit_params(&mut Nudges(&mut bindings));
         bindings
     }
 
-    pub fn set_params(&self, dsp_name: &'static str, dsp: &mut dyn FaustDsp<T = f32>) {
-        S::visit_params(&mut SetParams(&self.0, dsp_name, dsp));
+    fn set_params(&self, dsp_name: &'static str, dsp: &mut dyn FaustDsp<T = f32>) {
+        Self::visit_params(&mut SetParams(self, dsp_name, dsp));
     }
 
-    pub fn for_each_change(&self, f: impl FnMut(&'static str, Value)) {
-        S::visit_params(&mut ForEachChange(&self.0, f));
+    fn for_each_change<F: FnMut(&'static str, Value)>(&self, f: F) {
+        Self::visit_params(&mut ForEachChange(self, f));
     }
 
-    pub fn load(&self, value: Value) {
-        S::visit_params(&mut Load(&self.0, value));
+    fn load(&self, value: Value) {
+        Self::visit_params(&mut Load(self, value));
     }
 
-    pub fn save(&self, format: Format) -> impl Serialize {
+    fn save(&self, strategy: Strategy) -> HashMap<&'static str, Value> {
         let mut bindings = HashMap::new();
-        S::visit_params(&mut Save(&self.0, format, &mut bindings));
+        Self::visit_params(&mut Save(self, strategy, &mut bindings));
         bindings
     }
 }
 
-pub type Song = State<song::State>;
-pub type Track = State<track::State>;
+include!(concat!(env!("OUT_DIR"), "/song.rs"));
+include!(concat!(env!("OUT_DIR"), "/track.rs"));
 
 lazy_static::lazy_static! {
-    pub static ref SONG_NUDGES: HashMap<&'static str, Box<dyn Fn(&song::State, Value) + Sync>> = Song::nudges();
-    pub static ref TRACK_NUDGES: HashMap<&'static str, Box<dyn Fn(&track::State, Value) + Sync>> = Track::nudges();
+    pub static ref SONG_NUDGES: HashMap<&'static str, Box<dyn Fn(&SongState, Value) + Sync>> = SongState::nudges();
+    pub static ref TRACK_NUDGES: HashMap<&'static str, Box<dyn Fn(&TrackState, Value) + Sync>> = TrackState::nudges();
 }

@@ -96,6 +96,10 @@ impl Param {
         self
     }
 
+    fn is_button(&self) -> bool {
+        self.step_.is_none() && self.dsp_id.is_some()
+    }
+
     fn rust_button(&self) -> String {
         format!("pub const {}: usize", snake(&self.label).to_uppercase())
             + &format!("= {};\n", self.dsp_id.as_ref().expect("dsp_id").1)
@@ -151,13 +155,13 @@ impl Param {
     }
 }
 
-fn generate_rust(params: &[Param]) -> String {
+fn generate_rust(params: &[Param], tag: &str) -> String {
     let mut buttons = String::new();
     let mut fields = String::new();
     let mut defaults = String::new();
     let mut visits = String::new();
     for param in params {
-        if param.step_.is_none() && param.dsp_id.is_some() {
+        if param.is_button() {
             buttons += &param.rust_button();
         } else {
             fields += &param.rust_field();
@@ -167,10 +171,10 @@ fn generate_rust(params: &[Param]) -> String {
     }
     let mut s = buttons;
     s += "#[derive(Clone)]\n";
-    s += &format!("pub struct State {{\n{}}}\n\n", fields);
-    s += "impl Default for State {\n";
+    s += &format!("pub struct {}State {{\n{}}}\n\n", tag, fields);
+    s += &format!("impl Default for {}State {{\n", tag);
     s += &format!("fn default() -> Self {{\nSelf {{\n{}}}\n}}\n}}\n", defaults);
-    s += "impl IsState for State {\n";
+    s += &format!("impl IsState for {}State {{\n", tag);
     s += "fn visit_params<T: Visitor<Self>>(visitor: &mut T) {\n";
     s += &format!("{}}}\n}}\n", visits);
     s
@@ -241,8 +245,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             });
         }
     }
-    std::fs::write(&out.join("song.rs"), generate_rust(&song_params))?;
-    std::fs::write(&out.join("track.rs"), generate_rust(&track_params))?;
+    std::fs::write(&out.join("song.rs"), generate_rust(&song_params, "Song"))?;
+    std::fs::write(&out.join("track.rs"), generate_rust(&track_params, "Track"))?;
     #[cfg(not(feature = "netlify"))]
     tauri_build::build();
     Ok(())

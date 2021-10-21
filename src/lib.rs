@@ -16,16 +16,14 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex};
-use state::{
-    Format as SaveFormat, Song as SongState, Track as TrackState, SONG_NUDGES, TRACK_NUDGES,
-};
+use state::{IsState, SongState, Strategy, TrackState, GATE, NOTE, SONG_NUDGES, TRACK_NUDGES};
 
 mod atomic_cell;
 mod effects;
 mod state;
 
-const GATE_PARAM_INDEX: ParamIndex = ParamIndex(state::track::GATE);
-const NOTE_PARAM_INDEX: ParamIndex = ParamIndex(state::track::NOTE);
+const GATE_PARAM_INDEX: ParamIndex = ParamIndex(GATE);
+const NOTE_PARAM_INDEX: ParamIndex = ParamIndex(NOTE);
 
 const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
@@ -488,8 +486,8 @@ impl Voice {
 enum Task {
     WithI32(fn(&mut Audio, &Song, i32)),
     WithUsize(fn(&mut Audio, &Song, usize)),
-    NudgeSong(&'static (dyn Fn(&state::song::State, Value) + Sync)),
-    NudgeTrack(&'static (dyn Fn(&state::track::State, Value) + Sync)),
+    NudgeSong(&'static (dyn Fn(&SongState, Value) + Sync)),
+    NudgeTrack(&'static (dyn Fn(&TrackState, Value) + Sync)),
 }
 
 struct Audio {
@@ -716,11 +714,11 @@ impl Controller {
         }
         let song = self.song.read().expect("song");
         Dump {
-            song: song.state.save(SaveFormat::Dump),
+            song: song.state.save(Strategy::Dump),
             tracks: song
                 .tracks
                 .iter()
-                .map(|track| track.state.save(SaveFormat::Dump))
+                .map(|track| track.state.save(Strategy::Dump))
                 .collect(),
         }
     }
