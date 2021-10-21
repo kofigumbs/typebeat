@@ -188,11 +188,12 @@ fn generate_rust(params: &[Param], tag: &str) -> String {
         }
     }
     let mut s = buttons;
+    s += "#[allow(non_camel_case_types)]\n";
     s += "#[derive(Clone)]\n";
-    s += &format!("pub struct {}State {{\n{}}}\n\n", tag, fields);
-    s += &format!("impl Default for {}State {{\n", tag);
+    s += &format!("pub struct {} {{\n{}}}\n\n", tag, fields);
+    s += &format!("impl Default for {} {{\n", tag);
     s += &format!("fn default() -> Self {{\nSelf {{\n{}}}\n}}\n}}\n", defaults);
-    s += &format!("impl IsState for {}State {{\n", tag);
+    s += &format!("impl IsState for {} {{\n", tag);
     s += "fn visit_params<T: Visitor<Self>>(visitor: &mut T) {\n";
     s += &format!("{}}}\n}}\n", visits);
     s
@@ -272,8 +273,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     let _ = std::fs::create_dir_all("elm-stuff/typebeat");
-    std::fs::write(&out.join("song.rs"), generate_rust(&song_params, "Song"))?;
-    std::fs::write(&out.join("track.rs"), generate_rust(&track_params, "Track"))?;
+    std::fs::write(&out.join("song.rs"), generate_rust(&song_params, "song"))?;
+    std::fs::write(&out.join("track.rs"), generate_rust(&track_params, "track"))?;
     std::fs::write(
         "elm-stuff/typebeat/State.elm",
         "module State exposing (..)\n".to_owned()

@@ -16,7 +16,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex};
-use state::{IsState, SongState, Strategy, TrackState, GATE, NOTE, SONG_NUDGES, TRACK_NUDGES};
+use state::{IsState, Strategy, GATE, NOTE, SONG_NUDGES, TRACK_NUDGES};
 
 mod atomic_cell;
 mod effects;
@@ -43,12 +43,6 @@ const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
     [0, 2, 3, 5, 7, 8, 11],
     [0, 2, 3, 5, 7, 9, 11],
 ];
-
-fn write_over(source: &[f32], destination: &mut [f32]) {
-    for (destination, source) in destination.iter_mut().zip(source) {
-        *destination += source;
-    }
-}
 
 /// Wrapper for FaustDsp that implements Clone and Default
 #[derive(Clone)]
@@ -133,7 +127,7 @@ pub enum View {
 }
 
 struct Track {
-    state: TrackState,
+    state: state::track,
     file_sample: Vec<f32>,
     live_sample: Vec<AtomicCell<f32>>,
     live_length: AtomicCell<usize>,
@@ -146,7 +140,7 @@ impl Default for Track {
         let mut live_sample = Vec::new();
         live_sample.resize_with(60 * SAMPLE_RATE as usize, Default::default);
         Self {
-            state: TrackState::default(),
+            state: state::track::default(),
             file_sample: Vec::new(),
             live_sample,
             live_length: 0.into(),
@@ -322,7 +316,7 @@ impl Platform {
 
 #[derive(Default)]
 struct Song {
-    state: SongState,
+    state: state::song,
     tracks: [Track; TRACK_COUNT],
     step: AtomicCell<usize>,
     frames_since_last_step: AtomicCell<usize>,
@@ -447,7 +441,7 @@ impl Voice {
             }
         }
         buffer.compute(self.insert.dsp.as_mut());
-        write_over(&buffer.out, output);
+        Buffer::write_over(&buffer.out, output);
     }
 
     fn play_thru(&mut self, mix: &mut [f32], track: &Track, input: &[f32], record: bool) {
@@ -483,11 +477,19 @@ impl Voice {
     }
 }
 
+impl Buffer<0, 0> {
+    fn write_over(source: &[f32], destination: &mut [f32]) {
+        for (destination, source) in destination.iter_mut().zip(source) {
+            *destination += source;
+        }
+    }
+}
+
 enum Task {
     WithI32(fn(&mut Audio, &Song, i32)),
     WithUsize(fn(&mut Audio, &Song, usize)),
-    NudgeSong(&'static (dyn Fn(&SongState, Value) + Sync)),
-    NudgeTrack(&'static (dyn Fn(&TrackState, Value) + Sync)),
+    NudgeSong(&'static (dyn Fn(&state::song, Value) + Sync)),
+    NudgeTrack(&'static (dyn Fn(&state::track, Value) + Sync)),
 }
 
 struct Audio {
@@ -623,11 +625,11 @@ impl Audio {
             for voice in self.voices.iter_mut() {
                 voice.process(song, input, &mut buffer.mix);
             }
-            write_over(&buffer.mix, output);
+            Buffer::write_over(&buffer.mix, output);
             for DspDyn { dsp, .. } in self.sends.iter_mut() {
                 buffer.mix_start += 2;
                 buffer.compute(dsp.as_mut());
-                write_over(&buffer.out, output);
+                Buffer::write_over(&buffer.out, output);
             }
         }
 

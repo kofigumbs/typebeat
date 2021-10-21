@@ -207,6 +207,6 @@ include!(concat!(env!("OUT_DIR"), "/song.rs"));
 include!(concat!(env!("OUT_DIR"), "/track.rs"));
 
 lazy_static::lazy_static! {
-    pub static ref SONG_NUDGES: HashMap<&'static str, Box<dyn Fn(&SongState, Value) + Sync>> = SongState::nudges();
-    pub static ref TRACK_NUDGES: HashMap<&'static str, Box<dyn Fn(&TrackState, Value) + Sync>> = TrackState::nudges();
+    pub static ref SONG_NUDGES: HashMap<&'static str, Box<dyn Fn(&song, Value) + Sync>> = song::nudges();
+    pub static ref TRACK_NUDGES: HashMap<&'static str, Box<dyn Fn(&track, Value) + Sync>> = track::nudges();
 }
