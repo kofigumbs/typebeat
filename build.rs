@@ -153,6 +153,24 @@ impl Param {
                 .collect(),
         }
     }
+
+    fn elm_field(&self, tag: &str) -> String {
+        let primitive = match self.type_ {
+            Type::Bool(_) => "Bool",
+            Type::I32(_) => "Int",
+            Type::Usize(_) => "Int",
+        };
+        let decoder = match self.array_ {
+            None => format!("Param.{}", primitive.to_lowercase()),
+            Some(_) => format!("Param.list <| Param.{}", primitive.to_lowercase()),
+        };
+        let type_ = match self.array_ {
+            None => primitive.to_owned(),
+            Some(_) => format!("(List {})", primitive),
+        };
+        format!("{} : Param {} {}\n", self.label, tag, type_)
+            + &format!("{} = {} \"{}\"\n", self.label, decoder, self.label)
+    }
 }
 
 fn generate_rust(params: &[Param], tag: &str) -> String {
@@ -178,6 +196,14 @@ fn generate_rust(params: &[Param], tag: &str) -> String {
     s += "fn visit_params<T: Visitor<Self>>(visitor: &mut T) {\n";
     s += &format!("{}}}\n}}\n", visits);
     s
+}
+
+fn generate_elm(params: &[Param], tag: &str) -> String {
+    params
+        .iter()
+        .filter(|param| !param.is_button())
+        .map(|param| param.elm_field(tag))
+        .collect()
 }
 
 fn compile_faust(out: &Path, path: &Path, stem: &OsStr) -> Result<(), Box<dyn Error>> {
@@ -245,8 +271,16 @@ fn main() -> Result<(), Box<dyn Error>> {
             });
         }
     }
+    let _ = std::fs::create_dir_all("elm-stuff/typebeat");
     std::fs::write(&out.join("song.rs"), generate_rust(&song_params, "Song"))?;
     std::fs::write(&out.join("track.rs"), generate_rust(&track_params, "Track"))?;
+    std::fs::write(
+        "elm-stuff/typebeat/State.elm",
+        "module State exposing (..)\n".to_owned()
+            + "import Param exposing (Param, Song, Track)\n"
+            + &generate_elm(&song_params, "Song")
+            + &generate_elm(&track_params, "Track"),
+    )?;
     #[cfg(not(feature = "netlify"))]
     tauri_build::build();
     Ok(())

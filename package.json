@@ -5,6 +5,7 @@
     "tare": "github:kofigumbs/tare"
   },
   "devDependencies": {
+    "elm": "^0.19.1-5",
     "vite": "^2.5.8"
   },
   "scripts": {
