@@ -276,9 +276,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     std::fs::write(&out.join("song.rs"), generate_rust(&song_params, "song"))?;
     std::fs::write(&out.join("track.rs"), generate_rust(&track_params, "track"))?;
     std::fs::write(
-        "elm-stuff/typebeat/State.elm",
+        "elm-stuff/typebeat/Param.elm",
         "module State exposing (..)\n".to_owned()
-            + "import Param exposing (Param, Song, Track)\n"
+            + "import State exposing (Param, Song, Track)\n"
             + &generate_elm(&song_params, "Song")
             + &generate_elm(&track_params, "Track"),
     )?;

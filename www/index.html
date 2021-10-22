@@ -3,11 +3,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <script type="module">
-    import init from '.';
+    import { Elm } from './Main.elm';
     const t = window.__TAURI__;
-    t.invoke('dump')
-      .then(dump => init(dump, (method, data) => t.invoke('send', { method, data })))
-      .then(update => t.event.listen('update', ({ payload }) => update(payload)));
+    t.invoke('dump').then(dump => {
+      const app = Elm.Main.init({ flags: dump });
+      app.ports.send.subscribe(payload => t.invoke('send', payload));
+      t.event.listen('change', ({ payload }) => app.ports.change.send(payload));
+    });
   </script>
 </head>
 <body class="mount"></body>
