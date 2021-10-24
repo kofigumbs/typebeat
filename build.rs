@@ -154,22 +154,30 @@ impl Param {
         }
     }
 
-    fn elm_field(&self, tag: &str) -> String {
-        let primitive = match self.type_ {
+    fn elm_field(&self, i: usize) -> String {
+        let type_ = match self.type_ {
             Type::Bool(_) => "Bool",
             Type::I32(_) => "Int",
             Type::Usize(_) => "Int",
         };
-        let decoder = match self.array_ {
-            None => format!("Param.{}", primitive.to_lowercase()),
-            Some(_) => format!("Param.list <| Param.{}", primitive.to_lowercase()),
-        };
         let type_ = match self.array_ {
-            None => primitive.to_owned(),
-            Some(_) => format!("(List {})", primitive),
+            None => type_.to_owned(),
+            Some(_) => format!("Array {}", type_),
         };
-        format!("{} : Param {} {}\n", self.label, tag, type_)
-            + &format!("{} = {} \"{}\"\n", self.label, decoder, self.label)
+        format!(" {} {} : {}\n", if_(i == 0, "{", ","), self.label, type_)
+    }
+
+    fn elm_decoder(&self) -> String {
+        let primitive = match self.type_ {
+            Type::Bool(_) => "Param.bool",
+            Type::I32(_) => "Param.int",
+            Type::Usize(_) => "Param.int",
+        };
+        let mut decoder = format!("{} \"{}\"", primitive, self.label);
+        if let Some(size) = self.array_ {
+            decoder = format!("Param.array {} ({})", size, decoder);
+        }
+        format!(" |> Param.apply ({})\n", decoder)
     }
 }
 
@@ -200,11 +208,20 @@ fn generate_rust(params: &[Param], tag: &str) -> String {
 }
 
 fn generate_elm(params: &[Param], tag: &str) -> String {
-    params
-        .iter()
-        .filter(|param| !param.is_button())
-        .map(|param| param.elm_field(tag))
-        .collect()
+    let mut fields = String::new();
+    let mut decoders = String::new();
+    for (i, param) in params.iter().filter(|param| !param.is_button()).enumerate() {
+        fields += &param.elm_field(i);
+        decoders += &param.elm_decoder();
+    }
+    let mut s = String::new();
+    s += &format!("module {} exposing (..)\n", tag);
+    s += "import Param\n";
+    s += "import Array exposing (Array)\n";
+    s += &format!("type alias {} =\n{} }}\n\n", tag, fields);
+    s += &format!("decoder : Param.Decoder () {}\n", tag);
+    s += &format!("decoder = Param.succeed {}\n{}", tag, decoders);
+    s
 }
 
 fn compile_faust(out: &Path, path: &Path, stem: &OsStr) -> Result<(), Box<dyn Error>> {
@@ -275,13 +292,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let _ = std::fs::create_dir_all("elm-stuff/typebeat");
     std::fs::write(&out.join("song.rs"), generate_rust(&song_params, "song"))?;
     std::fs::write(&out.join("track.rs"), generate_rust(&track_params, "track"))?;
-    std::fs::write(
-        "elm-stuff/typebeat/Param.elm",
-        "module State exposing (..)\n".to_owned()
-            + "import State exposing (Param, Song, Track)\n"
-            + &generate_elm(&song_params, "Song")
-            + &generate_elm(&track_params, "Track"),
-    )?;
+    std::fs::write("elm-stuff/Song.elm", generate_elm(&song_params, "Song"))?;
+    std::fs::write("elm-stuff/Track.elm", generate_elm(&track_params, "Track"))?;
     #[cfg(not(feature = "netlify"))]
     tauri_build::build();
     Ok(())

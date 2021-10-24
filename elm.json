@@ -2,7 +2,7 @@
     "type": "application",
     "source-directories": [
         "www",
-        "elm-stuff/typebeat"
+        "elm-stuff"
     ],
     "elm-version": "0.19.1",
     "dependencies": {
