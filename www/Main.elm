@@ -1,38 +1,30 @@
 module Main exposing (..)
 
-import Array exposing (Array)
+import Action
 import Browser
+import Dict exposing (Dict)
 import Html exposing (..)
+import Html.Attributes exposing (..)
 import Json.Decode as D
-import Param
-import Song exposing (Song)
-import Track exposing (Track)
-
-
-type alias State =
-    { song : Song
-    , tracks : Array Track
-    }
+import Key exposing (Action(..), Modifier(..))
+import Mode
+import Mode.Audition
+import State exposing (State)
 
 
 type alias Model =
-    { state : Result D.Error State
+    { modifier : Maybe Modifier
+    , state : Result D.Error State
     }
 
 
 init : D.Value -> ( Model, Cmd Msg )
 init flags =
-    let
-        state =
-            D.map2 State
-                (D.field "song" (Param.dump Song.decoder))
-                (D.field "tracks" (D.array (Param.dump Track.decoder)))
-    in
-    ( Model (D.decodeValue state flags), Cmd.none )
+    ( Model Nothing (D.decodeValue State.decoder flags), Cmd.none )
 
 
 type Msg
-    = KeyboardEvent Char
+    = Event Action.Event
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -48,8 +40,58 @@ subscriptions model =
 view : Model -> Browser.Document Msg
 view model =
     { title = "Typebeat"
-    , body = [ text (Debug.toString model) ]
+    , body =
+        case model.state of
+            Err _ ->
+                []
+
+            Ok state ->
+                [ viewRow model state [ KeyQ, KeyW, KeyE, KeyR, KeyT ] [ KeyY, KeyU, KeyI, KeyO, KeyP ]
+                , viewRow model state [ KeyA, KeyS, KeyD, KeyF, KeyG ] [ KeyH, KeyJ, KeyK, KeyL, Semicolon ]
+                , viewRow model state [ KeyZ, KeyX, KeyC, KeyV, KeyB ] [ KeyN, KeyM, Comma, Period, Slash ]
+                ]
     }
+
+
+viewRow : Model -> State -> List Modifier -> List Action -> Html Msg
+viewRow model state modifiers actions =
+    div [ class "row" ] <|
+        List.map (viewModifier model state) modifiers
+            ++ List.map (viewAction model state) actions
+
+
+viewModifier : Model -> State -> Modifier -> Html Msg
+viewModifier model state modifier =
+    let
+        { name, visual } =
+            Mode.fromModifier modifier
+    in
+    button [ class "key mode" ]
+        [ node "custom-element-tare"
+            [ attribute "aria-label" name
+            , style "width" "100%"
+            , style "height" "100%"
+            ]
+            []
+        , div [ class "visual" ] [ Html.map Event (visual state) ]
+        ]
+
+
+viewAction : Model -> State -> Action -> Html Msg
+viewAction model state action =
+    let
+        actions =
+            Maybe.map (Mode.fromModifier >> .actions) model.modifier
+                |> Maybe.withDefault Mode.Audition.actions
+
+        name =
+            Dict.get (Key.code (Key.Action action)) (actions state)
+                |> Maybe.map .label
+                |> Maybe.withDefault ""
+    in
+    button [ class "key action" ]
+        [ node "custom-element-mono" [ attribute "aria-label" name ] []
+        ]
 
 
 main : Program D.Value Model Msg

@@ -1,4 +1,12 @@
-customElements.define('typed-label', class extends HTMLElement {
+import Tare from 'tare';
+
+customElements.define('custom-element-tare', class extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = Tare.html(this.getAttribute('aria-label'));
+  }
+});
+
+customElements.define('custom-element-mono', class extends HTMLElement {
   static get observedAttributes() {
     return ['aria-label'];
   }

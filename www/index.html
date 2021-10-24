@@ -4,6 +4,8 @@
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <script type="module">
     import { Elm } from './Main.elm';
+    import './custom-elements'
+    import './index.css'
     const t = window.__TAURI__;
     t.invoke('dump').then(dump => {
       const app = Elm.Main.init({ flags: dump });
@@ -12,4 +14,4 @@
     });
   </script>
 </head>
-<body class="mount"></body>
+<body></body>
