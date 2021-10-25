@@ -162,7 +162,7 @@ impl Param {
         };
         let type_ = match self.array_ {
             None => type_.to_owned(),
-            Some(_) => format!("Array {}", type_),
+            Some(_) => format!("List {}", type_),
         };
         format!(" {} {} : {}\n", if_(i == 0, "{", ","), self.label, type_)
     }
@@ -175,7 +175,7 @@ impl Param {
         };
         let mut decoder = format!("{} \"{}\"", primitive, self.label);
         if let Some(size) = self.array_ {
-            decoder = format!("Param.array {} ({})", size, decoder);
+            decoder = format!("Param.list {} ({})", size, decoder);
         }
         format!(" |> Param.apply ({})\n", decoder)
     }

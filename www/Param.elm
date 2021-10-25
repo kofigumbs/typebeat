@@ -1,6 +1,5 @@
-module Param exposing (Decoder, Primitive, apply, array, bool, dump, int, succeed)
+module Param exposing (Decoder, Primitive, apply, list, bool, dump, int, succeed)
 
-import Array exposing (Array)
 import Dict exposing (Dict)
 import Json.Decode as D
 
@@ -27,15 +26,14 @@ bool name =
     Decoder (Primitive name D.bool) (D.field name D.bool)
 
 
-array : Int -> Decoder (Primitive a) a -> Decoder () (Array a)
-array length (Decoder (Primitive name decoder) _) =
+list : Int -> Decoder (Primitive a) a -> Decoder () (List a)
+list length (Decoder (Primitive name decoder) _) =
     let
         decodePrimitive i =
             D.field (name ++ String.fromInt i) decoder
     in
     List.range 0 (length - 1)
         |> List.foldr (decodePrimitive >> D.map2 (::)) (D.succeed [])
-        |> D.map Array.fromList
         |> Decoder ()
 
 

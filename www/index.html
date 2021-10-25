@@ -3,14 +3,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <script type="module">
+    import { onKeyboardEvent } from '.';
     import { Elm } from './Main.elm';
-    import './custom-elements'
-    import './index.css'
-    const t = window.__TAURI__;
-    t.invoke('dump').then(dump => {
+    const tauri = window.__TAURI__;
+    tauri.invoke('dump').then(dump => {
       const app = Elm.Main.init({ flags: dump });
-      app.ports.send.subscribe(payload => t.invoke('send', payload));
-      t.event.listen('change', ({ payload }) => app.ports.change.send(payload));
+      app.ports.send.subscribe(task => tauri.invoke('send', task));
+      tauri.event.listen('change', ({ payload }) => app.ports.change.send(payload));
+      onKeyboardEvent(event => app.ports.keyboardEvent.send(event));
     });
   </script>
 </head>

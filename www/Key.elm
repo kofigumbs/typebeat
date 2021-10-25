@@ -142,3 +142,39 @@ code key =
 
         Action Slash ->
             "Slash"
+
+
+all : Dict Key
+all =
+    Dict.fromList
+        [ ( code (Modifier KeyQ), Modifier KeyQ )
+        , ( code (Modifier KeyW), Modifier KeyW )
+        , ( code (Modifier KeyE), Modifier KeyE )
+        , ( code (Modifier KeyR), Modifier KeyR )
+        , ( code (Modifier KeyT), Modifier KeyT )
+        , ( code (Action KeyY), Action KeyY )
+        , ( code (Action KeyU), Action KeyU )
+        , ( code (Action KeyI), Action KeyI )
+        , ( code (Action KeyO), Action KeyO )
+        , ( code (Action KeyP), Action KeyP )
+        , ( code (Modifier KeyA), Modifier KeyA )
+        , ( code (Modifier KeyS), Modifier KeyS )
+        , ( code (Modifier KeyD), Modifier KeyD )
+        , ( code (Modifier KeyF), Modifier KeyF )
+        , ( code (Modifier KeyG), Modifier KeyG )
+        , ( code (Action KeyH), Action KeyH )
+        , ( code (Action KeyJ), Action KeyJ )
+        , ( code (Action KeyK), Action KeyK )
+        , ( code (Action KeyL), Action KeyL )
+        , ( code (Action Semicolon), Action Semicolon )
+        , ( code (Modifier KeyZ), Modifier KeyZ )
+        , ( code (Modifier KeyX), Modifier KeyX )
+        , ( code (Modifier KeyC), Modifier KeyC )
+        , ( code (Modifier KeyV), Modifier KeyV )
+        , ( code (Modifier KeyB), Modifier KeyB )
+        , ( code (Action KeyN), Action KeyN )
+        , ( code (Action KeyM), Action KeyM )
+        , ( code (Action Comma), Action Comma )
+        , ( code (Action Period), Action Period )
+        , ( code (Action Slash), Action Slash )
+        ]

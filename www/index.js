@@ -1,149 +1,66 @@
 import 'firacode';
 import Tare from 'tare';
-import pulse from './pulse';
-import './components/typed-label';
 import './index.css';
 
-/*
- * Map caps mode modules
- */
-
-const modes = new Map();
-const basename = /\/(\w+)-mode\./;
-for (let [path, module] of Object.entries(import.meta.globEager('./components/*-mode.js'))) {
-  const label = path.match(basename)[1];
-  modes.set(module.cap, { label, ...module });
-}
-
-
-/*
- * Mount elements (this is eager)
- */
-
-const capsOnLeft = 'ZXCVBASDFGQWERT';
-const capsOnRight = 'NM,./HJKL;YUIOP';
-const mapJoin = (iterable, f) => Array.from(iterable).map(f).join('');
-document.querySelector('.mount').innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./'], row => `
-  <div class="row">
-    ${mapJoin(row, cap => modes.has(cap)
-      ? `
-        <button class="key mode" data-cap="${cap}">
-          ${Tare.html(modes.get(cap).label)}
-          <${modes.get(cap).label}-mode class="visual"></${modes.get(cap).label}>
-        </button>
-      `
-      : `
-        <button class="key action" data-cap="${cap}">
-          <typed-label class="label" aria-label=""></typed-label>
-        </button>
-      `
-    )}
-  </div>
-`);
-
-const findElements = (caps, f) => Array.from(caps).map(cap => document.querySelector(f(cap)));
-const keysOnLeft = findElements(capsOnLeft, cap => `[data-cap="${cap}"]`);
-const keysOnRight = findElements(capsOnRight, cap => `[data-cap="${cap}"]`);
-const visuals = findElements(capsOnLeft, cap => `[data-cap="${cap}"] .visual`);
-const labels = findElements(capsOnRight, cap => `[data-cap="${cap}"] .label`);
-
-
-/*
- * Re-render the UI
- */
-
-const render = async state => {
-  const { local, proxy, actions } = state;
-  const mode = modes.get(local.modifier);
-  for (let visual of visuals)
-    visual.sync?.(state);
-  for (let i = 0; i < capsOnRight.length; i++) {
-    const action = actions.get(mode.label).get(capsOnRight[i]);
-    labels[i].setAttribute('aria-label', await action?.label() ?? '');
-    if (!!local.modifier)
-      labels[i].classList.toggle('title', !!(await action?.title()));
+customElements.define('custom-element-tare', class extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = Tare.html(this.getAttribute('aria-label'));
   }
-};
+});
 
-let nextRender;
-const requestRender = state => {
-  if (!nextRender)
-    nextRender = requestAnimationFrame(() => {
-      nextRender = null;
-      render(state);
-    });
-};
+customElements.define('custom-element-mono', class extends HTMLElement {
+  static get observedAttributes() {
+    return ['aria-label'];
+  }
 
+  connectedCallback() {
+    this._innerText = ''; // cache to avoid extra DOM reflows
+    this._timeoutIds = [];
+  }
 
-/*
- * Event listeners
- */
+  attributeChangedCallback(name, oldValue, newValue) {
+    if ((oldValue ?? '') === newValue)
+      return;
+    this._timeoutIds.forEach(clearTimeout);
+    this._timeoutIds = [];
+    let shared = 0;
+    const max = Math.min(this._innerText.length, newValue.length);
+    while (shared < max && this._innerText[shared] === newValue[shared])
+      shared++;
+    for (let char of this._innerText.substring(shared))
+      this._type(s => s.slice(0, -1));
+    for (let char of newValue.substring(shared))
+      this._type(s => s + char);
+  }
 
-const capsByEventCode = new Map([
-  ['Semicolon', ';'], ['Comma', ','], ['Period', '.'], ['Slash', '/'],
-  ...Array.from('QWERTYUIOPASDFGHJKLZXCVBNM', cap => [`Key${cap}`, cap]),
+  _type(callback) {
+    this._timeoutIds.push(
+      setTimeout(
+        () => this.innerText = this._innerText = callback(this._innerText),
+        40*this._timeoutIds.length + 20*Math.random())
+    );
+  }
+});
+
+// https://github.com/elm/browser/issues/77
+// https://github.com/elm/browser/issues/89
+const capsByEventCode = new Set([
+  'Semicolon', 'Comma', 'Period', 'Slash',
+  ...Array.from('QWERTYUIOPASDFGHJKLZXCVBNM', cap => `Key${cap}`),
 ]);
-
-const getCap = event => {
-  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
-    return;
-  return capsByEventCode.get(event.code);
-};
-
-const handleCap = (event, cap, state) => {
-  const down = event.type.endsWith('down');
-  const { local, proxy, actions } = state;
-  if (!modes.has(cap)) {
-    const action = actions.get(modes.get(local.modifier).label).get(cap);
-    down ? action?.onDown(event.timeStamp) : action?.onUp(event.timeStamp);
-    if (down)
-      pulse(keysOnRight.find(key => cap === key.dataset.cap));
-  }
-  else if (down) {
-    local.modifier = local.modifier === cap ? undefined : cap;
-    for (const key of keysOnLeft)
-      key.classList.toggle('active', !!local.modifier && key.dataset.cap === local.modifier);
-    local.tempoTaps = [];
-  }
-  requestRender(state);
+const isAppKey = (event) => {
+  return capsByEventCode.has(event.code) &&
+    !(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey);
 }
-
-const handleDocumentKey = (event, state) => {
-  const cap = getCap(event);
-  if (cap) {
+const isAppEvent = (event) => {
+  if (isAppKey(event)) {
     event.preventDefault();
     if (!event.repeat)
-      handleCap(event, cap, state);
+      return true;
   }
 };
-
-const handlePointer = (event, cap, state) => {
-  if (event.button)
-    return; // don't hijack right-click
-  event.preventDefault();
-  handleCap(event, cap, state);
-};
-
-export default (dump, callback) => {
-  const local = { tempoTaps: [] };
-  const proxy = new Proxy({}, {
-    get: (self, method) => dump.song[method] ?? dump.tracks[dump.song.activeTrackId][method],
-  });
-  const send = (method, data = 0) => callback(method, data);
-  const state = { local, proxy, actions: new Map() };
-  for (let [cap, mode] of modes.entries())
-    state.actions.set(mode.label, mode.actions(local, proxy, send));
-  document.addEventListener('keydown', event => handleDocumentKey(event, state));
-  document.addEventListener('keyup', event => handleDocumentKey(event, state));
-  document.addEventListener('keypress', event => !getCap(event));
-  for (let key of document.querySelectorAll('.key')) {
-    key.addEventListener('pointerdown', event => handlePointer(event, key.dataset.cap, state));
-    key.addEventListener('pointerup', event => handlePointer(event, key.dataset.cap, state));
-  }
-  render(state);
-  return ([id, method, value]) => {
-    const object = id === 0 ? dump.song : dump.tracks[id-1];
-    object[method] = value;
-    requestRender(state);
-  };
+export const onKeyboardEvent = (callback) => {
+  document.addEventListener('keydown', event => isAppEvent(event) && callback(event));
+  document.addEventListener('keyup', event => isAppEvent(event) && callback(event));
+  document.addEventListener('keypress', event => !isAppKey(event));
 };

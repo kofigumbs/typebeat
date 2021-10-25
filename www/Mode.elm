@@ -1,7 +1,7 @@
 module Mode exposing (Mode, fromModifier)
 
 import Action exposing (Action)
-import Html exposing (Html)
+import Svg exposing (Svg)
 import Key exposing (Modifier(..))
 import Mode.Auto
 import Mode.Beat
@@ -23,7 +23,7 @@ import State exposing (State)
 
 type alias Mode =
     { name : String
-    , visual : State -> Html Action.Event
+    , visual : State -> Svg Never
     , actions : State -> Key.Dict Action
     }
 
