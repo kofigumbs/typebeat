@@ -1,20 +1,19 @@
 module Mode.Audition exposing (actions)
 
-import Action exposing (Action)
-import State exposing (State)
+import Proxy
 
 
-actions_ : Action.Dict
+actions_ : Proxy.Actions
 actions_ =
-    Action.all <|
+    Proxy.actions <|
         \_ i ->
             { label = ""
             , title = False
-            , onDown = Action.Send "auditionDown" i
-            , onUp = Action.Send "auditionUp" i
+            , onDown = Proxy.Send "auditionDown" i
+            , onUp = Proxy.Send "auditionUp" i
             }
 
 
-actions : State -> Action.Dict
+actions : state -> Proxy.Actions
 actions _ =
     actions_

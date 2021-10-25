@@ -4,36 +4,36 @@ import Dict
 
 
 type Modifier
-    = KeyQ
-    | KeyW
-    | KeyE
-    | KeyR
-    | KeyT
-    | KeyA
-    | KeyS
-    | KeyD
-    | KeyF
-    | KeyG
-    | KeyZ
-    | KeyX
-    | KeyC
-    | KeyV
-    | KeyB
+    = Q
+    | W
+    | E
+    | R
+    | T
+    | A
+    | S
+    | D
+    | F
+    | G
+    | Z
+    | X
+    | C
+    | V
+    | B
 
 
 type Action
-    = KeyY
-    | KeyU
-    | KeyI
-    | KeyO
-    | KeyP
-    | KeyH
-    | KeyJ
-    | KeyK
-    | KeyL
+    = Y
+    | U
+    | I
+    | O
+    | P
+    | H
+    | J
+    | K
+    | L
     | Semicolon
-    | KeyN
-    | KeyM
+    | N
+    | M
     | Comma
     | Period
     | Slash
@@ -53,85 +53,85 @@ type alias Dict a =
 code : Key -> String
 code key =
     case key of
-        Modifier KeyQ ->
+        Modifier Q ->
             "KeyQ"
 
-        Modifier KeyW ->
+        Modifier W ->
             "KeyW"
 
-        Modifier KeyE ->
+        Modifier E ->
             "KeyE"
 
-        Modifier KeyR ->
+        Modifier R ->
             "KeyR"
 
-        Modifier KeyT ->
+        Modifier T ->
             "KeyT"
 
-        Action KeyY ->
+        Action Y ->
             "KeyY"
 
-        Action KeyU ->
+        Action U ->
             "KeyU"
 
-        Action KeyI ->
+        Action I ->
             "KeyI"
 
-        Action KeyO ->
+        Action O ->
             "KeyO"
 
-        Action KeyP ->
+        Action P ->
             "KeyP"
 
-        Modifier KeyA ->
+        Modifier A ->
             "KeyA"
 
-        Modifier KeyS ->
+        Modifier S ->
             "KeyS"
 
-        Modifier KeyD ->
+        Modifier D ->
             "KeyD"
 
-        Modifier KeyF ->
+        Modifier F ->
             "KeyF"
 
-        Modifier KeyG ->
+        Modifier G ->
             "KeyG"
 
-        Action KeyH ->
+        Action H ->
             "KeyH"
 
-        Action KeyJ ->
+        Action J ->
             "KeyJ"
 
-        Action KeyK ->
+        Action K ->
             "KeyK"
 
-        Action KeyL ->
+        Action L ->
             "KeyL"
 
         Action Semicolon ->
             "Semicolon"
 
-        Modifier KeyZ ->
+        Modifier Z ->
             "KeyZ"
 
-        Modifier KeyX ->
+        Modifier X ->
             "KeyX"
 
-        Modifier KeyC ->
+        Modifier C ->
             "KeyC"
 
-        Modifier KeyV ->
+        Modifier V ->
             "KeyV"
 
-        Modifier KeyB ->
+        Modifier B ->
             "KeyB"
 
-        Action KeyN ->
+        Action N ->
             "KeyN"
 
-        Action KeyM ->
+        Action M ->
             "KeyM"
 
         Action Comma ->
@@ -146,35 +146,39 @@ code key =
 
 all : Dict Key
 all =
+    let
+        toPair key =
+            ( code key, key )
+    in
     Dict.fromList
-        [ ( code (Modifier KeyQ), Modifier KeyQ )
-        , ( code (Modifier KeyW), Modifier KeyW )
-        , ( code (Modifier KeyE), Modifier KeyE )
-        , ( code (Modifier KeyR), Modifier KeyR )
-        , ( code (Modifier KeyT), Modifier KeyT )
-        , ( code (Action KeyY), Action KeyY )
-        , ( code (Action KeyU), Action KeyU )
-        , ( code (Action KeyI), Action KeyI )
-        , ( code (Action KeyO), Action KeyO )
-        , ( code (Action KeyP), Action KeyP )
-        , ( code (Modifier KeyA), Modifier KeyA )
-        , ( code (Modifier KeyS), Modifier KeyS )
-        , ( code (Modifier KeyD), Modifier KeyD )
-        , ( code (Modifier KeyF), Modifier KeyF )
-        , ( code (Modifier KeyG), Modifier KeyG )
-        , ( code (Action KeyH), Action KeyH )
-        , ( code (Action KeyJ), Action KeyJ )
-        , ( code (Action KeyK), Action KeyK )
-        , ( code (Action KeyL), Action KeyL )
-        , ( code (Action Semicolon), Action Semicolon )
-        , ( code (Modifier KeyZ), Modifier KeyZ )
-        , ( code (Modifier KeyX), Modifier KeyX )
-        , ( code (Modifier KeyC), Modifier KeyC )
-        , ( code (Modifier KeyV), Modifier KeyV )
-        , ( code (Modifier KeyB), Modifier KeyB )
-        , ( code (Action KeyN), Action KeyN )
-        , ( code (Action KeyM), Action KeyM )
-        , ( code (Action Comma), Action Comma )
-        , ( code (Action Period), Action Period )
-        , ( code (Action Slash), Action Slash )
+        [ toPair (Modifier Q)
+        , toPair (Modifier W)
+        , toPair (Modifier E)
+        , toPair (Modifier R)
+        , toPair (Modifier T)
+        , toPair (Action Y)
+        , toPair (Action U)
+        , toPair (Action I)
+        , toPair (Action O)
+        , toPair (Action P)
+        , toPair (Modifier A)
+        , toPair (Modifier S)
+        , toPair (Modifier D)
+        , toPair (Modifier F)
+        , toPair (Modifier G)
+        , toPair (Action H)
+        , toPair (Action J)
+        , toPair (Action K)
+        , toPair (Action L)
+        , toPair (Action Semicolon)
+        , toPair (Modifier Z)
+        , toPair (Modifier X)
+        , toPair (Modifier C)
+        , toPair (Modifier V)
+        , toPair (Modifier B)
+        , toPair (Action N)
+        , toPair (Action M)
+        , toPair (Action Comma)
+        , toPair (Action Period)
+        , toPair (Action Slash)
         ]

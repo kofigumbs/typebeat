@@ -1,8 +1,6 @@
 module Mode exposing (Mode, fromModifier)
 
-import Action exposing (Action)
-import Svg exposing (Svg)
-import Key exposing (Modifier(..))
+import Key
 import Mode.Auto
 import Mode.Beat
 import Mode.Chop
@@ -18,104 +16,105 @@ import Mode.Send
 import Mode.Sound
 import Mode.Tape
 import Mode.Track
-import State exposing (State)
+import Proxy
+import Svg exposing (Svg)
 
 
 type alias Mode =
     { name : String
-    , visual : State -> Svg Never
-    , actions : State -> Key.Dict Action
+    , visual : Proxy.State -> Svg Never
+    , actions : Proxy.State -> Proxy.Actions
     }
 
 
-fromModifier : Modifier -> Mode
+fromModifier : Key.Modifier -> Mode
 fromModifier modifier =
     case modifier of
-        KeyQ ->
+        Key.Q ->
             { name = "Track"
             , visual = Mode.Track.visual
             , actions = Mode.Track.actions
             }
 
-        KeyW ->
+        Key.W ->
             { name = "Sound"
             , visual = Mode.Sound.visual
             , actions = Mode.Sound.actions
             }
 
-        KeyE ->
+        Key.E ->
             { name = "Chop"
             , visual = Mode.Chop.visual
             , actions = Mode.Chop.actions
             }
 
-        KeyR ->
+        Key.R ->
             { name = "Range"
             , visual = Mode.Range.visual
             , actions = Mode.Range.actions
             }
 
-        KeyT ->
+        Key.T ->
             { name = "Note"
             , visual = Mode.Note.visual
             , actions = Mode.Note.actions
             }
 
-        KeyA ->
+        Key.A ->
             { name = "Beat"
             , visual = Mode.Beat.visual
             , actions = Mode.Beat.actions
             }
 
-        KeyS ->
+        Key.S ->
             { name = "Loop"
             , visual = Mode.Loop.visual
             , actions = Mode.Loop.actions
             }
 
-        KeyD ->
+        Key.D ->
             { name = "Hold"
             , visual = Mode.Hold.visual
             , actions = Mode.Hold.actions
             }
 
-        KeyF ->
+        Key.F ->
             { name = "EQ"
             , visual = Mode.EQ.visual
             , actions = Mode.EQ.actions
             }
 
-        KeyG ->
+        Key.G ->
             { name = "Mix"
             , visual = Mode.Mix.visual
             , actions = Mode.Mix.actions
             }
 
-        KeyZ ->
+        Key.Z ->
             { name = "Key"
             , visual = Mode.Key.visual
             , actions = Mode.Key.actions
             }
 
-        KeyX ->
+        Key.X ->
             { name = "Auto"
             , visual = Mode.Auto.visual
             , actions = Mode.Auto.actions
             }
 
-        KeyC ->
+        Key.C ->
             { name = "Send"
             , visual = Mode.Send.visual
             , actions = Mode.Send.actions
             }
 
-        KeyV ->
+        Key.V ->
             { name = "Tape"
             , visual = Mode.Tape.visual
             , actions = Mode.Tape.actions
             }
 
-        KeyB ->
+        Key.B ->
             { name = "Mute"
             , visual = Mode.Mute.visual
             , actions = Mode.Mute.actions

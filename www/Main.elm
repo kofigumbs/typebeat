@@ -1,27 +1,26 @@
 module Main exposing (..)
 
-import Action
 import Browser
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Js
 import Json.Decode as D
-import Key exposing (Action(..), Key, Modifier(..))
+import Key exposing (Key)
 import Mode
 import Mode.Audition
-import State exposing (State)
+import Proxy
 
 
 type alias Model =
-    { modifier : Maybe Modifier
-    , state : Result D.Error State
+    { modifier : Maybe Key.Modifier
+    , state : Result D.Error Proxy.State
     }
 
 
 init : D.Value -> ( Model, Cmd Msg )
 init flags =
-    ( Model Nothing (D.decodeValue State.decoder flags), Cmd.none )
+    ( Model Nothing (D.decodeValue Proxy.dump flags), Cmd.none )
 
 
 type Direction
@@ -29,7 +28,7 @@ type Direction
     | Up
 
 
-getEvent : Direction -> Action.Action -> Action.Event
+getEvent : Direction -> Proxy.Action -> Proxy.Event
 getEvent direction action =
     case direction of
         Down ->
@@ -48,7 +47,7 @@ type Msg
     = KeyboardEvent (Result D.Error ( Direction, Key ))
 
 
-getActions : Maybe Modifier -> State -> Key.Dict Action.Action
+getActions : Maybe Key.Modifier -> Proxy.State -> Proxy.Actions
 getActions =
     Maybe.map (Mode.fromModifier >> .actions)
         >> Maybe.withDefault Mode.Audition.actions
@@ -84,7 +83,7 @@ update msg model =
                 Nothing ->
                     ( model, Cmd.none )
 
-                Just (Action.Send method data) ->
+                Just (Proxy.Send method data) ->
                     ( model, Js.send { method = method, data = data } )
 
 
@@ -123,21 +122,21 @@ view model =
                 []
 
             Ok state ->
-                [ viewRow model state [ KeyQ, KeyW, KeyE, KeyR, KeyT ] [ KeyY, KeyU, KeyI, KeyO, KeyP ]
-                , viewRow model state [ KeyA, KeyS, KeyD, KeyF, KeyG ] [ KeyH, KeyJ, KeyK, KeyL, Semicolon ]
-                , viewRow model state [ KeyZ, KeyX, KeyC, KeyV, KeyB ] [ KeyN, KeyM, Comma, Period, Slash ]
+                [ viewRow model state [ Key.Q, Key.W, Key.E, Key.R, Key.T ] [ Key.Y, Key.U, Key.I, Key.O, Key.P ]
+                , viewRow model state [ Key.A, Key.S, Key.D, Key.F, Key.G ] [ Key.H, Key.J, Key.K, Key.L, Key.Semicolon ]
+                , viewRow model state [ Key.Z, Key.X, Key.C, Key.V, Key.B ] [ Key.N, Key.M, Key.Comma, Key.Period, Key.Slash ]
                 ]
     }
 
 
-viewRow : Model -> State -> List Modifier -> List Action -> Html Msg
+viewRow : Model -> Proxy.State -> List Key.Modifier -> List Key.Action -> Html Msg
 viewRow model state modifiers actions =
     div [ class "row" ] <|
         List.map (viewModifier model state) modifiers
             ++ List.map (viewAction model state) actions
 
 
-viewModifier : Model -> State -> Modifier -> Html Msg
+viewModifier : Model -> Proxy.State -> Key.Modifier -> Html Msg
 viewModifier model state modifier =
     let
         { name, visual } =
@@ -154,7 +153,7 @@ viewModifier model state modifier =
         ]
 
 
-viewAction : Model -> State -> Action -> Html Msg
+viewAction : Model -> Proxy.State -> Key.Action -> Html Msg
 viewAction model state action =
     let
         name =

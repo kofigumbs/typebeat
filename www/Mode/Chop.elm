@@ -1,16 +1,16 @@
 module Mode.Chop exposing (actions, visual)
 
 import Dict
-import State exposing (State, Track)
+import Proxy exposing (Track)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 
 
-visual : State -> Svg msg
+visual : Proxy.State -> Svg msg
 visual state =
     let
         activeTrack =
-            State.activeTrack state
+            Proxy.activeTrack state
     in
     svg [] (List.indexedMap path activeTrack.waveform)
 
