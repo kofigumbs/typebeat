@@ -1,5 +1,6 @@
-module Param exposing (Decoder, apply, change, dump, field, list, replaceAt, succeed)
+module Param exposing (Decoder, apply, array, change, dump, field, succeed)
 
+import Array exposing (Array)
 import Dict exposing (Dict)
 import Json.Decode as D
 
@@ -27,8 +28,8 @@ field setter decoder name =
         (D.field name decoder)
 
 
-list : Int -> (s -> List a) -> (List a -> s -> s) -> D.Decoder a -> String -> Decoder s (List a)
-list length getter setter decoder name =
+array : Int -> (s -> Array a) -> (Array a -> s -> s) -> D.Decoder a -> String -> Decoder s (Array a)
+array length getter setter decoder name =
     let
         indexes =
             List.range 0 (length - 1)
@@ -38,21 +39,12 @@ list length getter setter decoder name =
 
         changeAt i value state =
             D.decodeValue decoder value
-                |> Result.map (\x -> setter (List.indexedMap (replaceAt i (\_ -> x)) (getter state)) state)
+                |> Result.map (\x -> setter (Array.set i x (getter state)) state)
                 |> Result.withDefault state
     in
     Decoder
         (Dict.fromList (List.map (\i -> ( nameAt i, changeAt i )) indexes))
-        (List.foldr (\i -> D.map2 (::) (D.field (nameAt i) decoder)) (D.succeed []) indexes)
-
-
-replaceAt : Int -> (a -> a) -> Int -> a -> a
-replaceAt target replace i value =
-    if i == target then
-        replace value
-
-    else
-        value
+        (List.foldl (\i -> D.map2 Array.push (D.field (nameAt i) decoder)) (D.succeed Array.empty) indexes)
 
 
 

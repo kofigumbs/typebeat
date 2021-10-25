@@ -1,5 +1,6 @@
 module Mode.Chop exposing (actions, visual)
 
+import Array exposing (Array)
 import Dict
 import Proxy exposing (Track)
 import Svg exposing (..)
@@ -17,9 +18,9 @@ visual state =
             Svg.Lazy.lazy visual_ activeTrack.waveform
 
 
-visual_ : List Int -> Svg msg
+visual_ : Array Int -> Svg msg
 visual_ waveform =
-    svg [] (List.indexedMap path waveform)
+    svg [] (List.indexedMap path (Array.toList waveform))
 
 
 path : Int -> Int -> Svg msg

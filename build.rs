@@ -162,7 +162,7 @@ impl Param {
         };
         let type_ = match self.array_ {
             None => type_.to_owned(),
-            Some(_) => format!("List {}", type_),
+            Some(_) => format!("Array {}", type_),
         };
         format!(" {} {} : {}\n", if_(i == 0, "{", ","), self.label, type_)
     }
@@ -175,7 +175,7 @@ impl Param {
         };
         let param = match self.array_ {
             None => String::from("Param.field"),
-            Some(size) => format!("Param.list {} .{}", size, self.label),
+            Some(size) => format!("Param.array {} .{}", size, self.label),
         };
         String::new()
             + &format!(" |> Param.apply ({}", param)

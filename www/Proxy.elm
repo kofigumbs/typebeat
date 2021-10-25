@@ -61,7 +61,18 @@ apply (Change ( id, name, value )) state =
             { state | song = Param.change name value Song.decoder state.song }
 
         _ ->
-            { state | tracks = Array.indexedMap (Param.replaceAt (id - 1) (Param.change name value Track.decoder)) state.tracks }
+            { state | tracks = updateAt (id - 1) (Param.change name value Track.decoder) state.tracks }
+
+
+updateAt : Int -> (a -> a) -> Array a -> Array a
+updateAt target update =
+    Array.indexedMap <|
+        \i a ->
+            if i == target then
+                update a
+
+            else
+                a
 
 
 type Event

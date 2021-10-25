@@ -1,12 +1,14 @@
 module Mode.Mix exposing (actions, visual)
 
-import Dict
-import Html
+import Proxy
+import Svg exposing (Svg)
 
 
-visual _ =
-    Html.text ""
+visual : Proxy.State -> Svg msg
+visual state =
+    Svg.text ""
 
 
-actions _ =
-    Dict.empty
+actions : Proxy.State -> Proxy.Actions
+actions state =
+    Proxy.bindNone
