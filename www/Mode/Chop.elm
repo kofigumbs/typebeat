@@ -8,11 +8,12 @@ import Svg.Attributes exposing (..)
 
 visual : Proxy.State -> Svg msg
 visual state =
-    let
-        activeTrack =
-            Proxy.activeTrack state
-    in
-    svg [] (List.indexedMap path activeTrack.waveform)
+    case Proxy.activeTrack state of
+        Nothing ->
+            text ""
+
+        Just activeTrack ->
+            svg [] (List.indexedMap path activeTrack.waveform)
 
 
 path : Int -> Int -> Svg msg

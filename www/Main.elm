@@ -45,6 +45,7 @@ keyboardEventDirections =
 
 type Msg
     = KeyboardEvent (Result D.Error ( Direction, Key ))
+    | Change Proxy.Change
 
 
 getActions : Maybe Key.Modifier -> Proxy.State -> Proxy.Actions
@@ -79,18 +80,23 @@ update msg model =
                     |> Maybe.map (getActions model.modifier)
                     |> Maybe.andThen (Dict.get (Key.code key))
                     |> Maybe.map (getEvent direction)
+                    |> Maybe.withDefault Proxy.NoOp
             of
-                Nothing ->
+                Proxy.NoOp ->
                     ( model, Cmd.none )
 
-                Just (Proxy.Send method data) ->
+                Proxy.Send method data ->
                     ( model, Js.send { method = method, data = data } )
+
+        Change change ->
+            ( { model | state = Result.map (Proxy.apply change) model.state }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Js.keyboardEvent (KeyboardEvent << D.decodeValue keyboardEventDecoder)
+        [ Js.change (Change << Proxy.Change)
+        , Js.keyboardEvent (KeyboardEvent << D.decodeValue keyboardEventDecoder)
         ]
 
 
@@ -143,12 +149,7 @@ viewModifier model state modifier =
             Mode.fromModifier modifier
     in
     button [ class "key mode", classList [ ( "active", model.modifier == Just modifier ) ] ]
-        [ node "custom-element-tare"
-            [ attribute "aria-label" name
-            , style "width" "100%"
-            , style "height" "100%"
-            ]
-            []
+        [ node "custom-element-tare" [ attribute "aria-label" name ] []
         , div [ class "visual" ] [ Html.map never (visual state) ]
         ]
 
@@ -156,14 +157,17 @@ viewModifier model state modifier =
 viewAction : Model -> Proxy.State -> Key.Action -> Html Msg
 viewAction model state action =
     let
-        name =
+        action_ =
             getActions model.modifier state
                 |> Dict.get (Key.code (Key.Action action))
-                |> Maybe.map .label
-                |> Maybe.withDefault ""
+                |> Maybe.withDefault Proxy.defaultAction
     in
     button [ class "key action" ]
-        [ node "custom-element-mono" [ attribute "aria-label" name ] []
+        [ node "custom-element-mono"
+            [ attribute "aria-label" action_.label
+            , classList [ ( "title", action_.title ) ]
+            ]
+            []
         ]
 
 

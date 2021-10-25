@@ -1,12 +1,33 @@
 module Mode.Note exposing (actions, visual)
 
-import Dict
-import Html
+import Array
+import Proxy
+import Svg exposing (Svg)
 
 
-visual _ =
-    Html.text ""
+visual : Proxy.State -> Svg msg
+visual state =
+    Svg.text ""
 
 
-actions _ =
-    Dict.empty
+actions : Proxy.State -> Proxy.Actions
+actions state =
+    case Proxy.activeTrack state of
+        Nothing ->
+            Proxy.bindNone
+
+        Just activeTrack ->
+            let
+                notes =
+                    Array.fromList activeTrack.note
+            in
+            Proxy.bindAll <|
+                \i ->
+                    { label =
+                        Array.get i notes
+                            |> Maybe.andThen Proxy.note
+                            |> Maybe.withDefault ""
+                    , title = i == activeTrack.activeKey
+                    , onDown = Proxy.Send "noteDown" i
+                    , onUp = Proxy.Send "noteUp" i
+                    }

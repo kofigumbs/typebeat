@@ -5,8 +5,8 @@ import Proxy
 
 actions_ : Proxy.Actions
 actions_ =
-    Proxy.actions <|
-        \_ i ->
+    Proxy.bindAll <|
+        \i ->
             { label = ""
             , title = False
             , onDown = Proxy.Send "auditionDown" i

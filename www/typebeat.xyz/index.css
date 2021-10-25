@@ -34,6 +34,7 @@ ol, ul {
   left: var(--offset);
   z-index: 1;
   background: var(--key_background);
+  transition: background .1s ease;
   --offset: -.75rem;
   --key_background: var(--light);
 }

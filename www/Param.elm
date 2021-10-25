@@ -1,4 +1,4 @@
-module Param exposing (Decoder, Primitive, apply, list, bool, dump, int, succeed)
+module Param exposing (Decoder, apply, change, dump, field, list, replaceAt, succeed)
 
 import Dict exposing (Dict)
 import Json.Decode as D
@@ -9,46 +9,64 @@ import Json.Decode as D
 
 
 type Decoder s a
-    = Decoder s (D.Decoder a)
+    = Decoder (Dict String (D.Value -> s -> s)) (D.Decoder a)
 
 
-type Primitive a
-    = Primitive String (D.Decoder a)
+field : (a -> s -> s) -> D.Decoder a -> String -> Decoder s a
+field setter decoder name =
+    Decoder
+        (Dict.singleton name <|
+            \value state ->
+                case D.decodeValue decoder value of
+                    Err _ ->
+                        state
+
+                    Ok value_ ->
+                        setter value_ state
+        )
+        (D.field name decoder)
 
 
-int : String -> Decoder (Primitive Int) Int
-int name =
-    Decoder (Primitive name D.int) (D.field name D.int)
-
-
-bool : String -> Decoder (Primitive Bool) Bool
-bool name =
-    Decoder (Primitive name D.bool) (D.field name D.bool)
-
-
-list : Int -> Decoder (Primitive a) a -> Decoder () (List a)
-list length (Decoder (Primitive name decoder) _) =
+list : Int -> (s -> List a) -> (List a -> s -> s) -> D.Decoder a -> String -> Decoder s (List a)
+list length getter setter decoder name =
     let
-        decodePrimitive i =
-            D.field (name ++ String.fromInt i) decoder
+        indexes =
+            List.range 0 (length - 1)
+
+        nameAt i =
+            name ++ String.fromInt i
+
+        changeAt i value state =
+            D.decodeValue decoder value
+                |> Result.map (\x -> setter (List.indexedMap (replaceAt i (\_ -> x)) (getter state)) state)
+                |> Result.withDefault state
     in
-    List.range 0 (length - 1)
-        |> List.foldr (decodePrimitive >> D.map2 (::)) (D.succeed [])
-        |> Decoder ()
+    Decoder
+        (Dict.fromList (List.map (\i -> ( nameAt i, changeAt i )) indexes))
+        (List.foldr (\i -> D.map2 (::) (D.field (nameAt i) decoder)) (D.succeed []) indexes)
+
+
+replaceAt : Int -> (a -> a) -> Int -> a -> a
+replaceAt target replace i value =
+    if i == target then
+        replace value
+
+    else
+        value
 
 
 
 -- Combining decoders
 
 
-succeed : a -> Decoder () a
+succeed : a -> Decoder s a
 succeed a =
-    Decoder () (D.succeed a)
+    Decoder Dict.empty (D.succeed a)
 
 
-apply : Decoder s a -> Decoder () (a -> b) -> Decoder () b
-apply (Decoder _ a) (Decoder _ f) =
-    Decoder () (D.map2 identity f a)
+apply : Decoder s a -> Decoder s (a -> b) -> Decoder s b
+apply (Decoder changeA a) (Decoder changeF f) =
+    Decoder (Dict.union changeA changeF) (D.map2 (|>) a f)
 
 
 
@@ -58,3 +76,13 @@ apply (Decoder _ a) (Decoder _ f) =
 dump : Decoder s a -> D.Decoder a
 dump (Decoder _ decoder) =
     decoder
+
+
+change : String -> D.Value -> Decoder s s -> s -> s
+change name value (Decoder changes _) state =
+    case Dict.get name changes of
+        Nothing ->
+            state
+
+        Just change_ ->
+            change_ value state

@@ -1,6 +1,6 @@
 module Key exposing (..)
 
-import Dict
+import Dict exposing (Dict)
 
 
 type Modifier
@@ -42,12 +42,6 @@ type Action
 type Key
     = Modifier Modifier
     | Action Action
-
-
-{-| Type alias to communicate that a Dict should only be used with types from this module
--}
-type alias Dict a =
-    Dict.Dict String a
 
 
 code : Key -> String
@@ -144,7 +138,7 @@ code key =
             "Slash"
 
 
-all : Dict Key
+all : Dict String Key
 all =
     let
         toPair key =

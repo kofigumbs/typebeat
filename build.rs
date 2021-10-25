@@ -168,16 +168,19 @@ impl Param {
     }
 
     fn elm_decoder(&self) -> String {
-        let primitive = match self.type_ {
-            Type::Bool(_) => "Param.bool",
-            Type::I32(_) => "Param.int",
-            Type::Usize(_) => "Param.int",
+        let decoder = match self.type_ {
+            Type::Bool(_) => "bool",
+            Type::I32(_) => "int",
+            Type::Usize(_) => "int",
         };
-        let mut decoder = format!("{} \"{}\"", primitive, self.label);
-        if let Some(size) = self.array_ {
-            decoder = format!("Param.list {} ({})", size, decoder);
-        }
-        format!(" |> Param.apply ({})\n", decoder)
+        let param = match self.array_ {
+            None => String::from("Param.field"),
+            Some(size) => format!("Param.list {} .{}", size, self.label),
+        };
+        String::new()
+            + &format!(" |> Param.apply ({}", param)
+            + &format!(" (\\x s -> {{ s | {} = x }})", self.label)
+            + &format!(" Json.Decode.{} \"{}\")\n", decoder, self.label)
     }
 }
 
@@ -217,9 +220,10 @@ fn generate_elm(params: &[Param], tag: &str) -> String {
     let mut s = String::new();
     s += &format!("module {} exposing (..)\n", tag);
     s += "import Param\n";
+    s += "import Json.Decode\n";
     s += "import Array exposing (Array)\n";
     s += &format!("type alias {} =\n{} }}\n\n", tag, fields);
-    s += &format!("decoder : Param.Decoder () {}\n", tag);
+    s += &format!("decoder : Param.Decoder {} {}\n", tag, tag);
     s += &format!("decoder = Param.succeed {}\n{}", tag, decoders);
     s
 }
