@@ -51,7 +51,7 @@ body {
   user-select: none;
   touch-action: manipulation;
   background: var(--dark);
-  transition: background .1s ease;
+  transition: background .05s ease-out;
 }
 
 .row {
@@ -94,6 +94,7 @@ body {
   width: 100%;
   height: calc(50% - 2px);
   background: var(--key_background);
+  transition: background .05s ease-out;
 }
 
 .visual svg {
@@ -147,7 +148,6 @@ custom-element-tare {
 [data-tare] {
   width: 100%;
   height: 50%;
-  transition: border .1s ease;
 }
 
 [data-tare-character] + [data-tare-character] {
@@ -158,6 +158,7 @@ custom-element-tare {
   border-color: var(--key_background);
   border-width: 2px;
   pointer-events: none;
+  transition: border .05s ease-out;
 }
 
 .active [data-tare-character] * {
