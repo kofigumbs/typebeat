@@ -28,7 +28,7 @@ type Direction
     | Up
 
 
-getEvent : Direction -> Proxy.Action -> Proxy.Event
+getEvent : Direction -> Proxy.Action -> Maybe Proxy.Event
 getEvent direction action =
     case direction of
         Down ->
@@ -79,14 +79,20 @@ update msg model =
                 Result.toMaybe model.state
                     |> Maybe.map (getActions model.modifier)
                     |> Maybe.andThen (Dict.get (Key.code key))
-                    |> Maybe.map (getEvent direction)
-                    |> Maybe.withDefault Proxy.NoOp
+                    |> Maybe.andThen (getEvent direction)
             of
-                Proxy.NoOp ->
+                Nothing ->
                     ( model, Cmd.none )
 
-                Proxy.Send method data ->
+                Just (Proxy.Send method data) ->
                     ( model, Js.send { method = method, data = data } )
+
+                Just (Proxy.Local method data) ->
+                    let
+                        updateState state =
+                            { state | local = Dict.insert method data state.local }
+                    in
+                    ( { model | state = Result.map updateState model.state }, Cmd.none )
 
         Change change ->
             ( { model | state = Result.map (Proxy.apply change) model.state }, Cmd.none )

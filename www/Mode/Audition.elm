@@ -9,8 +9,8 @@ actions_ =
         \i ->
             { label = ""
             , title = False
-            , onDown = Proxy.Send "auditionDown" i
-            , onUp = Proxy.Send "auditionUp" i
+            , onDown = Just (Proxy.Send "auditionDown" i)
+            , onUp = Just (Proxy.Send "auditionUp" i)
             }
 
 

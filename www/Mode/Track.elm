@@ -19,6 +19,6 @@ actions state =
                 else
                     ""
             , title = not state.song.playing
-            , onDown = Proxy.Send "activeTrack" i
-            , onUp = Proxy.NoOp
+            , onDown = Just (Proxy.Send "activeTrack" i)
+            , onUp = Nothing
             }

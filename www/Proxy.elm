@@ -10,6 +10,7 @@ module Proxy exposing
     , apply
     , bindAll
     , bindNone
+    , bindTabs
     , defaultAction
     , dump
     , note
@@ -33,14 +34,15 @@ type alias Track =
 
 
 type alias State =
-    { song : Song
+    { local : Dict String String
+    , song : Song
     , tracks : Array Track
     }
 
 
 dump : D.Decoder State
 dump =
-    D.map2 State
+    D.map2 (State Dict.empty)
         (D.field "song" (Param.dump Song.decoder))
         (D.field "tracks" (D.array (Param.dump Track.decoder)))
 
@@ -76,21 +78,21 @@ updateAt target update =
 
 
 type Event
-    = NoOp
-    | Send String Int
+    = Send String Int
+    | Local String String
 
 
 type alias Action =
     { label : String
     , title : Bool
-    , onDown : Event
-    , onUp : Event
+    , onDown : Maybe Event
+    , onUp : Maybe Event
     }
 
 
 defaultAction : Action
 defaultAction =
-    Action "" False NoOp NoOp
+    Action "" False Nothing Nothing
 
 
 type alias Actions =
@@ -107,6 +109,54 @@ bindAll toAction =
     [ Key.N, Key.M, Key.Comma, Key.Period, Key.Slash, Key.H, Key.J, Key.K, Key.L, Key.Semicolon, Key.Y, Key.U, Key.I, Key.O, Key.P ]
         |> List.indexedMap (\i action -> ( Key.code (Key.Action action), toAction i ))
         |> Dict.fromList
+
+
+bindTabs : String -> List ( Key.Action, String, Int ) -> State -> Actions
+bindTabs category tabs state =
+    let
+        local =
+            Dict.get category state.local
+    in
+    List.indexedMap
+        (\i ( key, label, value ) ->
+            let
+                action =
+                    { label = label
+                    , title = (local == Just label) || (local == Nothing && i == 0)
+                    , onDown = Just (Local category label)
+                    , onUp = Nothing
+                    }
+
+                actions =
+                    Dict.singleton (Key.code (Key.Action key)) action
+            in
+            if not action.title then
+                actions
+
+            else
+                Dict.union actions (bindNudge label value)
+        )
+        tabs
+        |> List.foldl Dict.union Dict.empty
+
+
+bindNudge : String -> Int -> Actions
+bindNudge method value =
+    let
+        nudge label i =
+            { label = label
+            , title = False
+            , onDown = Just (Send method i)
+            , onUp = Nothing
+            }
+    in
+    Dict.fromList
+        [ ( Key.code (Key.Action Key.H), nudge "-10" 0 )
+        , ( Key.code (Key.Action Key.J), nudge "-1" 1 )
+        , ( Key.code (Key.Action Key.K), Action (String.fromInt value) True Nothing Nothing )
+        , ( Key.code (Key.Action Key.L), nudge "+1" 2 )
+        , ( Key.code (Key.Action Key.Semicolon), nudge "+10" 3 )
+        ]
 
 
 note : Int -> Maybe String

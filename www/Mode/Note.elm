@@ -83,6 +83,6 @@ actions state =
                             |> Maybe.andThen Proxy.note
                             |> Maybe.withDefault ""
                     , title = i == activeTrack.activeKey
-                    , onDown = Proxy.Send "noteDown" i
-                    , onUp = Proxy.Send "noteUp" i
+                    , onDown = Just (Proxy.Send "noteDown" i)
+                    , onUp = Just (Proxy.Send "noteUp" i)
                     }
