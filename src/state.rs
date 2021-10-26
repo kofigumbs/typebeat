@@ -1,244 +1,128 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use crossbeam::atomic::AtomicCell;
-use serde::Deserialize;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
-pub trait Parameter {
-    fn to_i32(self) -> i32;
-    fn from_i32(raw: i32) -> Self;
+use crate::atomic_cell::AtomicCell;
+
+pub enum Bind {
+    Min(i32),
+    Max(usize),
+    Step(i32),
+    Temp,
 }
 
-impl Parameter for bool {
-    fn to_i32(self) -> i32 {
-        self as i32
-    }
-    fn from_i32(raw: i32) -> Self {
-        raw != 0
-    }
+pub trait Visitor {
+    fn visit<T: Param>(&mut self, name: &'static str, default: T, binds: &[Bind]);
 }
 
-impl Parameter for i32 {
-    fn to_i32(self) -> i32 {
-        self
-    }
-    fn from_i32(raw: i32) -> Self {
-        raw
-    }
+pub trait Host {
+    fn host<T: Visitor>(visitor: &mut T);
 }
 
-impl Parameter for f32 {
-    fn to_i32(self) -> i32 {
-        self as i32
+pub trait Param: DeserializeOwned + Serialize {
+    fn to_int(&self) -> i32 {
+        serde_json::to_value(self)
+            .ok()
+            .and_then(|value| value.as_i64())
+            .expect("Param::to_int") as i32
     }
-    fn from_i32(raw: i32) -> Self {
-        raw as f32
-    }
-}
 
-impl Parameter for usize {
-    fn to_i32(self) -> i32 {
-        self as i32
+    fn from_int(value: i32) -> Self {
+        serde_json::from_value(value.into()).expect("Param::from_int")
     }
-    fn from_i32(raw: i32) -> Self {
-        raw as usize
+
+    fn transcode<T: Param>(value: T) -> Self {
+        Self::from_int(value.to_int())
     }
 }
 
-pub trait Enum: Sized + 'static {
-    const ALL: &'static [Self];
-}
-
-impl<T: Copy + PartialEq + Enum> Parameter for T {
-    fn to_i32(self) -> i32 {
-        Self::ALL.iter().position(|&x| x == self).unwrap() as i32
+impl Param for bool {
+    fn to_int(&self) -> i32 {
+        return if *self { 1 } else { 0 };
     }
-    fn from_i32(raw: i32) -> Self {
-        Self::ALL[(raw as usize).min(Self::ALL.len() - 1)]
+
+    fn from_int(value: i32) -> Self {
+        value != 0
     }
 }
 
-/// Tags a parameter
-///   1. Parameters are bidirectionally convertible to i32s
-///   2. Parameters are clamped
-///   3. Parameters are persisted in the save file by name
-///   4. Parameters are available to the front-end by name
-/// <https://matklad.github.io/2018/05/24/typed-key-pattern.html>
-pub struct Key<T: 'static> {
-    name: &'static str,
-    min: AtomicCell<i32>,
-    max: AtomicCell<i32>,
-    by: AtomicCell<i32>,
-    default: AtomicCell<i32>,
-    persist: AtomicCell<bool>,
-    _marker: &'static PhantomData<T>,
-}
-
-impl<T> Key<T> {
-    /// Defines a persisted, unbounded parameter tag
-    pub const fn new(name: &'static str) -> Self {
-        Self {
-            name,
-            min: AtomicCell::new(i32::MIN),
-            max: AtomicCell::new(i32::MAX),
-            by: AtomicCell::new(1),
-            default: AtomicCell::new(0),
-            persist: AtomicCell::new(true),
-            _marker: &PhantomData,
-        }
+impl Param for i32 {
+    fn to_int(&self) -> i32 {
+        *self
     }
 
-    pub fn between(&self, min: T, max: T) -> &Self
-    where
-        T: Parameter,
-    {
-        self.min.store(min.to_i32());
-        self.max.store(max.to_i32());
-        self
-    }
-
-    pub fn nudge_by(&self, by: i32) -> &Self {
-        self.by.store(by);
-        self
-    }
-
-    pub fn default(&self, default: T) -> &Self
-    where
-        T: Parameter,
-    {
-        self.default.store(default.to_i32());
-        self
-    }
-
-    fn clone<U>(&self) -> Key<U> {
-        Key {
-            name: self.name,
-            min: self.min.load().into(),
-            max: self.max.load().into(),
-            by: self.by.load().into(),
-            default: self.default.load().into(),
-            persist: self.persist.load().into(),
-            _marker: &PhantomData,
-        }
-    }
-
-    pub fn ephemeral(&self) -> &Self {
-        self.persist.store(false);
-        self
+    fn from_int(value: i32) -> Self {
+        value
     }
 }
 
-struct Meta {
-    key: Key<()>,
+impl Param for f32 {
+    fn to_int(&self) -> i32 {
+        *self as i32
+    }
+
+    fn from_int(value: i32) -> Self {
+        value as Self
+    }
+}
+
+impl Param for usize {
+    fn to_int(&self) -> i32 {
+        *self as i32
+    }
+
+    fn from_int(value: i32) -> Self {
+        value as Self
+    }
+}
+
+struct Value {
+    value: AtomicCell<i32>,
     changed: AtomicCell<bool>,
 }
 
-pub type SaveState<'a> = HashMap<&'a str, i32>;
-
-#[derive(Default, Deserialize)]
-pub struct State {
-    #[serde(default, flatten)]
-    save: HashMap<String, i32>,
-    #[serde(skip)]
-    meta: HashMap<&'static str, Meta>,
-    #[serde(skip)]
-    data: HashMap<&'static str, AtomicCell<i32>>,
+pub struct State<T> {
+    params: HashMap<&'static str, Value>,
+    marker: PhantomData<fn() -> T>,
 }
 
-impl<'a> From<SaveState<'a>> for State {
-    fn from(save: SaveState<'a>) -> Self {
-        Self {
-            save: save
-                .into_iter()
-                .map(|(name, value)| (name.to_owned(), value))
-                .collect(),
-            ..Self::default()
+impl<H> State<H> {
+    pub fn get<T: Param>(&self, key: &'static str) -> T {
+        T::from_int(self.params[key].value.load())
+    }
+
+    pub fn set<T: Param>(&self, key: &'static str, value: T) {
+        let value = value.to_int();
+        let param = &self.params[key];
+        if (value != param.value.swap(value)) {
+            param.changed.store(true);
         }
+    }
+
+    pub fn toggle(&self, key: &'static str) {
+        let param = &self.params[key];
+        param.value.fetch_xor(1);
+        param.changed.store(true);
     }
 }
 
-impl State {
-    /// Read parameter from the saved value or use the default if it doesn't exist
-    pub fn register<T: Copy + Parameter>(&mut self, key: &Key<T>) {
-        let data = self.save.remove(key.name).unwrap_or(key.default.load());
-        let meta = Meta {
-            key: key.clone(),
-            changed: false.into(),
-        };
-        self.meta.insert(key.name, meta);
-        self.data.insert(key.name, data.into());
-    }
-
-    /// Gets the raw version of a parameter key by its name
-    pub fn get_key<T>(&self, name: &str) -> Option<Key<T>> {
-        self.meta.get(name).map(|meta| meta.key.clone())
-    }
-
-    /// Get the parameter's value
-    pub fn get<T: Parameter>(&self, key: &Key<T>) -> T {
-        Parameter::from_i32(self.data[key.name].load())
-    }
-
-    /// Set the parameter's value
-    pub fn set<T: Copy + PartialOrd + Parameter>(&self, key: &Key<T>, value: T) {
-        let new = value.to_i32().clamp(key.min.load(), key.max.load());
-        let old = self.data[key.name].swap(new);
-        if new != old {
-            self.meta[key.name].changed.store(true);
-        }
-    }
-
-    /// Increment the parameter's value
-    pub fn increment<T>(&self, key: &Key<T>) {
-        self.data[key.name].fetch_add(1);
-        self.meta[key.name].changed.store(true);
-    }
-
-    /// Toggles the boolean parameter's value
-    pub fn toggle<T>(&self, key: &Key<T>) {
-        self.data[key.name].fetch_xor(1);
-        self.meta[key.name].changed.store(true);
-    }
-
-    /// Toggles, sets, or nudges a parameter depending on the Key's properties
-    pub fn nudge(&self, key: &Key<i32>, value: i32) {
-        match (key.by.load(), value) {
-            (0, _) => self.toggle(key),
-            (1, _) => self.set(key, value),
-            (x, 0) => self.set(key, self.get(key) - x),
-            (_, 1) => self.set(key, self.get(key) - 1),
-            (_, 2) => self.set(key, self.get(key) + 1),
-            (x, 3) => self.set(key, self.get(key) + x),
-            _ => {}
-        }
-    }
-
-    /// Calls function for each changed state key name
-    pub fn changed(&self, f: impl Fn(&'static str, i32)) {
-        for (name, meta) in self.meta.iter() {
-            if meta.changed.swap(false) {
-                f(name, self.data[name].load());
+impl<H: Host> Default for State<H> {
+    fn default() -> Self {
+        struct V<'a>(&'a mut HashMap<&'static str, Value>);
+        impl<'a> Visitor for V<'a> {
+            fn visit<T: Param>(&mut self, name: &'static str, default: T, binds: &[Bind]) {
+                let value = default.to_int().into();
+                let changed = false.into();
+                self.0.insert(name, Value { value, changed });
             }
         }
-    }
-
-    /// Formats state for saving, filtering unchanged and ephemeral keys
-    pub fn save(&self) -> SaveState<'static> {
-        self.data
-            .iter()
-            .map(|(&name, atom)| (name, atom.load()))
-            .filter(move |(name, value)| {
-                let key = &self.meta[name].key;
-                key.persist.load() && *value != key.default.load()
-            })
-            .collect()
-    }
-
-    /// Dumps state without filtering any keys
-    pub fn dump(&self) -> SaveState<'static> {
-        self.data
-            .iter()
-            .map(|(&name, atom)| (name, atom.load()))
-            .collect()
+        let mut state = Self {
+            params: HashMap::default(),
+            marker: PhantomData,
+        };
+        H::host(&mut V(&mut state.params));
+        state
     }
 }

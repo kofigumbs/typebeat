@@ -1,12 +1,13 @@
 use std::sync::{Arc, Mutex};
 
+use serde::Serialize;
 use tauri::api::path::BaseDirectory;
 use tauri::{Builder, Event, Manager, Menu, MenuItem, State, Submenu};
 
-use typebeat::{Controller, Dump, Platform};
+use typebeat::{Controller, Platform};
 
 #[tauri::command]
-fn dump(state: State<'_, Controller>) -> Dump {
+fn dump(state: State<'_, Controller>) -> impl Serialize {
     state.dump()
 }
 
@@ -68,12 +69,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 });
             }
 
-            // Inform UI of changed state keys
+            // Inform UI of param changes
             let receiver = Arc::clone(&receiver);
             std::thread::spawn(move || {
                 let receiver = receiver.lock().expect("receiver");
-                while let Ok(changed) = receiver.recv() {
-                    window.emit("update", Some(changed)).expect("emit");
+                while let Ok(change) = receiver.recv() {
+                    window.emit("change", Some(change)).expect("emit");
                 }
             });
         }

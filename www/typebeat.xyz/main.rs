@@ -1,5 +1,5 @@
 use std::ffi::{CStr, CString};
-use std::os::raw::{c_char, c_int};
+use std::os::raw::c_char;
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::Mutex;

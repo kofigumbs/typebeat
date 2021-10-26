@@ -8,7 +8,7 @@
     "vite": "^2.5.8"
   },
   "scripts": {
-    "start": "npm install; (vite www --clearScreen false &); VITE_PID=$!; cargo watch --watch src --exec 'run --bin typebeat'; kill $VITE_PID"
+    "start": "npm install; (vite www --clearScreen false &); VITE_PID=$!; cargo watch --watch src --watch build.rs --exec 'run --bin typebeat'; kill $VITE_PID"
   },
   "workspaces": []
 }
