@@ -6,6 +6,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::atomic_cell::AtomicCell;
+use crate::effects::{FaustDsp, ParamIndex, UI};
 
 pub enum Bind {
     Max(usize),
@@ -15,11 +16,28 @@ pub enum Bind {
 }
 
 pub trait Visitor {
-    fn visit<T: Param>(&mut self, name: &'static str, default: T, binds: &[Bind]);
+    fn visit<P: Param>(&mut self, name: &'static str, default: P, binds: &[Bind]);
+}
+
+impl<V: Visitor, P: Param> UI<P> for V {
+    fn add_num_entry(&mut self, label: &'static str, i: ParamIndex, n: P, min: P, max: P, step: P) {
+        let binds = &[
+            Bind::Max(max.to_int() as usize),
+            Bind::Min(min.to_int()),
+            Bind::Step(step.to_int()),
+        ];
+        self.visit(label, n, binds);
+    }
 }
 
 pub trait Host {
-    fn host<T: Visitor>(visitor: &mut T);
+    fn host<V: Visitor>(visitor: &mut V);
+}
+
+impl<T: FaustDsp<T = f32>> Host for T {
+    fn host<V: Visitor>(visitor: &mut V) {
+        Self::build_user_interface_static(visitor);
+    }
 }
 
 pub trait Param: DeserializeOwned + Serialize {
@@ -34,7 +52,7 @@ pub trait Param: DeserializeOwned + Serialize {
         serde_json::from_value(value.into()).expect("Param::from_int")
     }
 
-    fn transcode<T: Param>(value: T) -> Self {
+    fn transcode<P: Param>(value: P) -> Self {
         Self::from_int(value.to_int())
     }
 }
@@ -87,7 +105,7 @@ struct Slot {
     changed: AtomicCell<bool>,
 }
 
-enum Strategy {
+pub enum Strategy {
     Dump,
     Minimal,
 }
@@ -97,12 +115,12 @@ pub struct State<T> {
     marker: PhantomData<fn() -> T>,
 }
 
-impl<H: Host> State<H> {
-    pub fn get<T: Param>(&self, name: &'static str) -> T {
-        T::from_int(self.slots[name].value.load())
+impl<H> State<H> {
+    pub fn get<P: Param>(&self, name: &'static str) -> P {
+        P::from_int(self.slots[name].value.load())
     }
 
-    pub fn set<T: Param>(&self, name: &'static str, value: T) {
+    pub fn set<P: Param>(&self, name: &'static str, value: P) {
         let slot = &self.slots[name];
         let mut i = value.to_int();
         if let Some(max) = slot.max {
@@ -139,11 +157,13 @@ impl<H: Host> State<H> {
     pub fn find(&self, name: &str) -> Option<&'static str> {
         self.slots.get_key_value(name).map(|pair| *pair.0)
     }
+}
 
+impl<H: Host> State<H> {
     pub fn save(&self, strategy: Strategy) -> impl Serialize {
-        struct V<'a, S>(&'a mut HashMap<&'static str, Value>, &'a State<S>, Strategy);
-        impl<'a, S: Host> Visitor for V<'a, S> {
-            fn visit<T: Param>(&mut self, name: &'static str, default: T, binds: &[Bind]) {
+        struct Guest<'a, S>(&'a mut HashMap<&'static str, Value>, &'a State<S>, Strategy);
+        impl<'a, S: Host> Visitor for Guest<'a, S> {
+            fn visit<P: Param>(&mut self, name: &'static str, default: P, binds: &[Bind]) {
                 let param = self.1.get::<i32>(name);
                 let temp = binds.iter().any(|bind| matches!(bind, Bind::Temp));
                 match &self.2 {
@@ -153,16 +173,16 @@ impl<H: Host> State<H> {
             }
         }
         let mut slots = HashMap::default();
-        H::host(&mut V(&mut slots, self, strategy));
+        H::host(&mut Guest(&mut slots, self, strategy));
         slots
     }
 }
 
 impl<H: Host> Default for State<H> {
     fn default() -> Self {
-        struct V<'a>(&'a mut HashMap<&'static str, Slot>);
-        impl<'a> Visitor for V<'a> {
-            fn visit<T: Param>(&mut self, name: &'static str, default: T, binds: &[Bind]) {
+        struct Guest<'a>(&'a mut HashMap<&'static str, Slot>);
+        impl<'a> Visitor for Guest<'a> {
+            fn visit<P: Param>(&mut self, name: &'static str, default: P, binds: &[Bind]) {
                 let mut slot = Slot {
                     max: None,
                     min: None,
@@ -183,7 +203,7 @@ impl<H: Host> Default for State<H> {
             slots: HashMap::default(),
             marker: PhantomData,
         };
-        H::host(&mut V(&mut state.slots));
+        H::host(&mut Guest(&mut state.slots));
         state
     }
 }

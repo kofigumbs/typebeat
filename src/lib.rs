@@ -16,6 +16,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex, UI};
+pub use state::Strategy;
 use state::{Bind, Host, Param, State, Visitor};
 
 mod atomic_cell;
@@ -57,15 +58,15 @@ impl<T: FaustDsp + DefaultBoxed> Default for DspBox<T> {
 
 /// Type-erased wrapper for FaustDsp
 struct DspDyn {
-    name: &'static str,
     dsp: Box<dyn Send + Sync + FaustDsp<T = f32>>,
+    builder: fn(&mut dyn UI<f32>),
 }
 
 impl<T: 'static + Send + Sync + FaustDsp<T = f32>> From<(&'static str, DspBox<T>)> for DspDyn {
     fn from(value: (&'static str, DspBox<T>)) -> Self {
         Self {
-            name: value.0,
             dsp: value.1.dsp,
+            builder: T::build_user_interface_static,
         }
     }
 }
@@ -146,7 +147,8 @@ impl Default for Track {
 }
 
 impl Host for Track {
-    fn host<T: Visitor>(visitor: &mut T) {
+    fn host<V: Visitor>(visitor: &mut V) {
+        effects::insert::host(visitor);
         visitor.visit("activeTrack", 0, &[Bind::Max(TRACK_COUNT - 1), Bind::Temp]);
         visitor.visit("playing", false, &[Bind::Temp]);
         visitor.visit("recording", false, &[Bind::Temp]);
@@ -336,7 +338,10 @@ struct Song {
 }
 
 impl Host for Song {
-    fn host<T: Visitor>(visitor: &mut T) {
+    fn host<V: Visitor>(visitor: &mut V) {
+        effects::reverb::host(visitor);
+        effects::echo::host(visitor);
+        effects::drive::host(visitor);
         visitor.visit("activeKey", 12, &[Bind::Max(TRACK_COUNT - 1)]);
         visitor.visit("bars", 1, &[Bind::Temp]);
         visitor.visit("canClear", false, &[Bind::Temp]);
@@ -525,6 +530,17 @@ impl Buffer<0, 0> {
     }
 }
 
+struct SetParams<'a, T: ?Sized, S> {
+    dsp: &'a mut T,
+    state: &'a State<S>,
+}
+
+impl<'a, T: FaustDsp<T = f32> + ?Sized, S> UI<f32> for SetParams<'a, T, S> {
+    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
+        self.dsp.set_param(i, self.state.get(s));
+    }
+}
+
 enum Task {
     WithI32(fn(&mut Audio, &Song, i32)),
     WithUsize(fn(&mut Audio, &Song, usize)),
@@ -613,16 +629,19 @@ impl Audio {
         }
 
         // Update DSP parameters
-        // for voice in self.voices.iter_mut() {
-        //     if let Some(track_id) = voice.track_id {
-        //         let dsp = voice.insert.dsp.as_mut();
-        //         dsp.set_param(song.gate_index, voice.gate as f32);
-        //         song.tracks[track_id].state.set_params("insert", dsp);
-        //     }
-        // }
-        // for DspDyn { name, dsp } in self.sends.iter_mut() {
-        //     song.state.set_params(name, dsp.as_mut());
-        // }
+        for voice in self.voices.iter_mut() {
+            if let Some(track_id) = voice.track_id {
+                let dsp = voice.insert.dsp.as_mut();
+                let state = &song.tracks[track_id].state;
+                dsp.set_param(song.gate_index, voice.gate as f32);
+                effects::insert::build_user_interface_static(&mut SetParams { dsp, state });
+            }
+        }
+        for DspDyn { dsp, builder } in self.sends.iter_mut() {
+            let dsp = dsp.as_mut();
+            let state = &song.state;
+            builder(&mut SetParams { dsp, state });
+        }
 
         // Read input frames and calculate output frames
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
@@ -749,21 +768,20 @@ impl Controller {
     }
 
     pub fn dump(&self) -> impl Serialize {
-        // #[derive(Serialize)]
-        // pub struct Dump<S, T> {
-        //     song: S,
-        //     tracks: Vec<T>,
-        // }
-        // let song = self.song.read().expect("song");
-        // Dump {
-        //     song: song.state.save(Strategy::Dump),
-        //     tracks: song
-        //         .tracks
-        //         .iter()
-        //         .map(|track| track.state.save(Strategy::Dump))
-        //         .collect(),
-        // }
-        ()
+        #[derive(Serialize)]
+        pub struct Dump<S, T> {
+            song: S,
+            tracks: Vec<T>,
+        }
+        let song = self.song.read().expect("song");
+        Dump {
+            song: song.state.save(Strategy::Dump),
+            tracks: song
+                .tracks
+                .iter()
+                .map(|track| track.state.save(Strategy::Dump))
+                .collect(),
+        }
     }
 
     pub fn send(&self, method: &str, data: i32) {
@@ -838,6 +856,17 @@ pub fn init(platform: Platform) -> Result<Controller, Box<dyn Error>> {
 
     let mut song = Song::default();
     song.init(&audio.platform.lock().expect("platform"));
+
+    struct FindButton<'a>(&'static str, &'a mut ParamIndex);
+    impl<'a> UI<f32> for FindButton<'a> {
+        fn add_button(&mut self, label: &'static str, i: ParamIndex) {
+            if label == self.0 {
+                *self.1 = i;
+            }
+        }
+    }
+    effects::insert::build_user_interface_static(&mut FindButton("note", &mut song.note_index));
+    effects::insert::build_user_interface_static(&mut FindButton("gate", &mut song.gate_index));
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);
