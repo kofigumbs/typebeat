@@ -53,15 +53,14 @@ const labels = findElements(capsOnRight, cap => `[data-cap="${cap}"] .label`);
  */
 
 const render = async state => {
-  const { local, proxy, actions } = state;
-  const mode = modes.get(local.modifier);
+  const mode = modes.get(state.modifier);
   for (let visual of visuals)
     visual.sync?.(state);
   for (let i = 0; i < capsOnRight.length; i++) {
-    const action = actions.get(mode.label).get(capsOnRight[i]);
-    labels[i].setAttribute('aria-label', await action?.label() ?? '');
-    if (!!local.modifier)
-      labels[i].classList.toggle('title', !!(await action?.title()));
+    const action = state.actions.get(mode.label).get(capsOnRight[i]);
+    labels[i].setAttribute('aria-label', action?.label() ?? '');
+    if (!!state.modifier)
+      labels[i].classList.toggle('title', !!action?.title());
   }
 };
 
@@ -92,18 +91,17 @@ const getCap = event => {
 
 const handleCap = (event, cap, state) => {
   const down = event.type.endsWith('down');
-  const { local, proxy, actions } = state;
   if (!modes.has(cap)) {
-    const action = actions.get(modes.get(local.modifier).label).get(cap);
+    const action = state.actions.get(modes.get(state.modifier).label).get(cap);
     down ? action?.onDown(event.timeStamp) : action?.onUp(event.timeStamp);
     if (down)
       pulse(keysOnRight.find(key => cap === key.dataset.cap));
   }
   else if (down) {
-    local.modifier = local.modifier === cap ? undefined : cap;
+    state.modifier = state.modifier === cap ? undefined : cap;
     for (const key of keysOnLeft)
-      key.classList.toggle('active', !!local.modifier && key.dataset.cap === local.modifier);
-    local.tempoTaps = [];
+      key.classList.toggle('active', !!state.modifier && key.dataset.cap === state.modifier);
+    state.tempoTaps = [];
   }
   requestRender(state);
 }
@@ -124,15 +122,16 @@ const handlePointer = (event, cap, state) => {
   handleCap(event, cap, state);
 };
 
-export default (dump, callback) => {
-  const local = { tempoTaps: [] };
-  const proxy = new Proxy({}, {
-    get: (self, method) => dump.song[method] ?? dump.tracks[dump.song.activeTrack][method],
-  });
-  const send = (method, data = 0) => callback(method, data);
-  const state = { local, proxy, actions: new Map() };
+export default ({ song, tracks }, send) => {
+  const state = {
+    actions: new Map(),
+    activeTrack: () => tracks[song.activeTrack],
+    send,
+    song,
+    tracks,
+  };
   for (let [cap, mode] of modes.entries())
-    state.actions.set(mode.label, mode.actions(local, proxy, send));
+    state.actions.set(mode.label, mode.actions(state));
   document.addEventListener('keydown', event => handleDocumentKey(event, state));
   document.addEventListener('keyup', event => handleDocumentKey(event, state));
   document.addEventListener('keypress', event => !getCap(event));
@@ -142,7 +141,7 @@ export default (dump, callback) => {
   }
   render(state);
   return ([id, method, value]) => {
-    const object = id === 0 ? dump.song : dump.tracks[id-1];
+    const object = id === 0 ? state.song : state.tracks[id-1];
     object[method] = value;
     requestRender(state);
   };

@@ -2,12 +2,12 @@ import bind from '../bind';
 
 export const cap = 'T';
 
-export const actions = (local, proxy, set) => new Map([
+export const actions = (state) => new Map([
   ...bind.all(i => ({
-    label: async () => bind.note(await proxy[`note ${i}`]),
-    title: async () => i == await proxy.activeKey,
-    onDown: () => set('noteDown', i),
-    onUp: () => set('noteUp', i),
+    label: () => bind.note(state.activeTrack()[`note${i}`]),
+    title: () => i == state.activeTrack().activeKey,
+    onDown: () => state.send('noteDown', i),
+    onUp: () => state.send('noteUp', i),
   })),
 ]);
 
@@ -42,8 +42,8 @@ customElements.define('note-mode', class extends HTMLElement {
     this._notes = Array.from({ length: 12 }).map((_, i) => this.querySelector(`#note-${i}`));
   }
 
-  async sync({ proxy }) {
-    const activeNote = await proxy[`note ${await proxy.activeKey}`] % 12;
+  sync(state) {
+    const activeNote = state.activeTrack()[`note${state.activeTrack().activeKey}`] % 12;
     this._notes.forEach((note, i) => note.classList.toggle('active', i === activeNote));
   }
 });

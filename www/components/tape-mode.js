@@ -2,7 +2,7 @@ import bind from '../bind';
 
 export const cap = 'V';
 
-export const actions = (local, proxy, set) => bind.comingSoon;
+export const actions = (state) => bind.comingSoon;
 
 customElements.define('tape-mode', class extends HTMLElement {
   connectedCallback() {

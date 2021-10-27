@@ -5,12 +5,12 @@ const title = label => one({ label, title: () => true });
 const toggle = (label, title, onDown) => one({ label: () => label, title, onDown });
 
 const group = (caps, f) => Array.from(caps, (cap, i) => [cap, one(f(i))]);
-const oneOf = (caps, name, labels, local) => {
-  local[name] = labels[0];
+const oneOf = (caps, name, labels, state) => {
+  state[name] = labels[0];
   return group(caps, i => ({
     label: () => labels[i],
-    title: () => local[name] === labels[i],
-    onDown: () => local[name] = labels[i],
+    title: () => state[name] === labels[i],
+    onDown: () => state[name] = labels[i],
   }));
 };
 

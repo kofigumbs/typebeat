@@ -2,17 +2,17 @@ import bind from '../bind';
 
 export const cap = 'Z';
 
-export const actions = (local, proxy, set) => new Map([
+export const actions = (state) => new Map([
   ['Y', bind.title(() => 'root')],
-  ['K', bind.title(async () => bind.note(await proxy.root + 12)) ],
+  ['K', bind.title(() => bind.note(state.song.root + 12)) ],
   ...bind.group('HJL;', i => ({
     label: () => ['-5th', '-1/2', '+1/2', '+5th'][i],
-    onDown: () => set('root', i),
+    onDown: () => state.send('root', i),
   })),
   ...bind.group('NM,.', i => ({
     label: () => ['major', 'minor', 'harm.', 'melodic'][i],
-    title: async () => i === await proxy.scale,
-    onDown: () => set('scale', i),
+    title: () => i === state.song.scale,
+    onDown: () => state.send('scale', i),
   })),
 ]);
 
@@ -46,9 +46,9 @@ customElements.define('key-mode', class extends HTMLElement {
     this._path = this.querySelector('path');
   }
 
-  async sync({ proxy }) {
-    const d = this.scales[await proxy.scale];
-    const t = await proxy.root / 6 * Math.PI;
+  sync(state) {
+    const d = this.scales[state.song.scale];
+    const t = state.song.root / 6 * Math.PI;
     const x = this._cx + Math.sin(t)*this._r;
     const y = this._cy - Math.cos(t)*this._r;
     this._path.setAttribute('d', `M ${x} ${y} ${d}`);

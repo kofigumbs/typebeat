@@ -1,7 +1,3 @@
-* {
-  transition: .1s ease;
-}
-
 html, body {
   margin: 0;
   padding: 0;
@@ -16,6 +12,7 @@ html {
   --primary: #d65d0e;
   --secondary: #d79921;
   --dark: #282828;
+  --transition: .065s;
 }
 
 body, button {
@@ -55,7 +52,6 @@ input[type="reset"]::-moz-focus-inner {
   user-select: none;
   touch-action: manipulation;
   background: var(--dark);
-  transition-property: background;
 }
 
 .row {
@@ -98,6 +94,7 @@ input[type="reset"]::-moz-focus-inner {
   width: 100%;
   height: calc(50% - 2px);
   background: var(--key_background);
+  transition: background var(--transition) ease-out;
 }
 
 .visual svg {
@@ -108,6 +105,7 @@ input[type="reset"]::-moz-focus-inner {
 
 .visual svg * {
   stroke: var(--dark);
+  transition: fill var(--transition) ease-out;
 }
 
 .label {
@@ -147,7 +145,6 @@ input[type="reset"]::-moz-focus-inner {
 [data-tare] {
   width: 100%;
   height: 50%;
-  transition-property: border;
 }
 
 [data-tare-character] + [data-tare-character] {
@@ -158,6 +155,7 @@ input[type="reset"]::-moz-focus-inner {
   border-color: var(--key_background);
   border-width: 2px;
   pointer-events: none;
+  transition: border var(--transition) ease-out;
 }
 
 .active [data-tare-character] * {

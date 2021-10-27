@@ -2,9 +2,9 @@ import bind from '../bind';
 
 export const cap = undefined;
 
-export const actions = (local, proxy, set) => new Map([
+export const actions = (state) => new Map([
   ...bind.all(i => ({
-    onDown: () => set('auditionDown', i),
-    onUp: () => set('auditionUp', i),
+    onDown: () => state.send('auditionDown', i),
+    onUp: () => state.send('auditionUp', i),
   })),
 ]);

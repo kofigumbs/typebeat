@@ -2,22 +2,22 @@ import bind from '../bind';
 
 export const cap = 'A';
 
-export const actions = (local, proxy, set) => new Map([
+export const actions = (state) => new Map([
   ['Y', bind.title(() => 'tempo')],
-  ...bind.nudge(() => proxy.tempo, i => set('tempo', i)),
-  ['N', bind.toggle('play', () => proxy.playing, () => set('playing')) ],
-  ['M', bind.toggle('record', () => proxy.recording, () => set('recording')) ],
+  ...bind.nudge(() => state.song.tempo, i => state.send('tempo', i)),
+  ['N', bind.toggle('play', () => state.song.playing, () => state.send('playing')) ],
+  ['M', bind.toggle('record', () => state.song.recording, () => state.send('recording')) ],
   [',', bind.one({
     label: () => 'tap',
-    title: () => !!local.tempoTaps.length,
+    title: () => !!state.tempoTaps.length,
     onDown: (time) => {
-      local.tempoTaps.push(time);
-      if (local.tempoTaps.length === 1)
+      state.tempoTaps.push(time);
+      if (state.tempoTaps.length === 1)
         return;
       let diffs = 0;
-      for (let i = 1; i < local.tempoTaps.length; i++)
-        diffs += local.tempoTaps[i] - local.tempoTaps[i - 1];
-      set('tempoTaps', Math.round(60000 / (diffs / (local.tempoTaps.length - 1)) + 1));
+      for (let i = 1; i < state.tempoTaps.length; i++)
+        diffs += state.tempoTaps[i] - state.tempoTaps[i - 1];
+      state.send('tempoTaps', Math.round(60000 / (diffs / (state.tempoTaps.length - 1)) + 1));
     },
   })],
 ]);
@@ -47,8 +47,8 @@ customElements.define('beat-mode', class extends HTMLElement {
     this._record = this.querySelector('circle');
   }
 
-  async sync({ proxy }) {
-    this._play.classList.toggle('active', await proxy.playing);
-    this._record.classList.toggle('active', await proxy.recording);
+  sync(state) {
+    this._play.classList.toggle('active', state.song.playing);
+    this._record.classList.toggle('active', state.song.recording);
   }
 });

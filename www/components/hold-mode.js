@@ -2,10 +2,10 @@ import bind from '../bind';
 
 export const cap = 'D';
 
-export const actions = (local, proxy, set) => new Map([
-  ...bind.oneOf('YUIOP', 'hold', ['attack', 'decay', 'sustain', 'release', 'cutoff'], local),
-  ...bind.nudge(async () => await proxy[local.hold], i => set(local.hold, i)),
-  ['N', bind.toggle('sample', async () => await proxy.holdSample, () => set('holdSample')) ],
+export const actions = (state) => new Map([
+  ...bind.oneOf('YUIOP', 'hold', ['attack', 'decay', 'sustain', 'release', 'cutoff'], state),
+  ...bind.nudge(() => state.activeTrack()[state.hold], i => state.send(state.hold, i)),
+  ['N', bind.toggle('sample', () => state.activeTrack().holdSample, () => state.send('holdSample', 0)) ],
 ]);
 
 customElements.define('hold-mode', class extends HTMLElement {
@@ -18,11 +18,11 @@ customElements.define('hold-mode', class extends HTMLElement {
     this._path = this.querySelector('path');
   }
 
-  async sync({ proxy }) {
-    const a = await proxy.attack;
-    const d = await proxy.decay;
-    const s = await proxy.sustain;
-    const r = await proxy.release;
+  sync(state) {
+    const a = state.activeTrack().attack;
+    const d = state.activeTrack().decay;
+    const s = state.activeTrack().sustain;
+    const r = state.activeTrack().release;
     this._path.setAttribute('d', `
       M 3 43 l ${a*22/50} -40
       l ${d*22/50} ${40 * (1-s/50)}

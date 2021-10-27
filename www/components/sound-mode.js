@@ -2,26 +2,26 @@ import bind from '../bind';
 
 export const cap = 'W';
 
-export const actions = (local, proxy, set) => new Map([
-  ...bind.oneOf('YUIO', 'sound', ['sample', 'synth 1', 'synth 2', 'synth 3'], local),
-  ...bind.oneOf('NM,', 'soundControl', ['type', 'level', 'detune'], local),
+export const actions = (state) => new Map([
+  ...bind.oneOf('YUIO', 'sound', ['sample', 'synth 1', 'synth 2', 'synth 3'], state),
+  ...bind.oneOf('NM,', 'soundControl', ['type', 'level', 'detune'], state),
   ...bind.group('HJKL;', i => {
-    const soundMethod = () => bind.join(local.sound, local.soundControl);
-    const soundNudge = bind.nudge(() => proxy[soundMethod()], j => set(soundMethod(), j))[i][1];
+    const soundMethod = () => bind.join(state.sound, state.soundControl);
+    const soundNudge = bind.nudge(() => state.activeTrack()[soundMethod()], j => state.send(soundMethod(), j))[i][1];
     return {
       label: () => {
-        if (local.soundControl !== 'type')
+        if (state.soundControl !== 'type')
           return soundNudge.label();
-        else if (local.sound === 'sample')
+        else if (state.sound === 'sample')
           return ['file', 'live ->', 'live .=', 'live |>'][i]
         else
           return ['sine', 'tri.', 'saw', 'square', 'noise'][i];
       },
-      title: async () => (
-        local.soundControl === 'type' ? i === await proxy[soundMethod()] : soundNudge.title()
+      title: () => (
+        state.soundControl === 'type' ? i === state.activeTrack()[soundMethod()] : soundNudge.title()
       ),
-      onDown: async () => {
-        local.soundControl === 'type' ? set(soundMethod(), i) : soundNudge.onDown();
+      onDown: () => {
+        state.soundControl === 'type' ? state.send(soundMethod(), i) : soundNudge.onDown();
       },
     };
   }),
@@ -48,14 +48,14 @@ customElements.define('sound-mode', class extends HTMLElement {
     this._paths = Array.from(this.querySelectorAll('path'));
   }
 
-  async sync({ proxy }) {
-    const amplitude = 20 * await proxy.sampleLevel / 50 + 4;
-    const synth1 = this.synths[await proxy.synth1Type];
-    const synth2 = this.synths[await proxy.synth2Type];
-    const synth3 = this.synths[await proxy.synth3Type];
-    const offset1 = await proxy.synth1Level/50 * 12
-    const offset2 = await proxy.synth2Level/50 * 12
-    const offset3 = await proxy.synth3Level/50 * 12
+  sync(state) {
+    const amplitude = 20 * state.activeTrack().sampleLevel / 50 + 4;
+    const synth1 = this.synths[state.activeTrack().synth1Type];
+    const synth2 = this.synths[state.activeTrack().synth2Type];
+    const synth3 = this.synths[state.activeTrack().synth3Type];
+    const offset1 = state.activeTrack().synth1Level/50 * 12
+    const offset2 = state.activeTrack().synth2Level/50 * 12
+    const offset3 = state.activeTrack().synth3Level/50 * 12
     for (let i = 0; i < length; i++) {
       const x = 47 - 4*(i-length/2);
       const y = 23 - amplitude/2 +

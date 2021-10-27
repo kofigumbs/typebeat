@@ -4,12 +4,12 @@ import { inert, active } from './track-grid';
 
 export const cap = 'Q';
 
-export const actions = (local, proxy, set) => new Map([
+export const actions = (state) => new Map([
   ...bind.all(i => ({
-    label: async () => i === await proxy.activeTrack ? 'active' : '',
-    title: async () => !await proxy.playing,
-    onDown: () => set('activeTrack', i),
-    onUp: () => set('auditionUp', i),
+    label: () => i === state.song.activeTrack ? 'active' : '',
+    title: () => !state.song.playing,
+    onDown: () => state.send('activeTrack', i),
+    onUp: () => state.send('auditionUp', i),
   })),
 ]);
 
@@ -31,12 +31,15 @@ customElements.define('track-mode', class extends HTMLElement {
     this._tracks = Array.from(this.querySelectorAll('path'));
   }
 
-  async sync({ proxy }) {
-    const activeTrack = await proxy.activeTrack;
-    this._tracks.forEach(async (track, i) => {
-      track.setAttribute('d', i === activeTrack ? active[i] : inert[i]);
-      if (await proxy[`recent ${i}`])
+  sync(state) {
+    if (!this._lastRecent)
+      this._lastRecent = state.tracks.map(track => track.recent);
+    this._tracks.forEach((track, i) => {
+      track.setAttribute('d', i === state.song.activeTrack ? active[i] : inert[i]);
+      if (this._lastRecent[i] < state.tracks[i].recent) {
+        this._lastRecent[i] = state.tracks[i].recent;
         pulse(track);
+      }
     });
   }
 });
