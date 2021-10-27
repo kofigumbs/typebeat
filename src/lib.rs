@@ -165,12 +165,12 @@ impl Host for Track {
                 Bind::Max(MAX_RESOLUTION * 8),
             ],
         );
-        visitor.visit("muted", false, &[]);
+        visitor.visit("muted", false, &[Bind::Toggle]);
         visitor.visit("octave", 4, &[Bind::Min(2), Bind::Max(8)]);
         visitor.visit("pageStart", 0, &[Bind::Temp]);
         visitor.visit("recent", 1, &[Bind::Temp]);
         visitor.visit("resolution", 16, &[Bind::Min(1), Bind::Max(MAX_RESOLUTION)]);
-        visitor.visit("useKey", true, &[]);
+        visitor.visit("useKey", true, &[Bind::Toggle]);
         visitor.visit("viewStart", 0, &[Bind::Temp]);
         for name in NOTE.iter().chain(VIEW.iter()).chain(WAVEFORM.iter()) {
             visitor.visit(name, 0, &[Bind::Temp]);
@@ -365,7 +365,7 @@ impl Host for Song {
         effects::drive::host(visitor);
         visitor.visit("activeTrack", 0, &[Bind::Max(TRACK_COUNT - 1), Bind::Temp]);
         visitor.visit("playing", false, &[Bind::Temp]);
-        visitor.visit("recording", false, &[Bind::Temp]);
+        visitor.visit("recording", false, &[Bind::Temp, Bind::Toggle]);
         visitor.visit("root", 0, &[Bind::Min(-12), Bind::Max(12), Bind::Step(7)]);
         visitor.visit("scale", 0, &[Bind::Max(SCALE_OFFSETS.len() - 1)]);
         visitor.visit("tempo", 120, &[Bind::Max(999), Bind::Step(10)]);

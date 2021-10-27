@@ -9,10 +9,11 @@ use crate::atomic_cell::AtomicCell;
 use crate::effects::{FaustDsp, ParamIndex, UI};
 
 pub enum Bind {
-    Max(usize),
+    Max(usize), // usize since this is often provided with array lengths
     Min(i32),
     Step(i32),
     Temp,
+    Toggle,
 }
 
 pub trait Visitor {
@@ -211,6 +212,7 @@ impl<H: Host> Default for State<H> {
                     Bind::Min(i) => slot.min = Some(*i),
                     Bind::Step(i) => slot.step = *i,
                     Bind::Temp => {}
+                    Bind::Toggle => slot.step = 0,
                 });
                 self.0.insert(name, slot);
             }
