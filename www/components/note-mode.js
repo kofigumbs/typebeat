@@ -1,15 +1,13 @@
-import bind from '../bind';
+import Actions from '../actions';
 
 export const cap = 'T';
 
-export const actions = (state) => new Map([
-  ...bind.all(i => ({
-    label: () => bind.note(state.activeTrack()[`note${i}`]),
-    title: () => i == state.activeTrack().activeKey,
-    onDown: () => state.send('noteDown', i),
-    onUp: () => state.send('noteUp', i),
-  })),
-]);
+export const actions = Actions.all({
+  label: (state, i) => Actions.note(state.activeTrack[`note${i}`]),
+  title: (state, i) => i == state.activeTrack.activeKey,
+  onDown: (state, i) => state.send('noteDown', i),
+  onUp: (state, i) => state.send('noteUp', i),
+});
 
 customElements.define('note-mode', class extends HTMLElement {
   // DOM ids in z order (white keys then black keys)
@@ -43,7 +41,7 @@ customElements.define('note-mode', class extends HTMLElement {
   }
 
   sync(state) {
-    const activeNote = state.activeTrack()[`note${state.activeTrack().activeKey}`] % 12;
+    const activeNote = state.activeTrack[`note${state.activeTrack.activeKey}`] % 12;
     this._notes.forEach((note, i) => note.classList.toggle('active', i === activeNote));
   }
 });

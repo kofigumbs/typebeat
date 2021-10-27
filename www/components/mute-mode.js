@@ -1,14 +1,12 @@
-import bind from '../bind';
+import Actions from '../actions';
 import { inert, muted } from './track-grid';
 
 export const cap = 'B';
 
-export const actions = (state) => new Map([
-  ...bind.all(i => ({
-    label: () => state.tracks[i].muted ? '</>' : '--',
-    onDown: () => state.send('muted', i),
-  })),
-]);
+export const actions = Actions.all({
+  label: (state, i) => state.tracks[i].muted ? '</>' : '--',
+  onDown: (state, i) => state.send('muted', i),
+});
 
 customElements.define('mute-mode', class extends HTMLElement {
   connectedCallback() {

@@ -110,12 +110,6 @@ struct Step {
     keys: [Change; KEY_COUNT as usize],
 }
 
-impl Step {
-    fn has_active(&self) -> bool {
-        self.keys.iter().any(|change| change.active.load())
-    }
-}
-
 #[derive(Deserialize_repr, Serialize_repr)]
 #[repr(usize)]
 pub enum View {

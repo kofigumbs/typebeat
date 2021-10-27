@@ -11,8 +11,8 @@ import './index.css';
 const modes = new Map();
 const basename = /\/(\w+)-mode\./;
 for (let [path, module] of Object.entries(import.meta.globEager('./components/*-mode.js'))) {
-  const label = path.match(basename)[1];
-  modes.set(module.cap, { label, ...module });
+  const name = path.match(basename)[1];
+  modes.set(module.cap, { name, ...module });
 }
 
 
@@ -28,8 +28,8 @@ document.querySelector('.mount').innerHTML += mapJoin(['QWERTYUIOP', 'ASDFGHJKL;
     ${mapJoin(row, cap => modes.has(cap)
       ? `
         <button class="key mode" data-cap="${cap}">
-          ${Tare.html(modes.get(cap).label)}
-          <${modes.get(cap).label}-mode class="visual"></${modes.get(cap).label}>
+          ${Tare.html(modes.get(cap).name)}
+          <${modes.get(cap).name}-mode class="visual"></${modes.get(cap).name}>
         </button>
       `
       : `
@@ -57,10 +57,10 @@ const render = async state => {
   for (let visual of visuals)
     visual.sync?.(state);
   for (let i = 0; i < capsOnRight.length; i++) {
-    const action = state.actions.get(mode.label).get(capsOnRight[i]);
-    labels[i].setAttribute('aria-label', action?.label() ?? '');
+    const action = mode.actions.get(capsOnRight[i]);
+    labels[i].setAttribute('aria-label', action?.label(state) ?? '');
     if (!!state.modifier)
-      labels[i].classList.toggle('title', !!action?.title());
+      labels[i].classList.toggle('title', !!action?.title(state));
   }
 };
 
@@ -92,8 +92,8 @@ const getCap = event => {
 const handleCap = (event, cap, state) => {
   const down = event.type.endsWith('down');
   if (!modes.has(cap)) {
-    const action = state.actions.get(modes.get(state.modifier).label).get(cap);
-    down ? action?.onDown(event.timeStamp) : action?.onUp(event.timeStamp);
+    const action = modes.get(state.modifier).actions.get(cap);
+    down ? action?.onDown(state, event) : action?.onUp(state, event);
     if (down)
       pulse(keysOnRight.find(key => cap === key.dataset.cap));
   }
@@ -125,13 +125,13 @@ const handlePointer = (event, cap, state) => {
 export default ({ song, tracks }, send) => {
   const state = {
     actions: new Map(),
-    activeTrack: () => tracks[song.activeTrack],
     send,
     song,
     tracks,
+    get activeTrack() {
+      return tracks[song.activeTrack];
+    }
   };
-  for (let [cap, mode] of modes.entries())
-    state.actions.set(mode.label, mode.actions(state));
   document.addEventListener('keydown', event => handleDocumentKey(event, state));
   document.addEventListener('keyup', event => handleDocumentKey(event, state));
   document.addEventListener('keypress', event => !getCap(event));

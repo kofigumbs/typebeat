@@ -1,12 +1,21 @@
-import bind from '../bind';
+import Actions from '../actions';
 
 export const cap = 'D';
 
-export const actions = (state) => new Map([
-  ...bind.oneOf('YUIOP', 'hold', ['attack', 'decay', 'sustain', 'release', 'cutoff'], state),
-  ...bind.nudge(() => state.activeTrack()[state.hold], i => state.send(state.hold, i)),
-  ['N', bind.toggle('sample', () => state.activeTrack().holdSample, () => state.send('holdSample', 0)) ],
-]);
+export const actions = Actions.combine(
+  Actions.tabbed(
+    { cap: 'Y', label: 'attack',  actions: Actions.nudge('activeTrack', 'attack' ) },
+    { cap: 'U', label: 'decay',   actions: Actions.nudge('activeTrack', 'decay'  ) },
+    { cap: 'I', label: 'sustain', actions: Actions.nudge('activeTrack', 'sustain') },
+    { cap: 'O', label: 'release', actions: Actions.nudge('activeTrack', 'release') },
+    { cap: 'P', label: 'cutoff',  actions: Actions.nudge('activeTrack', 'cutoff' ) }
+  ),
+  Actions.cap('N', {
+    label: () => 'sample',
+    title: state => state.activeTrack.holdSample,
+    onDown: state => state.send('holdSample', 0),
+  })
+);
 
 customElements.define('hold-mode', class extends HTMLElement {
   connectedCallback() {
@@ -19,10 +28,10 @@ customElements.define('hold-mode', class extends HTMLElement {
   }
 
   sync(state) {
-    const a = state.activeTrack().attack;
-    const d = state.activeTrack().decay;
-    const s = state.activeTrack().sustain;
-    const r = state.activeTrack().release;
+    const a = state.activeTrack.attack;
+    const d = state.activeTrack.decay;
+    const s = state.activeTrack.sustain;
+    const r = state.activeTrack.release;
     this._path.setAttribute('d', `
       M 3 43 l ${a*22/50} -40
       l ${d*22/50} ${40 * (1-s/50)}

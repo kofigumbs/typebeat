@@ -1,10 +1,8 @@
-import bind from '../bind';
+import Actions from '../actions';
 
 export const cap = undefined;
 
-export const actions = (state) => new Map([
-  ...bind.all(i => ({
-    onDown: () => state.send('auditionDown', i),
-    onUp: () => state.send('auditionUp', i),
-  })),
-]);
+export const actions = Actions.all({
+  onDown: (state, i) => state.send('auditionDown', i),
+  onUp: (state, i) => state.send('auditionUp', i),
+});

@@ -1,26 +1,35 @@
-import bind from '../bind';
+import Actions from '../actions';
 
 export const cap = 'A';
 
-export const actions = (state) => new Map([
-  ['Y', bind.title(() => 'tempo')],
-  ...bind.nudge(() => state.song.tempo, i => state.send('tempo', i)),
-  ['N', bind.toggle('play', () => state.song.playing, () => state.send('playing')) ],
-  ['M', bind.toggle('record', () => state.song.recording, () => state.send('recording')) ],
-  [',', bind.one({
-    label: () => 'tap',
-    title: () => !!state.tempoTaps.length,
-    onDown: (time) => {
-      state.tempoTaps.push(time);
-      if (state.tempoTaps.length === 1)
-        return;
-      let diffs = 0;
-      for (let i = 1; i < state.tempoTaps.length; i++)
-        diffs += state.tempoTaps[i] - state.tempoTaps[i - 1];
-      state.send('tempoTaps', Math.round(60000 / (diffs / (state.tempoTaps.length - 1)) + 1));
-    },
-  })],
-]);
+export const actions = Actions.tabbed(
+  { cap: 'Y', label: 'tempo', actions: Actions.combine(
+    Actions.cap('N', {
+      label: () => 'play',
+      title: (state) => state.song.playing,
+      onDown: (state) => state.send('playing', 0),
+    }),
+    Actions.cap('M', {
+      label: () => 'record',
+      title: (state) => state.song.recording,
+      onDown: (state) => state.send('recording', 0),
+    }),
+    // [',', bind.one({
+    //   label: () => 'tap',
+    //   title: () => !!state.tempoTaps.length,
+    //   onDown: (time) => {
+    //     state.tempoTaps.push(time);
+    //     if (state.tempoTaps.length === 1)
+    //       return;
+    //     let diffs = 0;
+    //     for (let i = 1; i < state.tempoTaps.length; i++)
+    //       diffs += state.tempoTaps[i] - state.tempoTaps[i - 1];
+    //     state.send('tempoTaps', Math.round(60000 / (diffs / (state.tempoTaps.length - 1)) + 1));
+    //   },
+    // })],
+    Actions.nudge('song', 'tempo'),
+  )}
+);
 
 customElements.define('beat-mode', class extends HTMLElement {
   connectedCallback() {

@@ -19,12 +19,8 @@ synth3Level  = nentry("synth3Level",  0,    0,  50, 10) : smooth;
 synth3Detune = nentry("synth3Detune", 0, -120, 120, 10) : smooth;
 lowFreq      = nentry("lowFreq",      0,    0,  50, 10) : smooth;
 lowRes       = nentry("lowRes",       0,  -50,   0, 10) : smooth;
-band1Freq    = nentry("band1Freq",    0,  -25,  25, 10) : smooth;
-band1Res     = nentry("band1Res",     0,  -25,  25, 10) : smooth;
-band2Freq    = nentry("band2Freq",    0,  -25,  25, 10) : smooth;
-band2Res     = nentry("band2Res",     0,  -25,  25, 10) : smooth;
-band3Freq    = nentry("band3Freq",    0,  -25,  25, 10) : smooth;
-band3Res     = nentry("band3Res",     0,  -25,  25, 10) : smooth;
+midFreq      = nentry("midFreq",      0,  -25,  25, 10) : smooth;
+midRes       = nentry("midRes",       0,  -25,  25, 10) : smooth;
 highFreq     = nentry("highFreq",    50,    0,  50, 10) : smooth;
 highRes      = nentry("highRes",      0,  -50,   0, 10) : smooth;
 attack       = nentry("attack",       0,    0,  50, 10) : smooth;
@@ -51,11 +47,9 @@ sound = sample, synth1, synth2, synth3 with {
 	oscillator = ba.selectmulti(1, (os.oscsin, os.triangle, os.sawtooth/2, os.square/2, (no.noise/4, !)));
 };
 
-eq = sp.stereoize(low : band1 : band2 : band3 : high) with {
+eq = sp.stereoize(low : mid : high) with {
 	low = ba.bypass_fade(1, lowFreq == 0, wa.highpass2(ba.midikey2hz(lowFreq*2 - 10), lowRes, 0));
-	band1 = ba.bypass_fade(1, (band1Freq == 0) & (band1Res == 0), wa.peaking2(band1Freq/2 + 36, band1Res/2, 4, 0));
-	band2 = ba.bypass_fade(1, (band2Freq == 0) & (band2Res == 0), wa.peaking2(band2Freq/2 + 60, band2Res/2, 4, 0));
-	band3 = ba.bypass_fade(1, (band3Freq == 0) & (band3Res == 0), wa.peaking2(band3Freq/2 + 74, band3Res/2, 4, 0));
+	mid = ba.bypass_fade(1, (midFreq == 0) & (midRes == 0), wa.peaking2(midFreq/2 + 60, midRes/2, 4, 0));
 	high = ba.bypass_fade(1, highCut == 50, wa.lowpass2(ba.midikey2hz(highCut + 60), highRes, 0));
 	highCut = highFreq - it.interpolate_linear(cutoff/50, 0, envelope * 50);
 };

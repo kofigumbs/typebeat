@@ -1,17 +1,15 @@
-import bind from '../bind';
+import Actions from '../actions';
 import pulse from '../pulse';
 import { inert, active } from './track-grid';
 
 export const cap = 'Q';
 
-export const actions = (state) => new Map([
-  ...bind.all(i => ({
-    label: () => i === state.song.activeTrack ? 'active' : '',
-    title: () => !state.song.playing,
-    onDown: () => state.send('activeTrack', i),
-    onUp: () => state.send('auditionUp', i),
-  })),
-]);
+export const actions = Actions.all({
+  label: (state, i) => i === state.song.activeTrack ? 'active' : '',
+  title: (state) => !state.song.playing,
+  onDown: (state, i) => state.send('activeTrack', i),
+  onUp: (state, i) => state.send('auditionUp', i),
+});
 
 customElements.define('track-mode', class extends HTMLElement {
   connectedCallback() {

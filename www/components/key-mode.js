@@ -1,20 +1,22 @@
-import bind from '../bind';
+import Actions from '../actions';
 
 export const cap = 'Z';
 
-export const actions = (state) => new Map([
-  ['Y', bind.title(() => 'root')],
-  ['K', bind.title(() => bind.note(state.song.root + 12)) ],
-  ...bind.group('HJL;', i => ({
-    label: () => ['-5th', '-1/2', '+1/2', '+5th'][i],
-    onDown: () => state.send('root', i),
-  })),
-  ...bind.group('NM,.', i => ({
-    label: () => ['major', 'minor', 'harm.', 'melodic'][i],
-    title: () => i === state.song.scale,
-    onDown: () => state.send('scale', i),
-  })),
-]);
+export const actions = new Map();
+
+// export const actions = (state) => new Map([
+//   ['Y', bind.title(() => 'root')],
+//   ['K', bind.title(() => bind.note(state.song.root + 12)) ],
+//   ...bind.group('HJL;', i => ({
+//     label: () => ['-5th', '-1/2', '+1/2', '+5th'][i],
+//     onDown: () => state.send('root', i),
+//   })),
+//   ...bind.group('NM,.', i => ({
+//     label: () => ['major', 'minor', 'harm.', 'melodic'][i],
+//     title: () => i === state.song.scale,
+//     onDown: () => state.send('scale', i),
+//   })),
+// ]);
 
 customElements.define('key-mode', class extends HTMLElement {
   scales = [

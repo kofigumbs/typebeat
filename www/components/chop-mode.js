@@ -1,8 +1,8 @@
-import bind from '../bind';
+import Actions from '../actions';
 
 export const cap = 'E';
 
-export const actions = (state) => bind.comingSoon;
+export const actions = Actions.comingSoon;
 
 customElements.define('chop-mode', class extends HTMLElement {
   waveform = f => Array.from({ length: 24 }).map((_, i) => f(i));
@@ -19,7 +19,7 @@ customElements.define('chop-mode', class extends HTMLElement {
   sync(state) {
     this.waveform(i => {
       const path = this._paths[i];
-      const amplitude = state.activeTrack()[`waveform${i}`]/5 + 1;
+      const amplitude = state.activeTrack[`waveform${i}`]/5 + 1;
       path.setAttribute('d', `M ${i*4 + 3} ${23 - amplitude} v ${amplitude*2}`);
     });
   }
