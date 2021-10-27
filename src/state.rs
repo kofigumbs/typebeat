@@ -3,12 +3,13 @@ use std::marker::PhantomData;
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::atomic_cell::AtomicCell;
 
 pub enum Bind {
-    Min(i32),
     Max(usize),
+    Min(i32),
     Step(i32),
     Temp,
 }
@@ -78,51 +79,111 @@ impl Param for usize {
     }
 }
 
-struct Value {
+struct Slot {
+    max: Option<i32>,
+    min: Option<i32>,
+    step: i32,
     value: AtomicCell<i32>,
     changed: AtomicCell<bool>,
 }
 
+enum Strategy {
+    Dump,
+    Minimal,
+}
+
 pub struct State<T> {
-    params: HashMap<&'static str, Value>,
+    slots: HashMap<&'static str, Slot>,
     marker: PhantomData<fn() -> T>,
 }
 
-impl<H> State<H> {
-    pub fn get<T: Param>(&self, key: &'static str) -> T {
-        T::from_int(self.params[key].value.load())
+impl<H: Host> State<H> {
+    pub fn get<T: Param>(&self, name: &'static str) -> T {
+        T::from_int(self.slots[name].value.load())
     }
 
-    pub fn set<T: Param>(&self, key: &'static str, value: T) {
-        let value = value.to_int();
-        let param = &self.params[key];
-        if (value != param.value.swap(value)) {
-            param.changed.store(true);
+    pub fn set<T: Param>(&self, name: &'static str, value: T) {
+        let slot = &self.slots[name];
+        let mut i = value.to_int();
+        if let Some(max) = slot.max {
+            i = i32::min(i, max);
+        }
+        if let Some(min) = slot.min {
+            i = i32::max(i, min);
+        }
+        if i != slot.value.swap(i) {
+            slot.changed.store(true);
         }
     }
 
-    pub fn toggle(&self, key: &'static str) {
-        let param = &self.params[key];
-        param.value.fetch_xor(1);
-        param.changed.store(true);
+    pub fn toggle(&self, name: &'static str) {
+        let slot = &self.slots[name];
+        slot.value.fetch_xor(1);
+        slot.changed.store(true);
+    }
+
+    pub fn nudge(&self, name: &'static str, data: i32) {
+        let slot = &self.slots[name];
+        let i = slot.value.load();
+        match data {
+            _ if slot.step == 0 => self.toggle(name),
+            _ if slot.step == 1 => self.set(name, data),
+            0 => self.set(name, i.saturating_sub(slot.step)),
+            1 => self.set(name, i.saturating_sub(1)),
+            2 => self.set(name, i.saturating_add(1)),
+            3 => self.set(name, i.saturating_add(slot.step)),
+            _ => {}
+        }
+    }
+
+    pub fn find(&self, name: &str) -> Option<&'static str> {
+        self.slots.get_key_value(name).map(|pair| *pair.0)
+    }
+
+    pub fn save(&self, strategy: Strategy) -> impl Serialize {
+        struct V<'a, S>(&'a mut HashMap<&'static str, Value>, &'a State<S>, Strategy);
+        impl<'a, S: Host> Visitor for V<'a, S> {
+            fn visit<T: Param>(&mut self, name: &'static str, default: T, binds: &[Bind]) {
+                let param = self.1.get::<i32>(name);
+                let temp = binds.iter().any(|bind| matches!(bind, Bind::Temp));
+                match &self.2 {
+                    Strategy::Minimal if temp || param == default.to_int() => None,
+                    Strategy::Minimal | Strategy::Dump => self.0.insert(name, param.into()),
+                };
+            }
+        }
+        let mut slots = HashMap::default();
+        H::host(&mut V(&mut slots, self, strategy));
+        slots
     }
 }
 
 impl<H: Host> Default for State<H> {
     fn default() -> Self {
-        struct V<'a>(&'a mut HashMap<&'static str, Value>);
+        struct V<'a>(&'a mut HashMap<&'static str, Slot>);
         impl<'a> Visitor for V<'a> {
             fn visit<T: Param>(&mut self, name: &'static str, default: T, binds: &[Bind]) {
-                let value = default.to_int().into();
-                let changed = false.into();
-                self.0.insert(name, Value { value, changed });
+                let mut slot = Slot {
+                    max: None,
+                    min: None,
+                    step: 1,
+                    value: default.to_int().into(),
+                    changed: false.into(),
+                };
+                binds.iter().for_each(|bind| match bind {
+                    Bind::Max(u) => slot.max = Some(*u as i32),
+                    Bind::Min(i) => slot.min = Some(*i),
+                    Bind::Step(i) => slot.step = *i,
+                    Bind::Temp => {}
+                });
+                self.0.insert(name, slot);
             }
         }
         let mut state = Self {
-            params: HashMap::default(),
+            slots: HashMap::default(),
             marker: PhantomData,
         };
-        H::host(&mut V(&mut state.params));
+        H::host(&mut V(&mut state.slots));
         state
     }
 }

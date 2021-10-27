@@ -15,15 +15,12 @@ use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
-use effects::{FaustDsp, ParamIndex};
+use effects::{FaustDsp, ParamIndex, UI};
 use state::{Bind, Host, Param, State, Visitor};
 
 mod atomic_cell;
 mod effects;
 mod state;
-
-const GATE_PARAM_INDEX: ParamIndex = ParamIndex(11);
-const NOTE_PARAM_INDEX: ParamIndex = ParamIndex(18);
 
 const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
@@ -330,6 +327,8 @@ impl Platform {
 
 #[derive(Default)]
 struct Song {
+    note_index: ParamIndex,
+    gate_index: ParamIndex,
     state: State<Song>,
     tracks: [Track; TRACK_COUNT],
     step: AtomicCell<usize>,
@@ -529,8 +528,8 @@ impl Buffer<0, 0> {
 enum Task {
     WithI32(fn(&mut Audio, &Song, i32)),
     WithUsize(fn(&mut Audio, &Song, usize)),
-    NudgeSong(&'static (dyn Fn(&State<Song>, Value) + Sync)),
-    NudgeTrack(&'static (dyn Fn(&State<Track>, Value) + Sync)),
+    NudgeSong(&'static str),
+    NudgeTrack(&'static str),
 }
 
 struct Audio {
@@ -608,8 +607,8 @@ impl Audio {
             match callback {
                 Task::WithI32(f) => f(self, song, data),
                 Task::WithUsize(f) => f(self, song, data as usize),
-                Task::NudgeSong(f) => f(&song.state, data.into()),
-                Task::NudgeTrack(f) => f(&song.active_track().state, data.into()),
+                Task::NudgeSong(name) => song.state.nudge(name, data),
+                Task::NudgeTrack(name) => song.active_track().state.nudge(name, data),
             }
         }
 
@@ -617,7 +616,7 @@ impl Audio {
         // for voice in self.voices.iter_mut() {
         //     if let Some(track_id) = voice.track_id {
         //         let dsp = voice.insert.dsp.as_mut();
-        //         dsp.set_param(GATE_PARAM_INDEX, voice.gate as f32);
+        //         dsp.set_param(song.gate_index, voice.gate as f32);
         //         song.tracks[track_id].state.set_params("insert", dsp);
         //     }
         // }
@@ -709,7 +708,7 @@ impl Audio {
                 / (69.0_f32 / 12.).exp2();
             voice.track_id = Some(track_id);
             voice.insert.dsp.instance_clear();
-            voice.insert.dsp.set_param(NOTE_PARAM_INDEX, note);
+            voice.insert.dsp.set_param(song.note_index, note);
         }
 
         // Remember when this was played to for note length sequencer calculation
@@ -797,9 +796,16 @@ impl Controller {
             "sequence" => Task::WithUsize(|_, song, u| song.active_track().toggle_step(u)),
             "zoomIn" => Task::WithUsize(|_, song, _| song.active_track().zoom_in()),
             "zoomOut" => Task::WithUsize(|_, song, _| song.active_track().zoom_out()),
-            // _ if SONG_NUDGES.contains_key(method) => Task::NudgeSong(&SONG_NUDGES[method]),
-            // _ if TRACK_NUDGES.contains_key(method) => Task::NudgeTrack(&TRACK_NUDGES[method]),
-            _ => return,
+            _ => {
+                let song = self.song.read().expect("song");
+                if let Some(name) = song.state.find(method) {
+                    Task::NudgeSong(name)
+                } else if let Some(name) = song.active_track().state.find(method) {
+                    Task::NudgeTrack(name)
+                } else {
+                    return;
+                }
+            }
         };
         let _ = self.sender.lock().expect("sender").send((callback, data));
     }

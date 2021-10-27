@@ -8,14 +8,8 @@
 
 pub type F32 = f32;
 
-#[derive(Copy, Clone)]
-pub struct ParamIndex(pub i32);
-
-impl Default for ParamIndex {
-    fn default() -> Self {
-        Self(-1)
-    }
-}
+#[derive(Copy, Clone, Default)]
+pub struct ParamIndex(pub usize);
 
 pub trait FaustDsp {
     type T;
