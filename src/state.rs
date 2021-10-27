@@ -140,16 +140,19 @@ impl<H> State<H> {
         slot.changed.store(true);
     }
 
+    pub fn add(&self, name: &'static str, i: i32) {
+        self.set(name, self.get::<i32>(name).saturating_add(i));
+    }
+
     pub fn nudge(&self, name: &'static str, data: i32) {
         let slot = &self.slots[name];
-        let i = slot.value.load();
         match data {
             _ if slot.step == 0 => self.toggle(name),
             _ if slot.step == 1 => self.set(name, data),
-            0 => self.set(name, i.saturating_sub(slot.step)),
-            1 => self.set(name, i.saturating_sub(1)),
-            2 => self.set(name, i.saturating_add(1)),
-            3 => self.set(name, i.saturating_add(slot.step)),
+            0 => self.add(name, slot.step),
+            1 => self.add(name, 1),
+            2 => self.add(name, -1),
+            3 => self.add(name, -slot.step),
             _ => {}
         }
     }
@@ -180,7 +183,7 @@ impl<H: Host> State<H> {
     pub fn for_each_change<F: FnMut(&'static str, i32)>(&self, f: F) {
         struct Guest<'a, F, S>(F, &'a S);
         impl<'a, F: FnMut(&'static str, i32), S> Visitor for Guest<'a, F, State<S>> {
-            fn visit<P: Param>(&mut self, name: &'static str, default: P, binds: &[Bind]) {
+            fn visit<P: Param>(&mut self, name: &'static str, _: P, _: &[Bind]) {
                 let slot = &self.1.slots[name];
                 if slot.changed.swap(false) {
                     self.0(name, slot.value.load());

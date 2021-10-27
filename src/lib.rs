@@ -740,7 +740,7 @@ impl Audio {
         track.last_played[key].store(song.step.load());
 
         // Inform UI
-        track.state.set("recent", track.state.get::<usize>("recent") + 1);
+        track.state.add("recent", -1);
     }
 
     fn release(&mut self, track_id: usize, key: usize) {
