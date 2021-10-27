@@ -149,10 +149,10 @@ impl<H> State<H> {
         match data {
             _ if slot.step == 0 => self.toggle(name),
             _ if slot.step == 1 => self.set(name, data),
-            0 => self.add(name, slot.step),
-            1 => self.add(name, 1),
-            2 => self.add(name, -1),
-            3 => self.add(name, -slot.step),
+            0 => self.add(name, -slot.step),
+            1 => self.add(name, -1),
+            2 => self.add(name, 1),
+            3 => self.add(name, slot.step),
             _ => {}
         }
     }
