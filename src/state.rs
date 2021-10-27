@@ -20,7 +20,7 @@ pub trait Visitor {
 }
 
 impl<V: Visitor, P: Param> UI<P> for V {
-    fn add_num_entry(&mut self, label: &'static str, i: ParamIndex, n: P, min: P, max: P, step: P) {
+    fn add_num_entry(&mut self, label: &'static str, _: ParamIndex, n: P, min: P, max: P, step: P) {
         let binds = &[
             Bind::Max(max.to_int() as usize),
             Bind::Min(min.to_int()),
@@ -175,6 +175,19 @@ impl<H: Host> State<H> {
         let mut slots = HashMap::default();
         H::host(&mut Guest(&mut slots, self, strategy));
         slots
+    }
+
+    pub fn for_each_change<F: FnMut(&'static str, i32)>(&self, f: F) {
+        struct Guest<'a, F, S>(F, &'a S);
+        impl<'a, F: FnMut(&'static str, i32), S> Visitor for Guest<'a, F, State<S>> {
+            fn visit<P: Param>(&mut self, name: &'static str, default: P, binds: &[Bind]) {
+                let slot = &self.1.slots[name];
+                if slot.changed.swap(false) {
+                    self.0(name, slot.value.load());
+                }
+            }
+        }
+        H::host(&mut Guest(f, self));
     }
 }
 

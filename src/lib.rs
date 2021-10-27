@@ -11,7 +11,6 @@ use miniaudio::{
     Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
@@ -41,6 +40,12 @@ const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
     [0, 2, 3, 5, 7, 8, 11],
     [0, 2, 3, 5, 7, 9, 11],
 ];
+
+lazy_static::lazy_static! {
+    static ref NOTE: Vec<String> = (0..TRACK_COUNT).map(|i| format!("note{}", i)).collect();
+    static ref VIEW: Vec<String> = (0..4).map(|i| format!("view{}", i)).collect();
+    static ref WAVEFORM: Vec<String> = (0..25).map(|i| format!("waveform{}", i)).collect();
+}
 
 /// Wrapper for FaustDsp that implements Clone and Default
 #[derive(Clone)]
@@ -149,12 +154,27 @@ impl Default for Track {
 impl Host for Track {
     fn host<V: Visitor>(visitor: &mut V) {
         effects::insert::host(visitor);
-        visitor.visit("activeTrack", 0, &[Bind::Max(TRACK_COUNT - 1), Bind::Temp]);
-        visitor.visit("playing", false, &[Bind::Temp]);
-        visitor.visit("recording", false, &[Bind::Temp]);
-        visitor.visit("root", 0, &[Bind::Min(-12), Bind::Max(12), Bind::Step(7)]);
-        visitor.visit("scale", 0, &[Bind::Max(SCALE_OFFSETS.len() - 1)]);
-        visitor.visit("tempo", 120, &[Bind::Max(999), Bind::Step(10)]);
+        visitor.visit("activeKey", 12, &[Bind::Max(TRACK_COUNT - 1)]);
+        visitor.visit("bars", 1, &[Bind::Temp]);
+        visitor.visit("canClear", false, &[Bind::Temp]);
+        visitor.visit(
+            "length",
+            MAX_RESOLUTION,
+            &[
+                Bind::Min(MAX_RESOLUTION as i32),
+                Bind::Max(MAX_RESOLUTION * 8),
+            ],
+        );
+        visitor.visit("muted", false, &[]);
+        visitor.visit("octave", 4, &[Bind::Min(2), Bind::Max(8)]);
+        visitor.visit("pageStart", 0, &[Bind::Temp]);
+        visitor.visit("recent", 1, &[Bind::Temp]);
+        visitor.visit("resolution", 16, &[Bind::Min(1), Bind::Max(MAX_RESOLUTION)]);
+        visitor.visit("useKey", true, &[]);
+        visitor.visit("viewStart", 0, &[Bind::Temp]);
+        for name in NOTE.iter().chain(VIEW.iter()).chain(WAVEFORM.iter()) {
+            visitor.visit(name, 0, &[Bind::Temp]);
+        }
     }
 }
 
@@ -198,12 +218,12 @@ impl Track {
         }
     }
 
-    fn view_index_to_start(&self, u: usize) -> usize {
-        self.state.get::<usize>("pageStart") + u * self.view_length()
+    fn view_index_to_start(&self, i: usize) -> usize {
+        self.state.get::<usize>("pageStart") + i * self.view_length()
     }
 
-    fn view(&self, u: usize) -> View {
-        self.view_from(self.view_index_to_start(u))
+    fn view(&self, i: usize) -> View {
+        self.view_from(self.view_index_to_start(i))
     }
 
     fn zoom_out(&self) {
@@ -242,8 +262,8 @@ impl Track {
         );
     }
 
-    fn toggle_step(&self, u: usize) {
-        let start = self.view_index_to_start(u);
+    fn toggle_step(&self, i: usize) {
+        let start = self.view_index_to_start(i);
         match self.view_from(start) {
             View::OutOfBounds => {}
             View::Empty | View::ExactlyOnStep => {
@@ -282,13 +302,13 @@ impl Track {
         &self.live_sample[..self.live_length.load()]
     }
 
-    // fn waveform(&self, u: usize) -> i32 {
-    //     match self.sample_type() {
-    //         SampleType::File => self.sample_waveform(u, &self.file_sample) as i32,
-    //         SampleType::LivePlay => self.sample_waveform(u, self.live()) as i32,
-    //         SampleType::Live | SampleType::LiveRecord => 0,
-    //     }
-    // }
+    fn waveform(&self, i: usize) -> i32 {
+        match self.sample_type() {
+            SampleType::File => self.sample_waveform(i, &self.file_sample),
+            SampleType::LivePlay => self.sample_waveform(i, self.live()),
+            SampleType::Live | SampleType::LiveRecord => 0,
+        }
+    }
 
     fn adjust(lhs: usize, diff: i32, rhs: usize) -> usize {
         if diff.is_positive() {
@@ -298,26 +318,27 @@ impl Track {
         }
     }
 
-    // fn sample_waveform<T: CopyAs<f32>>(&self, u: usize, sample: &[T]) -> f32 {
-    //     let chunk_len = sample.len() / self.state.waveform.len();
-    //     100. * sample
-    //         .chunks(chunk_len)
-    //         .nth(u)
-    //         .unwrap_or_default()
-    //         .into_iter()
-    //         .fold(0., |max, f| f.copy_as().abs().max(max))
-    // }
+    fn sample_waveform<T: CopyAs<f32>>(&self, i: usize, sample: &[T]) -> i32 {
+        let chunk_len = sample.len() / WAVEFORM.len();
+        let aggregate = sample
+            .chunks(chunk_len)
+            .nth(i)
+            .unwrap_or_default()
+            .into_iter()
+            .fold(0., |max, f| f.copy_as().abs().max(max));
+        (100. * aggregate) as i32
+    }
 }
 
 pub struct Platform {
     pub voice_count: usize,
     pub root: PathBuf,
-    pub sender: Sender<(usize, &'static str, Value)>,
+    pub sender: Sender<(usize, &'static str, i32)>,
 }
 
 impl Platform {
-    fn read_sample(&self, u: usize) -> Result<Vec<f32>, Box<dyn Error>> {
-        let path = self.root.join(format!("samples/{:02}.wav", u));
+    fn read_sample(&self, i: usize) -> Result<Vec<f32>, Box<dyn Error>> {
+        let path = self.root.join(format!("samples/{:02}.wav", i));
         let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
         let mut decoder = Decoder::from_file(&path, Some(&config))?;
         let frame_count = decoder.length_in_pcm_frames() as usize;
@@ -342,27 +363,12 @@ impl Host for Song {
         effects::reverb::host(visitor);
         effects::echo::host(visitor);
         effects::drive::host(visitor);
-        visitor.visit("activeKey", 12, &[Bind::Max(TRACK_COUNT - 1)]);
-        visitor.visit("bars", 1, &[Bind::Temp]);
-        visitor.visit("canClear", false, &[Bind::Temp]);
-        visitor.visit(
-            "length",
-            MAX_RESOLUTION,
-            &[
-                Bind::Min(MAX_RESOLUTION as i32),
-                Bind::Max(MAX_RESOLUTION * 8),
-            ],
-        );
-        visitor.visit("muted", false, &[]);
-        visitor.visit("octave", 4, &[Bind::Min(2), Bind::Max(8)]);
-        visitor.visit("pageStart", 0, &[Bind::Temp]);
-        visitor.visit("recent", 0, &[Bind::Temp]);
-        visitor.visit("resolution", 16, &[Bind::Min(1), Bind::Max(MAX_RESOLUTION)]);
-        visitor.visit("useKey", true, &[]);
-        visitor.visit("viewStart", 0, &[Bind::Temp]);
-        // visitor.visit("note", (0)).group(15).ephemeral(),
-        // visitor.visit("view", (0_usize)).group(4).ephemeral(),
-        // visitor.visit("waveform", (0)).group(24).ephemeral(),
+        visitor.visit("activeTrack", 0, &[Bind::Max(TRACK_COUNT - 1), Bind::Temp]);
+        visitor.visit("playing", false, &[Bind::Temp]);
+        visitor.visit("recording", false, &[Bind::Temp]);
+        visitor.visit("root", 0, &[Bind::Min(-12), Bind::Max(12), Bind::Step(7)]);
+        visitor.visit("scale", 0, &[Bind::Max(SCALE_OFFSETS.len() - 1)]);
+        visitor.visit("tempo", 120, &[Bind::Max(999), Bind::Step(10)]);
     }
 }
 
@@ -407,15 +413,15 @@ impl Song {
         track.state.set("canClear", track.can_clear());
         track.state.set("bars", track.bars());
         track.state.set("viewStart", track.view_start());
-        // for (i, param) in track.state.note.iter().enumerate() {
-        //     param.set(self.note(track, i));
-        // }
-        // for (i, param) in track.state.view.iter().enumerate() {
-        //     param.set(track.view(i) as usize);
-        // }
-        // for (i, param) in track.state.waveform.iter().enumerate() {
-        //     param.set(track.waveform(i));
-        // }
+        for (i, name) in NOTE.iter().enumerate() {
+            track.state.set(name, self.note(track, i));
+        }
+        for (i, name) in VIEW.iter().enumerate() {
+            track.state.set(name, track.view(i));
+        }
+        for (i, name) in WAVEFORM.iter().enumerate() {
+            track.state.set(name, track.waveform(i));
+        }
     }
 }
 
@@ -592,14 +598,14 @@ impl Audio {
         }
         if old != new {
             song.active_track().state.set("sampleType", value as i32);
-            for voice in self.each_voice_for(song.state.get::<usize>("activeTrackId")) {
+            for voice in self.each_voice_for(song.state.get::<usize>("activeTrack")) {
                 voice.gate = 0;
                 voice.track_id = None;
             }
             if new.thru() {
                 self.allocate(
                     song,
-                    song.state.get("activeTrackId"),
+                    song.state.get("activeTrack"),
                     track.state.get("activeKey"),
                 );
             }
@@ -694,15 +700,15 @@ impl Audio {
 
         // Inform UI of changed state keys
         song.update_derived();
-        // let platform = self.platform.lock().expect("platform");
-        // let send = move |change| platform.sender.send(change).unwrap();
-        // song.state
-        //     .for_each_change(|name, value| send((0, name, value)));
-        // for (i, track) in song.tracks.iter().enumerate() {
-        //     track
-        //         .state
-        //         .for_each_change(|name, value| send((i + 1, name, value)));
-        // }
+        let platform = self.platform.lock().expect("platform");
+        let send = move |change| platform.sender.send(change).unwrap();
+        song.state
+            .for_each_change(|name, value| send((0, name, value)));
+        for (i, track) in song.tracks.iter().enumerate() {
+            track
+                .state
+                .for_each_change(|name, value| send((i + 1, name, value)));
+        }
     }
 
     fn allocate(&mut self, song: &Song, track_id: usize, key: usize) {
@@ -734,7 +740,7 @@ impl Audio {
         track.last_played[key].store(song.step.load());
 
         // Inform UI
-        // track.state.set("recent", track.state.get::("recent") + 1);
+        track.state.set("recent", track.state.get::<usize>("recent") + 1);
     }
 
     fn release(&mut self, track_id: usize, key: usize) {
@@ -786,32 +792,32 @@ impl Controller {
 
     pub fn send(&self, method: &str, data: i32) {
         let callback = match method {
-            "activeTrack" => Task::WithUsize(|audio, song, u| {
-                song.state.set("activeTrackId", u);
+            "activeTrack" => Task::WithUsize(|audio, song, i| {
+                song.state.set("activeTrack", i);
                 if !song.state.get::<bool>("playing") {
-                    let id = song.state.get("activeTrackId");
+                    let id = song.state.get("activeTrack");
                     audio.key_down(song, id, song.tracks[id].state.get("activeKey"));
                 }
             }),
-            "auditionDown" => Task::WithUsize(|audio, song, u| {
-                audio.key_down(song, u, song.tracks[u].state.get("activeKey"))
+            "auditionDown" => Task::WithUsize(|audio, song, i| {
+                audio.key_down(song, i, song.tracks[i].state.get("activeKey"))
             }),
-            "auditionUp" => Task::WithUsize(|audio, song, u| {
-                audio.key_up(song, u, song.tracks[u].state.get("activeKey"))
+            "auditionUp" => Task::WithUsize(|audio, song, i| {
+                audio.key_up(song, i, song.tracks[i].state.get("activeKey"))
             }),
             "length" => Task::WithI32(|_, song, i| song.active_track().adjust_length(i)),
             "clear" => Task::WithUsize(|_, song, _| song.active_track().clear()),
-            "muted" => Task::WithUsize(|_, song, u| song.tracks[u].state.toggle("muted")),
-            "noteDown" => Task::WithUsize(|audio, song, u| {
-                audio.key_down(song, song.state.get("activeTrackId"), u)
+            "muted" => Task::WithUsize(|_, song, i| song.tracks[i].state.toggle("muted")),
+            "noteDown" => Task::WithUsize(|audio, song, i| {
+                audio.key_down(song, song.state.get("activeTrack"), i)
             }),
-            "noteUp" => Task::WithUsize(|audio, song, u| {
-                audio.key_up(song, song.state.get("activeTrackId"), u)
+            "noteUp" => Task::WithUsize(|audio, song, i| {
+                audio.key_up(song, song.state.get("activeTrack"), i)
             }),
             "page" => Task::WithI32(|_, song, i| song.active_track().adjust_page(i)),
             "playing" => Task::WithUsize(|audio, song, _| audio.toggle_play(song)),
-            "sampleType" => Task::WithUsize(|audio, song, u| audio.set_sample_type(song, u)),
-            "sequence" => Task::WithUsize(|_, song, u| song.active_track().toggle_step(u)),
+            "sampleType" => Task::WithUsize(|audio, song, i| audio.set_sample_type(song, i)),
+            "sequence" => Task::WithUsize(|_, song, i| song.active_track().toggle_step(i)),
             "zoomIn" => Task::WithUsize(|_, song, _| song.active_track().zoom_in()),
             "zoomOut" => Task::WithUsize(|_, song, _| song.active_track().zoom_out()),
             _ => {
