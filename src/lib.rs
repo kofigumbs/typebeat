@@ -1,5 +1,6 @@
 #![feature(array_methods)]
 #![feature(bool_to_option)]
+#![feature(format_args_capture)]
 
 use std::error::Error;
 use std::path::PathBuf;
@@ -41,10 +42,28 @@ const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
     [0, 2, 3, 5, 7, 9, 11],
 ];
 
+const DEFAULT_SAMPLES: &[&str] = &[
+    "KR-33 Kick1.wav",
+    "KR-33 Kick2.wav",
+    "KR-33 Tom-Lo.wav",
+    "KR-33 Tom-Mid.wav",
+    "KR-33 Tom-Hi.wav",
+    "KR-33 Snare1.wav",
+    "KR-33 Snare2.wav",
+    "KR-33 Hat-Cl1.wav",
+    "KR-33 Hat-Cl2.wav",
+    "KR-33 Hat-Op.wav",
+    "KR-33 Cow.wav",
+    "KR-33 Crash.wav",
+    "KR-33 Cymbal.wav",
+    "KR-33 Rim.wav",
+    "Tag.wav",
+];
+
 lazy_static::lazy_static! {
-    static ref NOTE: Vec<String> = (0..TRACK_COUNT).map(|i| format!("note{}", i)).collect();
-    static ref VIEW: Vec<String> = (0..4).map(|i| format!("view{}", i)).collect();
-    static ref WAVEFORM: Vec<String> = (0..25).map(|i| format!("waveform{}", i)).collect();
+    static ref NOTE: Vec<String> = (0..TRACK_COUNT).map(|i| format!("note{i}")).collect();
+    static ref VIEW: Vec<String> = (0..4).map(|i| format!("view{i}")).collect();
+    static ref WAVEFORM: Vec<String> = (0..25).map(|i| format!("waveform{i}")).collect();
 }
 
 /// Wrapper for FaustDsp that implements Clone and Default
@@ -332,7 +351,7 @@ pub struct Platform {
 
 impl Platform {
     fn read_sample(&self, i: usize) -> Result<Vec<f32>, Box<dyn Error>> {
-        let path = self.root.join(format!("samples/{:02}.wav", i));
+        let path = self.root.join(format!("samples/{}", DEFAULT_SAMPLES[i]));
         let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
         let mut decoder = Decoder::from_file(&path, Some(&config))?;
         let frame_count = decoder.length_in_pcm_frames() as usize;
