@@ -2,10 +2,13 @@
   "name": "typebeat",
   "dependencies": {
     "firacode": "^5.2.0",
+    "solid-js": "^1.2.1",
     "tare": "github:kofigumbs/tare"
   },
   "devDependencies": {
-    "vite": "^2.5.8"
+    "babel-preset-solid": "^1.2.1",
+    "vite": "^2.5.8",
+    "vite-plugin-solid": "^2.1.1"
   },
   "scripts": {
     "start": "npm install; (vite www --clearScreen false &); VITE_PID=$!; cargo watch --watch src --watch build.rs --exec 'run --bin typebeat'; kill $VITE_PID"

@@ -1,3 +1,7 @@
+import { createEffect, createSignal } from 'solid-js';
+import { createStore } from 'solid-js/store';
+import { render } from 'solid-js/web';
+
 import 'firacode';
 import Tare from 'tare';
 import pulse from './pulse';
@@ -47,36 +51,11 @@ const keysOnRight = findElements(capsOnRight, cap => `[data-cap="${cap}"]`);
 const visuals = findElements(capsOnLeft, cap => `[data-cap="${cap}"] .visual`);
 const labels = findElements(capsOnRight, cap => `[data-cap="${cap}"] .label`);
 
-
-/*
- * Re-render the UI
- */
-
-const render = async state => {
-  const mode = modes.get(state.modifier);
-  for (let visual of visuals)
-    visual.sync?.(state);
-  for (let i = 0; i < capsOnRight.length; i++) {
-    const action = mode.actions.get(capsOnRight[i]);
-    labels[i].setAttribute('aria-label', action?.label(state) ?? '');
-    if (!!state.modifier)
-      labels[i].classList.toggle('title', !!action?.title(state));
-  }
-};
-
-let nextRender;
-const requestRender = state => {
-  if (!nextRender)
-    nextRender = requestAnimationFrame(() => {
-      nextRender = null;
-      render(state);
-    });
-};
-
-
 /*
  * Event listeners
  */
+
+const [modifier, setModifier] = createSignal();
 
 const capsByEventCode = new Map([
   ['Semicolon', ';'], ['Comma', ','], ['Period', '.'], ['Slash', '/'],
@@ -92,18 +71,17 @@ const getCap = event => {
 const handleCap = (event, cap, state) => {
   const down = event.type.endsWith('down');
   if (!modes.has(cap)) {
-    const action = modes.get(state.modifier).actions.get(cap);
+    const action = modes.get(modifier()).actions.get(cap);
     down ? action?.onDown(state, event) : action?.onUp(state, event);
     if (down)
       pulse(keysOnRight.find(key => cap === key.dataset.cap));
   }
   else if (down) {
-    state.modifier = state.modifier === cap ? undefined : cap;
+    setModifier(modifier => modifier === cap ? undefined : cap);
     for (const key of keysOnLeft)
-      key.classList.toggle('active', !!state.modifier && key.dataset.cap === state.modifier);
+      key.classList.toggle('active', !!modifier() && key.dataset.cap === modifier());
     state.tempoTaps = [];
   }
-  requestRender(state);
 }
 
 const handleDocumentKey = (event, state) => {
@@ -122,16 +100,15 @@ const handlePointer = (event, cap, state) => {
   handleCap(event, cap, state);
 };
 
-export default ({ song, tracks }, send) => {
-  const state = {
-    actions: new Map(),
+export default (dump, send) => {
+  const [state, setState] = createStore({
+    ...dump,
     send,
-    song,
-    tracks,
+    actions: new Map(),
     get activeTrack() {
-      return tracks[song.activeTrack];
+      return this.tracks[this.song.activeTrack];
     }
-  };
+  });
   document.addEventListener('keydown', event => handleDocumentKey(event, state));
   document.addEventListener('keyup', event => handleDocumentKey(event, state));
   document.addEventListener('keypress', event => !getCap(event));
@@ -139,10 +116,19 @@ export default ({ song, tracks }, send) => {
     key.addEventListener('pointerdown', event => handlePointer(event, key.dataset.cap, state));
     key.addEventListener('pointerup', event => handlePointer(event, key.dataset.cap, state));
   }
-  render(state);
+  createEffect(() => {
+    const mode = modes.get(modifier());
+    for (let visual of visuals)
+      visual.sync?.(state);
+    for (let i = 0; i < capsOnRight.length; i++) {
+      const action = mode.actions.get(capsOnRight[i]);
+      labels[i].setAttribute('aria-label', action?.label(state) ?? '');
+      if (!!modifier())
+        labels[i].classList.toggle('title', !!action?.title(state));
+    }
+  });
   return ([id, method, value]) => {
-    const object = id === 0 ? state.song : state.tracks[id-1];
-    object[method] = value;
-    requestRender(state);
+    const args = id === 0 ? ['song', method, value] : ['tracks', id-1, method, value];
+    setState(...args);
   };
 };

@@ -1,3 +1,5 @@
+import { createSignal } from 'solid-js';
+
 const Actions = {};
 
 const none = () => '';
@@ -24,21 +26,21 @@ Actions.combine = (...actions) => {
 };
 
 Actions.tabbed = (...tabs) => {
-  let selected = 0;
+  const [selected, setSelected] = createSignal(0);
   const selectActions = new Map(tabs.map((tab, i) => [tab.cap, {
     label: () => tab.label,
-    title: () => i === selected,
-    onDown: () => selected = i,
+    title: () => i === selected(),
+    onDown: () => setSelected(i),
     onUp: none,
   }]));
   for (let tab of tabs) {
     tab.actions = Actions.combine(tab.actions, selectActions);
   }
   return Actions.all({
-    label:  (state, _, cap) => tabs[selected].actions.get(cap)?.label(state),
-    title:  (state, _, cap) => tabs[selected].actions.get(cap)?.title(state),
-    onDown: (state, _, cap) => tabs[selected].actions.get(cap)?.onDown(state),
-    onUp:   (state, _, cap) => tabs[selected].actions.get(cap)?.onUp(state),
+    label:  (state, _, cap) => tabs[selected()].actions.get(cap)?.label(state),
+    title:  (state, _, cap) => tabs[selected()].actions.get(cap)?.title(state),
+    onDown: (state, _, cap) => tabs[selected()].actions.get(cap)?.onDown(state),
+    onUp:   (state, _, cap) => tabs[selected()].actions.get(cap)?.onUp(state),
   });
 };
 
