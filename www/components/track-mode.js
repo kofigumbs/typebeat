@@ -1,5 +1,5 @@
 import Actions from '../actions';
-import pulse from '../pulse';
+import { pulse } from '../animations';
 import { inert, active } from './track-grid';
 
 export const cap = 'Q';

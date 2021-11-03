@@ -4,12 +4,12 @@ use std::path::Path;
 use std::process::Command;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let out = std::env::var("OUT_DIR")?;
     for path in Path::new("src/effects")
         .read_dir()?
         .map(|entry| entry.expect("DirEntry").path())
         .filter(|path| path.extension() == Some(OsStr::new("dsp")))
     {
-        let out = std::env::var("OUT_DIR")?;
         let stem = path.file_stem().expect("stem");
         let rust = Path::new(&out).join(stem).with_extension("rs");
         let _ = std::fs::remove_file(&rust);

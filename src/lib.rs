@@ -11,7 +11,7 @@ use default_boxed::DefaultBoxed;
 use miniaudio::{
     Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
@@ -116,7 +116,7 @@ impl SampleType {
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
-struct Change {
+struct Event {
     value: AtomicCell<i32>,
     active: AtomicCell<bool>,
     #[serde(skip)]
@@ -126,7 +126,7 @@ struct Change {
 #[derive(Clone, Default, Deserialize, Serialize)]
 struct Step {
     #[serde(default)]
-    keys: [Change; KEY_COUNT as usize],
+    keys: [Event; KEY_COUNT as usize],
 }
 
 #[derive(Deserialize_repr, Serialize_repr)]
@@ -297,14 +297,14 @@ impl Track {
     }
 
     fn can_clear(&self) -> bool {
-        self.changes().any(|change| change.active.load())
+        self.events().any(|change| change.active.load())
     }
 
     fn clear(&self) {
-        self.changes().for_each(|change| change.active.store(false));
+        self.events().for_each(|change| change.active.store(false));
     }
 
-    fn changes(&self) -> impl Iterator<Item = &Change> {
+    fn events(&self) -> impl Iterator<Item = &Event> {
         self.sequence
             .iter()
             .take(self.state.get("length"))
@@ -343,10 +343,24 @@ impl Track {
     }
 }
 
+pub enum Change {
+    Song(&'static str, i32),
+    Track(usize, &'static str, i32),
+}
+
+impl Serialize for Change {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Change::Song(method, value) => ("song", method, value).serialize(serializer),
+            Change::Track(i, method, value) => ("tracks", i, method, value).serialize(serializer),
+        }
+    }
+}
+
 pub struct Platform {
     pub voice_count: usize,
     pub root: PathBuf,
-    pub sender: Sender<(usize, &'static str, i32)>,
+    pub sender: Sender<Change>,
 }
 
 impl Platform {
@@ -716,11 +730,11 @@ impl Audio {
         let platform = self.platform.lock().expect("platform");
         let send = move |change| platform.sender.send(change).unwrap();
         song.state
-            .for_each_change(|name, value| send((0, name, value)));
+            .for_each_change(|name, value| send(Change::Song(name, value)));
         for (i, track) in song.tracks.iter().enumerate() {
             track
                 .state
-                .for_each_change(|name, value| send((i + 1, name, value)));
+                .for_each_change(|name, value| send(Change::Track(i, name, value)));
         }
     }
 

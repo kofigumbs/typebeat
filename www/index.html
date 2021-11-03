@@ -3,11 +3,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <script type="module">
-    import init from '.';
+    import App from './app.jsx';
+    import { render } from 'solid-js/web';
     const t = window.__TAURI__;
-    t.invoke('dump')
-      .then(dump => init(dump, (method, data) => t.invoke('send', { method, data })))
-      .then(update => t.event.listen('change', ({ payload }) => update(payload)));
+    render(
+      () => App({
+        dump: t.invoke('dump'),
+        send: (method, data) => t.invoke('send', { method, data }),
+        onChange: (callback) => t.event.listen('change', ({ payload }) => callback(payload)),
+      }),
+      document.body
+    );
   </script>
 </head>
 <body class="mount"></body>

@@ -6,11 +6,11 @@ use std::sync::Mutex;
 
 use serde::Serialize;
 
-use typebeat::{Controller, Platform};
+use typebeat::{Change, Controller, Platform};
 
 struct App {
     controller: Controller,
-    receiver: Mutex<Receiver<(usize, &'static str, i32)>>,
+    receiver: Mutex<Receiver<Change>>,
 }
 
 lazy_static::lazy_static! {
@@ -57,11 +57,7 @@ pub fn typebeat_send(method: *const c_char, data: i32) {
 #[no_mangle]
 pub fn typebeat_changes() -> *const c_char {
     let receiver = APP.receiver.lock().expect("receiver");
-    let mut changes = Vec::new();
-    while let Ok(change) = receiver.try_recv() {
-        changes.push(change);
-    }
-    to_c_str_json(changes)
+    to_c_str_json(receiver.try_iter().collect::<Vec<_>>())
 }
 
 fn main() {
