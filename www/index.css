@@ -111,6 +111,7 @@ input[type="reset"]::-moz-focus-inner {
 .mode .visual svg * {
   fill: var(--key_fill, var(--key_background));
   stroke: var(--key_stroke, var(--dark));
+  transition: fill var(--transition) ease-out;
 }
 
 .action .label {
@@ -131,9 +132,9 @@ input[type="reset"]::-moz-focus-inner {
 
 @keyframes pulse {
   from {
-    fill: var(--key_pulse, transparent);
-    stroke: var(--key_pulse, transparent);
-    background: var(--key_pulse, transparent);
+    fill: var(--key_pulse);
+    stroke: var(--key_pulse);
+    background: var(--key_pulse);
   }
   to {
     fill: var(--key_fill);

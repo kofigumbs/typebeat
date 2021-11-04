@@ -29,6 +29,7 @@ const Track = props => {
   return (
     <rect ref={ref} {...layout(props.x, props.y)} style={{
       '--key_fill': props.id === props.state.song.activeTrack ? 'var(--secondary)' : 'var(--key_background)',
+      '--key_pulse': 'transparent',
     }} />
   );
 };
