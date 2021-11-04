@@ -10,7 +10,7 @@ import './index.css';
  * Map of caps to mode names/modules
  */
 
-const modeImports = import.meta.globEager('./components/*-mode.js');
+const modeImports = import.meta.globEager('./components/*-mode.js*');
 const modes = new Map();
 const basename = /\/(\w+)-mode\./;
 for (let [path, module] of Object.entries(modeImports)) {
@@ -63,17 +63,25 @@ const Key = props => (
   </button>
 );
 
-const Mode = props => (
-  <Key className='mode' classList={{ active: props.cap === props.state.modifier }} {...props}>
-    <div className='label' innerHTML={Tare.html(modes.get(props.cap).name)} />
-    <div className='visual' />
-  </Key>
-);
+const Mode = props => {
+  const mode = modes.get(props.cap);
+  const Visual = mode.Visual || (() => '');
+  return (
+    <Key className='mode' classList={{ active: props.cap === props.state.modifier }} {...props}>
+      <div className='label' innerHTML={Tare.html(mode.name)} />
+      <div className='visual'>
+        <Show when={props.state.song}>
+          <Visual state={props.state} />
+        </Show>
+      </div>
+    </Key>
+  );
+};
 
 const Action = props => {
   const [label, setLabel] = createSignal();
   const action = createMemo(() => props.state.actions.get(props.cap));
-  const cache = { value: '', timeoutIds: [] };
+  const cache = type.cache();
   createEffect(oldLabel => {
     const newLabel = action()?.label(props.state)?.toString();
     type(newLabel, oldLabel, setLabel, cache);

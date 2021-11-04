@@ -181,7 +181,7 @@ impl Host for Track {
         visitor.visit("muted", false, &[Bind::Toggle]);
         visitor.visit("octave", 4, &[Bind::Min(2), Bind::Max(8)]);
         visitor.visit("pageStart", 0, &[Bind::Temp]);
-        visitor.visit("recent", 1, &[Bind::Temp]);
+        visitor.visit("recent", 0, &[Bind::Temp]);
         visitor.visit("resolution", 16, &[Bind::Min(1), Bind::Max(MAX_RESOLUTION)]);
         visitor.visit("useKey", true, &[Bind::Toggle]);
         visitor.visit("viewStart", 0, &[Bind::Temp]);
@@ -767,7 +767,7 @@ impl Audio {
         track.last_played[key].store(song.step.load());
 
         // Inform UI
-        track.state.add("recent", -1);
+        track.state.add("recent", 1);
     }
 
     fn release(&mut self, track_id: usize, key: usize) {

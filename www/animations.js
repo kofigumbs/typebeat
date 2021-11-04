@@ -22,8 +22,10 @@ export const type = (newValue = '', oldValue = '', setValue, cache) => {
   let shared = 0;
   while (shared < cache.value.length && shared < newValue.length && cache.value[shared] === newValue[shared])
     shared++;
-  for (const char of cache.value.substring(shared))
+  for (let char of cache.value.substring(shared))
     typeDelay(setValue, cache, s => s.slice(0, -1));
-  for (const char of newValue.substring(shared))
+  for (let char of newValue.substring(shared))
     typeDelay(setValue, cache, s => s + char);
 };
+
+type.cache = () => ({ value: '', timeoutIds: [] });
