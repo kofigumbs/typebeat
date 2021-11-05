@@ -1,5 +1,5 @@
 import Actions from '../actions';
-import { Grid, layout } from './track-mode';
+import { Grid, layout } from './track';
 
 export const cap = 'B';
 

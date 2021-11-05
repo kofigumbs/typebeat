@@ -32,7 +32,7 @@ const Path = props => {
     const type = props.state.activeTrack[`synth${props.osc}Type`];
     const level = props.state.activeTrack[`synth${props.osc}Level`];
     const detune = props.state.activeTrack[`synth${props.osc}Detune`];
-    let offset = { i: 0 };
+    let offset = { i: 0 }; // saw and square waves need to adjust the counter itself
     for (let i = 0; offset.i < length; i++) {
       offset = offsets[type](i, noise);
       const x = 47 - 4*(offset.i - length/2) + detune/4;
