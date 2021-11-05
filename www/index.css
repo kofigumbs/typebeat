@@ -12,7 +12,7 @@ html {
   --primary: #d65d0e;
   --secondary: #d79921;
   --dark: #282828;
-  --transition: .065s;
+  --transition: .055s;
 }
 
 body, button {
@@ -176,7 +176,7 @@ input[type="reset"]::-moz-focus-inner {
 }
 
 .active [data-tare-character] * {
-  border-width: 5px;
+  border-width: 4px;
 }
 
 

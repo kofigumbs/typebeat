@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal } from 'solid-js';
+import { createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import { createStore } from 'solid-js/store';
 
 import 'firacode';
@@ -39,11 +39,16 @@ const handleKeyboardEvent = callback => event => {
     callback(cap);
 };
 
-const handlePointerEvent = callback => event => {
+const handlePointerEvent = (cap, callback) => event => {
   if (event.button)
     return; // don't hijack right-click
   event.preventDefault();
-  callback(event.target.dataset.cap);
+  callback(cap);
+};
+
+const createEventListener = (subject, type, callback) => {
+  subject.addEventListener(type, callback);
+  onCleanup(() => subject.removeEventListener(type, callback));
 };
 
 
@@ -56,8 +61,8 @@ const Key = props => (
     className={`key ${props.className}`}
     classList={props.classList}
     data-cap={props.cap}
-    onPointerDown={handlePointerEvent(props.onCapDown)}
-    onPointerUp={handlePointerEvent(props.onCapUp)}
+    onPointerDown={handlePointerEvent(props.cap, props.onCapDown)}
+    onPointerUp={handlePointerEvent(props.cap, props.onCapUp)}
   >
     {props.children}
   </button>
@@ -135,8 +140,8 @@ export default props => {
   const onCapUp = cap => {
     state.actions.get(cap)?.onUp(state);
   };
-  document.addEventListener('keydown', handleKeyboardEvent(onCapDown));
-  document.addEventListener('keyup', handleKeyboardEvent(onCapUp));
+  createEventListener(document, 'keydown', handleKeyboardEvent(onCapDown));
+  createEventListener(document, 'keyup', handleKeyboardEvent(onCapUp));
 
   return (
     <Grid rows={['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./']}>

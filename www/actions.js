@@ -44,6 +44,14 @@ Actions.tabbed = (...tabs) => {
   });
 };
 
+Actions.select = (subject, method, labels) => Actions.combine(...labels.map((label, i) => (
+  Actions.cap('HJKL;'[i], {
+    label: () => label,
+    title: (state) => i === state[subject][method],
+    onDown: state => state.send(method, i),
+  })
+)));
+
 Actions.nudge = (subject, method, step = 10) => Actions.combine(
   Actions.cap('H', { label: () => `-${step}`, onDown: (state) => state.send(method, 0) }),
   Actions.cap('J', { label: () => '-1',       onDown: (state) => state.send(method, 1) }),
