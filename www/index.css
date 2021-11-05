@@ -70,13 +70,13 @@ input[type="reset"]::-moz-focus-inner {
   height: 4.5rem;
   padding: .75rem;
   margin: 1px;
+  --pulse: var(--primary);
 }
 
 .action {
   justify-content: center;
   background: var(--key_background);
   --key_background: var(--primary);
-  --key_pulse: var(--secondary);
 }
 
 .mode {
@@ -109,9 +109,22 @@ input[type="reset"]::-moz-focus-inner {
 }
 
 .mode .visual svg * {
-  fill: var(--key_fill, var(--key_background));
-  stroke: var(--key_stroke, var(--dark));
+  fill: var(--key_background);
+  stroke: var(--dark);
   transition: fill var(--transition) ease-out;
+  --pulse: var(--dark);
+}
+
+.mode .visual svg .dark {
+  --key_background: var(--dark);
+}
+
+.mode .visual svg .secondary {
+  --key_background: var(--secondary);
+}
+
+.mode .visual svg .transparent {
+  --key_background: transparent;
 }
 
 .action .label {
@@ -132,13 +145,11 @@ input[type="reset"]::-moz-focus-inner {
 
 @keyframes pulse {
   from {
-    fill: var(--key_pulse);
-    stroke: var(--key_pulse);
-    background: var(--key_pulse);
+    fill: var(--pulse);
+    background: var(--pulse);
   }
   to {
-    fill: var(--key_fill);
-    stroke: var(--key_stroke);
+    fill: var(--key_background);
     background: var(--key_background);
   }
 }

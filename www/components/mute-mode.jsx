@@ -9,9 +9,7 @@ export const actions = Actions.all({
 });
 
 const Mute = props => (
-  <rect {...layout(props.x, props.y)} style={{
-    '--key_fill': props.state.tracks[props.id].muted ? 'var(--dark)' : 'var(--key_background)',
-  }} />
+  <rect {...layout(props.x, props.y)} classList={{ dark: props.state.tracks[props.id].muted }} />
 );
 
 export const Visual = props => (

@@ -15,16 +15,11 @@ const H = 49;
 const W = 14;
 const S = 10;
 
-const Key = props => {
-  const active = createMemo(() => (
-    props.id === props.state.activeTrack[`note${props.state.activeTrack.activeKey}`] % 12
-  ));
-  return (
-    <rect x={props.x-2} y='-2' width={props.width} height={props.height} stroke-width='2' style={{
-      '--key_fill': active() ? 'var(--secondary)' : 'var(--key_background)',
-    }} />
-  );
-};
+const Key = props => (
+  <rect x={props.x-2} y='-2' width={props.width} height={props.height} stroke-width='2' classList={{
+    secondary: props.id === props.state.activeTrack[`note${props.state.activeTrack.activeKey}`] % 12
+  }} />
+);
 
 const Black = props => (
   <Key state={props.state} id={props.id} x={(props.x+1)*W - S/2} width={S} height={H/2} />
