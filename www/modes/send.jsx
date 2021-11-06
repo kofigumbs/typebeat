@@ -2,7 +2,7 @@ import { createMemo } from 'solid-js';
 
 import Actions from '../actions';
 
-export const cap = 'C';
+export const cap = 'G';
 
 const subtabs = (effect) => Actions.tabbed(
   { cap: 'N', label: 'gain',  actions: Actions.nudge('song', `${effect}Gain` ) },

@@ -2,7 +2,7 @@ import { createMemo } from 'solid-js';
 
 import Actions from '../actions';
 
-export const cap = 'F';
+export const cap = 'D';
 
 const subtabs = (band) => Actions.tabbed(
   { cap: 'N', label: 'freq.', actions: Actions.nudge('activeTrack', `${band}Freq`) },

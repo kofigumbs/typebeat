@@ -2,7 +2,7 @@ import { createMemo } from 'solid-js';
 
 import Actions from '../actions';
 
-export const cap = 'G';
+export const cap = 'F';
 
 export const actions = Actions.tabbed(
   { cap: 'Y', label: 'main',   actions: Actions.nudge('activeTrack', 'main'  ) },

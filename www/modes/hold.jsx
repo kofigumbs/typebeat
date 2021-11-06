@@ -2,7 +2,7 @@ import { createMemo } from 'solid-js';
 
 import Actions from '../actions';
 
-export const cap = 'D';
+export const cap = 'S';
 
 export const actions = Actions.combine(
   Actions.tabbed(

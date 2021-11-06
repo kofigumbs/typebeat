@@ -1,8 +1,9 @@
 import { createEffect, createSignal, on } from 'solid-js';
 
 import Actions from '../actions';
+import { note } from './note';
 
-export const cap = 'A';
+export const cap = 'Z';
 
 const [taps, setTaps] = createSignal([]);
 
@@ -39,7 +40,11 @@ export const actions = Actions.tabbed(
       },
     }),
     Actions.nudge('song', 'tempo'),
-  )}
+  )},
+  { cap: 'U', label: 'key', actions: Actions.combine(
+    Actions.nudge('song', 'root', '1/2', '5th', root => note(root + 12)),
+    Actions.select('NM,.', 'song', 'scale', ['major', 'minor', 'harm.', 'melodic'])
+  )},
 );
 
 export const Visual = props => {

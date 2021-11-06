@@ -1,6 +1,6 @@
 import Actions from '../actions';
 
-export const cap = 'S';
+export const cap = 'A';
 
 const view = i => state => {
   const n = ((state.activeTrack.viewStart + i) % state.activeTrack.resolution) + 1;
