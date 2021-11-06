@@ -70,7 +70,7 @@ input[type="reset"]::-moz-focus-inner {
   height: 4.5rem;
   padding: .75rem;
   margin: 1px;
-  --pulse: var(--primary);
+  --pulse: var(--secondary);
 }
 
 .action {

@@ -44,31 +44,25 @@ Actions.tabbed = (...tabs) => {
   });
 };
 
-Actions.select = (subject, method, labels) => Actions.combine(...labels.map((label, i) => (
-  Actions.cap('HJKL;'[i], {
+Actions.select = (caps, subject, method, labels) => Actions.combine(...labels.map((label, i) => (
+  Actions.cap(caps[i], {
     label: () => label,
     title: (state) => i === state[subject][method],
     onDown: state => state.send(method, i),
   })
 )));
 
-Actions.nudge = (subject, method, step = 10) => Actions.combine(
+Actions.nudge = (subject, method, one = 1, step = 10, format = (x => x)) => Actions.combine(
   Actions.cap('H', { label: () => `-${step}`, onDown: (state) => state.send(method, 0) }),
-  Actions.cap('J', { label: () => '-1',       onDown: (state) => state.send(method, 1) }),
-  Actions.cap('L', { label: () => '+1',       onDown: (state) => state.send(method, 2) }),
+  Actions.cap('J', { label: () => `-${one}`,  onDown: (state) => state.send(method, 1) }),
+  Actions.cap('L', { label: () => `+${one}`,  onDown: (state) => state.send(method, 2) }),
   Actions.cap(';', { label: () => `+${step}`, onDown: (state) => state.send(method, 3) }),
-  Actions.cap('K', { label: (state) => state[subject][method], title: () => true })
+  Actions.cap('K', { label: (state) => format(state[subject][method]), title: () => true })
 );
 
 Actions.comingSoon = Actions.combine(
   Actions.cap('N', { label: () => 'coming' }),
   Actions.cap('M', { label: () => 'soon...' }),
 );
-
-Actions.note = n => {
-  const name = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][n % 12];
-  const octave = Math.floor(n / 12 - 1);
-  return `${name}${octave}`;
-};
 
 export default Actions;

@@ -1,3 +1,5 @@
+import { createMemo } from 'solid-js';
+
 import Actions from '../actions';
 
 export const cap = 'F';
@@ -13,41 +15,31 @@ export const actions = Actions.tabbed(
   { cap: 'I', label: 'high', actions: subtabs('high') }
 );
 
-// const bands = ['low', 'band 1', 'band 2', 'band 3', 'high'];
-//
-// customElements.define('eq-mode', class extends HTMLElement {
-//   all = (state, filter) => bands.map(x => state.activeTrack(bind.join(x, filter));
-//   normalize = (freq, i) => (i === 0 || i === 4) ? freq/50 : (freq + 25)/50;
-//
-//   connectedCallback() {
-//     this.innerHTML = `
-//       <svg xmlns="http://www.w3.org/2000/svg">
-//         <path fill="none" stroke-width="2"></path>
-//       </svg>
-//     `;
-//     this._path = this.querySelector('path');
-//   }
-//
-//   sync(state) {
-//     const margin = 3;
-//     const bandWidth = 90/5;
-//     const bandHeight = 20;
-//     const [lowX, band1X, band2X, band3X, highX] =
-//       this.all(state, 'freq.')
-//       .map((freq, i) => margin + bandWidth*i + bandWidth*this.normalize(freq, i));
-//     const [lowY, band1Y, band2Y, band3Y, highY] =
-//       this.all(state, 'res.')
-//       .map((res, i) => margin + bandHeight*(1 + res/-50));
-//     const mid1 = (band1X + lowX)   / 2;
-//     const mid2 = (band2X + band1X) / 2;
-//     const mid3 = (band3X + band2X) / 2;
-//     const mid4 = (highX  + band3X) / 2;
-//     this._path.setAttribute('d', `
-//       M ${lowX} ${lowY}
-//       C ${mid1} ${lowY}   ${mid1} ${band1Y} ${band1X} ${band1Y}
-//       C ${mid2} ${band1Y} ${mid2} ${band2Y} ${band2X} ${band2Y}
-//       C ${mid3} ${band2Y} ${mid3} ${band3Y} ${band3X} ${band3Y}
-//       C ${mid4} ${band3Y} ${mid4} ${highY}  ${highX}  ${highY}
-//     `);
-//   }
-// });
+const margin = 3;
+const bandWidth = 90/3;
+const bandHeight = 20;
+const x = (freq, i) => margin + bandWidth*i + bandWidth*(i === 1 ? (freq + 25)/50 : freq/50);
+const y = (res) => margin + bandHeight*(1 + res/-50);
+
+export const Visual = props => {
+  const commands = createMemo(() => {
+    const lowX = x(props.state.activeTrack.lowFreq, 0);
+    const midX = x(props.state.activeTrack.midFreq, 1);
+    const highX = x(props.state.activeTrack.highFreq, 2);
+    const lowY = y(props.state.activeTrack.lowRes);
+    const midY = y(props.state.activeTrack.midRes);
+    const highY = y(props.state.activeTrack.highRes);
+    const join1 = (midX + lowX)  / 2;
+    const join2 = (highX + midX) / 2;
+    return `
+      M ${lowX}  ${lowY}
+      C ${join1} ${lowY} ${join1} ${midY}  ${midX}  ${midY}
+      C ${join2} ${midY} ${join2} ${highY} ${highX} ${highY}
+    `;
+  });
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <path d={commands()} stroke-width="2"></path>
+    </svg>
+  );
+};

@@ -4,8 +4,14 @@ import Actions from '../actions';
 
 export const cap = 'T';
 
+export const note = n => {
+  const name = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][n % 12];
+  const octave = Math.floor(n / 12 - 1);
+  return `${name}${octave}`;
+};
+
 export const actions = Actions.all({
-  label: (state, i) => Actions.note(state.activeTrack[`note${i}`]),
+  label: (state, i) => note(state.activeTrack[`note${i}`]),
   title: (state, i) => i == state.activeTrack.activeKey,
   onDown: (state, i) => state.send('noteDown', i),
   onUp: (state, i) => state.send('noteUp', i),

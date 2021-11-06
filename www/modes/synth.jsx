@@ -5,7 +5,12 @@ import Actions from '../actions';
 export const cap = 'E';
 
 export const subtab = i => Actions.tabbed(
-  { cap: 'N', label: 'type', actions: Actions.select('activeTrack', `synth${i}Type`, ['sine', 'tri.', 'saw', 'square', 'noise']) },
+  { cap: 'N', label: 'type', actions: Actions.select(
+    'HJKL;',
+    'activeTrack',
+    `synth${i}Type`,
+    ['sine', 'tri.', 'saw', 'square', 'noise']
+  )},
   { cap: 'M', label: 'level', actions: Actions.nudge('activeTrack', `synth${i}Level`) },
   { cap: ',', label: 'detune', actions: Actions.nudge('activeTrack', `synth${i}Detune`) },
 );
@@ -42,7 +47,7 @@ const Path = props => {
     return commands;
   });
   return (
-    <path d={`M ${commands().join(' L ')}`} stroke-width='2' className='transparent' />
+    <path d={`M ${commands().join(' L ')}`} stroke-width='2' />
   );
 };
 

@@ -1,3 +1,5 @@
+import { createMemo } from 'solid-js';
+
 import Actions from '../actions';
 
 export const cap = 'G';
@@ -10,39 +12,30 @@ export const actions = Actions.tabbed(
   { cap: 'P', label: 'drive',  actions: Actions.nudge('activeTrack', 'drive' ) }
 )
 
-customElements.define('mix-mode', class extends HTMLElement {
-  connectedCallback() {
-    this.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg">
-        <style>
-          mix-mode.visual * {
-            fill: var(--key_background);
-          }
-        </style>
-        <rect></rect>
-        <rect></rect>
-        <rect></rect>
-      </svg>
-    `;
-    this._rects = this.querySelectorAll('rect');
-  }
+const Rect = props => {
+  const s = createMemo(() => 24 * props.state.activeTrack.main / 50);
+  const x = createMemo(() => 48 - s()/2 + props.state.activeTrack.pan);
+  const y = createMemo(() => 23 - s()/2);
+  const r = createMemo(() => `${props.state.activeTrack.reverb / 2}%`);
+  const spacing = createMemo(() => props.state.activeTrack.echo / 4);
+  const strokeWidth = createMemo(() => props.state.activeTrack.drive + 2);
+  return (
+    <rect
+      x={x() + (props.i-1)*spacing()}
+      y={y() + (props.i-1)*spacing()}
+      rx={r()}
+      ry={r()}
+      width={s()}
+      height={s()}
+      stroke-width={strokeWidth()}
+    />
+  );
+};
 
-  sync(state) {
-    const s = 24 * state.activeTrack.main / 50;
-    const x = 48 - s/2 + state.activeTrack.pan;
-    const y = 23 - s/2;
-    const r = `${state.activeTrack.reverb / 2}%`;
-    const spacing = state.activeTrack.echo / 4;
-    const strokeWidth = state.activeTrack.drive + 2;
-    for (let i = 0; i < this._rects.length; i++) {
-      const rect = this._rects[i];
-      rect.setAttribute('x', x + (i-1)*spacing);
-      rect.setAttribute('y', y + (i-1)*spacing);
-      rect.setAttribute('rx', r);
-      rect.setAttribute('ry', r);
-      rect.setAttribute('width', s);
-      rect.setAttribute('height', s);
-      rect.setAttribute('stroke-width', strokeWidth);
-    }
-  }
-});
+export const Visual = props => (
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <Rect i={0} {...props} />
+    <Rect i={1} {...props} />
+    <Rect i={2} {...props} />
+  </svg>
+);

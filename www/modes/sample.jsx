@@ -6,7 +6,12 @@ export const cap = 'W';
 
 export const actions = Actions.tabbed(
   { cap: 'Y', label: 'source', actions: Actions.tabbed(
-    { cap: 'N', label: 'type', actions: Actions.select('activeTrack', 'sampleType', ['file', 'live ->', 'live .=', 'live |>']) },
+    { cap: 'N', label: 'type', actions: Actions.select(
+      'HJKL;',
+      'activeTrack',
+      'sampleType',
+      ['file', 'live ->', 'live .=', 'live |>']
+    )},
     { cap: 'M', label: 'level', actions: Actions.nudge('activeTrack', 'sampleLevel') },
     { cap: ',', label: 'detune', actions: Actions.nudge('activeTrack', 'sampleDetune') },
   )},

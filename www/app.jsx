@@ -127,6 +127,9 @@ export default props => {
   props.dump.then(setState);
   props.onChange(change => setState(...change));
 
+  for (let mode of modes.values())
+    mode.init?.(state);
+
   const onCapDown = cap => {
     if (cap === state.modifier)
       setState({ modifier: undefined });

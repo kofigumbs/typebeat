@@ -845,6 +845,7 @@ impl Controller {
             "playing" => Task::WithUsize(|audio, song, _| audio.toggle_play(song)),
             "sampleType" => Task::WithUsize(|audio, song, i| audio.set_sample_type(song, i)),
             "sequence" => Task::WithUsize(|_, song, i| song.active_track().toggle_step(i)),
+            "taps" => Task::WithUsize(|_, song, i| song.state.set("tempo", i)),
             "zoomIn" => Task::WithUsize(|_, song, _| song.active_track().zoom_in()),
             "zoomOut" => Task::WithUsize(|_, song, _| song.active_track().zoom_out()),
             _ => {
