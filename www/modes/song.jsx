@@ -54,17 +54,17 @@ export const Visual = props => {
   const cx = s+st + 6;
   const offset = (96-cx-s)/2;
   return (
-    <svg xmlns="http://www.w3.org/2000/svg">
+    <svg xmlns='http://www.w3.org/2000/svg'>
       <path
         d={`M ${offset} ${y-s} l ${st} ${s} l -${st} ${s} Z`}
-        stroke-width="2"
+        stroke-width='2'
         classList={{ secondary: props.state.song.playing }}
       />
       <circle
         r={s}
         cx={offset+cx}
         cy={y}
-        stroke-width="2"
+        stroke-width='2'
         classList={{ secondary: props.state.song.recording }}
       />
     </svg>

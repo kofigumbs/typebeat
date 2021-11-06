@@ -46,7 +46,7 @@ const Row = props => {
 };
 
 export const Grid = props => (
-  <svg xmlns="http://www.w3.org/2000/svg">
+  <svg xmlns='http://www.w3.org/2000/svg'>
     <rect width='100%' height='100%' className='dark' />
     <Row y={0} tracks={[10, 11, 12, 13, 14]} {...props} />
     <Row y={1} tracks={[ 5,  6,  7,  8,  9]} {...props} />

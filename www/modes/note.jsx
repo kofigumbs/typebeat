@@ -45,7 +45,7 @@ const Keys = props => {
 };
 
 export const Visual = props => (
-  <svg xmlns="http://www.w3.org/2000/svg">
+  <svg xmlns='http://www.w3.org/2000/svg'>
     <Keys state={props.state} component={White} offset={0} ids={[0, 2, 4, 5, 7, 9, 11]} />
     <Keys state={props.state} component={Black} offset={0} ids={[1, 3]} />
     <Keys state={props.state} component={Black} offset={3} ids={[6, 8, 10]} />

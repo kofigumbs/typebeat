@@ -34,7 +34,7 @@ const Fader = props => {
 };
 
 export const Visual = props => (
-  <svg xmlns="http://www.w3.org/2000/svg">
+  <svg xmlns='http://www.w3.org/2000/svg'>
     <For each={['reverb', 'echo', 'drive']}>
       {(effect, i) => <Fader effect={effect} i={i()} {...props} />}
     </For>

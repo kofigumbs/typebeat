@@ -69,11 +69,10 @@ const Key = props => (
 );
 
 const Mode = props => {
-  const mode = modes.get(props.cap);
-  const Visual = mode.Visual || (() => '');
+  const { name, Visual } = modes.get(props.cap);
   return (
     <Key className='mode' classList={{ active: props.cap === props.state.modifier }} {...props}>
-      <div className='label' innerHTML={Tare.html(mode.name)} />
+      <div className='label' innerHTML={Tare.html(name)} />
       <div className='visual'>
         <Show when={props.state.song}>
           <Visual state={props.state} />

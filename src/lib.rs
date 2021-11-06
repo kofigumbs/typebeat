@@ -179,7 +179,7 @@ impl Host for Track {
             ],
         );
         visitor.visit("muted", false, &[Bind::Toggle]);
-        visitor.visit("octave", 4, &[Bind::Min(2), Bind::Max(8)]);
+        visitor.visit("octave", 4, &[Bind::Min(2), Bind::Max(8), Bind::Step(2)]);
         visitor.visit("pageStart", 0, &[Bind::Temp]);
         visitor.visit("recent", 0, &[Bind::Temp]);
         visitor.visit("resolution", 16, &[Bind::Min(1), Bind::Max(MAX_RESOLUTION)]);

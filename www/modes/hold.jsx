@@ -33,8 +33,8 @@ export const Visual = props => {
     `;
   });
   return (
-    <svg xmlns="http://www.w3.org/2000/svg">
-      <path d={commands()} stroke-width="2"></path>
+    <svg xmlns='http://www.w3.org/2000/svg'>
+      <path d={commands()} stroke-width='2'></path>
     </svg>
   );
 };

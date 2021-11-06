@@ -10,8 +10,8 @@ export const Visual = props => {
     .map((_, i, a) => `l 1 ${Math.cos(i/a.length*2*Math.PI)}`)
     .join('');
   return (
-    <svg xmlns="http://www.w3.org/2000/svg">
-      <path d={`M 23 23 ${ls}`} stroke-width="2"></path>
+    <svg xmlns='http://www.w3.org/2000/svg'>
+      <path d={`M 23 23 ${ls}`} stroke-width='2'></path>
     </svg>
   );
 };

@@ -33,3 +33,8 @@ export const actions = Actions.combine(
   Actions.cap(',', { label: view(2), onDown: state => state.send('sequence', 2) }),
   Actions.cap('.', { label: view(3), onDown: state => state.send('sequence', 3) }),
 );
+
+export const Visual = props => (
+  <svg xmlns='http://www.w3.org/2000/svg'>
+  </svg>
+);

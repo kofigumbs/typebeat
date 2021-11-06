@@ -52,7 +52,7 @@ const Path = props => {
 };
 
 export const Visual = props => (
-  <svg xmlns="http://www.w3.org/2000/svg">
+  <svg xmlns='http://www.w3.org/2000/svg'>
     <For each={[1, 2, 3]}>{osc => <Path osc={osc} {...props} />}</For>
   </svg>
 );

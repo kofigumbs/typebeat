@@ -33,7 +33,7 @@ const Rect = props => {
 };
 
 export const Visual = props => (
-  <svg xmlns="http://www.w3.org/2000/svg">
+  <svg xmlns='http://www.w3.org/2000/svg'>
     <Rect i={0} {...props} />
     <Rect i={1} {...props} />
     <Rect i={2} {...props} />
