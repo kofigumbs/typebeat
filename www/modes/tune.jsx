@@ -14,9 +14,9 @@ export const actions = Actions.combine(
 );
 
 const Octave = props => {
+  const h = 12;
   const x = props.i*14;
   const y = 40*(1-props.i/7);
-  const h = 12;
   return (
     <>
       <path d={`M ${x} ${y} h ${h}`} stroke-width='2' />

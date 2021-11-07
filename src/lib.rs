@@ -381,7 +381,6 @@ struct Song {
     gate_index: ParamIndex,
     state: State<Song>,
     tracks: [Track; TRACK_COUNT],
-    step: AtomicCell<usize>,
     frames_since_last_step: AtomicCell<usize>,
 }
 
@@ -395,6 +394,7 @@ impl Host for Song {
         visitor.visit("recording", false, &[Bind::Temp, Bind::Toggle]);
         visitor.visit("root", 0, &[Bind::Min(-12), Bind::Max(12), Bind::Step(7)]);
         visitor.visit("scale", 0, &[Bind::Max(SCALE_OFFSETS.len() - 1)]);
+        visitor.visit("step", 0, &[Bind::Temp]);
         visitor.visit("tempo", 120, &[Bind::Max(999), Bind::Step(10)]);
     }
 }
@@ -591,7 +591,7 @@ struct Audio {
 impl Audio {
     fn key_down(&mut self, song: &Song, track_id: usize, key: usize) {
         let track = &song.tracks[track_id];
-        let song_step = song.step.load();
+        let song_step = song.state.get::<usize>("step");
         if song.state.get::<bool>("playing") && song.state.get("recording") {
             let quantized_step = song.quantized_step(song_step, track.state.get("resolution"));
             let step = &track.sequence[quantized_step % track.state.get::<usize>("length")];
@@ -611,7 +611,7 @@ impl Audio {
             let step = &track.sequence[quantized_step % track.state.get::<usize>("length")];
             step.keys[key]
                 .value
-                .store((song.step.load() - last_played) as i32);
+                .store((song.state.get::<usize>("step") - last_played) as i32);
         }
         self.release(track_id, key);
     }
@@ -641,7 +641,7 @@ impl Audio {
 
     fn toggle_play(&mut self, song: &Song) {
         song.state.toggle("playing");
-        song.step.store(0);
+        song.state.set("step", 0);
         song.frames_since_last_step.store(0);
         if !song.state.get::<bool>("playing") {
             self.voices.iter_mut().for_each(|voice| voice.gate = 0);
@@ -682,7 +682,7 @@ impl Audio {
             if song.state.get::<bool>("playing") && song.frames_since_last_step.load() == 0 {
                 for (track_id, track) in song.tracks.iter().enumerate() {
                     let length = song.tracks[track_id].state.get::<usize>("length");
-                    let song_step = song.step.load();
+                    let song_step = song.state.get::<usize>("step");
                     let step = &track.sequence[song_step % length];
                     for (key, change) in step.keys.iter().enumerate() {
                         // Check if key should be released per its sequenced duration
@@ -708,7 +708,7 @@ impl Audio {
                 song.frames_since_last_step.store(next_step);
                 if next_step as f32 >= song.step_duration(MAX_RESOLUTION) {
                     song.frames_since_last_step.store(0);
-                    song.step.store(song.step.load() + 1);
+                    song.state.add("step", 1);
                 }
             }
 
@@ -764,7 +764,7 @@ impl Audio {
         }
 
         // Remember when this was played to for note length sequencer calculation
-        track.last_played[key].store(song.step.load());
+        track.last_played[key].store(song.state.get::<usize>("step"));
 
         // Inform UI
         track.state.add("recent", 1);
