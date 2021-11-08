@@ -1,5 +1,6 @@
 #![feature(array_methods)]
 #![feature(bool_to_option)]
+#![feature(entry_insert)]
 #![feature(format_args_capture)]
 
 use std::error::Error;
@@ -11,13 +12,14 @@ use default_boxed::DefaultBoxed;
 use miniaudio::{
     Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
 };
+use num_traits::AsPrimitive;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex, UI};
 pub use state::Strategy;
-use state::{Bind, Host, Param, State, Visitor};
+use state::{Host, Param, State, Visitor};
 
 mod atomic_cell;
 mod effects;
@@ -95,8 +97,8 @@ impl<T: 'static + Send + Sync + FaustDsp<T = f32>> From<(&'static str, DspBox<T>
     }
 }
 
-#[derive(PartialEq, Deserialize_repr, Serialize_repr)]
-#[repr(usize)]
+#[derive(Clone, Copy, PartialEq, Deserialize_repr, Serialize_repr)]
+#[repr(i32)]
 pub enum SampleType {
     File,
     Live,
@@ -104,7 +106,18 @@ pub enum SampleType {
     LivePlay,
 }
 
-impl Param for SampleType {}
+impl From<usize> for SampleType {
+    fn from(value: usize) -> Self {
+        let all = [Self::File, Self::Live, Self::LiveRecord, Self::LivePlay];
+        all[value.min(all.len() - 1)]
+    }
+}
+
+impl AsPrimitive<i32> for SampleType {
+    fn as_(self) -> i32 {
+        self as i32
+    }
+}
 
 impl SampleType {
     fn thru(self) -> bool {
@@ -129,7 +142,7 @@ struct Step {
     keys: [Event; KEY_COUNT as usize],
 }
 
-#[derive(Deserialize_repr, Serialize_repr)]
+#[derive(Clone, Copy, Deserialize_repr, Serialize_repr)]
 #[repr(usize)]
 pub enum View {
     OutOfBounds,
@@ -138,7 +151,11 @@ pub enum View {
     ContainsSteps,
 }
 
-impl Param for View {}
+impl AsPrimitive<i32> for View {
+    fn as_(self) -> i32 {
+        self as i32
+    }
+}
 
 struct Track {
     state: State<Track>,
@@ -167,33 +184,31 @@ impl Default for Track {
 impl Host for Track {
     fn host<V: Visitor>(visitor: &mut V) {
         effects::insert::host(visitor);
-        visitor.visit("activeKey", 12, &[Bind::Max(TRACK_COUNT - 1)]);
-        visitor.visit("bars", 1, &[Bind::Temp]);
-        visitor.visit("canClear", false, &[Bind::Temp]);
+        visitor.visit("activeKey", Param::new(12).max(TRACK_COUNT - 1));
+        visitor.visit("bars", Param::new(1).temp());
+        visitor.visit("canClear", Param::new(false).temp());
         visitor.visit(
             "length",
-            MAX_RESOLUTION,
-            &[
-                Bind::Min(MAX_RESOLUTION as i32),
-                Bind::Max(MAX_RESOLUTION * 8),
-            ],
+            Param::new(MAX_RESOLUTION)
+                .min(MAX_RESOLUTION)
+                .max(MAX_RESOLUTION * 8),
         );
-        visitor.visit("muted", false, &[Bind::Toggle]);
-        visitor.visit("octave", 4, &[Bind::Min(2), Bind::Max(8), Bind::Step(2)]);
-        visitor.visit("pageStart", 0, &[Bind::Temp]);
-        visitor.visit("recent", 0, &[Bind::Temp]);
-        visitor.visit("resolution", 16, &[Bind::Min(1), Bind::Max(MAX_RESOLUTION)]);
-        visitor.visit("useKey", true, &[Bind::Toggle]);
-        visitor.visit("viewStart", 0, &[Bind::Temp]);
-        for name in NOTE.iter().chain(VIEW.iter()).chain(WAVEFORM.iter()) {
-            visitor.visit(name, 0, &[Bind::Temp]);
-        }
+        visitor.visit("muted", Param::new(false).toggle());
+        visitor.visit("octave", Param::new(4).min(2).max(8).step(2));
+        visitor.visit("pageStart", Param::new(0).temp());
+        visitor.visit("recent", Param::new(0).temp());
+        visitor.visit("resolution", Param::new(16).min(1).max(MAX_RESOLUTION));
+        visitor.visit("usingKey", Param::new(true).toggle());
+        visitor.visit("viewStart", Param::new(0).temp());
+        visitor.visit_each(&NOTE, Param::new(0).temp());
+        visitor.visit_each(&VIEW, Param::new(0).temp());
+        visitor.visit_each(&WAVEFORM, Param::new(0).temp());
     }
 }
 
 impl Track {
     fn sample_type(&self) -> SampleType {
-        self.state.get::<SampleType>("sampleType")
+        self.state.get::<usize>("sampleType").into()
     }
 
     fn bars(&self) -> usize {
@@ -389,13 +404,13 @@ impl Host for Song {
         effects::reverb::host(visitor);
         effects::echo::host(visitor);
         effects::drive::host(visitor);
-        visitor.visit("activeTrack", 0, &[Bind::Max(TRACK_COUNT - 1), Bind::Temp]);
-        visitor.visit("playing", false, &[Bind::Temp]);
-        visitor.visit("recording", false, &[Bind::Temp, Bind::Toggle]);
-        visitor.visit("root", 0, &[Bind::Min(-12), Bind::Max(12), Bind::Step(7)]);
-        visitor.visit("scale", 0, &[Bind::Max(SCALE_OFFSETS.len() - 1)]);
-        visitor.visit("step", 0, &[Bind::Temp]);
-        visitor.visit("tempo", 120, &[Bind::Max(999), Bind::Step(10)]);
+        visitor.visit("activeTrack", Param::new(0).max(TRACK_COUNT - 1).temp());
+        visitor.visit("playing", Param::new(false).temp());
+        visitor.visit("recording", Param::new(false).toggle().temp());
+        visitor.visit("root", Param::new(0).min(-12).max(12).step(7));
+        visitor.visit("scale", Param::new(0).max(SCALE_OFFSETS.len() - 1));
+        visitor.visit("step", Param::new(0).temp());
+        visitor.visit("tempo", Param::new(120).max(999).step(10));
     }
 }
 
@@ -414,7 +429,7 @@ impl Song {
     fn note(&self, track: &Track, key: usize) -> i32 {
         let note_id = key % SCALE_LENGTH;
         (track.state.get::<usize>("octave") + key / 7) as i32 * 12
-            + if track.state.get("useKey") {
+            + if track.state.is("usingKey") {
                 SCALE_OFFSETS[self.state.get::<usize>("scale")][note_id]
                     + self.state.get::<i32>("root")
             } else {
@@ -592,7 +607,7 @@ impl Audio {
     fn key_down(&mut self, song: &Song, track_id: usize, key: usize) {
         let track = &song.tracks[track_id];
         let song_step = song.state.get::<usize>("step");
-        if song.state.get::<bool>("playing") && song.state.get("recording") {
+        if song.state.is("playing") && song.state.is("recording") {
             let quantized_step = song.quantized_step(song_step, track.state.get("resolution"));
             let step = &track.sequence[quantized_step % track.state.get::<usize>("length")];
             let change = &step.keys[key];
@@ -605,7 +620,7 @@ impl Audio {
 
     fn key_up(&mut self, song: &Song, track_id: usize, key: usize) {
         let track = &song.tracks[track_id];
-        if song.state.get::<bool>("playing") && song.state.get("recording") {
+        if song.state.is("playing") && song.state.is("recording") {
             let last_played = track.last_played[key].load();
             let quantized_step = song.quantized_step(last_played, track.state.get("resolution"));
             let step = &track.sequence[quantized_step % track.state.get::<usize>("length")];
@@ -618,18 +633,17 @@ impl Audio {
 
     fn set_sample_type(&mut self, song: &Song, value: usize) {
         let track = song.active_track();
-        let old = track.sample_type();
-        let new = SampleType::transcode(value);
-        if new == SampleType::LiveRecord {
+        let sample_type = SampleType::from(value);
+        if sample_type == SampleType::LiveRecord {
             track.live_length.store(0);
         }
-        if old != new {
-            song.active_track().state.set("sampleType", value as i32);
-            for voice in self.each_voice_for(song.state.get::<usize>("activeTrack")) {
+        if sample_type != track.sample_type() {
+            song.active_track().state.set("sampleType", sample_type);
+            for voice in self.each_voice_for(song.state.get("activeTrack")) {
                 voice.gate = 0;
                 voice.track_id = None;
             }
-            if new.thru() {
+            if sample_type.thru() {
                 self.allocate(
                     song,
                     song.state.get("activeTrack"),
@@ -643,7 +657,7 @@ impl Audio {
         song.state.toggle("playing");
         song.state.set("step", 0);
         song.frames_since_last_step.store(0);
-        if !song.state.get::<bool>("playing") {
+        if !song.state.is("playing") {
             self.voices.iter_mut().for_each(|voice| voice.gate = 0);
         }
     }
@@ -679,7 +693,7 @@ impl Audio {
         // Read input frames and calculate output frames
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
             // If this is a new step, then replay any sequenced events
-            if song.state.get::<bool>("playing") && song.frames_since_last_step.load() == 0 {
+            if song.state.is("playing") && song.frames_since_last_step.load() == 0 {
                 for (track_id, track) in song.tracks.iter().enumerate() {
                     let length = song.tracks[track_id].state.get::<usize>("length");
                     let song_step = song.state.get::<usize>("step");
@@ -695,7 +709,7 @@ impl Audio {
                         // Check if key should be played
                         if change.skip_next.load() {
                             change.skip_next.store(false);
-                        } else if change.active.load() && !track.state.get::<bool>("muted") {
+                        } else if change.active.load() && !track.state.is("muted") {
                             self.allocate(song, track_id, key);
                         }
                     }
@@ -703,7 +717,7 @@ impl Audio {
             }
 
             // Advance song step
-            if song.state.get::<bool>("playing") {
+            if song.state.is("playing") {
                 let next_step = song.frames_since_last_step.load() + 1;
                 song.frames_since_last_step.store(next_step);
                 if next_step as f32 >= song.step_duration(MAX_RESOLUTION) {
@@ -821,7 +835,7 @@ impl Controller {
         let callback = match method {
             "activeTrack" => Task::WithUsize(|audio, song, i| {
                 song.state.set("activeTrack", i);
-                if !song.state.get::<bool>("playing") {
+                if !song.state.is("playing") {
                     let id = song.state.get("activeTrack");
                     audio.key_down(song, id, song.tracks[id].state.get("activeKey"));
                 }

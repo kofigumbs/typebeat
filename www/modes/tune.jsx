@@ -9,7 +9,7 @@ export const actions = Actions.combine(
   Actions.cap('N', {
     label: () => 'use key',
     title: state => state.activeTrack.useKey,
-    onDown: state => state.send('useKey', 0),
+    onDown: state => state.send('usingKey', 0),
   }),
 );
 
