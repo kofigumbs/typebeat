@@ -19,7 +19,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex, UI};
 pub use state::Strategy;
-use state::{Host, Param, State, Visitor};
+use state::{Host, Param, State};
 
 mod atomic_cell;
 mod effects;
@@ -28,8 +28,8 @@ mod state;
 const SEND_COUNT: usize = 3;
 const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
 
-const MAX_RESOLUTION: usize = 512;
-const MAX_LENGTH: usize = MAX_RESOLUTION * 8;
+const MAX_RES: usize = 512;
+const MAX_LENGTH: usize = MAX_RES * 8;
 const VIEWS_PER_PAGE: usize = 4;
 
 const KEY_COUNT: i32 = 15;
@@ -182,27 +182,24 @@ impl Default for Track {
 }
 
 impl Host for Track {
-    fn host<V: Visitor>(visitor: &mut V) {
-        effects::insert::host(visitor);
-        visitor.visit("activeKey", Param::new(12).max(TRACK_COUNT - 1));
-        visitor.visit("bars", Param::new(1).temp());
-        visitor.visit("canClear", Param::new(false).temp());
-        visitor.visit(
-            "length",
-            Param::new(MAX_RESOLUTION)
-                .min(MAX_RESOLUTION)
-                .max(MAX_RESOLUTION * 8),
-        );
-        visitor.visit("muted", Param::new(false).toggle());
-        visitor.visit("octave", Param::new(4).min(2).max(8).step(2));
-        visitor.visit("pageStart", Param::new(0).temp());
-        visitor.visit("recent", Param::new(0).temp());
-        visitor.visit("resolution", Param::new(16).min(1).max(MAX_RESOLUTION));
-        visitor.visit("usingKey", Param::new(true).toggle());
-        visitor.visit("viewStart", Param::new(0).temp());
-        visitor.visit_each(&NOTE, Param::new(0).temp());
-        visitor.visit_each(&VIEW, Param::new(0).temp());
-        visitor.visit_each(&WAVEFORM, Param::new(0).temp());
+    fn for_each_param<F: FnMut(&'static str, &Param)>(f: &mut F) {
+        effects::insert::for_each_param(f);
+        f("activeKey", Param::new(12).max(TRACK_COUNT - 1));
+        f("bars", Param::new(1).temp());
+        f("canClear", Param::new(false).temp());
+        f("length", Param::new(MAX_RES).min(MAX_RES).max(MAX_RES * 8));
+        f("muted", Param::new(false).toggle());
+        f("octave", Param::new(4).min(2).max(8).step(2));
+        f("pageStart", Param::new(0).temp());
+        f("recent", Param::new(0).temp());
+        f("resolution", Param::new(16).min(1).max(MAX_RES));
+        f("usingKey", Param::new(true).toggle());
+        f("viewStart", Param::new(0).temp());
+        NOTE.iter().for_each(|name| f(name, Param::new(0).temp()));
+        VIEW.iter().for_each(|name| f(name, Param::new(0).temp()));
+        WAVEFORM
+            .iter()
+            .for_each(|name| f(name, Param::new(0).temp()));
     }
 }
 
@@ -212,7 +209,7 @@ impl Track {
     }
 
     fn bars(&self) -> usize {
-        self.state.get::<usize>("length") / MAX_RESOLUTION
+        self.state.get::<usize>("length") / MAX_RES
     }
 
     fn view_start(&self) -> usize {
@@ -220,7 +217,7 @@ impl Track {
     }
 
     fn view_length(&self) -> usize {
-        MAX_RESOLUTION / self.state.get::<usize>("resolution")
+        MAX_RES / self.state.get::<usize>("resolution")
     }
 
     fn view_from(&self, start: usize) -> View {
@@ -266,7 +263,7 @@ impl Track {
     }
 
     fn zoom_in(&self) {
-        if self.state.get::<usize>("resolution") < MAX_RESOLUTION {
+        if self.state.get::<usize>("resolution") < MAX_RES {
             self.state
                 .set("resolution", self.state.get::<usize>("resolution") * 2);
         }
@@ -286,7 +283,7 @@ impl Track {
     fn adjust_length(&self, diff: i32) {
         self.state.set(
             "length",
-            Track::adjust(self.state.get("length"), diff, MAX_RESOLUTION),
+            Track::adjust(self.state.get("length"), diff, MAX_RES),
         );
     }
 
@@ -400,17 +397,17 @@ struct Song {
 }
 
 impl Host for Song {
-    fn host<V: Visitor>(visitor: &mut V) {
-        effects::reverb::host(visitor);
-        effects::echo::host(visitor);
-        effects::drive::host(visitor);
-        visitor.visit("activeTrack", Param::new(0).max(TRACK_COUNT - 1).temp());
-        visitor.visit("playing", Param::new(false).temp());
-        visitor.visit("recording", Param::new(false).toggle().temp());
-        visitor.visit("root", Param::new(0).min(-12).max(12).step(7));
-        visitor.visit("scale", Param::new(0).max(SCALE_OFFSETS.len() - 1));
-        visitor.visit("step", Param::new(0).temp());
-        visitor.visit("tempo", Param::new(120).max(999).step(10));
+    fn for_each_param<F: FnMut(&'static str, &Param)>(f: &mut F) {
+        effects::reverb::for_each_param(f);
+        effects::echo::for_each_param(f);
+        effects::drive::for_each_param(f);
+        f("activeTrack", Param::new(0).max(TRACK_COUNT - 1).temp());
+        f("playing", Param::new(false).temp());
+        f("recording", Param::new(false).toggle().temp());
+        f("root", Param::new(0).min(-12).max(12).step(7));
+        f("scale", Param::new(0).max(SCALE_OFFSETS.len() - 1));
+        f("step", Param::new(0).temp());
+        f("tempo", Param::new(120).max(999).step(10));
     }
 }
 
@@ -438,9 +435,9 @@ impl Song {
     }
 
     fn quantized_step(&self, step: usize, resolution: usize) -> usize {
-        let scale = MAX_RESOLUTION / resolution;
+        let scale = MAX_RES / resolution;
         let scaled_step = step / scale * scale;
-        let snap_to_next = (step - scaled_step) as f32 * self.step_duration(MAX_RESOLUTION)
+        let snap_to_next = (step - scaled_step) as f32 * self.step_duration(MAX_RES)
             + self.frames_since_last_step.load() as f32
             > self.step_duration(resolution) / 2.;
         scaled_step + scale * (snap_to_next as usize)
@@ -720,7 +717,7 @@ impl Audio {
             if song.state.is("playing") {
                 let next_step = song.frames_since_last_step.load() + 1;
                 song.frames_since_last_step.store(next_step);
-                if next_step as f32 >= song.step_duration(MAX_RESOLUTION) {
+                if next_step as f32 >= song.step_duration(MAX_RES) {
                     song.frames_since_last_step.store(0);
                     song.state.add("step", 1);
                 }

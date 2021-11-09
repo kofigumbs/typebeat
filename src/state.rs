@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 
 use num_traits::AsPrimitive;
 use serde::Serialize;
-use serde_json::Value;
 
 use crate::atomic_cell::AtomicCell;
 use crate::effects::{FaustDsp, ParamIndex, UI};
@@ -59,27 +58,19 @@ impl Param {
     }
 }
 
-pub trait Visitor {
-    fn visit(&mut self, name: &'static str, param: &Param);
-
-    fn visit_each(&mut self, names: &'static [String], param: &Param) {
-        names.iter().for_each(|name| self.visit(name, param));
-    }
-}
-
-impl<V: Visitor, P: AsPrimitive<i32>> UI<P> for V {
-    fn add_num_entry(&mut self, label: &'static str, _: ParamIndex, n: P, min: P, max: P, step: P) {
-        self.visit(label, Param::new(n).min(min).max(max).step(step));
-    }
-}
-
 pub trait Host {
-    fn host<V: Visitor>(visitor: &mut V);
+    fn for_each_param<F: FnMut(&'static str, &Param)>(f: &mut F);
 }
 
-impl<T: FaustDsp<T = f32>> Host for T {
-    fn host<V: Visitor>(visitor: &mut V) {
-        Self::build_user_interface_static(visitor);
+impl<H: FaustDsp<T = f32>> Host for H {
+    fn for_each_param<F: FnMut(&'static str, &Param)>(f: &mut F) {
+        struct ForEachEntry<F>(F);
+        impl<F: FnMut(&'static str, &Param), P: AsPrimitive<i32>> UI<P> for ForEachEntry<F> {
+            fn add_num_entry(&mut self, l: &'static str, _: ParamIndex, n: P, mi: P, ma: P, st: P) {
+                self.0(l, Param::new(n).min(mi).max(ma).step(st));
+            }
+        }
+        H::build_user_interface_static(&mut ForEachEntry(f));
     }
 }
 
@@ -157,54 +148,42 @@ impl<H> State<H> {
 
 impl<H: Host> State<H> {
     pub fn save(&self, strategy: Strategy) -> impl Serialize {
-        struct Guest<'a, S>(&'a mut HashMap<&'static str, Value>, &'a State<S>, Strategy);
-        impl<'a, S: Host> Visitor for Guest<'a, S> {
-            fn visit(&mut self, name: &'static str, param: &Param) {
-                let value = self.1.get::<i32>(name);
-                match &self.2 {
-                    Strategy::Minimal if param.temp || value == param.default => None,
-                    Strategy::Minimal | Strategy::Dump => self.0.insert(name, value.into()),
-                };
-            }
-        }
-        let mut slots = HashMap::default();
-        H::host(&mut Guest(&mut slots, self, strategy));
+        let mut slots = HashMap::<&'static str, i32>::default();
+        H::for_each_param(&mut |name, param| {
+            let value = self.get::<i32>(name);
+            match &strategy {
+                Strategy::Minimal if param.temp || value == param.default => None,
+                Strategy::Minimal | Strategy::Dump => slots.insert(name, value.into()),
+            };
+        });
         slots
     }
 
-    pub fn for_each_change<F: FnMut(&'static str, i32)>(&self, f: F) {
-        struct Guest<'a, F, S>(F, &'a S);
-        impl<'a, F: FnMut(&'static str, i32), S> Visitor for Guest<'a, F, State<S>> {
-            fn visit(&mut self, name: &'static str, _: &Param) {
-                let slot = &self.1.slots[name];
-                if slot.changed.swap(false) {
-                    self.0(name, slot.value.load());
-                }
+    pub fn for_each_change<F: FnMut(&'static str, i32)>(&self, mut f: F) {
+        H::for_each_param(&mut |name, _param| {
+            let slot = &self.slots[name];
+            if slot.changed.swap(false) {
+                f(name, slot.value.load());
             }
-        }
-        H::host(&mut Guest(f, self));
+        });
     }
 }
 
 impl<H: Host> Default for State<H> {
     fn default() -> Self {
-        struct Guest<'a>(&'a mut HashMap<&'static str, Slot>);
-        impl<'a> Visitor for Guest<'a> {
-            fn visit(&mut self, name: &'static str, param: &Param) {
-                self.0.entry(name).insert(Slot {
-                    min: param.min,
-                    max: param.max,
-                    step: param.step,
-                    value: param.default.into(),
-                    changed: false.into(),
-                });
-            }
-        }
         let mut state = Self {
             slots: HashMap::default(),
             marker: PhantomData,
         };
-        H::host(&mut Guest(&mut state.slots));
+        H::for_each_param(&mut |name, param| {
+            state.slots.entry(name).insert(Slot {
+                min: param.min,
+                max: param.max,
+                step: param.step,
+                value: param.default.into(),
+                changed: false.into(),
+            });
+        });
         state
     }
 }
