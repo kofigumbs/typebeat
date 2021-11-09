@@ -2,6 +2,7 @@
 #![feature(bool_to_option)]
 #![feature(format_args_capture)]
 
+use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -13,6 +14,7 @@ use miniaudio::{
 };
 use num_traits::AsPrimitive;
 use serde::{Deserialize, Serialize, Serializer};
+use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
@@ -127,12 +129,24 @@ impl SampleType {
     }
 }
 
+#[derive(Clone, Copy, Deserialize, Serialize)]
+enum EventType {
+    Key(usize),
+}
+
 #[derive(Clone, Default, Deserialize, Serialize)]
 struct Event {
     value: AtomicCell<i32>,
     active: AtomicCell<bool>,
     #[serde(skip)]
     skip_next: AtomicCell<bool>,
+}
+
+impl Event {
+    fn set(&self, value: i32) {
+        self.value.store(value);
+        self.active.store(true);
+    }
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -227,8 +241,8 @@ impl Track {
         let mut last_active = 0;
         for i in start..(start + self.view_length()) {
             let step = &self.sequence[i];
-            let change = &step.keys[self.state.get::<usize>("activeKey")];
-            if change.active.load() {
+            let event = &step.keys[self.state.get::<usize>("activeKey")];
+            if event.active.load() {
                 active_count += 1;
                 last_active = i;
             }
@@ -291,11 +305,11 @@ impl Track {
         match self.view_from(start) {
             View::OutOfBounds => {}
             View::Empty | View::ExactlyOnStep => {
-                let change =
+                let event =
                     &self.sequence[start as usize].keys[self.state.get::<usize>("activeKey")];
-                change.active.toggle();
-                change.skip_next.store(false);
-                change.value.store(self.view_length() as i32);
+                event.active.toggle();
+                event.skip_next.store(false);
+                event.value.store(self.view_length() as i32);
             }
             View::ContainsSteps => {
                 for i in start..(start + self.view_length()) {
@@ -308,18 +322,19 @@ impl Track {
     }
 
     fn can_clear(&self) -> bool {
-        self.events().any(|change| change.active.load())
+        self.events().any(|(_, event)| event.active.load())
     }
 
     fn clear(&self) {
-        self.events().for_each(|change| change.active.store(false));
+        self.events()
+            .for_each(|(_, event)| event.active.store(false));
     }
 
-    fn events(&self) -> impl Iterator<Item = &Event> {
+    fn events(&self) -> impl Iterator<Item = (EventType, &Event)> {
         self.sequence
             .iter()
             .take(self.state.get("length"))
-            .flat_map(|step| step.keys.iter())
+            .flat_map(|step| (0..).map(EventType::Key).zip(step.keys.iter()))
     }
 
     fn live(&self) -> &[AtomicCell<f32>] {
@@ -386,6 +401,17 @@ impl Platform {
     }
 }
 
+struct FindButton<'a>(&'static str, &'a mut ParamIndex);
+
+impl<'a> UI<f32> for FindButton<'a> {
+    fn add_button(&mut self, label: &'static str, i: ParamIndex) {
+        if label == self.0 {
+            *self.1 = i;
+        }
+    }
+}
+
+
 #[derive(Default)]
 struct Song {
     note_index: ParamIndex,
@@ -411,11 +437,31 @@ impl Host for Song {
 }
 
 impl Song {
-    fn init(&mut self, platform: &Platform) {
-        for (i, track) in self.tracks.iter_mut().enumerate() {
+    fn new(platform: &Platform, json: &Value) -> Self {
+        let mut song = Song::default();
+        song.state.load(json);
+        for (i, track) in song.tracks.iter_mut().enumerate() {
+            let json = &json["tracks"][i];
+            track.state.load(json);
             track.file_sample = platform.read_sample(i).expect("track.file_sample");
+            if let Ok(live) = Vec::<[u8; 4]>::deserialize(&json["live"]) {
+                track.live_length.store(live.len());
+                for (atom, bytes) in track.live_sample.iter().zip(live.into_iter()) {
+                    atom.store(f32::from_le_bytes(bytes));
+                }
+            }
+            if let Ok(sequence) = Vec::<(usize, EventType, i32)>::deserialize(&json["sequence"]) {
+                for (i, event_type, value) in sequence {
+                    match event_type {
+                        EventType::Key(key) => track.sequence[i].keys[key].set(value),
+                    }
+                }
+            }
         }
-        self.update_derived();
+        effects::insert::build_user_interface_static(&mut FindButton("note", &mut song.note_index));
+        effects::insert::build_user_interface_static(&mut FindButton("gate", &mut song.gate_index));
+        song.update_derived();
+        song
     }
 
     fn active_track(&self) -> &Track {
@@ -606,9 +652,9 @@ impl Audio {
         if song.state.is("playing") && song.state.is("recording") {
             let quantized_step = song.quantized_step(song_step, track.state.get("resolution"));
             let step = &track.sequence[quantized_step % track.state.get::<usize>("length")];
-            let change = &step.keys[key];
-            change.active.store(true);
-            change.skip_next.store(quantized_step > song_step);
+            let event = &step.keys[key];
+            event.active.store(true);
+            event.skip_next.store(quantized_step > song_step);
         }
         track.state.set("activeKey", key);
         self.allocate(song, track_id, key);
@@ -694,7 +740,7 @@ impl Audio {
                     let length = song.tracks[track_id].state.get::<usize>("length");
                     let song_step = song.state.get::<usize>("step");
                     let step = &track.sequence[song_step % length];
-                    for (key, change) in step.keys.iter().enumerate() {
+                    for (key, event) in step.keys.iter().enumerate() {
                         // Check if key should be released per its sequenced duration
                         let duration = song_step - track.last_played[key].load();
                         let start_step = &track.sequence[track.last_played[key].load() % length];
@@ -703,9 +749,9 @@ impl Audio {
                         }
 
                         // Check if key should be played
-                        if change.skip_next.load() {
-                            change.skip_next.store(false);
-                        } else if change.active.load() && !track.state.is("muted") {
+                        if event.skip_next.load() {
+                            event.skip_next.store(false);
+                        } else if event.active.load() && !track.state.is("muted") {
                             self.allocate(song, track_id, key);
                         }
                     }
@@ -793,6 +839,12 @@ impl Audio {
     }
 }
 
+#[derive(Default, Serialize)]
+pub struct Save {
+    song: HashMap<&'static str, Value>,
+    tracks: [HashMap<&'static str, Value>; TRACK_COUNT],
+}
+
 #[derive(Clone)]
 pub struct Controller {
     device: Device,
@@ -810,21 +862,46 @@ impl Controller {
         let _ = self.device.start();
     }
 
-    pub fn dump(&self) -> impl Serialize {
-        #[derive(Serialize)]
-        pub struct Dump<S, T> {
-            song: S,
-            tracks: Vec<T>,
+    pub fn load(&self, json: Value) {
+        self.stop();
+        {
+            let mut song = self.song.write().expect("song");
+            let audio = self.audio.read().expect("audio");
+            let platform = audio.platform.lock().expect("platform");
+            *song = Song::new(&platform, &json);
         }
+        self.start();
+    }
+
+    pub fn save(&self, strategy: Strategy) -> impl Serialize {
         let song = self.song.read().expect("song");
-        Dump {
-            song: song.state.save(Strategy::Dump),
-            tracks: song
-                .tracks
-                .iter()
-                .map(|track| track.state.save(Strategy::Dump))
-                .collect(),
+        let mut save = Save::default();
+        song.state.save(strategy, &mut save.song);
+        for (song_track, save_track) in song.tracks.iter().zip(save.tracks.iter_mut()) {
+            if matches!(strategy, Strategy::File) {
+                save_track.insert(
+                    "live",
+                    song_track
+                        .live()
+                        .iter()
+                        .map(|atom| Vec::from(atom.load().to_le_bytes()))
+                        .collect(),
+                );
+                save_track.insert(
+                    "sequence",
+                    song_track
+                        .events()
+                        .enumerate()
+                        .filter(|(_, (_, event))| event.active.load())
+                        .map(|(i, (event_type, event))| {
+                            serde_json::to_value((i, event_type, &event.value)).expect("event")
+                        })
+                        .collect(),
+                );
+            }
+            song_track.state.save(strategy, save_track);
         }
+        save
     }
 
     pub fn send(&self, method: &str, data: i32) {
@@ -873,7 +950,7 @@ impl Controller {
     }
 }
 
-pub fn init(platform: Platform) -> Result<Controller, Box<dyn Error>> {
+pub fn init(platform: Platform, json: Value) -> Result<Controller, Box<dyn Error>> {
     let (sender, receiver) = std::sync::mpsc::channel();
     let voice_count = platform.voice_count;
     let audio = Audio {
@@ -898,20 +975,6 @@ pub fn init(platform: Platform) -> Result<Controller, Box<dyn Error>> {
         assert_eq!(dsp.get_num_outputs(), 2);
     }
 
-    let mut song = Song::default();
-    song.init(&audio.platform.lock().expect("platform"));
-
-    struct FindButton<'a>(&'static str, &'a mut ParamIndex);
-    impl<'a> UI<f32> for FindButton<'a> {
-        fn add_button(&mut self, label: &'static str, i: ParamIndex) {
-            if label == self.0 {
-                *self.1 = i;
-            }
-        }
-    }
-    effects::insert::build_user_interface_static(&mut FindButton("note", &mut song.note_index));
-    effects::insert::build_user_interface_static(&mut FindButton("gate", &mut song.gate_index));
-
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);
     device_config.capture_mut().set_channels(1);
     device_config.capture_mut().set_format(Format::F32);
@@ -919,7 +982,10 @@ pub fn init(platform: Platform) -> Result<Controller, Box<dyn Error>> {
     device_config.playback_mut().set_format(Format::F32);
     device_config.set_sample_rate(SAMPLE_RATE as u32);
 
-    let song = Arc::new(RwLock::new(song));
+    let song = Arc::new(RwLock::new(Song::new(
+        &audio.platform.lock().expect("platform"),
+        &json,
+    )));
     let audio = Arc::new(RwLock::new(audio));
     let controller_song = Arc::clone(&song);
     let controller_audio = Arc::clone(&audio);

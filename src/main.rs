@@ -1,14 +1,15 @@
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
+use serde_json::Value;
 use tauri::api::path::BaseDirectory;
 use tauri::{Builder, Event, Manager, Menu, MenuItem, State, Submenu};
 
-use typebeat::{Controller, Platform};
+use typebeat::{Controller, Platform, Strategy};
 
 #[tauri::command]
 fn dump(state: State<'_, Controller>) -> impl Serialize {
-    state.dump()
+    state.save(Strategy::Dump)
 }
 
 #[tauri::command]
@@ -27,11 +28,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "assets",
         Some(BaseDirectory::Resource),
     )?;
-    let controller = typebeat::init(Platform {
-        voice_count,
-        root,
-        sender,
-    })?;
+    let controller = typebeat::init(
+        Platform {
+            voice_count,
+            root,
+            sender,
+        },
+        Value::Null,
+    )?;
     controller.start();
 
     // Build Tauri app

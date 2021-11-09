@@ -5,8 +5,9 @@ use std::sync::mpsc::Receiver;
 use std::sync::Mutex;
 
 use serde::Serialize;
+use serde_json::Value;
 
-use typebeat::{Change, Controller, Platform};
+use typebeat::{Change, Controller, Platform, Strategy};
 
 struct App {
     controller: Controller,
@@ -17,9 +18,10 @@ lazy_static::lazy_static! {
     static ref APP: App = {
         let (sender, receiver) = std::sync::mpsc::channel();
         let root = PathBuf::from("/assets");
+        let save = Value::Null;
         App {
             receiver: Mutex::new(receiver),
-            controller: typebeat::init(Platform { voice_count: 4, sender, root }).expect("controller"),
+            controller: typebeat::init(Platform { voice_count: 4, sender, root }, save).expect("controller"),
         }
     };
 }
@@ -45,7 +47,7 @@ pub fn typebeat_stop() {
 
 #[no_mangle]
 pub fn typebeat_dump() -> *const c_char {
-    to_c_str_json(APP.controller.dump())
+    to_c_str_json(APP.controller.save(Strategy::Dump))
 }
 
 #[no_mangle]

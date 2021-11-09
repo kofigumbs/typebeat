@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use num_traits::AsPrimitive;
-use serde::Serialize;
+use serde_json::Value;
 
 use crate::atomic_cell::AtomicCell;
 use crate::effects::{FaustDsp, ParamIndex, UI};
@@ -82,9 +82,10 @@ struct Slot {
     changed: AtomicCell<bool>,
 }
 
+#[derive(Clone, Copy)]
 pub enum Strategy {
     Dump,
-    Minimal,
+    File,
 }
 
 pub struct State<T> {
@@ -147,16 +148,21 @@ impl<H> State<H> {
 }
 
 impl<H: Host> State<H> {
-    pub fn save(&self, strategy: Strategy) -> impl Serialize {
-        let mut slots = HashMap::<&'static str, i32>::default();
+    pub fn load(&self, value: &Value) {
+        H::for_each_param(&mut |name, param| match value[name].as_i64() {
+            Some(i) if param.temp => self.set(name, i),
+            _ => {}
+        });
+    }
+
+    pub fn save(&self, strategy: Strategy, output: &mut HashMap<&'static str, Value>) {
         H::for_each_param(&mut |name, param| {
             let value = self.get::<i32>(name);
-            match &strategy {
-                Strategy::Minimal if param.temp || value == param.default => None,
-                Strategy::Minimal | Strategy::Dump => slots.insert(name, value.into()),
+            match strategy {
+                Strategy::File if param.temp || value == param.default => None,
+                Strategy::File | Strategy::Dump => output.insert(name, value.into()),
             };
         });
-        slots
     }
 
     pub fn for_each_change<F: FnMut(&'static str, i32)>(&self, mut f: F) {
