@@ -176,13 +176,16 @@ impl<H: Host> Default for State<H> {
             marker: PhantomData,
         };
         H::for_each_param(&mut |name, param| {
-            state.slots.entry(name).insert(Slot {
-                min: param.min,
-                max: param.max,
-                step: param.step,
-                value: param.default.into(),
-                changed: false.into(),
-            });
+            state.slots.insert(
+                name,
+                Slot {
+                    min: param.min,
+                    max: param.max,
+                    step: param.step,
+                    value: param.default.into(),
+                    changed: false.into(),
+                },
+            );
         });
         state
     }

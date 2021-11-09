@@ -46,7 +46,7 @@ const handlePointerEvent = (cap, callback) => event => {
   callback(cap);
 };
 
-const createEventListener = (subject, type, callback) => {
+export const createEventListener = (subject, type, callback) => {
   subject.addEventListener(type, callback);
   onCleanup(() => subject.removeEventListener(type, callback));
 };
@@ -125,7 +125,7 @@ export default props => {
 
   props.dump.then(setState);
   props.onChange(change => setState(...change));
-
+  props.init?.(state);
   for (let mode of modes.values())
     mode.init?.(state);
 

@@ -15,12 +15,11 @@ struct App {
 
 lazy_static::lazy_static! {
     static ref APP: App = {
-        let voice_count = 4;
         let (sender, receiver) = std::sync::mpsc::channel();
         let root = PathBuf::from("/assets");
         App {
             receiver: Mutex::new(receiver),
-            controller: typebeat::init(Platform { voice_count, sender, root }).expect("controller"),
+            controller: typebeat::init(Platform { voice_count: 4, sender, root }).expect("controller"),
         }
     };
 }

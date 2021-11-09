@@ -135,7 +135,7 @@ input[type="reset"]::-moz-focus-inner {
   box-sizing: border-box;
 }
 
-.action .title {
+.title {
   border-bottom: solid 2px currentColor;
 }
 

@@ -4,19 +4,10 @@
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <title>Typebeat (ALPHA)</title>
   <link rel="icon" type="image/svg+xml" href="../../assets/icons/icon.svg">
-  <script type="module" src="./index.js"></script>
+  <script type="module">
+    import { render } from 'solid-js/web';
+    import App from './app.jsx';
+    render(App, document.body);
+  </script>
 </head>
-<body>
-  <div class="grow">
-    <header>
-      <h1>Typebeat</h1> - Make music using a familiar layout
-    </header>
-    <div class="mount labeled"></div>
-    <div class="guide"></div>
-  </div>
-  <div>
-    <p>
-      <button class="title toggle-labels">Hide keyboard labels</button>
-    </p>
-  </div>
-</body>
+<body></body>

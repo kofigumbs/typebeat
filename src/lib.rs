@@ -1,6 +1,5 @@
 #![feature(array_methods)]
 #![feature(bool_to_option)]
-#![feature(entry_insert)]
 #![feature(format_args_capture)]
 
 use std::error::Error;

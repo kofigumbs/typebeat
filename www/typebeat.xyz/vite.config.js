@@ -1,1 +1,1 @@
-../vite.config.js
+export { default } from '../vite.config.js';
