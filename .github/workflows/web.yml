@@ -3,38 +3,29 @@ on:
 
 env:
   EMSCRIPTEN_VERSION: 2.0.29
-  NETLIFY_CLI_VERSION: 6
-  NODE_VERSION: 16
-  NPM_VERSION: 7
-  WINDOWS_LLVM_VERSION: 12
-
-  # FIXME(https://github.com/vitejs/vite/issues/4162)
-  NODE_OPTIONS: '--max_old_space_size=6000'
+  FAUST_VERSION: 2.33.1
 
 jobs:
   main:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-      - uses: actions-rs/toolchain@v1
-        with: { profile: minimal, toolchain: nightly, override: true, target: wasm32-unknown-emscripten }
-      - uses: Swatinem/rust-cache@v1
-        with: { cache-on-failure: true }
+      - uses: ./.github/actions/setup
       - uses: kofigumbs/setup-emsdk@master # FIXME(https://github.com/mymindstorm/setup-emsdk/pull/22)
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
-          update-tags: true,
+          update-tags: true
           actions-cache-folder: emsdk-cache
-      - uses: kofigumbs/typebeat-faust@master
+      - run: git clone --recursive --depth 1 --branch ${{ env.FAUST_VERSION }} https://github.com/grame-cncm/faust ${{ runner.temp }}/faust
+      - uses: actions/cache@v2
+        with:
+          path: ${{ runner.temp }}/faust/build/bin
+          key: faust-${{ runner.os }}-${{ env.FAUST_VERSION }}
       - run: |-
-          npm install --global "npm@$NPM_VERSION" "netlify-cli@$NETLIFY_CLI_VERSION"
-          npm install
-          netlify build --offline
-      - run: netlify deploy --prod
+          make -C ${{ runner.temp }}/faust
+          echo ${{ runner.temp }}/faust/build/bin >> $GITHUB_PATH
+      - run: netlify deploy --build --prod
         env:
+          FAUST_LIB_PATH: ${{ runner.temp }}/faust/libraries
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

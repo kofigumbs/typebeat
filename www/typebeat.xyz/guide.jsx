@@ -2,7 +2,8 @@ export default [
   { until: { code: 'Space' }, content: (
     <>
       <p>
-        Press <button><kbd>SPACE</kbd></button> to start the guide.
+        Get the full app for <a download href="/download/macos/Typebeat_0.1.0_x64.dmg">macOS</a>,
+        or press <button><kbd>SPACE</kbd></button> to start the online guide.
       </p>
     </>
   )},

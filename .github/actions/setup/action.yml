@@ -1,0 +1,17 @@
+name: Setup build environment
+description: Setup Typebeat build environment
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v2
+      with:
+        node-version: 16
+        cache: npm
+    - uses: actions-rs/toolchain@v1
+      with: { profile: minimal, toolchain: nightly, override: true }
+    - uses: Swatinem/rust-cache@v1
+      with: { cache-on-failure: true }
+    - run: |-
+        npm install --global npm@7 netlify-cli@6
+        npm install
+      shell: bash

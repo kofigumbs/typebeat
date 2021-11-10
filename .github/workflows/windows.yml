@@ -2,33 +2,20 @@ on:
   workflow_dispatch: {}
 
 env:
-  NETLIFY_CLI_VERSION: 6
-  NODE_VERSION: 16
-  NPM_VERSION: 7
+  FAUST_VERSION: 2.33.1
   TAURI_CLI_VERSION: 34509028627aa44c02ec38bf6c45e797c8ccfc69
-
-  # FIXME(https://github.com/vitejs/vite/issues/4162)
-  NODE_OPTIONS: '--max_old_space_size=6000'
 
 jobs:
   main:
-    runs-on: windows-2019
+    runs-on: macos-11
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-      - uses: actions-rs/toolchain@v1
-        with: { profile: minimal, toolchain: nightly, override: true }
-      - uses: Swatinem/rust-cache@v1
-        with: { cache-on-failure: true }
-      - uses: kofigumbs/typebeat-faust@master
+      - uses: ./.github/actions/setup
       - run: |-
-          npm install --global "npm@$NPM_VERSION" "netlify-cli@$NETLIFY_CLI_VERSION"
-          npm install
-          cargo install --git https://github.com/tauri-apps/tauri --rev ${{ env.TAURI_CLI_VERSION }} tauri-cli
-          cargo tauri build --verbose
+          Invoke-WebRequest https://github.com/grame-cncm/faust/releases/download/${{ env.FAUST_VERSION }}/Faust-${{ env.FAUST_VERSION }}-win64.exe -OutFile ${{ runner.temp }}/faust.exe
+          echo ${{ runner.temp }} | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - run: cargo install --git https://github.com/tauri-apps/tauri --rev ${{ env.TAURI_CLI_VERSION }} tauri-cli
+      - run: cargo tauri build
       - run: netlify deploy --alias windows --dir target/release/bundle/msi
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
