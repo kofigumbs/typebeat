@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         std::fs::write(&rust, dsp.replace(&ident, &with_derive))?;
         println!("cargo:rerun-if-changed={}", path.display());
     }
-    #[cfg(not(feature = "netlify"))]
+    #[cfg(not(target_arch = "wasm32"))]
     tauri_build::build();
     Ok(())
 }
