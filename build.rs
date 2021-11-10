@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let out = std::env::var("OUT_DIR")?;
@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut command = Command::new("faust");
         command.args(&["-lang", "rust", "-json", "--output-dir", &out]);
         command.arg("--class-name").arg(&stem).arg(&path);
+        command.stderr(Stdio::inherit());
         let dsp = String::from_utf8(command.output()?.stdout)?;
         let ident = format!("pub struct {} {{", stem.to_string_lossy());
         let with_derive = format!("#[derive(Clone, default_boxed::DefaultBoxed)]\n{}", ident);
