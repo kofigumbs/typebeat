@@ -6,46 +6,13 @@ env:
   NETLIFY_CLI_VERSION: 6
   NODE_VERSION: 16
   NPM_VERSION: 7
-  TAURI_CLI_VERSION: 34509028627aa44c02ec38bf6c45e797c8ccfc69
   WINDOWS_LLVM_VERSION: 12
 
   # FIXME(https://github.com/vitejs/vite/issues/4162)
   NODE_OPTIONS: '--max_old_space_size=6000'
 
 jobs:
-  tauri:
-    strategy:
-      matrix:
-        include:
-          - { os: macos-11, bundle: dmg }
-          - { os: windows-2019, bundle: msi }
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-      - uses: actions-rs/toolchain@v1
-        with: { profile: minimal, toolchain: nightly, override: true }
-      - uses: Swatinem/rust-cache@v1
-        with: { cache-on-failure: true }
-      - if: runner.os == 'Windows'
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: ${{ env.WINDOWS_LLVM_VERSION }}
-      - uses: kofigumbs/typebeat-faust@master
-      - run: |-
-          npm install --global "npm@$NPM_VERSION" "netlify-cli@$NETLIFY_CLI_VERSION"
-          npm install
-          cargo install --git https://github.com/tauri-apps/tauri --rev $TAURI_CLI_VERSION tauri-cli
-          cargo tauri build
-      - run: netlify deploy --alias ${{ runner.os }} --dir target/release/bundle/${{ matrix.bundle }}
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-
-  web:
+  main:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
