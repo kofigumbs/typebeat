@@ -46,21 +46,21 @@ const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
 ];
 
 const DEFAULT_SAMPLES: &[&str] = &[
-    "KR-33 Kick1.wav",
-    "KR-33 Kick2.wav",
-    "KR-33 Tom-Lo.wav",
-    "KR-33 Tom-Mid.wav",
-    "KR-33 Tom-Hi.wav",
-    "KR-33 Snare1.wav",
-    "KR-33 Snare2.wav",
-    "KR-33 Hat-Cl1.wav",
-    "KR-33 Hat-Cl2.wav",
-    "KR-33 Hat-Op.wav",
-    "KR-33 Cow.wav",
-    "KR-33 Crash.wav",
-    "KR-33 Cymbal.wav",
-    "KR-33 Rim.wav",
-    "Tag.wav",
+    "kick.wav",
+    "kickme.wav",
+    "tom.wav",
+    "conga.wav",
+    "cabasa.wav",
+    "sd.wav",
+    "sst.wav",
+    "clap.wav",
+    "cowb.wav",
+    "tamb.wav",
+    "chhl.wav",
+    "chhs.wav",
+    "crash.wav",
+    "ride.wav",
+    "tag.wav",
 ];
 
 lazy_static::lazy_static! {
