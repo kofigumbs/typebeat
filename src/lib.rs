@@ -411,7 +411,6 @@ impl<'a> UI<f32> for FindButton<'a> {
     }
 }
 
-
 #[derive(Default)]
 struct Song {
     note_index: ParamIndex,

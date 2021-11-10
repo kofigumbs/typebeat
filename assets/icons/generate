@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-set -exo pipefail
-
-ICONS="`realpath $(dirname $0)`"
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --window-size=1240,1240 --default-background-color=00000000 --screenshot="$ICONS/out/icon.png" "file://$ICONS/icon.svg"
-npx @tauri-apps/cli icon --target "$ICONS/out" "$ICONS/out/icon.png"

@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = tauri::api::path::resolve_path(
         context.config(),
         context.package_info(),
-        "assets",
+        ".",
         Some(BaseDirectory::Resource),
     )?;
     let controller = typebeat::init(

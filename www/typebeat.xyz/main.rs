@@ -17,7 +17,7 @@ struct App {
 lazy_static::lazy_static! {
     static ref APP: App = {
         let (sender, receiver) = std::sync::mpsc::channel();
-        let root = PathBuf::from("/assets");
+        let root = PathBuf::from("/");
         let save = Value::Null;
         App {
             receiver: Mutex::new(receiver),

@@ -7,7 +7,7 @@ npx vite build www/typebeat.xyz
 publish = "www/typebeat.xyz/dist"
 
 [build.environment]
-EMMAKEN_CFLAGS = "-s ERROR_ON_UNDEFINED_SYMBOLS=0 -s ENVIRONMENT=web -s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=\"['ccall','_free','UTF8ToString']\" --embed-file assets/samples -gsource-map"
+EMMAKEN_CFLAGS = "-s ERROR_ON_UNDEFINED_SYMBOLS=0 -s ENVIRONMENT=web -s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=\"['ccall','_free','UTF8ToString']\" --embed-file samples -gsource-map"
 
 [[redirects]]
 from = "https://typebeat.netlify.app/*"
