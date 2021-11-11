@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onMount } from 'solid-js';
+import { createEffect, createMemo, createSignal, onMount } from 'solid-js';
 
 import wasm from '../../target/wasm32-unknown-emscripten/release/typebeat_dot_xyz.wasm?url';
 
@@ -55,20 +55,29 @@ const Guide = props => {
         return;
     setPage(i => i + 1);
   };
+
   createEffect(() => advance(props.lastTask));
   createEffect(() => advance({ modifier: props.modifier }));
   createEventListener(document, 'keypress', event => advance({ code: event.code }));
   let ref;
   onMount(() => ref.querySelector('button').addEventListener('click', () => advance({ code: 'Space' })));
+
   return (
-    <div class="guide" ref={ref}>
-      {guide[page()].content}
+    <div className='column expanded padded-horizontally' ref={ref}>
+      <div className='expanded'>
+        {guide[page()].content}
+      </div>
+      <div className='copy full-width'>
+        <button className='title' onClick={() => props.setLabeled(x => !x)}>
+          {props.labeled ? 'Hide' : 'Show'} labels
+        </button>
+      </div>
     </div>
   );
 };
 
 export default () => {
-  const [labeled, setLabled] = createSignal(true);
+  const [labeled, setLabeled] = createSignal(true);
   const [lastTask, setLastTask] = createSignal({});
   const [modifier, setModifier] = createSignal();
 
@@ -89,30 +98,26 @@ export default () => {
 
   return (
     <>
-      <div class="grow">
-        <header>
-          <h1>Typebeat</h1> - Make music using a familiar layout
-        </header>
-        <div classList={{ mount: true, labeled: labeled() }} ref={ref}>
-          <App
-            dump={lib.then(lib => lib.dump)}
-            init={(state) => createEffect(() => setModifier(state.modifier))}
-            send={(method, data) => {
-              lib.then(lib => lib.send(method, data));
-              setLastTask({ [method]: data });
-            }}
-            onChange={(callback) => lib.then(lib => lib.onChange(callback))}
-          />
-        </div>
-        <Guide modifier={modifier()} lastTask={lastTask()} />
+      <header className='copy full-width padded-horizontally'>
+        <h1>Typebeat</h1> - Make music using a familiar layout
+      </header>
+      <div ref={ref} className='mount' classList={{ labeled: labeled() }}>
+        <App
+          dump={lib.then(lib => lib.dump)}
+          init={(state) => createEffect(() => setModifier(state.modifier))}
+          send={(method, data) => {
+            lib.then(lib => lib.send(method, data));
+            setLastTask({ [method]: data });
+          }}
+          onChange={(callback) => lib.then(lib => lib.onChange(callback))}
+        />
       </div>
-      <div>
-        <p>
-          <button className="title" onClick={() => setLabled(x => !x)}>
-            {labeled() ? 'Hide' : 'Show'} keyboard labels
-          </button>
-        </p>
-      </div>
+      <Guide
+        modifier={modifier()}
+        lastTask={lastTask()}
+        labeled={labeled()}
+        setLabeled={setLabeled}
+      />
     </>
   );
 };

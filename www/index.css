@@ -15,7 +15,8 @@ html {
   --transition: .055s;
 }
 
-body, button {
+body,
+button {
   font-size: 16px;
   font-family: 'Fira Code', monospace;
   font-feature-settings: "ss07";
@@ -31,6 +32,7 @@ button {
   font-weight: inherit;
   line-height: inherit;
   box-sizing: content-box;
+  cursor: pointer;
 }
 
 button::-moz-focus-inner,

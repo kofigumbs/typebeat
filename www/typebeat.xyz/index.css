@@ -1,7 +1,6 @@
-body {
-  display: flex;
-  flex-direction: column;
-}
+/*
+ * built-ins
+ */
 
 h1 {
   font-size: 1rem;
@@ -9,33 +8,68 @@ h1 {
   display: inline;
 }
 
-header, p, ol, ul {
-  margin: 2.5rem auto;
-  padding: 0 1.5rem;
-  max-width: 42rem;
+p, ol, ul {
   line-height: 1.75;
-}
-
-ol, ul {
   list-style-position: inside;
 }
 
-.grow {
-  flex: 1;
+a, a:visited, a:active {
+  color: currentColor;
+  border-bottom: solid 2px currentColor;
+  text-decoration: none;
 }
+
+
+/*
+ * functional
+ */
+
+.column {
+  display: flex;
+  flex-direction: column;
+}
+
+.expanded {
+  flex-grow: 1;
+}
+
+.copy {
+  max-width: 42rem;
+  margin: 2.5rem auto;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.padded-horizontally {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+
+/*
+ * components
+ */
 
 .mount.labeled .key:after {
   content: attr(data-cap);
+  position: absolute;
+  left: -.65rem;
+  bottom: -.75rem;
+  z-index: 1;
+  transition: background .1s ease;
 }
 
+.kbd,
 .key:after {
-  position: absolute;
-  bottom: var(--offset);
-  left: var(--offset);
-  z-index: 1;
+  display: inline-block;
+  color: var(--dark);
   background: var(--key_background);
-  transition: background .1s ease;
-  --offset: -.75rem;
+  border: solid 2px var(--dark);
+  border-radius: 1rem;
+  padding: .125rem .65rem;
+  line-height: 1;
   --key_background: var(--light);
 }
 
@@ -45,25 +79,4 @@ ol, ul {
 
 .key.pulse:after {
   animation: pulse .5s ease-out;
-}
-
-kbd {
-  font-family: inherit;
-  font-style: normal;
-  background: var(--light);
-}
-
-.key:after, kbd {
-  display: inline-block;
-  color: var(--dark);
-  border: solid 2px var(--dark);
-  border-radius: 1rem;
-  padding: .125rem .75rem;
-  line-height: 1;
-}
-
-a, a:visited, a:active {
-  color: currentColor;
-  border-bottom: solid 2px currentColor;
-  text-decoration: none;
 }
