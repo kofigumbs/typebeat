@@ -99,7 +99,7 @@ export default () => {
             init={(state) => createEffect(() => setModifier(state.modifier))}
             send={(method, data) => {
               lib.then(lib => lib.send(method, data));
-              setLastTask({ method, data });
+              setLastTask({ [method]: data });
             }}
             onChange={(callback) => lib.then(lib => lib.onChange(callback))}
           />
