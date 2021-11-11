@@ -11,6 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup
+        with: { target: wasm32-unknown-emscripten }
       - uses: kofigumbs/setup-emsdk@master # FIXME(https://github.com/mymindstorm/setup-emsdk/pull/22)
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}

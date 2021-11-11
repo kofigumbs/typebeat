@@ -1,5 +1,9 @@
 name: Setup build environment
 description: Setup Typebeat build environment
+inputs:
+  target:
+    description: Rust target
+    required: false
 runs:
   using: composite
   steps:
@@ -8,7 +12,11 @@ runs:
         node-version: 16
         cache: npm
     - uses: actions-rs/toolchain@v1
-      with: { profile: minimal, toolchain: nightly, override: true }
+      with:
+        profile: minimal
+        toolchain: nightly
+        override: true
+        target: ${{ inputs.target }}
     - uses: Swatinem/rust-cache@v1
       with: { cache-on-failure: true }
     - run: |-
