@@ -47,6 +47,10 @@ a, a:visited, a:active {
   padding-right: 1.5rem;
 }
 
+.spaced-after {
+  margin-right: 1.5rem;
+}
+
 
 /*
  * components

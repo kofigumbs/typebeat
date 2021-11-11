@@ -47,6 +47,21 @@ const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-
     return { dump, send, onChange };
   });
 
+const GuidePage = props => {
+  const next = createMemo(() => props.page + props.step);
+  const disabled = createMemo(() => next() < 0 || next() >= guide.length);
+  return (
+    <button
+      className='spaced-after'
+      classList={{ title: !disabled() }}
+      disabled={disabled()}
+      onClick={() => props.setPage(next())}
+    >
+      {props.children}
+    </button>
+  );
+};
+
 const Guide = props => {
   const [page, setPage] = createSignal(0);
   const advance = event => {
@@ -68,6 +83,8 @@ const Guide = props => {
         {guide[page()].content}
       </div>
       <div className='copy full-width'>
+        <GuidePage page={page()} setPage={setPage} step={-1}>Back</GuidePage>
+        <GuidePage page={page()} setPage={setPage} step={1}>Next</GuidePage>
         <button className='title' onClick={() => props.setLabeled(x => !x)}>
           {props.labeled ? 'Hide' : 'Show'} labels
         </button>
