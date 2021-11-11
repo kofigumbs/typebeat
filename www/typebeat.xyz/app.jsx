@@ -71,13 +71,29 @@ export default () => {
   const [labeled, setLabled] = createSignal(true);
   const [lastTask, setLastTask] = createSignal({});
   const [modifier, setModifier] = createSignal();
+
+  let ref;
+  onMount(() => {
+    const rows = Array.from(ref.children);
+    const resize = () => {
+      const left = Math.min(...rows.map(el => el.offsetLeft));
+      const right = Math.max(...rows.map(el => el.offsetLeft + el.offsetWidth));
+      const scale = Math.min(1, ref.parentElement.offsetWidth / (right - left));
+      const margin = `${-.5 * ref.offsetHeight * (1 - scale)}px`;
+      ref.style.transform = `scale(${scale})`;
+      ref.style.marginTop = ref.style.marginBottom = margin;
+    };
+    resize();
+    createEventListener(window, 'resize', resize);
+  });
+
   return (
     <>
       <div class="grow">
         <header>
           <h1>Typebeat</h1> - Make music using a familiar layout
         </header>
-        <div classList={{ mount: true, labeled: labeled() }}>
+        <div classList={{ mount: true, labeled: labeled() }} ref={ref}>
           <App
             dump={lib.then(lib => lib.dump)}
             init={(state) => createEffect(() => setModifier(state.modifier))}

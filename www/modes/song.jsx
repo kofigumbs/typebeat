@@ -25,7 +25,7 @@ export const actions = Actions.tabbed(
       title: (state) => state.song.recording,
       onDown: (state) => state.send('recording', 0),
     }),
-    Actions.cap(',', {
+    Actions.cap('/', {
       label: () => 'tap',
       title: () => !!taps().length,
       onDown: (state) => {
