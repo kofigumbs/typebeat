@@ -150,7 +150,7 @@ impl<H> State<H> {
 impl<H: Host> State<H> {
     pub fn load(&self, value: &Value) {
         H::for_each_param(&mut |name, param| match value[name].as_i64() {
-            Some(i) if param.temp => self.set(name, i),
+            Some(i) if !param.temp => self.set(name, i),
             _ => {}
         });
     }

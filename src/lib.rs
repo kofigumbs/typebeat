@@ -129,23 +129,28 @@ impl SampleType {
     }
 }
 
-#[derive(Clone, Copy, Deserialize, Serialize)]
-enum EventType {
-    Key(usize),
-}
-
-#[derive(Clone, Default, Deserialize, Serialize)]
-struct Event {
-    value: AtomicCell<i32>,
+#[derive(Clone, Default)]
+struct Hit {
+    duration: AtomicCell<usize>,
     active: AtomicCell<bool>,
-    #[serde(skip)]
     skip_next: AtomicCell<bool>,
 }
 
-impl Event {
-    fn set(&self, value: i32) {
-        self.value.store(value);
-        self.active.store(true);
+#[derive(Deserialize, Serialize)]
+struct HitId<T> {
+    step: usize,
+    key: usize,
+    hit: T,
+}
+
+impl<'a> HitId<&'a Hit> {
+    fn to_value(HitId { step, key, hit }: Self) -> Option<Value> {
+        if !hit.active.load() {
+            None
+        } else {
+            let hit = hit.duration.load();
+            serde_json::to_value(HitId { step, key, hit }).ok()
+        }
     }
 }
 
@@ -169,7 +174,7 @@ struct Track {
     file_sample: Vec<f32>,
     live_sample: Vec<AtomicCell<f32>>,
     live_length: AtomicCell<usize>,
-    sequence: Vec<[Event; KEY_COUNT]>,
+    sequence: Vec<[Hit; KEY_COUNT]>,
     last_played: [AtomicCell<usize>; KEY_COUNT],
 }
 
@@ -234,8 +239,8 @@ impl Track {
         let mut active_count = 0;
         let mut last_active = 0;
         for i in start..(start + self.view_length()) {
-            let event = &self.sequence[i][self.state.get::<usize>("activeKey")];
-            if event.active.load() {
+            let hit = &self.sequence[i][self.state.get::<usize>("activeKey")];
+            if hit.active.load() {
                 active_count += 1;
                 last_active = i;
             }
@@ -298,10 +303,10 @@ impl Track {
         match self.view_from(start) {
             View::OutOfBounds => {}
             View::Empty | View::ExactlyOnStep => {
-                let event = &self.sequence[start as usize][self.state.get::<usize>("activeKey")];
-                event.active.toggle();
-                event.skip_next.store(false);
-                event.value.store(self.view_length() as i32);
+                let hit = &self.sequence[start as usize][self.state.get::<usize>("activeKey")];
+                hit.active.toggle();
+                hit.skip_next.store(false);
+                hit.duration.store(self.view_length());
             }
             View::ContainsSteps => {
                 for i in start..(start + self.view_length()) {
@@ -314,20 +319,24 @@ impl Track {
     }
 
     fn can_clear(&self) -> bool {
-        self.events().any(|(_, _, event)| event.active.load())
+        self.hits().any(|hit_id| hit_id.hit.active.load())
     }
 
     fn clear(&self) {
-        self.events()
-            .for_each(|(_, _, event)| event.active.store(false));
+        self.hits()
+            .for_each(|hit_id| hit_id.hit.active.store(false));
     }
 
-    fn events(&self) -> impl Iterator<Item = (usize, usize, &Event)> {
+    fn hits(&self) -> impl Iterator<Item = HitId<&Hit>> {
         self.sequence
             .iter()
             .take(self.state.get("length"))
             .enumerate()
-            .flat_map(|(step, keys)| keys.iter().enumerate().map(move |(i, x)| (step, i, x)))
+            .flat_map(|(step, keys)| {
+                keys.iter()
+                    .enumerate()
+                    .map(move |(key, hit)| HitId { step, key, hit })
+            })
     }
 
     fn live(&self) -> &[AtomicCell<f32>] {
@@ -442,10 +451,14 @@ impl Song {
                     atom.store(f32::from_le_bytes(bytes));
                 }
             }
-            if let Ok(sequence) = Vec::<(usize, usize, i32)>::deserialize(&json["sequence"]) {
-                for (step, key, event) in sequence {
-                    if step < track.sequence.len() && key < KEY_COUNT {
-                        track.sequence[step][key].set(event)
+            if let Ok(sequence) = Vec::<HitId<usize>>::deserialize(&json["sequence"]) {
+                for hit_id in sequence {
+                    if hit_id.step < track.sequence.len() && hit_id.key < KEY_COUNT {
+                        track.sequence[hit_id.step][hit_id.key] = Hit {
+                            duration: hit_id.hit.into(),
+                            active: true.into(),
+                            skip_next: false.into(),
+                        };
                     }
                 }
             }
@@ -643,9 +656,9 @@ impl Audio {
         let song_step = song.state.get::<usize>("step");
         if song.state.is("playing") && song.state.is("recording") {
             let quantized_step = song.quantized_step(song_step, track.state.get("resolution"));
-            let event = &track.sequence[quantized_step % track.state.get::<usize>("length")][key];
-            event.active.store(true);
-            event.skip_next.store(quantized_step > song_step);
+            let hit = &track.sequence[quantized_step % track.state.get::<usize>("length")][key];
+            hit.active.store(true);
+            hit.skip_next.store(quantized_step > song_step);
         }
         track.state.set("activeKey", key);
         self.allocate(song, track_id, key);
@@ -657,8 +670,8 @@ impl Audio {
             let last_played = track.last_played[key].load();
             let quantized_step = song.quantized_step(last_played, track.state.get("resolution"));
             track.sequence[quantized_step % track.state.get::<usize>("length")][key]
-                .value
-                .store((song.state.get::<usize>("step") - last_played) as i32);
+                .duration
+                .store(song.state.get::<usize>("step") - last_played);
         }
         self.release(track_id, key);
     }
@@ -724,23 +737,23 @@ impl Audio {
 
         // Read input frames and calculate output frames
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
-            // If this is a new step, then replay any sequenced events
+            // If this is a new step, then replay any sequenced hits
             if song.state.is("playing") && song.frames_since_last_step.load() == 0 {
                 for (track_id, track) in song.tracks.iter().enumerate() {
                     let length = song.tracks[track_id].state.get::<usize>("length");
                     let song_step = song.state.get::<usize>("step");
-                    for (key, event) in track.sequence[song_step % length].iter().enumerate() {
-                        // Check if key should be released per its on-event duration
-                        let on_event = &track.sequence[track.last_played[key].load() % length][key];
+                    for (key, hit) in track.sequence[song_step % length].iter().enumerate() {
+                        // Check if last played hit should be released per its duration
+                        let last_hit = &track.sequence[track.last_played[key].load() % length][key];
                         let duration = song_step - track.last_played[key].load();
-                        if duration as i32 == on_event.value.load() {
+                        if duration == last_hit.duration.load() {
                             self.release(track_id, key);
                         }
 
                         // Check if key should be played
-                        if event.skip_next.load() {
-                            event.skip_next.store(false);
-                        } else if event.active.load() && !track.state.is("muted") {
+                        if hit.skip_next.load() {
+                            hit.skip_next.store(false);
+                        } else if hit.active.load() && !track.state.is("muted") {
                             self.allocate(song, track_id, key);
                         }
                     }
@@ -878,11 +891,7 @@ impl Controller {
                 );
                 save_track.insert(
                     "sequence",
-                    song_track
-                        .events()
-                        .filter(|(_, _, event)| event.active.load())
-                        .map(|(step, key, x)| serde_json::to_value((step, key, &x)).expect("event"))
-                        .collect(),
+                    song_track.hits().filter_map(HitId::to_value).collect(),
                 );
             }
             song_track.state.save(strategy, save_track);
