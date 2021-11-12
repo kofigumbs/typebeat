@@ -343,11 +343,11 @@ impl Track {
         &self.live_sample[..self.live_length.load()]
     }
 
-    fn waveform(&self, i: usize) -> i32 {
+    fn waveform(&self, i: usize) -> f32 {
         match self.sample_type() {
             SampleType::File => self.sample_waveform(i, &self.file_sample),
             SampleType::LivePlay => self.sample_waveform(i, self.live()),
-            SampleType::Live | SampleType::LiveRecord => 0,
+            SampleType::Live | SampleType::LiveRecord => 0.,
         }
     }
 
@@ -359,15 +359,13 @@ impl Track {
         }
     }
 
-    fn sample_waveform<T: CopyAs<f32>>(&self, i: usize, sample: &[T]) -> i32 {
-        let chunk_len = sample.len() / WAVEFORM.len();
-        let aggregate = sample
-            .chunks(chunk_len)
+    fn sample_waveform<T: CopyAs<f32>>(&self, i: usize, sample: &[T]) -> f32 {
+        100. * sample
+            .chunks(sample.len() / WAVEFORM.len())
             .nth(i)
             .unwrap_or_default()
             .into_iter()
-            .fold(0., |max, f| f.copy_as().abs().max(max));
-        (100. * aggregate) as i32
+            .fold(0., |max, f| f.copy_as().abs().max(max))
     }
 }
 
