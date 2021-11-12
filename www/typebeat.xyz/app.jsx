@@ -19,7 +19,6 @@ const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-
       _free(ptr);
       return obj;
     };
-    const dump = Promise.resolve(getJson('typebeat_dump'));
 
     // Only start the typebeat device once we receive an action
     let started = false;
@@ -38,6 +37,7 @@ const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-
     });
 
     const onChange = callback => {
+      callback([getJson('typebeat_dump')]);
       (function poll() {
         getJson('typebeat_changes').forEach(callback);
         requestIdleCallback(poll)

@@ -6,11 +6,14 @@
     import { render } from 'solid-js/web';
     import App from './app.jsx';
     const t = window.__TAURI__;
+    const dump = t.invoke('dump');
     render(
       () => App({
-        dump: t.invoke('dump'),
         send: (method, data) => t.invoke('send', { method, data }),
-        onChange: (callback) => t.event.listen('change', ({ payload }) => callback(payload)),
+        onChange: (callback) => {
+          dump.then(state => callback([state]));
+          t.event.listen('change', ({ payload }) => callback(payload));
+        },
       }),
       document.body
     );

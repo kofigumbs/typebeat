@@ -114,7 +114,9 @@ const Grid = props => (
 
 export default props => {
   const [state, setState] = createStore({
-    send: props.send,
+    get send() {
+      return props.send;
+    },
     get actions() {
       return modes.get(this.modifier).actions;
     },
@@ -123,7 +125,6 @@ export default props => {
     },
   });
 
-  props.dump.then(setState);
   props.onChange(change => setState(...change));
   props.init?.(state);
   for (let mode of modes.values())

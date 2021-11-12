@@ -19,7 +19,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex, UI};
-pub use state::Strategy;
+pub use state::Encoding;
 use state::{Host, Param, State};
 
 mod atomic_cell;
@@ -375,6 +375,7 @@ impl Track {
 }
 
 pub enum Change {
+    Dump(Value),
     Song(&'static str, i32),
     Track(usize, &'static str, i32),
 }
@@ -382,6 +383,7 @@ pub enum Change {
 impl Serialize for Change {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
+            Change::Dump(value) => (value,).serialize(serializer),
             Change::Song(method, value) => ("song", method, value).serialize(serializer),
             Change::Track(i, method, value) => ("tracks", i, method, value).serialize(serializer),
         }
@@ -470,6 +472,29 @@ impl Song {
         effects::insert::build_user_interface_static(&mut FindButton("gate", &mut song.gate_index));
         song.update_derived();
         song
+    }
+
+    fn save(&self, encoding: Encoding) -> impl Serialize {
+        let mut save = Save::default();
+        self.state.save(encoding, &mut save.song);
+        for (song_track, save_track) in self.tracks.iter().zip(save.tracks.iter_mut()) {
+            if matches!(encoding, Encoding::File) {
+                save_track.insert(
+                    "live",
+                    song_track
+                        .live()
+                        .iter()
+                        .map(|atom| Vec::from(atom.load().to_le_bytes()))
+                        .collect(),
+                );
+                save_track.insert(
+                    "sequence",
+                    song_track.hits().filter_map(HitId::to_value).collect(),
+                );
+            }
+            song_track.state.save(encoding, save_track);
+        }
+        save
     }
 
     fn active_track(&self) -> &Track {
@@ -878,32 +903,14 @@ impl Controller {
             let audio = self.audio.read().expect("audio");
             let platform = audio.platform.lock().expect("platform");
             *song = Song::new(&platform, &json);
+            let dump = serde_json::to_value(song.save(Encoding::Dump)).expect("dump");
+            platform.sender.send(Change::Dump(dump)).unwrap();
         }
         self.start();
     }
 
-    pub fn save(&self, strategy: Strategy) -> impl Serialize {
-        let song = self.song.read().expect("song");
-        let mut save = Save::default();
-        song.state.save(strategy, &mut save.song);
-        for (song_track, save_track) in song.tracks.iter().zip(save.tracks.iter_mut()) {
-            if matches!(strategy, Strategy::File) {
-                save_track.insert(
-                    "live",
-                    song_track
-                        .live()
-                        .iter()
-                        .map(|atom| Vec::from(atom.load().to_le_bytes()))
-                        .collect(),
-                );
-                save_track.insert(
-                    "sequence",
-                    song_track.hits().filter_map(HitId::to_value).collect(),
-                );
-            }
-            song_track.state.save(strategy, save_track);
-        }
-        save
+    pub fn save(&self, encoding: Encoding) -> impl Serialize {
+        self.song.read().expect("song").save(encoding)
     }
 
     pub fn send(&self, method: &str, data: i32) {

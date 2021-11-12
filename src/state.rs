@@ -83,7 +83,7 @@ struct Slot {
 }
 
 #[derive(Clone, Copy)]
-pub enum Strategy {
+pub enum Encoding {
     Dump,
     File,
 }
@@ -155,12 +155,12 @@ impl<H: Host> State<H> {
         });
     }
 
-    pub fn save(&self, strategy: Strategy, output: &mut HashMap<&'static str, Value>) {
+    pub fn save(&self, encoding: Encoding, output: &mut HashMap<&'static str, Value>) {
         H::for_each_param(&mut |name, param| {
             let value = self.get::<i32>(name);
-            match strategy {
-                Strategy::File if param.temp || value == param.default => None,
-                Strategy::File | Strategy::Dump => output.insert(name, value.into()),
+            match encoding {
+                Encoding::File if param.temp || value == param.default => None,
+                Encoding::File | Encoding::Dump => output.insert(name, value.into()),
             };
         });
     }

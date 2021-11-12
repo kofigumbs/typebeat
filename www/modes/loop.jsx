@@ -41,9 +41,10 @@ const View = props => {
   const x = 16 + props.i*16;
   const y = 15;
   const active = createMemo(() => {
-    const s = props.state.song.step % props.state.activeTrack.length;
-    const i = props.state.activeTrack[`viewIndex${props.i}`];
-    return s >= i && s < i + props.state.activeTrack.viewLength;
+    const step = props.state.song.step % props.state.activeTrack.length;
+    const index = props.state.activeTrack[`viewIndex${props.i}`];
+    const length = props.state.activeTrack.viewLength;
+    return props.state.song.playing && step >= index && step < index + length;
   });
   return (
     <>

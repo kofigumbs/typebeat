@@ -8,11 +8,11 @@ use tauri::{
     AppHandle, Builder, CustomMenuItem, Event, Manager, Menu, MenuItem, State, Submenu, Window, Wry,
 };
 
-use typebeat::{Change, Controller, Platform, Strategy};
+use typebeat::{Change, Controller, Encoding, Platform};
 
 #[tauri::command]
 fn dump(state: State<Controller>) -> impl Serialize {
-    state.save(Strategy::Dump)
+    state.save(Encoding::Dump)
 }
 
 #[tauri::command]
@@ -41,6 +41,7 @@ fn menu() -> Menu {
         .add_submenu(Submenu::new(
             "File",
             Menu::new()
+                .add_item(CustomMenuItem::new("new", "New").accelerator("CmdOrControl+Shift+N"))
                 .add_item(CustomMenuItem::new("open", "Open").accelerator("CmdOrControl+O"))
                 .add_item(CustomMenuItem::new("save", "Save").accelerator("CmdOrControl+S")),
         ))
@@ -71,7 +72,7 @@ fn save(window: &Window, handle: &AppHandle<Wry>) {
     dialog(&window).save_file(move |path| {
         path.map(move |path| {
             let state: State<Controller> = handle.state();
-            let save = state.save(Strategy::File);
+            let save = state.save(Encoding::File);
             let json = serde_json::to_vec(&save).expect("json");
             std::fs::write(path, json).expect("write");
         });
@@ -85,6 +86,7 @@ fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
         let handle = handle.clone();
         let window_ = window.clone();
         window.on_menu_event(move |event| match event.menu_item_id() {
+            "new" => handle.state::<Controller>().load(&Value::Null),
             "open" => open(&window_, &handle),
             "save" => save(&window_, &handle),
             _ => {}

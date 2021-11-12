@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use serde_json::Value;
 
-use typebeat::{Change, Controller, Platform, Strategy};
+use typebeat::{Change, Controller, Encoding, Platform};
 
 struct App {
     controller: Controller,
@@ -47,7 +47,7 @@ pub fn typebeat_stop() {
 
 #[no_mangle]
 pub fn typebeat_dump() -> *const c_char {
-    to_c_str_json(APP.controller.save(Strategy::Dump))
+    to_c_str_json(APP.controller.save(Encoding::Dump))
 }
 
 #[no_mangle]
