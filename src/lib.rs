@@ -31,11 +31,11 @@ const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
 
 const MAX_RES: usize = 512;
 const MAX_LENGTH: usize = MAX_RES * 8;
-const VIEWS_PER_PAGE: usize = 4;
 
-const KEY_COUNT: i32 = 15;
-const SAMPLE_RATE: i32 = 44100;
+const KEY_COUNT: usize = 15;
+const SAMPLE_RATE: usize = 44100;
 const TRACK_COUNT: usize = 15;
+const VIEWS_PER_PAGE: usize = 4;
 
 const SCALE_LENGTH: usize = 7;
 const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
@@ -78,7 +78,7 @@ struct DspBox<T> {
 impl<T: FaustDsp + DefaultBoxed> Default for DspBox<T> {
     fn default() -> Self {
         let mut dsp = T::default_boxed();
-        dsp.init(SAMPLE_RATE);
+        dsp.init(SAMPLE_RATE as i32);
         DspBox { dsp }
     }
 }
@@ -149,12 +149,6 @@ impl Event {
     }
 }
 
-#[derive(Clone, Default, Deserialize, Serialize)]
-struct Step {
-    #[serde(default)]
-    keys: [Event; KEY_COUNT as usize],
-}
-
 #[derive(Clone, Copy, Deserialize_repr, Serialize_repr)]
 #[repr(usize)]
 pub enum View {
@@ -175,20 +169,20 @@ struct Track {
     file_sample: Vec<f32>,
     live_sample: Vec<AtomicCell<f32>>,
     live_length: AtomicCell<usize>,
-    sequence: Vec<Step>,
-    last_played: [AtomicCell<usize>; KEY_COUNT as usize],
+    sequence: Vec<[Event; KEY_COUNT]>,
+    last_played: [AtomicCell<usize>; KEY_COUNT],
 }
 
 impl Default for Track {
     fn default() -> Self {
         let mut live_sample = Vec::new();
-        live_sample.resize_with(60 * SAMPLE_RATE as usize, Default::default);
+        live_sample.resize_with(60 * SAMPLE_RATE, Default::default);
         Self {
             state: State::default(),
             file_sample: Vec::new(),
             live_sample,
             live_length: 0.into(),
-            sequence: vec![Step::default(); MAX_LENGTH as usize],
+            sequence: vec![Default::default(); MAX_LENGTH as usize],
             last_played: Default::default(),
         }
     }
@@ -240,8 +234,7 @@ impl Track {
         let mut active_count = 0;
         let mut last_active = 0;
         for i in start..(start + self.view_length()) {
-            let step = &self.sequence[i];
-            let event = &step.keys[self.state.get::<usize>("activeKey")];
+            let event = &self.sequence[i][self.state.get::<usize>("activeKey")];
             if event.active.load() {
                 active_count += 1;
                 last_active = i;
@@ -305,15 +298,14 @@ impl Track {
         match self.view_from(start) {
             View::OutOfBounds => {}
             View::Empty | View::ExactlyOnStep => {
-                let event =
-                    &self.sequence[start as usize].keys[self.state.get::<usize>("activeKey")];
+                let event = &self.sequence[start as usize][self.state.get::<usize>("activeKey")];
                 event.active.toggle();
                 event.skip_next.store(false);
                 event.value.store(self.view_length() as i32);
             }
             View::ContainsSteps => {
                 for i in start..(start + self.view_length()) {
-                    self.sequence[i].keys[self.state.get::<usize>("activeKey")]
+                    self.sequence[i][self.state.get::<usize>("activeKey")]
                         .active
                         .store(false);
                 }
@@ -322,19 +314,20 @@ impl Track {
     }
 
     fn can_clear(&self) -> bool {
-        self.events().any(|(_, event)| event.active.load())
+        self.events().any(|(_, _, event)| event.active.load())
     }
 
     fn clear(&self) {
         self.events()
-            .for_each(|(_, event)| event.active.store(false));
+            .for_each(|(_, _, event)| event.active.store(false));
     }
 
-    fn events(&self) -> impl Iterator<Item = (EventType, &Event)> {
+    fn events(&self) -> impl Iterator<Item = (usize, usize, &Event)> {
         self.sequence
             .iter()
             .take(self.state.get("length"))
-            .flat_map(|step| (0..).map(EventType::Key).zip(step.keys.iter()))
+            .enumerate()
+            .flat_map(|(step, keys)| keys.iter().enumerate().map(move |(i, x)| (step, i, x)))
     }
 
     fn live(&self) -> &[AtomicCell<f32>] {
@@ -449,10 +442,10 @@ impl Song {
                     atom.store(f32::from_le_bytes(bytes));
                 }
             }
-            if let Ok(sequence) = Vec::<(usize, EventType, i32)>::deserialize(&json["sequence"]) {
-                for (i, event_type, value) in sequence {
-                    match event_type {
-                        EventType::Key(key) => track.sequence[i].keys[key].set(value),
+            if let Ok(sequence) = Vec::<(usize, usize, i32)>::deserialize(&json["sequence"]) {
+                for (step, key, event) in sequence {
+                    if step < track.sequence.len() && key < KEY_COUNT {
+                        track.sequence[step][key].set(event)
                     }
                 }
             }
@@ -650,8 +643,7 @@ impl Audio {
         let song_step = song.state.get::<usize>("step");
         if song.state.is("playing") && song.state.is("recording") {
             let quantized_step = song.quantized_step(song_step, track.state.get("resolution"));
-            let step = &track.sequence[quantized_step % track.state.get::<usize>("length")];
-            let event = &step.keys[key];
+            let event = &track.sequence[quantized_step % track.state.get::<usize>("length")][key];
             event.active.store(true);
             event.skip_next.store(quantized_step > song_step);
         }
@@ -664,8 +656,7 @@ impl Audio {
         if song.state.is("playing") && song.state.is("recording") {
             let last_played = track.last_played[key].load();
             let quantized_step = song.quantized_step(last_played, track.state.get("resolution"));
-            let step = &track.sequence[quantized_step % track.state.get::<usize>("length")];
-            step.keys[key]
+            track.sequence[quantized_step % track.state.get::<usize>("length")][key]
                 .value
                 .store((song.state.get::<usize>("step") - last_played) as i32);
         }
@@ -738,12 +729,11 @@ impl Audio {
                 for (track_id, track) in song.tracks.iter().enumerate() {
                     let length = song.tracks[track_id].state.get::<usize>("length");
                     let song_step = song.state.get::<usize>("step");
-                    let step = &track.sequence[song_step % length];
-                    for (key, event) in step.keys.iter().enumerate() {
-                        // Check if key should be released per its sequenced duration
+                    for (key, event) in track.sequence[song_step % length].iter().enumerate() {
+                        // Check if key should be released per its on-event duration
+                        let on_event = &track.sequence[track.last_played[key].load() % length][key];
                         let duration = song_step - track.last_played[key].load();
-                        let start_step = &track.sequence[track.last_played[key].load() % length];
-                        if duration as i32 == start_step.keys[key].value.load() {
+                        if duration as i32 == on_event.value.load() {
                             self.release(track_id, key);
                         }
 
@@ -861,7 +851,7 @@ impl Controller {
         let _ = self.device.start();
     }
 
-    pub fn load(&self, json: Value) {
+    pub fn load(&self, json: &Value) {
         self.stop();
         {
             let mut song = self.song.write().expect("song");
@@ -890,11 +880,8 @@ impl Controller {
                     "sequence",
                     song_track
                         .events()
-                        .enumerate()
-                        .filter(|(_, (_, event))| event.active.load())
-                        .map(|(i, (event_type, event))| {
-                            serde_json::to_value((i, event_type, &event.value)).expect("event")
-                        })
+                        .filter(|(_, _, event)| event.active.load())
+                        .map(|(step, key, x)| serde_json::to_value((step, key, &x)).expect("event"))
                         .collect(),
                 );
             }
@@ -949,7 +936,7 @@ impl Controller {
     }
 }
 
-pub fn init(platform: Platform, json: Value) -> Result<Controller, Box<dyn Error>> {
+pub fn init(platform: Platform, json: &Value) -> Result<Controller, Box<dyn Error>> {
     let (sender, receiver) = std::sync::mpsc::channel();
     let voice_count = platform.voice_count;
     let audio = Audio {
