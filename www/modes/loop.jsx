@@ -40,9 +40,14 @@ const View = props => {
   const s = 16;
   const x = 16 + props.i*16;
   const y = 15;
+  const active = createMemo(() => {
+    const s = props.state.song.step % props.state.activeTrack.length;
+    const i = props.state.activeTrack[`viewIndex${props.i}`];
+    return s >= i && s < i + props.state.activeTrack.viewLength;
+  });
   return (
     <>
-      <rect x={x} y={y} width={s} height={s} stroke-width='2' />
+      <rect x={x} y={y} width={s} height={s} stroke-width='2' classList={{ secondary: active() }} />
       <Show when={props.state.activeTrack[`view${props.i}`] > 1}>
         <rect x={x+4} y={y+4} width={s-8} height={s-8} className='dark' stroke-width='2' />
       </Show>
@@ -53,7 +58,7 @@ const View = props => {
 export const Visual = props => {
   const markStart = createMemo(() => {
     const position = (props.state.song.step / props.state.activeTrack.length) % 1;
-    const pageLength = props.state.activeTrack.resolution / 4;
+    const pageLength = props.state.activeTrack.resolution * props.state.activeTrack.bars / 4;
     return Math.floor(position * pageLength) / pageLength;
   });
   const markLength = createMemo(() => {

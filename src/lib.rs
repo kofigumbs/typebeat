@@ -66,6 +66,7 @@ const DEFAULT_SAMPLES: &[&str] = &[
 lazy_static::lazy_static! {
     static ref NOTE: Vec<String> = (0..TRACK_COUNT).map(|i| format!("note{i}")).collect();
     static ref VIEW: Vec<String> = (0..4).map(|i| format!("view{i}")).collect();
+    static ref VIEW_INDEX: Vec<String> = (0..4).map(|i| format!("viewIndex{i}")).collect();
     static ref WAVEFORM: Vec<String> = (0..25).map(|i| format!("waveform{i}")).collect();
 }
 
@@ -207,8 +208,12 @@ impl Host for Track {
         f("resolution", Param::new(16).min(1).max(MAX_RES));
         f("usingKey", Param::new(true).toggle());
         f("viewStart", Param::new(0).temp());
+        f("viewLength", Param::new(0).temp());
         NOTE.iter().for_each(|name| f(name, Param::new(0).temp()));
         VIEW.iter().for_each(|name| f(name, Param::new(0).temp()));
+        VIEW_INDEX
+            .iter()
+            .for_each(|name| f(name, Param::new(0).temp()));
         WAVEFORM
             .iter()
             .for_each(|name| f(name, Param::new(0).temp()));
@@ -238,7 +243,7 @@ impl Track {
         }
         let mut active_count = 0;
         let mut last_active = 0;
-        for i in start..(start + self.view_length()) {
+        for i in (start..).take(self.view_length()) {
             let hit = &self.sequence[i][self.state.get::<usize>("activeKey")];
             if hit.active.load() {
                 active_count += 1;
@@ -254,12 +259,12 @@ impl Track {
         }
     }
 
-    fn view_index_to_start(&self, i: usize) -> usize {
+    fn view_index(&self, i: usize) -> usize {
         self.state.get::<usize>("pageStart") + i * self.view_length()
     }
 
     fn view(&self, i: usize) -> View {
-        self.view_from(self.view_index_to_start(i))
+        self.view_from(self.view_index(i))
     }
 
     fn zoom_out(&self) {
@@ -299,7 +304,7 @@ impl Track {
     }
 
     fn toggle_step(&self, i: usize) {
-        let start = self.view_index_to_start(i);
+        let start = self.view_index(i);
         match self.view_from(start) {
             View::OutOfBounds => {}
             View::Empty | View::ExactlyOnStep => {
@@ -500,11 +505,15 @@ impl Song {
         track.state.set("canClear", track.can_clear());
         track.state.set("bars", track.bars());
         track.state.set("viewStart", track.view_start());
+        track.state.set("viewLength", track.view_length());
         for (i, name) in NOTE.iter().enumerate() {
             track.state.set(name, self.note(track, i));
         }
         for (i, name) in VIEW.iter().enumerate() {
             track.state.set(name, track.view(i));
+        }
+        for (i, name) in VIEW_INDEX.iter().enumerate() {
+            track.state.set(name, track.view_index(i));
         }
         for (i, name) in WAVEFORM.iter().enumerate() {
             track.state.set(name, track.waveform(i));
