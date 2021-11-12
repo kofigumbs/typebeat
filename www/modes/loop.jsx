@@ -57,7 +57,7 @@ export const Visual = props => {
     return Math.floor(position * pageLength) / pageLength;
   });
   const markLength = createMemo(() => {
-    return props.state.activeTrack.bars / props.state.activeTrack.resolution * 4;
+    return 4 / props.state.activeTrack.resolution / props.state.activeTrack.bars;
   });
   return (
     <svg xmlns='http://www.w3.org/2000/svg'>

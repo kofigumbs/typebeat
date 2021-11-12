@@ -18,7 +18,7 @@ lazy_static::lazy_static! {
     static ref APP: App = {
         let (sender, receiver) = std::sync::mpsc::channel();
         let root = PathBuf::from("/");
-        let save = Value::Null;
+        let save = &Value::Null;
         App {
             receiver: Mutex::new(receiver),
             controller: typebeat::init(Platform { voice_count: 4, sender, root }, save).expect("controller"),
