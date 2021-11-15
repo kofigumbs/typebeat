@@ -2,12 +2,27 @@
 command = """
 export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=`emconfigure env 2> /dev/null | sed -n -e 's/^EMSCRIPTEN=//p'`/cache/sysroot" && \
 cargo +nightly build -vv --package typebeat-dot-xyz --target wasm32-unknown-emscripten --release && \
-npx vite --config www/vite.config.js build www/typebeat.xyz
+vite --config www/vite.config.js "$TYPEBEAT_VITE" www/typebeat.xyz
 """
 publish = "www/typebeat.xyz/dist"
 
 [build.environment]
-EMMAKEN_CFLAGS = "-s ERROR_ON_UNDEFINED_SYMBOLS=0 -s ENVIRONMENT=web -s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=\"['ccall','_free','UTF8ToString']\" --embed-file samples -gsource-map"
+EMMAKEN_CFLAGS = """
+--embed-file samples -gsource-map \
+-s ALLOW_MEMORY_GROWTH=1 \
+-s ENVIRONMENT=web \
+-s ERROR_ON_UNDEFINED_SYMBOLS=0 \
+-s EXPORTED_RUNTIME_METHODS=\"['ccall','_free','UTF8ToString']\" \
+-s EXPORT_ES6=1 \
+-s MODULARIZE=1
+"""
+TYPEBEAT_VITE = "build"
+
+[dev]
+command = "netlify build"
+
+[context.dev.environment]
+TYPEBEAT_VITE = "serve"
 
 [[redirects]]
 from = "https://typebeat.netlify.app/*"

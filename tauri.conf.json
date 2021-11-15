@@ -6,7 +6,6 @@
   "build": {
     "distDir": "www/dist",
     "devPath": "http://localhost:3000",
-    "beforeDevCommand": "npx vite www",
     "beforeBuildCommand": "npx vite build www",
     "withGlobalTauri": true
   },

@@ -1,6 +1,8 @@
-<img align="left" src="./icons/icon.svg" alt="Logo" style="width: 80px; height: 80px;" width="80px" height="80px" />
+<img align="left" src="./icons/icon.svg" alt="" style="width: 80px; height: 80px;" width="80px" height="80px" />
 
 # Typebeat
+
+<img src="./screenshot.png" alt="App screenshot showing the basic layout, which resembles that of the QWERTY keyboard" />
 
 Running the native app locally requires the following dependencies:
 
