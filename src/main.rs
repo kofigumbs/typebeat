@@ -50,7 +50,8 @@ fn menu() -> Menu {
             Menu::new()
                 .add_native_item(MenuItem::Cut)
                 .add_native_item(MenuItem::Copy)
-                .add_native_item(MenuItem::Paste),
+                .add_native_item(MenuItem::Paste)
+                .add_native_item(MenuItem::SelectAll),
         ))
 }
 

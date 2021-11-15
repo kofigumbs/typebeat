@@ -13,11 +13,11 @@ export const actions = Actions.tabbed(
 )
 
 const Rect = props => {
-  const s = createMemo(() => 24 * props.state.activeTrack.main / 50);
+  const s = createMemo(() => 8 + 16*props.state.activeTrack.main/50);
   const x = createMemo(() => 48 - s()/2 + props.state.activeTrack.pan);
   const y = createMemo(() => 23 - s()/2);
-  const r = createMemo(() => `${props.state.activeTrack.reverb / 2}%`);
-  const spacing = createMemo(() => props.state.activeTrack.echo / 4);
+  const r = createMemo(() => `${props.state.activeTrack.reverb/2}%`);
+  const spacing = createMemo(() => props.state.activeTrack.echo/4);
   const strokeWidth = createMemo(() => props.state.activeTrack.drive + 2);
   return (
     <rect

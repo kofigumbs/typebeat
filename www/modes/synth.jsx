@@ -47,7 +47,7 @@ const Path = props => {
     return commands;
   });
   return (
-    <path d={`M ${commands().join(' L ')}`} stroke-width='2' />
+    <path d={`M ${commands().join(' L ')}`} stroke-width='2' className='transparent' />
   );
 };
 
