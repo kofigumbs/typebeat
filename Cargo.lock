@@ -3242,6 +3242,7 @@ dependencies = [
 name = "typebeat"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "cocoa",
  "crossbeam",
  "default-boxed",

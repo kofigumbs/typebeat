@@ -59,11 +59,15 @@ impl Param {
 }
 
 pub trait Host {
-    fn for_each_param<F: FnMut(&'static str, &Param)>(f: &mut F);
+    fn host<F: FnMut(&'static str, &Param)>(f: &mut F);
+
+    fn host_each<P, F: FnMut(&'static str, &P)>(f: &mut F, names: &'static [String], param: &P) {
+        names.iter().for_each(|name| f(name, param));
+    }
 }
 
 impl<H: FaustDsp<T = f32>> Host for H {
-    fn for_each_param<F: FnMut(&'static str, &Param)>(f: &mut F) {
+    fn host<F: FnMut(&'static str, &Param)>(f: &mut F) {
         struct ForEachEntry<F>(F);
         impl<F: FnMut(&'static str, &Param), P: AsPrimitive<i32>> UI<P> for ForEachEntry<F> {
             fn add_num_entry(&mut self, l: &'static str, _: ParamIndex, n: P, mi: P, ma: P, st: P) {
@@ -80,12 +84,6 @@ struct Slot {
     step: i32,
     value: AtomicCell<i32>,
     changed: AtomicCell<bool>,
-}
-
-#[derive(Clone, Copy)]
-pub enum Encoding {
-    Dump,
-    File,
 }
 
 pub struct State<T> {
@@ -148,25 +146,34 @@ impl<H> State<H> {
 }
 
 impl<H: Host> State<H> {
-    pub fn load(&self, value: &Value) {
-        H::for_each_param(&mut |name, param| match value[name].as_i64() {
+    pub fn init(&self, value: &Value) {
+        H::host(&mut |name, param| match value[name].as_i64() {
             Some(i) if !param.temp => self.set(name, i),
             _ => {}
         });
     }
 
-    pub fn save(&self, encoding: Encoding, output: &mut HashMap<&'static str, Value>) {
-        H::for_each_param(&mut |name, param| {
-            let value = self.get::<i32>(name);
-            match encoding {
-                Encoding::File if param.temp || value == param.default => None,
-                Encoding::File | Encoding::Dump => output.insert(name, value.into()),
-            };
+    pub fn dump(&self) -> HashMap<&'static str, Value> {
+        let mut output = HashMap::new();
+        H::host(&mut |name, _param| {
+            output.insert(name, self.get::<i32>(name).into());
         });
+        output
+    }
+
+    pub fn save(&self) -> HashMap<&'static str, Value> {
+        let mut output = HashMap::new();
+        H::host(&mut |name, param| {
+            let value = self.get::<i32>(name);
+            if !param.temp && value != param.default {
+                output.insert(name, value.into());
+            }
+        });
+        output
     }
 
     pub fn for_each_change<F: FnMut(&'static str, i32)>(&self, mut f: F) {
-        H::for_each_param(&mut |name, _param| {
+        H::host(&mut |name, _param| {
             let slot = &self.slots[name];
             if slot.changed.swap(false) {
                 f(name, slot.value.load());
@@ -181,7 +188,7 @@ impl<H: Host> Default for State<H> {
             slots: HashMap::default(),
             marker: PhantomData,
         };
-        H::for_each_param(&mut |name, param| {
+        H::host(&mut |name, param| {
             state.slots.insert(
                 name,
                 Slot {

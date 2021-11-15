@@ -19,7 +19,6 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex, UI};
-pub use state::Encoding;
 use state::{Host, Param, State};
 
 mod atomic_cell;
@@ -145,7 +144,7 @@ struct HitId<T> {
 }
 
 impl<'a> HitId<&'a Hit> {
-    fn to_value(HitId { step, key, hit }: Self) -> Option<Value> {
+    fn save(HitId { step, key, hit }: Self) -> Option<Value> {
         if !hit.active.load() {
             None
         } else {
@@ -195,8 +194,8 @@ impl Default for Track {
 }
 
 impl Host for Track {
-    fn for_each_param<F: FnMut(&'static str, &Param)>(f: &mut F) {
-        effects::insert::for_each_param(f);
+    fn host<F: FnMut(&'static str, &Param)>(f: &mut F) {
+        effects::insert::host(f);
         f("activeKey", Param::new(12).max(TRACK_COUNT - 1));
         f("bars", Param::new(1).temp());
         f("canClear", Param::new(false).temp());
@@ -207,16 +206,12 @@ impl Host for Track {
         f("recent", Param::new(0).temp());
         f("resolution", Param::new(16).min(1).max(MAX_RES));
         f("usingKey", Param::new(true).toggle());
-        f("viewStart", Param::new(0).temp());
         f("viewLength", Param::new(0).temp());
-        NOTE.iter().for_each(|name| f(name, Param::new(0).temp()));
-        VIEW.iter().for_each(|name| f(name, Param::new(0).temp()));
-        VIEW_INDEX
-            .iter()
-            .for_each(|name| f(name, Param::new(0).temp()));
-        WAVEFORM
-            .iter()
-            .for_each(|name| f(name, Param::new(0).temp()));
+        f("viewStart", Param::new(0).temp());
+        Self::host_each(f, &NOTE, Param::new(0).temp());
+        Self::host_each(f, &VIEW, Param::new(0).temp());
+        Self::host_each(f, &VIEW_INDEX, Param::new(0).temp());
+        Self::host_each(f, &WAVEFORM, Param::new(0).temp());
     }
 }
 
@@ -418,6 +413,12 @@ impl<'a> UI<f32> for FindButton<'a> {
     }
 }
 
+#[derive(Default, Serialize)]
+pub struct Export {
+    song: HashMap<&'static str, Value>,
+    tracks: Vec<HashMap<&'static str, Value>>,
+}
+
 #[derive(Default)]
 struct Song {
     note_index: ParamIndex,
@@ -428,10 +429,10 @@ struct Song {
 }
 
 impl Host for Song {
-    fn for_each_param<F: FnMut(&'static str, &Param)>(f: &mut F) {
-        effects::reverb::for_each_param(f);
-        effects::echo::for_each_param(f);
-        effects::drive::for_each_param(f);
+    fn host<F: FnMut(&'static str, &Param)>(f: &mut F) {
+        effects::reverb::host(f);
+        effects::echo::host(f);
+        effects::drive::host(f);
         f("activeTrack", Param::new(0).max(TRACK_COUNT - 1).temp());
         f("playing", Param::new(false).temp());
         f("recording", Param::new(false).toggle().temp());
@@ -445,28 +446,27 @@ impl Host for Song {
 impl Song {
     fn new(platform: &Platform, json: &Value) -> Self {
         let mut song = Song::default();
-        song.state.load(json);
+        song.state.init(json);
         for (i, track) in song.tracks.iter_mut().enumerate() {
             let json = &json["tracks"][i];
-            track.state.load(json);
-            track.file_sample = platform.read_sample(i).expect("track.file_sample");
-            if let Ok(live) = Vec::<[u8; 4]>::deserialize(&json["live"]) {
+            track.state.init(json);
+            track.file_sample = platform.read_sample(i).expect("file_sample");
+            <&str>::deserialize(&json["live"]).ok().map(|s| {
+                let live = AtomicCell::from_base64(s);
                 track.live_length.store(live.len());
-                for (atom, bytes) in track.live_sample.iter().zip(live.into_iter()) {
-                    atom.store(f32::from_le_bytes(bytes));
+                for (frame, x) in track.live_sample.iter_mut().zip(live.into_iter()) {
+                    *frame = x;
                 }
-            }
-            if let Ok(sequence) = Vec::<HitId<usize>>::deserialize(&json["sequence"]) {
-                for hit_id in sequence {
-                    if hit_id.step < track.sequence.len() && hit_id.key < KEY_COUNT {
-                        track.sequence[hit_id.step][hit_id.key] = Hit {
-                            duration: hit_id.hit.into(),
-                            active: true.into(),
-                            skip_next: false.into(),
-                        };
-                    }
-                }
-            }
+            });
+            Vec::<HitId<usize>>::deserialize(&json["sequence"])
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|hit_id| hit_id.step < track.sequence.len() && hit_id.key < KEY_COUNT)
+                .for_each(|hit_id| {
+                    let hit = &track.sequence[hit_id.step][hit_id.key];
+                    hit.active.store(true);
+                    hit.duration.store(hit_id.hit);
+                });
         }
         effects::insert::build_user_interface_static(&mut FindButton("note", &mut song.note_index));
         effects::insert::build_user_interface_static(&mut FindButton("gate", &mut song.gate_index));
@@ -474,27 +474,25 @@ impl Song {
         song
     }
 
-    fn save(&self, encoding: Encoding) -> impl Serialize {
-        let mut save = Save::default();
-        self.state.save(encoding, &mut save.song);
-        for (song_track, save_track) in self.tracks.iter().zip(save.tracks.iter_mut()) {
-            if matches!(encoding, Encoding::File) {
-                save_track.insert(
-                    "live",
-                    song_track
-                        .live()
-                        .iter()
-                        .map(|atom| Vec::from(atom.load().to_le_bytes()))
-                        .collect(),
-                );
-                save_track.insert(
-                    "sequence",
-                    song_track.hits().filter_map(HitId::to_value).collect(),
-                );
-            }
-            song_track.state.save(encoding, save_track);
-        }
-        save
+    fn dump(&self) -> impl Serialize {
+        let song = self.state.dump();
+        let tracks = self.tracks.iter().map(|track| track.state.dump()).collect();
+        Export { song, tracks }
+    }
+
+    fn save(&self) -> impl Serialize {
+        let song = self.state.save();
+        let tracks = self
+            .tracks
+            .iter()
+            .map(|track| {
+                let mut map = track.state.save();
+                map.insert("live", AtomicCell::to_base64(track.live()).into());
+                map.insert("sequence", track.hits().filter_map(HitId::save).collect());
+                map
+            })
+            .collect();
+        Export { song, tracks }
     }
 
     fn active_track(&self) -> &Track {
@@ -527,8 +525,8 @@ impl Song {
 
     fn update_derived(&self) {
         let track = self.active_track();
-        track.state.set("canClear", track.can_clear());
         track.state.set("bars", track.bars());
+        track.state.set("canClear", track.can_clear());
         track.state.set("viewStart", track.view_start());
         track.state.set("viewLength", track.view_length());
         for (i, name) in NOTE.iter().enumerate() {
@@ -816,9 +814,9 @@ impl Audio {
         }
 
         // Inform UI of changed state keys
-        song.update_derived();
         let platform = self.platform.lock().expect("platform");
         let send = move |change| platform.sender.send(change).unwrap();
+        song.update_derived();
         song.state
             .for_each_change(|name, value| send(Change::Song(name, value)));
         for (i, track) in song.tracks.iter().enumerate() {
@@ -873,12 +871,6 @@ impl Audio {
     }
 }
 
-#[derive(Default, Serialize)]
-pub struct Save {
-    song: HashMap<&'static str, Value>,
-    tracks: [HashMap<&'static str, Value>; TRACK_COUNT],
-}
-
 #[derive(Clone)]
 pub struct Controller {
     device: Device,
@@ -903,14 +895,18 @@ impl Controller {
             let audio = self.audio.read().expect("audio");
             let platform = audio.platform.lock().expect("platform");
             *song = Song::new(&platform, &json);
-            let dump = serde_json::to_value(song.save(Encoding::Dump)).expect("dump");
+            let dump = serde_json::to_value(song.dump()).expect("dump");
             platform.sender.send(Change::Dump(dump)).unwrap();
         }
         self.start();
     }
 
-    pub fn save(&self, encoding: Encoding) -> impl Serialize {
-        self.song.read().expect("song").save(encoding)
+    pub fn dump(&self) -> impl Serialize {
+        self.song.read().expect("song").dump()
+    }
+
+    pub fn save(&self) -> impl Serialize {
+        self.song.read().expect("song").save()
     }
 
     pub fn send(&self, method: &str, data: i32) {

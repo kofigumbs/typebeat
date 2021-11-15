@@ -8,11 +8,11 @@ use tauri::{
     AppHandle, Builder, CustomMenuItem, Event, Manager, Menu, MenuItem, State, Submenu, Window, Wry,
 };
 
-use typebeat::{Change, Controller, Encoding, Platform};
+use typebeat::{Change, Controller, Platform};
 
 #[tauri::command]
 fn dump(state: State<Controller>) -> impl Serialize {
-    state.save(Encoding::Dump)
+    state.dump()
 }
 
 #[tauri::command]
@@ -62,7 +62,7 @@ fn open(window: &Window, handle: &AppHandle<Wry>) {
             std::fs::read(path)
                 .ok()
                 .and_then(|file| serde_json::from_slice(&file).ok())
-                .map(|save| state.load(&save));
+                .map(|json| state.load(&json));
         });
     });
 }
@@ -72,8 +72,7 @@ fn save(window: &Window, handle: &AppHandle<Wry>) {
     dialog(&window).save_file(move |path| {
         path.map(move |path| {
             let state: State<Controller> = handle.state();
-            let save = state.save(Encoding::File);
-            let json = serde_json::to_vec(&save).expect("json");
+            let json = serde_json::to_vec(&state.save()).expect("json");
             std::fs::write(path, json).expect("write");
         });
     });

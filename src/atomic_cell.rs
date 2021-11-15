@@ -60,3 +60,22 @@ impl AtomicCell<bool> {
         self.fetch_xor(true);
     }
 }
+
+impl AtomicCell<f32> {
+    pub fn from_base64(s: &str) -> Vec<Self> {
+        base64::decode(s)
+            .unwrap_or_default()
+            .chunks(4)
+            .map(|bytes| f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]).into())
+            .collect()
+    }
+
+    pub fn to_base64(value: &[Self]) -> String {
+        base64::encode(
+            value
+                .iter()
+                .flat_map(|atom| atom.load().to_le_bytes())
+                .collect::<Vec<u8>>(),
+        )
+    }
+}

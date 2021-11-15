@@ -11,6 +11,7 @@ opt-level = 2
 overflow-checks = false
 
 [dependencies]
+base64 = "0.13"
 crossbeam = "0.8"
 default-boxed = "0.1"
 lazy_static = "1.4"
