@@ -32,13 +32,10 @@ features = ["bindgen"]
 cocoa = "0.24"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-directories = "3.0"
-futures = "0.3"
-rfd = "0.4"
-tauri = { git = "https://github.com/tauri-apps/tauri", rev = "e98c1af", features = ["api-all"] }
+tauri = { git = "https://github.com/tauri-apps/tauri", rev = "34be6cf", features = ["api-all"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.build-dependencies]
-tauri-build = { git = "https://github.com/tauri-apps/tauri", rev = "e98c1af" }
+tauri-build = { git = "https://github.com/tauri-apps/tauri", rev = "34be6cf" }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

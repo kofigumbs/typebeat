@@ -3,7 +3,7 @@ on:
 
 env:
   FAUST_VERSION: 2.33.1
-  TAURI_CLI_VERSION: 34509028627aa44c02ec38bf6c45e797c8ccfc69
+  TAURI_CLI_VERSION: 34be6cf
 
 jobs:
   main:
