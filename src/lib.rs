@@ -481,7 +481,8 @@ impl Song {
     }
 
     fn save(&self) -> impl Serialize {
-        let song = self.state.save();
+        let mut song = self.state.save();
+        song.insert("version", 1.into());
         let tracks = self
             .tracks
             .iter()
