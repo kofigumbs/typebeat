@@ -31,10 +31,13 @@ const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-
     };
 
     // If Typebeat is running, the browser might prevent you from navigating away
-    window.addEventListener('beforeunload', () => {
+    const stop = () => {
       if (started)
-        ccall('typebeat_stop', null)
-    });
+        ccall('typebeat_stop', null);
+    };
+    if (import.meta.hot)
+      import.meta.hot.dispose(stop);
+    window.addEventListener('beforeunload', stop);
 
     const onChange = callback => {
       callback([getJson('typebeat_dump')]);
@@ -44,7 +47,7 @@ const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-
       })();
     };
 
-    return { dump, send, onChange };
+    return { send, onChange };
   });
 
 const GuidePage = props => {
@@ -64,23 +67,20 @@ const GuidePage = props => {
 
 const Guide = props => {
   const [page, setPage] = createSignal(0);
-  const advance = event => {
-    for (let [key, value] of Object.entries(guide[page()].until))
+  const advance = event => setPage((page) => {
+    for (let [key, value] of Object.entries(guide[page].until))
       if (event[key] !== value)
-        return;
-    setPage(i => i + 1);
-  };
+        return page;
+    return page + 1;
+  });
 
-  createEffect(() => advance(props.lastTask));
-  createEffect(() => advance({ modifier: props.modifier }));
+  createEffect(() => advance(props.appEvent));
   createEventListener(document, 'keypress', event => advance({ code: event.code }));
-  let ref;
-  onMount(() => ref.querySelector('button').addEventListener('click', () => advance({ code: 'Space' })));
 
   return (
-    <div className='column expanded padded-horizontally' ref={ref}>
+    <div className='column expanded padded-horizontally'>
       <div className='expanded'>
-        {guide[page()].content}
+        {guide[page()].show({ advance, className: 'copy full-width' })}
       </div>
       <div className='copy full-width'>
         <GuidePage page={page()} setPage={setPage} step={-1}>Back</GuidePage>
@@ -95,8 +95,7 @@ const Guide = props => {
 
 export default () => {
   const [labeled, setLabeled] = createSignal(true);
-  const [lastTask, setLastTask] = createSignal({});
-  const [modifier, setModifier] = createSignal();
+  const [appEvent, setAppEvent] = createSignal({});
 
   let ref;
   onMount(() => {
@@ -120,21 +119,15 @@ export default () => {
       </header>
       <div ref={ref} className='mount' classList={{ labeled: labeled() }}>
         <App
-          dump={lib.then(lib => lib.dump)}
-          init={(state) => createEffect(() => setModifier(state.modifier))}
+          init={(state) => createEffect(() => setAppEvent({ modifier: state.modifier }))}
           send={(method, data) => {
             lib.then(lib => lib.send(method, data));
-            setLastTask({ [method]: data });
+            setAppEvent({ [method]: data });
           }}
           onChange={(callback) => lib.then(lib => lib.onChange(callback))}
         />
       </div>
-      <Guide
-        modifier={modifier()}
-        lastTask={lastTask()}
-        labeled={labeled()}
-        setLabeled={setLabeled}
-      />
+      <Guide appEvent={appEvent()} labeled={labeled()} setLabeled={setLabeled} />
     </>
   );
 };

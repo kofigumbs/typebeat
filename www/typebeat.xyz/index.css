@@ -9,6 +9,7 @@ h1 {
 }
 
 p, ol, ul {
+  padding: 0;
   line-height: 1.75;
   list-style-position: inside;
 }
@@ -65,7 +66,7 @@ a, a:visited, a:active {
   transition: background .1s ease;
 }
 
-.kbd,
+kbd,
 .key:after {
   display: inline-block;
   color: var(--dark);
