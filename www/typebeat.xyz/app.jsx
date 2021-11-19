@@ -68,14 +68,14 @@ const GuidePage = props => {
 const Guide = props => {
   const [page, setPage] = createSignal(0);
   const advance = event => setPage((page) => {
-    for (let [key, value] of Object.entries(guide[page].until))
-      if (event[key] !== value)
-        return page;
-    return page + 1;
+    const { until: key, is: value } = guide[page];
+    return page + (
+      Array.isArray(value) ? value.includes(event[key]) : value === event[key]
+    );
   });
 
   createEffect(() => advance(props.appEvent));
-  createEventListener(document, 'keypress', event => advance({ code: event.code }));
+  createEventListener(document, 'keypress', event => advance({ keypress: event.code }));
 
   return (
     <div className='column expanded padded-horizontally'>
