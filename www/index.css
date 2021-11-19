@@ -2,6 +2,7 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  overflow-x: hidden;
 }
 
 html {
@@ -23,15 +24,6 @@ button {
 }
 
 button {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  color: inherit;
-  font-weight: inherit;
-  line-height: inherit;
-  box-sizing: content-box;
   cursor: pointer;
 }
 
@@ -43,7 +35,19 @@ input[type="reset"]::-moz-focus-inner {
   border: 0 none !important;
 }
 
-.mount {
+.reset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  box-sizing: content-box;
+}
+
+.app {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -56,14 +60,14 @@ input[type="reset"]::-moz-focus-inner {
   background: var(--dark);
 }
 
-.row {
+.app .row {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: row;
 }
 
-.key {
+.app .key {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -75,26 +79,26 @@ input[type="reset"]::-moz-focus-inner {
   --pulse: var(--secondary);
 }
 
-.action {
+.app .action {
   justify-content: center;
   background: var(--key_background);
   --key_background: var(--primary);
 }
 
-.mode {
+.app .mode {
   --key_background: var(--light);
 }
 
-.mode.active {
+.app .mode.active {
   --key_background: var(--primary);
 }
 
-.mode .label {
+.app .mode .label {
   width: 100%;
   height: 100%;
 }
 
-.mode .visual {
+.app .mode .visual {
   position: absolute;
   left: 0;
   bottom: 0;
@@ -104,32 +108,32 @@ input[type="reset"]::-moz-focus-inner {
   transition: background var(--transition) ease-out;
 }
 
-.mode .visual svg {
+.app .mode .visual svg {
   width: 100%;
   height: 100%;
   transform: translate(0, 0);
 }
 
-.mode .visual svg * {
+.app .mode .visual svg * {
   fill: var(--key_background);
   stroke: var(--dark);
   transition: fill var(--transition) ease-out;
   --pulse: var(--dark);
 }
 
-.mode .visual svg .dark {
+.app .mode .visual svg .dark {
   --key_background: var(--dark);
 }
 
-.mode .visual svg .secondary {
+.app .mode .visual svg .secondary {
   --key_background: var(--secondary);
 }
 
-.mode .visual svg .transparent {
+.app .mode .visual svg .transparent {
   --key_background: transparent;
 }
 
-.action .label {
+.app .action .label {
   width: fit-content;
   height: 1.25rem;
   align-self: flex-start;
@@ -137,11 +141,11 @@ input[type="reset"]::-moz-focus-inner {
   box-sizing: border-box;
 }
 
-.title {
+.app .title {
   border-bottom: solid 2px currentColor;
 }
 
-.pulse {
+.app .pulse {
   animation: pulse .45s ease-out;
 }
 
@@ -161,23 +165,23 @@ input[type="reset"]::-moz-focus-inner {
  * tare
  */
 
-[data-tare] {
+.app [data-tare] {
   width: 100%;
   height: 50%;
 }
 
-[data-tare-character] + [data-tare-character] {
+.app [data-tare-character] + [data-tare-character] {
   margin-left: 2px;
 }
 
-[data-tare-character] * {
+.app [data-tare-character] * {
   border-color: var(--key_background);
   border-width: 2px;
   pointer-events: none;
   transition: border var(--transition) ease-out;
 }
 
-.active [data-tare-character] * {
+.app .active [data-tare-character] * {
   border-width: 4px;
 }
 
@@ -186,14 +190,14 @@ input[type="reset"]::-moz-focus-inner {
  * spacing
  */
 
-.row:first-of-type {
+.app .row:first-of-type {
   margin-left: -3rem;
 }
 
-.row:last-of-type {
+.app .row:last-of-type {
   margin-left: 3rem;
 }
 
-.mode + .action {
+.app .mode + .action {
   margin-left: 3rem;
 }

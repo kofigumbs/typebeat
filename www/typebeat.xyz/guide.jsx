@@ -3,7 +3,7 @@ export default [
     <>
       <p>
         Get the full app for <a download href='/download/macos/Typebeat_0.1.0_x64.dmg'>macOS</a>,
-        or press <button onClick={() => props.advance({ keypress: 'Space' })}><kbd>SPACE</kbd></button> to start the online guide.
+        or press <button className='reset' onClick={() => props.advance({ keypress: 'Space' })}><kbd>SPACE</kbd></button> to start the online guide.
       </p>
     </>
   )},
@@ -116,7 +116,19 @@ export default [
       </p>
     </>
   )},
-  { until: undefined, is: [], render: () => (
+  { until: 'playing', is: 0, render: () => (
+    <>
+      <p>
+        This process of recording and tweaking small loops is the center of the Typebeat workflow.
+        I recommend going track-by-track recording parts for each instrument, building up a beat layer-by-layer.
+        Typically, I'll keep the beat playing the entire time, but for this guide let's pause and cover a few more modes.
+      </p>
+      <p>
+        Press <kbd>Z</kbd> to enter <b>SONG</b> mode, then press <kbd>N</kbd> to stop the beat.
+      </p>
+    </>
+  )},
+  { is: 'end', render: () => (
     <>
       <p>
         That's all I have so far -- more coming soon!

@@ -25,9 +25,18 @@ a, a:visited, a:active {
  * functional
  */
 
+.bold {
+  font-weight: 800;
+}
+
 .column {
   display: flex;
   flex-direction: column;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
 }
 
 .expanded {
@@ -52,21 +61,16 @@ a, a:visited, a:active {
   margin-right: 1.5rem;
 }
 
+.faded {
+  opacity: .4;
+}
+
 
 /*
  * components
  */
 
-.mount.labeled .key:after {
-  content: attr(data-cap);
-  position: absolute;
-  left: -.65rem;
-  bottom: -.75rem;
-  z-index: 1;
-  transition: background .1s ease;
-}
-
-kbd,
+.instruction,
 .key:after {
   display: inline-block;
   color: var(--dark);
@@ -76,6 +80,15 @@ kbd,
   padding: .125rem .65rem;
   line-height: 1;
   --key_background: var(--light);
+}
+
+.key:after {
+  content: attr(data-cap);
+  position: absolute;
+  left: -.65rem;
+  bottom: -.75rem;
+  z-index: 1;
+  transition: background .1s ease;
 }
 
 .key.mode.active:after {

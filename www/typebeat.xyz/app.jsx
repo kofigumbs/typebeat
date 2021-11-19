@@ -50,13 +50,13 @@ const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-
     return { send, onChange };
   });
 
-const GuidePage = props => {
+const Arrow = props => {
   const next = createMemo(() => props.page + props.step);
   const disabled = createMemo(() => next() < 0 || next() >= guide.length);
   return (
     <button
-      className='spaced-after'
-      classList={{ title: !disabled() }}
+      className='bold reset'
+      classList={{ faded: disabled() }}
       disabled={disabled()}
       onClick={() => props.setPage(next())}
     >
@@ -78,26 +78,32 @@ const Guide = props => {
   createEventListener(document, 'keypress', event => advance({ keypress: event.code }));
 
   const contents = Array.from(guide).map(content => content.render({ advance }));
-  contents.flat().forEach(el => el.className = 'copy full-width');
+  for (let el of contents.flat()) {
+    el.classList.add('copy', 'full-width');
+    for (let kbd of el.querySelectorAll('kbd'))
+      kbd.classList.add('reset', 'instruction');
+  }
 
   return (
     <div className='column expanded padded-horizontally'>
       <div className='expanded'>
         {contents[page()]}
       </div>
-      <div className='copy full-width'>
-        <GuidePage page={page()} setPage={setPage} step={-1}>Back</GuidePage>
-        <GuidePage page={page()} setPage={setPage} step={1}>Next</GuidePage>
-        <button className='title' onClick={() => props.setLabeled(x => !x)}>
-          {props.labeled ? 'Hide' : 'Show'} labels
-        </button>
+      <div className='row copy full-width'>
+        <div className='expanded'>
+          <Arrow page={page()} setPage={setPage} step={-1}>{'<-'}</Arrow>
+          {` ${page() + 1}/${contents.length} `}
+          <Arrow page={page()} setPage={setPage} step={1}>{'->'}</Arrow>
+        </div>
+        <a className='spaced-after' href='https://github.com/kofigumbs/typebeat'>GitHub</a>
+        <a className='spaced-after' href='https://twitter.com/kofigumbs'>Twitter</a>
+        <a className='spaced-after' href='https://instagram.com/kofigumbs'>IG</a>
       </div>
     </div>
   );
 };
 
 export default () => {
-  const [labeled, setLabeled] = createSignal(true);
   const [appEvent, setAppEvent] = createSignal({});
 
   let ref;
@@ -120,7 +126,7 @@ export default () => {
       <header className='copy full-width padded-horizontally'>
         <h1>Typebeat</h1> - Make music using a familiar layout
       </header>
-      <div ref={ref} className='mount' classList={{ labeled: labeled() }}>
+      <div ref={ref} className='app'>
         <App
           init={(state) => createEffect(() => setAppEvent({ modifier: state.modifier }))}
           send={(method, data) => {
@@ -130,7 +136,7 @@ export default () => {
           onChange={(callback) => lib.then(lib => lib.onChange(callback))}
         />
       </div>
-      <Guide appEvent={appEvent()} labeled={labeled()} setLabeled={setLabeled} />
+      <Guide appEvent={appEvent()} />
     </>
   );
 };

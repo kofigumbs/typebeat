@@ -58,7 +58,7 @@ export const createEventListener = (subject, type, callback) => {
 
 const Key = props => (
   <button
-    className={`key ${props.className}`}
+    className={`reset key ${props.className}`}
     classList={props.classList}
     data-cap={props.cap}
     onPointerDown={handlePointerEvent(props.cap, props.onCapDown)}
