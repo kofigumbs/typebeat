@@ -67,7 +67,7 @@ const GuidePage = props => {
 
 const Guide = props => {
   const [page, setPage] = createSignal(0);
-  const advance = event => setPage((page) => {
+  const advance = event => setPage(page => {
     const { until: key, is: value } = guide[page];
     return page + (
       Array.isArray(value) ? value.includes(event[key]) : value === event[key]
@@ -77,10 +77,13 @@ const Guide = props => {
   createEffect(() => advance(props.appEvent));
   createEventListener(document, 'keypress', event => advance({ keypress: event.code }));
 
+  const contents = Array.from(guide).map(content => content.render({ advance }));
+  contents.flat().forEach(el => el.className = 'copy full-width');
+
   return (
     <div className='column expanded padded-horizontally'>
       <div className='expanded'>
-        {guide[page()].show({ advance, className: 'copy full-width' })}
+        {contents[page()]}
       </div>
       <div className='copy full-width'>
         <GuidePage page={page()} setPage={setPage} step={-1}>Back</GuidePage>
