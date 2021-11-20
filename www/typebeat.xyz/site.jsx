@@ -124,7 +124,7 @@ export default () => {
   return (
     <>
       <header className='copy full-width padded-horizontally'>
-        <h1>Typebeat</h1> - Make music using a familiar layout
+        <h1>Typebeat</h1> -- Play with music, quickly. Sampler + synth + sequencer.
       </header>
       <div ref={ref} className='app'>
         <App
