@@ -2,7 +2,6 @@ on:
   workflow_dispatch: {}
 
 env:
-  FAUST_VERSION: 2.33.1
   TAURI_CLI_VERSION: 34be6cf
 
 jobs:
@@ -10,12 +9,21 @@ jobs:
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v2
+      - uses: msys2/setup-msys2@v2
+        with:
+          release: false
+          install: >-
+            git
+            base-devel
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
       - uses: ./.github/actions/setup
-      - run: |-
-          Invoke-WebRequest https://github.com/grame-cncm/faust/releases/download/${{ env.FAUST_VERSION }}/Faust-${{ env.FAUST_VERSION }}-win64.exe -OutFile ${{ runner.temp }}/faust.exe
-          echo ${{ runner.temp }} | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - uses: ./.github/actions/faust
+      - run: make -C $RUNNER_TEMP/faust
+        shell: 'msys2 {0}'
       - run: cargo install --git https://github.com/tauri-apps/tauri --rev ${{ env.TAURI_CLI_VERSION }} tauri-cli
       - run: cargo tauri build
+        shell: bash
       - run: netlify deploy --alias windows --dir target/release/bundle/msi
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}

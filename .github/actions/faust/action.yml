@@ -1,0 +1,20 @@
+name: Setup Faust build environment
+description: Clone Faust repo and prepare the build cache
+inputs:
+  faustVersion:
+    description: Faust version
+    default: 2.33.1
+    required: false
+runs:
+  using: composite
+  steps:
+    - run: git clone --recursive --depth 1 --branch ${{ inputs.faustVersion }} https://github.com/grame-cncm/faust $RUNNER_TEMP/faust
+      shell: bash
+    - uses: actions/cache@v2
+      with:
+        path: ${{ runner.temp }}/faust/build/bin
+        key: faust-${{ runner.os }}-${{ inputs.faustVersion }}
+    - run: |-
+        echo $RUNNER_TEMP/faust/build/bin >> $GITHUB_PATH
+        echo FAUST_LIB_PATH=$RUNNER_TEMP/faust/libraries >> $GITHUB_ENV
+      shell: bash
