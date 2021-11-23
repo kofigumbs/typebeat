@@ -49,7 +49,7 @@ pub trait UI<T> {
     fn declare(&mut self, param: Option<ParamIndex>, key: &str, value: &str) {}
 }
 
-include!(concat!(env!("OUT_DIR"), "/insert.rs"));
-include!(concat!(env!("OUT_DIR"), "/reverb.rs"));
-include!(concat!(env!("OUT_DIR"), "/echo.rs"));
-include!(concat!(env!("OUT_DIR"), "/drive.rs"));
+include!("insert.dsp.rs");
+include!("reverb.dsp.rs");
+include!("echo.dsp.rs");
+include!("drive.dsp.rs");

@@ -8,7 +8,6 @@ use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 
-use default_boxed::DefaultBoxed;
 use miniaudio::{
     Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
 };
@@ -70,14 +69,19 @@ lazy_static::lazy_static! {
 }
 
 /// Wrapper for FaustDsp that implements Clone and Default
-#[derive(Clone)]
 struct DspBox<T> {
     dsp: Box<T>,
 }
 
-impl<T: FaustDsp + DefaultBoxed> Default for DspBox<T> {
+impl<T: FaustDsp> Clone for DspBox<T> {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl<T: FaustDsp> Default for DspBox<T> {
     fn default() -> Self {
-        let mut dsp = T::default_boxed();
+        let mut dsp = Box::new(T::new());
         dsp.init(SAMPLE_RATE as i32);
         DspBox { dsp }
     }
@@ -731,6 +735,7 @@ impl Audio {
 
     fn toggle_play(&mut self, song: &Song) {
         song.state.toggle("playing");
+        song.state.set("recording", false);
         song.state.set("step", 0);
         song.frames_since_last_step.store(0);
         if !song.state.is("playing") {

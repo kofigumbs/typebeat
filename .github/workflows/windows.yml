@@ -9,18 +9,7 @@ jobs:
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v2
-      - uses: msys2/setup-msys2@v2
-        with:
-          release: false
-          install: >-
-            git
-            base-devel
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-cmake
       - uses: ./.github/actions/setup
-      - uses: ./.github/actions/faust
-      - run: make -C $RUNNER_TEMP/faust
-        shell: 'msys2 {0}'
       - run: cargo install --git https://github.com/tauri-apps/tauri --rev ${{ env.TAURI_CLI_VERSION }} tauri-cli
       - run: cargo tauri build
         shell: bash

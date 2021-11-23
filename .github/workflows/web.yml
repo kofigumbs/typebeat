@@ -11,8 +11,6 @@ jobs:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup
         with: { target: wasm32-unknown-emscripten }
-      - uses: ./.github/actions/faust
-      - run: make -C $RUNNER_TEMP/faust
       - uses: mymindstorm/setup-emsdk@v11
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}

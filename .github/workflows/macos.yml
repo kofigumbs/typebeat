@@ -10,7 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup
-      - run: brew install faust
       - run: cargo install --git https://github.com/tauri-apps/tauri --rev ${{ env.TAURI_CLI_VERSION }} tauri-cli
       - run: cargo tauri build
       - run: netlify deploy --alias macos --dir target/release/bundle/dmg

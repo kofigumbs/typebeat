@@ -1,33 +1,4 @@
-use std::error::Error;
-use std::ffi::OsStr;
-use std::path::Path;
-use std::process::Command;
-
-fn main() -> Result<(), Box<dyn Error>> {
-    let out = std::env::var("OUT_DIR")?;
-    for path in Path::new("src/effects")
-        .read_dir()?
-        .map(|entry| entry.expect("DirEntry").path())
-        .filter(|path| path.extension() == Some(OsStr::new("dsp")))
-    {
-        let stem = path.file_stem().expect("stem");
-        let faust = Command::new("faust")
-            .args(&["-lang", "rust", "-json", "--output-dir", &out])
-            .args(&["--class-name", stem.to_str().expect("class name")])
-            .arg(&path)
-            .output()?;
-        assert!(faust.status.success(), "{:?}", faust);
-        let ident = format!("pub struct {} {{", stem.to_string_lossy());
-        let with_derive = format!("#[derive(Clone, default_boxed::DefaultBoxed)]\n{}", ident);
-        let rust = Path::new(&out).join(stem).with_extension("rs");
-        let _ = std::fs::remove_file(&rust);
-        std::fs::write(
-            &rust,
-            String::from_utf8(faust.stdout)?.replace(&ident, &with_derive),
-        )?;
-        println!("cargo:rerun-if-changed={}", path.display());
-    }
+fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     tauri_build::build();
-    Ok(())
 }

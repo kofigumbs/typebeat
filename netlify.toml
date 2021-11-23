@@ -12,7 +12,7 @@ EMMAKEN_CFLAGS = """
 -s ALLOW_MEMORY_GROWTH=1 \
 -s ENVIRONMENT=web \
 -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
--s EXPORTED_RUNTIME_METHODS=\"['ccall','_free','UTF8ToString']\" \
+-s EXPORTED_RUNTIME_METHODS="['ccall','_free','UTF8ToString']" \
 -s EXPORT_ES6=1 \
 -s MODULARIZE=1
 """

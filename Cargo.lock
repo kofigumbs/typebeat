@@ -636,26 +636,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "default-boxed"
-version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad22ff9de9661199c1983567eddfbe757f522e57116edf30cd0c45d7367714e3"
-dependencies = [
- "default-boxed-derive",
-]
-
-[[package]]
-name = "default-boxed-derive"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31b26b20ef70afebb53d8c73fed79b14f408bcf74e9b062cfb3b7d92a4f5b72b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "deflate"
 version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3310,7 +3290,6 @@ dependencies = [
  "base64",
  "cocoa",
  "crossbeam",
- "default-boxed",
  "lazy_static",
  "libm",
  "miniaudio",
