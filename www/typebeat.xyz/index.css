@@ -2,12 +2,6 @@
  * built-ins
  */
 
-h1 {
-  font-size: 1rem;
-  font-weight: 800;
-  display: inline;
-}
-
 p, ol, ul {
   padding: 0;
   line-height: 1.75;
@@ -44,8 +38,9 @@ a, a:visited, a:active {
 }
 
 .copy {
+  margin-left: auto;
+  margin-right: auto;
   max-width: 42rem;
-  margin: 2.5rem auto;
 }
 
 .full-width {
@@ -57,8 +52,16 @@ a, a:visited, a:active {
   padding-right: 1.5rem;
 }
 
+.spaced-above {
+  margin-top: 2.5rem;
+}
+
 .spaced-after {
   margin-right: 1.5rem;
+}
+
+.spaced-below {
+  margin-bottom: 2.5rem;
 }
 
 .faded {
@@ -67,10 +70,10 @@ a, a:visited, a:active {
 
 
 /*
- * components
+ * key labels
  */
 
-.instruction,
+kbd,
 .key:after {
   display: inline-block;
   color: var(--dark);

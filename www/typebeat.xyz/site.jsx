@@ -50,6 +50,15 @@ const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-
     return { send, onChange };
   });
 
+const Block = (props) => (
+  <Dynamic
+    component={props.tagName || 'p'}
+    className='copy full-width spaced-above spaced-below'
+  >
+    {props.children}
+  </Dynamic>
+);
+
 const Arrow = props => {
   const next = createMemo(() => props.page + props.step);
   const disabled = createMemo(() => next() < 0 || next() >= guide.length);
@@ -70,34 +79,26 @@ const Guide = props => {
   const advance = event => setPage(page => {
     const { until: key, is: value } = guide[page];
     return page + (
-      Array.isArray(value) ? value.includes(event[key]) : value === event[key]
+      Array.isArray(value) ? value.includes(event[key]) : key in event && value === event[key]
     );
   });
 
   createEffect(() => advance(props.appEvent));
   createEventListener(document, 'keypress', event => advance({ keypress: event.code }));
 
-  const contents = Array.from(guide).map(content => content.render({ advance }));
-  for (let el of contents.flat()) {
-    el.classList.add('copy', 'full-width');
-    for (let kbd of el.querySelectorAll('kbd'))
-      kbd.classList.add('reset', 'instruction');
-  }
-
   return (
     <div className='column expanded padded-horizontally'>
       <div className='expanded'>
-        {contents[page()]}
+        {guide[page()].render({ Block, advance })}
       </div>
-      <div className='row copy full-width'>
+      <div className='row copy full-width spaced-below'>
         <div className='expanded'>
           <Arrow page={page()} setPage={setPage} step={-1}>{'<-'}</Arrow>
-          {` ${page() + 1}/${contents.length} `}
+          {` ${page() + 1}/${guide.length} `}
           <Arrow page={page()} setPage={setPage} step={1}>{'->'}</Arrow>
         </div>
         <a className='spaced-after' href='https://github.com/kofigumbs/typebeat'>GitHub</a>
-        <a className='spaced-after' href='https://twitter.com/kofigumbs'>Twitter</a>
-        <a className='spaced-after' href='https://instagram.com/kofigumbs'>IG</a>
+        <a className='spaced-after' href='https://twitter.com/kofigumbs'>Demos</a>
       </div>
     </div>
   );
@@ -123,9 +124,21 @@ export default () => {
 
   return (
     <>
-      <header className='copy full-width padded-horizontally'>
-        <h1>Typebeat</h1> -- Play with music, quickly. Sampler + synth + sequencer.
-      </header>
+      <div className='padded-horizontally'>
+        <Block>
+          Make music with the instrument you already know.
+        </Block>
+        <Block>
+          Typebeat turns keystrokes into music production commands.
+          It's a fast, hands-on workflow for sampling, synthesizing, and sequencing sound.
+        </Block>
+        <Block>
+          Download it now for
+          {' '}<a download href='/download/macos/Typebeat_0.1.0_x64.dmg'>macOS</a>
+          {' '}and
+          {' '}<a download href='/download/windows/Typebeat_0.1.0_x64.msi'>Windows</a>.
+        </Block>
+      </div>
       <div ref={ref} className='app'>
         <App
           init={(state) => createEffect(() => setAppEvent({ modifier: state.modifier }))}

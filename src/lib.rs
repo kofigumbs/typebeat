@@ -200,7 +200,7 @@ impl Default for Track {
 impl Host for Track {
     fn host<F: FnMut(&'static str, &Param)>(f: &mut F) {
         effects::insert::host(f);
-        f("activeKey", Param::new(12).max(TRACK_COUNT - 1));
+        f("activeKey", Param::new(12).min(0).max(TRACK_COUNT - 1));
         f("bars", Param::new(1).temp());
         f("canClear", Param::new(false).temp());
         f("length", Param::new(MAX_RES).min(MAX_RES).max(MAX_RES * 8));
@@ -437,13 +437,13 @@ impl Host for Song {
         effects::reverb::host(f);
         effects::echo::host(f);
         effects::drive::host(f);
-        f("activeTrack", Param::new(0).max(TRACK_COUNT - 1).temp());
+        f("activeTrack", Param::new(0).min(0).max(TRACK_COUNT - 1).temp());
         f("playing", Param::new(false).temp());
         f("recording", Param::new(false).toggle().temp());
         f("root", Param::new(0).min(-12).max(12).step(7));
         f("scale", Param::new(0).max(SCALE_OFFSETS.len() - 1));
         f("step", Param::new(0).temp());
-        f("tempo", Param::new(120).max(999).step(10));
+        f("tempo", Param::new(120).min(0).max(999).step(10));
     }
 }
 
@@ -671,7 +671,7 @@ impl<'a, T: FaustDsp<T = f32> + ?Sized, S> UI<f32> for SetParams<'a, T, S> {
     }
 }
 
-enum Task {
+enum Command {
     WithI32(fn(&mut Audio, &Song, i32)),
     WithUsize(fn(&mut Audio, &Song, usize)),
     NudgeSong(&'static str),
@@ -682,7 +682,7 @@ struct Audio {
     platform: Mutex<Platform>,
     voices: Vec<Voice>,
     sends: [DspDyn; SEND_COUNT],
-    receiver: Arc<Mutex<Receiver<(Task, i32)>>>,
+    receiver: Arc<Mutex<Receiver<(Command, i32)>>>,
 }
 
 impl Audio {
@@ -744,15 +744,15 @@ impl Audio {
     }
 
     fn process(&mut self, song: &Song, input: &Frames, output: &mut FramesMut) {
-        // Handle incoming audio tasks
+        // Handle incoming audio commands
         let receiver = Arc::clone(&self.receiver);
         let receiver = receiver.lock().expect("receiver");
         while let Ok((callback, data)) = receiver.try_recv() {
             match callback {
-                Task::WithI32(f) => f(self, song, data),
-                Task::WithUsize(f) => f(self, song, data as usize),
-                Task::NudgeSong(name) => song.state.nudge(name, data),
-                Task::NudgeTrack(name) => song.active_track().state.nudge(name, data),
+                Command::WithI32(f) => f(self, song, data),
+                Command::WithUsize(f) => f(self, song, data as usize),
+                Command::NudgeSong(name) => song.state.nudge(name, data),
+                Command::NudgeTrack(name) => song.active_track().state.nudge(name, data),
             }
         }
 
@@ -882,7 +882,7 @@ pub struct Controller {
     device: Device,
     song: Arc<RwLock<Song>>,
     audio: Arc<RwLock<Audio>>,
-    sender: Arc<Mutex<Sender<(Task, i32)>>>,
+    sender: Arc<Mutex<Sender<(Command, i32)>>>,
 }
 
 impl Controller {
@@ -917,41 +917,41 @@ impl Controller {
 
     pub fn send(&self, method: &str, data: i32) {
         let callback = match method {
-            "activeTrack" => Task::WithUsize(|audio, song, i| {
+            "activeTrack" => Command::WithUsize(|audio, song, i| {
                 song.state.set("activeTrack", i);
                 if !song.state.is("playing") {
                     let id = song.state.get("activeTrack");
                     audio.key_down(song, id, song.tracks[id].state.get("activeKey"));
                 }
             }),
-            "auditionDown" => Task::WithUsize(|audio, song, i| {
+            "auditionDown" => Command::WithUsize(|audio, song, i| {
                 audio.key_down(song, i, song.tracks[i].state.get("activeKey"))
             }),
-            "auditionUp" => Task::WithUsize(|audio, song, i| {
+            "auditionUp" => Command::WithUsize(|audio, song, i| {
                 audio.key_up(song, i, song.tracks[i].state.get("activeKey"))
             }),
-            "length" => Task::WithI32(|_, song, i| song.active_track().adjust_length(i)),
-            "clear" => Task::WithUsize(|_, song, _| song.active_track().clear()),
-            "muted" => Task::WithUsize(|_, song, i| song.tracks[i].state.toggle("muted")),
-            "noteDown" => Task::WithUsize(|audio, song, i| {
+            "length" => Command::WithI32(|_, song, i| song.active_track().adjust_length(i)),
+            "clear" => Command::WithUsize(|_, song, _| song.active_track().clear()),
+            "muted" => Command::WithUsize(|_, song, i| song.tracks[i].state.toggle("muted")),
+            "noteDown" => Command::WithUsize(|audio, song, i| {
                 audio.key_down(song, song.state.get("activeTrack"), i)
             }),
-            "noteUp" => Task::WithUsize(|audio, song, i| {
+            "noteUp" => Command::WithUsize(|audio, song, i| {
                 audio.key_up(song, song.state.get("activeTrack"), i)
             }),
-            "page" => Task::WithI32(|_, song, i| song.active_track().adjust_page(i)),
-            "playing" => Task::WithUsize(|audio, song, _| audio.toggle_play(song)),
-            "sampleType" => Task::WithUsize(|audio, song, i| audio.set_sample_type(song, i)),
-            "sequence" => Task::WithUsize(|_, song, i| song.active_track().toggle_step(i)),
-            "taps" => Task::WithUsize(|_, song, i| song.state.set("tempo", i)),
-            "zoomIn" => Task::WithUsize(|_, song, _| song.active_track().zoom_in()),
-            "zoomOut" => Task::WithUsize(|_, song, _| song.active_track().zoom_out()),
+            "page" => Command::WithI32(|_, song, i| song.active_track().adjust_page(i)),
+            "playing" => Command::WithUsize(|audio, song, _| audio.toggle_play(song)),
+            "sampleType" => Command::WithUsize(|audio, song, i| audio.set_sample_type(song, i)),
+            "sequence" => Command::WithUsize(|_, song, i| song.active_track().toggle_step(i)),
+            "taps" => Command::WithUsize(|_, song, i| song.state.set("tempo", i)),
+            "zoomIn" => Command::WithUsize(|_, song, _| song.active_track().zoom_in()),
+            "zoomOut" => Command::WithUsize(|_, song, _| song.active_track().zoom_out()),
             _ => {
                 let song = self.song.read().expect("song");
                 if let Some(name) = song.state.find(method) {
-                    Task::NudgeSong(name)
+                    Command::NudgeSong(name)
                 } else if let Some(name) = song.active_track().state.find(method) {
-                    Task::NudgeTrack(name)
+                    Command::NudgeTrack(name)
                 } else {
                     return;
                 }

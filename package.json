@@ -1,6 +1,6 @@
 {
   "name": "typebeat",
-  "description": "Play with music, quickly. Sampler + synth + sequencer. Designed for the QWERTY keyboard.",
+  "description": "Sampler, synth, and sequencer designed for the QWERTY keyboard.",
   "dependencies": {
     "firacode": "^5.2.0",
     "solid-js": "^1.2.1",
