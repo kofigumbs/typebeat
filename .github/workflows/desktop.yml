@@ -6,14 +6,21 @@ env:
 
 jobs:
   main:
-    runs-on: windows-2019
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-11
+            bundle: dmg
+          - os: windows-2019
+            bundle: msi
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup
       - run: cargo install --git https://github.com/tauri-apps/tauri --rev ${{ env.TAURI_CLI_VERSION }} tauri-cli
       - run: cargo tauri build
-        shell: bash
-      - run: netlify deploy --alias windows --dir target/release/bundle/msi
+      - run: netlify deploy --alias ${{ runner.os }} --dir target/release/bundle/${{ matrix.bundle }}
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
