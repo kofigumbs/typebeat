@@ -59,6 +59,12 @@ export const Visual = props => (
 export const Help = ({ Block }) => (
   <>
     <Block>
+      <b>SYNTH</b> mode controls the track's three synth oscillators.
+      Each oscillator has independent <b>type</b>, <b>level</b>, and <b>detune</b> controls.
+      By default, each oscillator is turned all the way down.
+    </Block>
+    <Block className='bullet'>
+      Try using <b>TRACK</b> mode to select the <kbd>P</kbd> demo track, which is preset with some synth controls.
     </Block>
   </>
 );

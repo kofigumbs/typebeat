@@ -38,7 +38,7 @@ export const Help = ({ Block }) => (
     <Block>
       <b>TUNE</b> mode is another simple one (so far).
       It lets you adjust the octave range available in <b>NOTE</b> mode.
-      The <b>use key</b> toggle determines whether the <b>SONG</b> mode <b>root</b>/<b>scale</b> apply to the active track.
+      The <b>use key</b> toggle determines whether the <b>SONG</b> mode <b>root</b> and <b>scale</b> apply to the active track.
     </Block>
   </>
 );

@@ -86,7 +86,7 @@ b, .bold {
 
 kbd,
 .key:after {
-  display: inline-block;
+  display: inline;
   color: var(--dark);
   background: var(--key_background);
   border: solid 2px var(--dark);

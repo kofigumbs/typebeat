@@ -42,6 +42,8 @@ export const Visual = props => {
 export const Help = ({ Block }) => (
   <>
     <Block>
+      <b>HOLD</b> mode controls the per-track <a href='https://en.wikipedia.org/wiki/Envelope_(music)#ADSR'>ADSR envelope</a>.
+      In addition to the four standard stage controls, you can use <b>cutoff</b> to select how much the envelope affects the low-pass filter; and <b>sample</b> which toggles whether the envelope affects the sample oscillator.
     </Block>
   </>
 );

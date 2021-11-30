@@ -43,6 +43,10 @@ export const Visual = props => (
 export const Help = ({ Block }) => (
   <>
     <Block>
+      <b>SEND</b> mode controls how much sound is routed to each destination mix.
+      By default, tracks only output to the <b>main</b> mix.
+      {' '}<b>SEND</b> mode is per-track, and it only controls the amount of sound routed to the effect.
+      To change the actual effect characteristics, use <b>RETURN</b> mode.
     </Block>
   </>
 );

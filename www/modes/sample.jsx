@@ -36,6 +36,20 @@ export const Visual = props => {
 export const Help = ({ Block }) => (
   <>
     <Block>
+      <b>SAMPLE</b> mode controls the track's sample oscillator, which can either play audio from a file or record input from the mic.
+      Each track starts with a unique file sample at full volume.
+      You can use <b>level</b> and <b>detune</b> to adjust its tuning.
+    </Block>
+    <Block>
+      The default type, <b>file</b>, streams audio from the sample pack distributed with Typebeat.
+      The three <b>live</b> types define the workflow for live-sampling: <b>live through (->)</b>, <b>live record (.=)</b>, and <b>live playback (|>)</b>.
+      Live through streams the mic input directly to the Typebeat effect chain, which is great for vocals or previewing a live-sample.
+      Live record will also stream the mic input, but it will also write audio to the per-track sample memory.
+      Finally, live playback will stream from the per-track memory, replaying whatever audio was live-sampled.
+      Each track has 60 seconds of live-sample memory for recording/playback.
+    </Block>
+    <Block className='bullet'>
+      Try recording your own sample with <kbd>K</kbd> and replaying it with <kbd>L</kbd>.
     </Block>
   </>
 );

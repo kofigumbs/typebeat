@@ -47,6 +47,8 @@ export const Visual = props => {
 export const Help = ({ Block }) => (
   <>
     <Block>
+      <b>EQ</b> mode controls the track's three equilizer bands.
+      Each band has independent <b>frequency</b> and <b>resonance</b> controls.
     </Block>
   </>
 );

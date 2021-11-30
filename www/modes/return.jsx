@@ -44,6 +44,12 @@ export const Visual = props => (
 export const Help = ({ Block }) => (
   <>
     <Block>
+      <b>RETURN</b> mode controls the characteristics of Typebeat's effects.
+      Effects controls are song-wide, and each effect has independent <b>gain</b>, <b>feed</b>, and <b>space</b> controls.
+    </Block>
+    <Block>
+      Any values you change here will only affect the sound of tracks that have been routed to that effect.
+      Use <b>SEND</b> mode to route individual track outputs to the various effects.
     </Block>
   </>
 );

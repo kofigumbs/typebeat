@@ -81,8 +81,8 @@ export const Visual = props => {
 export const Help = ({ Block }) => (
   <>
     <Block>
-      <b>SONG</b> mode houses global playback controls.
-      {' '}<b>SONG</b> mode has 3 value controls: <b>tempo</b> controls the track speed, while <b>root</b> and <b>scale</b> control the global pitch shift.
+      <b>SONG</b> mode houses song-wide playback controls.
+      {' '}<b>SONG</b> mode has 3 value controls: <b>tempo</b> controls the track speed, while <b>root</b> and <b>scale</b> control the song-wide pitch shift.
       The <b>play</b> and <b>record</b> commands are always available for quick access in the bottom row.
     </Block>
     <Block className='bullet'>
