@@ -1,18 +1,18 @@
 import { createMemo } from 'solid-js';
 
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'D';
 
-const subtabs = (band) => Actions.tabbed(
-  { cap: 'N', label: 'freq.', actions: Actions.nudge('activeTrack', `${band}Freq`) },
-  { cap: 'M', label: 'res.',  actions: Actions.nudge('activeTrack', `${band}Res` ) }
+const subtabs = (band) => Commands.tabbed(
+  { cap: 'N', label: 'freq.', commands: Commands.nudge('activeTrack', `${band}Freq`) },
+  { cap: 'M', label: 'res.',  commands: Commands.nudge('activeTrack', `${band}Res` ) }
 );
 
-export const actions = Actions.tabbed(
-  { cap: 'Y', label: 'low',  actions: subtabs('low') },
-  { cap: 'U', label: 'mid',  actions: subtabs('mid') },
-  { cap: 'I', label: 'high', actions: subtabs('high') }
+export const commands = Commands.tabbed(
+  { cap: 'Y', label: 'low',  commands: subtabs('low') },
+  { cap: 'U', label: 'mid',  commands: subtabs('mid') },
+  { cap: 'I', label: 'high', commands: subtabs('high') }
 );
 
 const margin = 3;

@@ -1,9 +1,9 @@
-import Actions from '../actions';
+import Commands from '../commands';
 import { Grid, layout } from './track';
 
 export const cap = 'B';
 
-export const actions = Actions.all({
+export const commands = Commands.all({
   label: (state, i) => state.tracks[i].muted ? '██' : '--',
   onDown: (state, i) => state.send('muted', i),
 });

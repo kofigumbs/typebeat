@@ -1,6 +1,6 @@
 import { createMemo } from 'solid-js';
 
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'T';
 
@@ -10,7 +10,7 @@ export const note = n => {
   return `${name}${octave}`;
 };
 
-export const actions = Actions.all({
+export const commands = Commands.all({
   label: (state, i) => note(state.activeTrack[`note${i}`]),
   title: (state, i) => i == state.activeTrack.activeKey,
   onDown: (state, i) => state.send('noteDown', i),

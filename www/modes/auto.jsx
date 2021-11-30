@@ -1,8 +1,8 @@
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'X';
 
-export const actions = Actions.comingSoon;
+export const commands = Commands.comingSoon;
 
 export const Visual = props => {
   const ls = Array

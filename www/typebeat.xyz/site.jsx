@@ -21,7 +21,7 @@ const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-
       return obj;
     };
 
-    // Only start the typebeat device once we receive an action
+    // Only start the typebeat device once we receive an command
     const send = (method, data) => {
       if (!started()) {
         ccall('typebeat_start', null)

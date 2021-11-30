@@ -1,19 +1,19 @@
 import { createMemo } from 'solid-js';
 
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'G';
 
-const subtabs = (effect) => Actions.tabbed(
-  { cap: 'N', label: 'gain',  actions: Actions.nudge('song', `${effect}Gain` ) },
-  { cap: 'M', label: 'feed',  actions: Actions.nudge('song', `${effect}Feed` ) },
-  { cap: ',', label: 'space', actions: Actions.nudge('song', `${effect}Space`) }
+const subtabs = (effect) => Commands.tabbed(
+  { cap: 'N', label: 'gain',  commands: Commands.nudge('song', `${effect}Gain` ) },
+  { cap: 'M', label: 'feed',  commands: Commands.nudge('song', `${effect}Feed` ) },
+  { cap: ',', label: 'space', commands: Commands.nudge('song', `${effect}Space`) }
 );
 
-export const actions = Actions.tabbed(
-  { cap: 'Y', label: 'reverb', actions: subtabs('reverb') },
-  { cap: 'U', label: 'echo',   actions: subtabs('echo') },
-  { cap: 'I', label: 'drive',  actions: subtabs('drive') }
+export const commands = Commands.tabbed(
+  { cap: 'Y', label: 'reverb', commands: subtabs('reverb') },
+  { cap: 'U', label: 'echo',   commands: subtabs('echo') },
+  { cap: 'I', label: 'drive',  commands: subtabs('drive') }
 );
 
 const Fader = props => {

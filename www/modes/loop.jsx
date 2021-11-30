@@ -1,6 +1,6 @@
 import { createMemo } from 'solid-js';
 
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'A';
 
@@ -14,26 +14,26 @@ const view = i => state => {
   }
 };
 
-export const actions = Actions.combine(
-  Actions.cap('Y', { label: () => 'bars -', onDown: state => state.send('length', -1) }),
-  Actions.cap('U', { label: () => 'bars +', onDown: state => state.send('length', 1) }),
-  Actions.cap('H', { label: () => 'zoom -', onDown: state => state.send('zoomOut', 0) }),
-  Actions.cap('J', { label: () => 'page -', onDown: state => state.send('page', -1) }),
-  Actions.cap('L', { label: () => 'page +', onDown: state => state.send('page', 1) }),
-  Actions.cap(';', { label: () => 'zoom +', onDown: state => state.send('zoomIn', 0) }),
-  Actions.cap('K', { title: () => true, label: state => {
+export const commands = Commands.combine(
+  Commands.cap('Y', { label: () => 'bars -', onDown: state => state.send('length', -1) }),
+  Commands.cap('U', { label: () => 'bars +', onDown: state => state.send('length', 1) }),
+  Commands.cap('H', { label: () => 'zoom -', onDown: state => state.send('zoomOut', 0) }),
+  Commands.cap('J', { label: () => 'page -', onDown: state => state.send('page', -1) }),
+  Commands.cap('L', { label: () => 'page +', onDown: state => state.send('page', 1) }),
+  Commands.cap(';', { label: () => 'zoom +', onDown: state => state.send('zoomIn', 0) }),
+  Commands.cap('K', { title: () => true, label: state => {
     const bar = Math.floor(state.activeTrack.viewStart / state.activeTrack.resolution) + 1;
     return `bar ${bar}/${state.activeTrack.bars}`
   }}),
-  Actions.cap('P', {
+  Commands.cap('P', {
     label: () => 'clear',
     title: state => state.activeTrack.canClear,
     onDown: state => state.send('clear', 0),
   }),
-  Actions.cap('N', { label: view(0), onDown: state => state.send('sequence', 0) }),
-  Actions.cap('M', { label: view(1), onDown: state => state.send('sequence', 1) }),
-  Actions.cap(',', { label: view(2), onDown: state => state.send('sequence', 2) }),
-  Actions.cap('.', { label: view(3), onDown: state => state.send('sequence', 3) }),
+  Commands.cap('N', { label: view(0), onDown: state => state.send('sequence', 0) }),
+  Commands.cap('M', { label: view(1), onDown: state => state.send('sequence', 1) }),
+  Commands.cap(',', { label: view(2), onDown: state => state.send('sequence', 2) }),
+  Commands.cap('.', { label: view(3), onDown: state => state.send('sequence', 3) }),
 );
 
 const View = props => {
@@ -95,7 +95,7 @@ export const Help = ({ Block }) => (
     <Block className='bullet'>
       Try zooming in and out.
       Each track starts with a 16th note resolution, but you can zoom in up to 512th notes.
-      The zoom level also affects the <a href="https://en.wikipedia.org/wiki/Quantization_(music)">quantize</a> amount when recording live.
+      The zoom level also corresponds to the <a href="https://en.wikipedia.org/wiki/Quantization_(music)">quantization</a> when recording live.
     </Block>
     <Block className='bullet'>
       Each track has its own loop, so try using <b>LOOP</b> mode on other tracks.

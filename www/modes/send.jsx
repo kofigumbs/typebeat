@@ -1,15 +1,15 @@
 import { createMemo } from 'solid-js';
 
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'F';
 
-export const actions = Actions.tabbed(
-  { cap: 'Y', label: 'main',   actions: Actions.nudge('activeTrack', 'main'  ) },
-  { cap: 'U', label: 'pan',    actions: Actions.nudge('activeTrack', 'pan'   ) },
-  { cap: 'I', label: 'echo',   actions: Actions.nudge('activeTrack', 'echo'  ) },
-  { cap: 'O', label: 'reverb', actions: Actions.nudge('activeTrack', 'reverb') },
-  { cap: 'P', label: 'drive',  actions: Actions.nudge('activeTrack', 'drive' ) }
+export const commands = Commands.tabbed(
+  { cap: 'Y', label: 'main',   commands: Commands.nudge('activeTrack', 'main'  ) },
+  { cap: 'U', label: 'pan',    commands: Commands.nudge('activeTrack', 'pan'   ) },
+  { cap: 'I', label: 'echo',   commands: Commands.nudge('activeTrack', 'echo'  ) },
+  { cap: 'O', label: 'reverb', commands: Commands.nudge('activeTrack', 'reverb') },
+  { cap: 'P', label: 'drive',  commands: Commands.nudge('activeTrack', 'drive' ) }
 )
 
 const Rect = props => {

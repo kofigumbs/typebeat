@@ -82,20 +82,20 @@ const Mode = props => {
   );
 };
 
-const Action = props => {
+const Command = props => {
   const [label, setLabel] = createSignal();
-  const action = createMemo(() => props.state.actions.get(props.cap));
+  const command = createMemo(() => props.state.commands.get(props.cap));
   const cache = type.cache();
   createEffect(oldLabel => {
-    const newLabel = action()?.label(props.state)?.toString();
+    const newLabel = command()?.label(props.state)?.toString();
     type(newLabel, oldLabel, setLabel, cache);
     return newLabel;
   });
   return (
-    <Key className='action' {...props}>
+    <Key className='command' {...props}>
       <div
         className='label'
-        classList={{ title: !!action()?.title(props.state) }}
+        classList={{ title: !!command()?.title(props.state) }}
         textContent={label()}
       />
     </Key>
@@ -117,8 +117,8 @@ export default props => {
     get send() {
       return props.send;
     },
-    get actions() {
-      return modes.get(this.modifier).actions;
+    get commands() {
+      return modes.get(this.modifier).commands;
     },
     get activeTrack() {
       return this.tracks[this.song.activeTrack];
@@ -136,12 +136,12 @@ export default props => {
     else if (modes.has(cap))
       setState({ modifier: cap });
     else {
-      state.actions.get(cap)?.onDown?.(state);
+      state.commands.get(cap)?.onDown?.(state);
       pulse(document.querySelector(`[data-cap="${cap}"]`));
     }
   };
   const onCapUp = cap => {
-    state.actions.get(cap)?.onUp(state);
+    state.commands.get(cap)?.onUp(state);
   };
   createEventListener(document, 'keydown', handleKeyboardEvent(onCapDown));
   createEventListener(document, 'keyup', handleKeyboardEvent(onCapUp));
@@ -149,7 +149,7 @@ export default props => {
   return (
     <Grid rows={['QWERTYUIOP', 'ASDFGHJKL;', 'ZXCVBNM,./']}>
       {cap => {
-        const Component = modes.has(cap) ? Mode : Action;
+        const Component = modes.has(cap) ? Mode : Command;
         return <Component {...{ cap, state, onCapDown, onCapUp }} />
       }}
     </Grid>

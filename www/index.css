@@ -56,7 +56,7 @@ input[type="reset"]::-moz-focus-inner {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  touch-action: manipulation;
+  touch-command: manipulation;
   background: var(--dark);
 }
 
@@ -79,7 +79,7 @@ input[type="reset"]::-moz-focus-inner {
   --pulse: var(--secondary);
 }
 
-.app .action {
+.app .command {
   justify-content: center;
   background: var(--key_background);
   --key_background: var(--primary);
@@ -133,7 +133,7 @@ input[type="reset"]::-moz-focus-inner {
   --key_background: transparent;
 }
 
-.app .action .label {
+.app .command .label {
   width: fit-content;
   height: 1.25rem;
   align-self: flex-start;
@@ -198,6 +198,6 @@ input[type="reset"]::-moz-focus-inner {
   margin-left: 3rem;
 }
 
-.app .mode + .action {
+.app .mode + .command {
   margin-left: 3rem;
 }

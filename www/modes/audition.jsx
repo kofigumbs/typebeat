@@ -1,8 +1,8 @@
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = undefined;
 
-export const actions = Actions.all({
+export const commands = Commands.all({
   onDown: (state, i) => state.send('auditionDown', i),
   onUp: (state, i) => state.send('auditionUp', i),
 });

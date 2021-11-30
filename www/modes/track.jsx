@@ -1,11 +1,11 @@
 import { createRenderEffect, on } from 'solid-js';
 
-import Actions from '../actions';
+import Commands from '../commands';
 import { pulse } from '../animations';
 
 export const cap = 'Q';
 
-export const actions = Actions.all({
+export const commands = Commands.all({
   label: (state, i) => i === state.song.activeTrack ? 'active' : '',
   title: (state) => !state.song.playing,
   onDown: (state, i) => state.send('activeTrack', i),

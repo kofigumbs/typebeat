@@ -1,18 +1,18 @@
 import { createMemo } from 'solid-js';
 
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'S';
 
-export const actions = Actions.combine(
-  Actions.tabbed(
-    { cap: 'Y', label: 'attack',  actions: Actions.nudge('activeTrack', 'attack' ) },
-    { cap: 'U', label: 'decay',   actions: Actions.nudge('activeTrack', 'decay'  ) },
-    { cap: 'I', label: 'sustain', actions: Actions.nudge('activeTrack', 'sustain') },
-    { cap: 'O', label: 'release', actions: Actions.nudge('activeTrack', 'release') },
-    { cap: 'P', label: 'cutoff',  actions: Actions.nudge('activeTrack', 'cutoff' ) }
+export const commands = Commands.combine(
+  Commands.tabbed(
+    { cap: 'Y', label: 'attack',  commands: Commands.nudge('activeTrack', 'attack' ) },
+    { cap: 'U', label: 'decay',   commands: Commands.nudge('activeTrack', 'decay'  ) },
+    { cap: 'I', label: 'sustain', commands: Commands.nudge('activeTrack', 'sustain') },
+    { cap: 'O', label: 'release', commands: Commands.nudge('activeTrack', 'release') },
+    { cap: 'P', label: 'cutoff',  commands: Commands.nudge('activeTrack', 'cutoff' ) }
   ),
-  Actions.cap('N', {
+  Commands.cap('N', {
     label: () => 'sample',
     title: state => state.activeTrack.holdSample,
     onDown: state => state.send('holdSample', 0),

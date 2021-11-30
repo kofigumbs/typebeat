@@ -1,23 +1,23 @@
 import { createMemo } from 'solid-js';
 
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'E';
 
-export const subtab = i => Actions.tabbed(
-  { cap: 'N', label: 'type', actions: Actions.select(
+export const subtab = i => Commands.tabbed(
+  { cap: 'N', label: 'type', commands: Commands.select(
     'activeTrack',
     `synth${i}Type`,
     ['sine', 'tri.', 'saw', 'square', 'noise']
   )},
-  { cap: 'M', label: 'level', actions: Actions.nudge('activeTrack', `synth${i}Level`) },
-  { cap: ',', label: 'detune', actions: Actions.nudge('activeTrack', `synth${i}Detune`) },
+  { cap: 'M', label: 'level', commands: Commands.nudge('activeTrack', `synth${i}Level`) },
+  { cap: ',', label: 'detune', commands: Commands.nudge('activeTrack', `synth${i}Detune`) },
 );
 
-export const actions = Actions.tabbed(
-  { cap: 'Y', label: 'osc. 1', actions: subtab(1) },
-  { cap: 'U', label: 'osc. 2', actions: subtab(2) },
-  { cap: 'I', label: 'osc. 3', actions: subtab(3) },
+export const commands = Commands.tabbed(
+  { cap: 'Y', label: 'osc. 1', commands: subtab(1) },
+  { cap: 'U', label: 'osc. 2', commands: subtab(2) },
+  { cap: 'I', label: 'osc. 3', commands: subtab(3) },
 );
 
 const length = 12;

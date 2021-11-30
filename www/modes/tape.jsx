@@ -1,8 +1,8 @@
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'V';
 
-export const actions = Actions.comingSoon;
+export const commands = Commands.comingSoon;
 
 export const Visual = props => (
   <svg xmlns='http://www.w3.org/2000/svg'>

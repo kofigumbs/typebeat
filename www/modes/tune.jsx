@@ -1,12 +1,12 @@
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'R';
 
-export const actions = Actions.combine(
-  Actions.cap('J', { label: () => 'oct. -', onDown: state => state.send('octave', 1) }),
-  Actions.cap('K', { label: state => state.activeTrack.octave, title: () => true }),
-  Actions.cap('L', { label: () => 'oct. +', onDown: state => state.send('octave', 2) }),
-  Actions.cap('N', {
+export const commands = Commands.combine(
+  Commands.cap('J', { label: () => 'oct. -', onDown: state => state.send('octave', 1) }),
+  Commands.cap('K', { label: state => state.activeTrack.octave, title: () => true }),
+  Commands.cap('L', { label: () => 'oct. +', onDown: state => state.send('octave', 2) }),
+  Commands.cap('N', {
     label: () => 'use key',
     title: state => state.activeTrack.usingKey,
     onDown: state => state.send('usingKey', 0),

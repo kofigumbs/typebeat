@@ -1,18 +1,18 @@
 import { createMemo } from 'solid-js';
 
-import Actions from '../actions';
+import Commands from '../commands';
 
 export const cap = 'W';
 
-export const actions = Actions.tabbed(
-  { cap: 'Y', label: 'source', actions: Actions.tabbed(
-    { cap: 'N', label: 'type', actions: Actions.select(
+export const commands = Commands.tabbed(
+  { cap: 'Y', label: 'source', commands: Commands.tabbed(
+    { cap: 'N', label: 'type', commands: Commands.select(
       'activeTrack',
       'sampleType',
       ['file', 'live ->', 'live .=', 'live |>']
     )},
-    { cap: 'M', label: 'level', actions: Actions.nudge('activeTrack', 'sampleLevel') },
-    { cap: ',', label: 'detune', actions: Actions.nudge('activeTrack', 'sampleDetune') },
+    { cap: 'M', label: 'level', commands: Commands.nudge('activeTrack', 'sampleLevel') },
+    { cap: ',', label: 'detune', commands: Commands.nudge('activeTrack', 'sampleDetune') },
   )},
 );
 

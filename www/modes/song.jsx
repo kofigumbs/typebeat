@@ -1,6 +1,6 @@
 import { createEffect, createSignal, on } from 'solid-js';
 
-import Actions from '../actions';
+import Commands from '../commands';
 import { note } from './note';
 
 export const cap = 'Z';
@@ -13,11 +13,11 @@ export const init = state => createEffect(on(
   { defer: true }
 ));
 
-export const actions = Actions.combine(
-  Actions.tabbed(
-    { cap: 'Y', label: 'tempo', actions: Actions.combine(
-      Actions.nudge('song', 'tempo'),
-      Actions.cap('K', {
+export const commands = Commands.combine(
+  Commands.tabbed(
+    { cap: 'Y', label: 'tempo', commands: Commands.combine(
+      Commands.nudge('song', 'tempo'),
+      Commands.cap('K', {
         label: (state) => state.song.tempo,
         title: () => true,
         onDown: (state) => {
@@ -34,20 +34,20 @@ export const actions = Actions.combine(
     )},
     { cap: 'U',
       label: 'root',
-      actions: Actions.nudge('song', 'root', '1/2', '5th', root => note(root + 12)),
+      commands: Commands.nudge('song', 'root', '1/2', '5th', root => note(root + 12)),
     },
     {
       cap: 'I',
       label: 'scale',
-      actions: Actions.select('song', 'scale', ['major', 'minor', 'harm.', 'melodic']),
+      commands: Commands.select('song', 'scale', ['major', 'minor', 'harm.', 'melodic']),
     },
   ),
-  Actions.cap('N', {
+  Commands.cap('N', {
     label: () => 'play',
     title: (state) => state.song.playing,
     onDown: (state) => state.send('playing', 0),
   }),
-  Actions.cap('M', {
+  Commands.cap('M', {
     label: () => 'record',
     title: (state) => state.song.recording,
     onDown: (state) => state.send('recording', 0),
