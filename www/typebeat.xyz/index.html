@@ -6,7 +6,23 @@
   <script type="module">
     import { render } from 'solid-js/web';
     import Site from './site.jsx';
-    render(Site, document.body);
+    const fragment = new DocumentFragment();
+    render(Site, fragment);
+    document.body.appendChild(fragment);
   </script>
 </head>
-<body></body>
+<body>
+  <div class="padded-horizontally">
+    <p class="copy full-width spaced-above spaced-below">
+      Make music with the instrument you already know.
+    </p>
+    <p class="copy full-width spaced-above spaced-below">
+      Typebeat turns keystrokes into music production commands.
+      It's a fast, hands-on workflow for sampling, synthesizing, and sequencing sound.
+    </p>
+    <p class="copy full-width spaced-above spaced-below">
+      Download it for <a download href="/download/macos/Typebeat_0.1.0_x64.dmg">macOS</a> or <a download href="/download/windows/Typebeat_0.1.0_x64.msi">Windows</a>.
+      Or view the source on <a href="https://github.com/kofigumbs/typebeat">GitHub</a>.
+    </p>
+  </div>
+</body>

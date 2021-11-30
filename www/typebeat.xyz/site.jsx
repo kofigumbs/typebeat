@@ -93,41 +93,25 @@ export default () => {
   });
 
   return (
-    <>
-      <div className='padded-horizontally'>
-        <Block>
-          Make music with the instrument you already know.
-        </Block>
-        <Block>
-          Typebeat turns keystrokes into music production commands.
-          It's a fast, hands-on workflow for sampling, synthesizing, and sequencing sound.
-        </Block>
-        <Block>
-          Download it for 
-          {' '}<a download href='/download/macos/Typebeat_0.1.0_x64.dmg'>macOS</a>
-          {' '}or
-          {' '}<a download href='/download/windows/Typebeat_0.1.0_x64.msi'>Windows</a>
-          .
-          Or view the source on
-          {' '}<a href='https://github.com/kofigumbs/typebeat'>GitHub</a>
-          .
-        </Block>
+    <div ref={container} class='column full-height'>
+      <br className='spaced-below' />
+      <div ref={app} className='app'>
+        <App
+          init={(state) => createEffect(() => setModifier(state.modifier))}
+          send={(method, data) => lib.then(lib => lib.send(method, data))}
+          onChange={(callback) => lib.then(lib => lib.onChange(callback))}
+        />
       </div>
-      <div ref={container} class='column full-height'>
-        <br className='spaced-below' />
-        <div ref={app} className='app'>
-          <App
-            init={(state) => createEffect(() => setModifier(state.modifier))}
-            send={(method, data) => lib.then(lib => lib.send(method, data))}
-            onChange={(callback) => lib.then(lib => lib.onChange(callback))}
-          />
-        </div>
-        <div className='expanded padded-horizontally spaced-above'>
-          <Show when={showHelp()} fallback={<Intro />}>
-            {modes.get(modifier()).Help({ Block })}
-          </Show>
-        </div>
+      <div className='expanded padded-horizontally spaced-above spaced-below'>
+        <Show when={showHelp()} fallback={<Intro />}>
+          {modes.get(modifier()).Help({ Block })}
+        </Show>
       </div>
-    </>
+      <footer className='padded-horizontally'>
+        <Block>
+          (C) {new Date().getFullYear()} <a href="https://kofi.sexy">Kofi Gumbs</a>
+        </Block>
+      </footer>
+    </div>
   );
 };
