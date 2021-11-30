@@ -8,7 +8,7 @@ export const actions = Actions.combine(
   Actions.cap('L', { label: () => 'oct. +', onDown: state => state.send('octave', 2) }),
   Actions.cap('N', {
     label: () => 'use key',
-    title: state => state.activeTrack.useKey,
+    title: state => state.activeTrack.usingKey,
     onDown: state => state.send('usingKey', 0),
   }),
 );
@@ -31,4 +31,14 @@ export const Visual = props => (
   <svg xmlns='http://www.w3.org/2000/svg'>
     <For each={Array.from({ length: 7 })}>{(_, i) => <Octave i={i()} {...props} />}</For>
   </svg>
+);
+
+export const Help = ({ Block }) => (
+  <>
+    <Block>
+      <b>TUNE</b> mode is another simple one (so far).
+      It lets you adjust the octave range available in <b>NOTE</b> mode.
+      The <b>use key</b> toggle determines whether the <b>SONG</b> mode <b>root</b>/<b>scale</b> apply to the active track.
+    </Block>
+  </>
 );

@@ -2,16 +2,15 @@
  * built-ins
  */
 
-p, ol, ul {
+p {
   padding: 0;
   line-height: 1.75;
-  list-style-position: inside;
 }
 
-a, a:visited, a:active {
+a, a:active, a:visited {
   color: currentColor;
-  border-bottom: solid 2px currentColor;
   text-decoration: none;
+  border-bottom: solid 2px currentColor;
 }
 
 
@@ -19,7 +18,7 @@ a, a:visited, a:active {
  * functional
  */
 
-.bold {
+b, .bold {
   font-weight: 800;
 }
 
@@ -41,6 +40,10 @@ a, a:visited, a:active {
   margin-left: auto;
   margin-right: auto;
   max-width: 42rem;
+}
+
+.full-height {
+  min-height: 100%;
 }
 
 .full-width {
@@ -68,10 +71,25 @@ a, a:visited, a:active {
   opacity: .4;
 }
 
+.underlined {
+}
+
 
 /*
- * key labels
+ * components
  */
+
+.bullet {
+  position: relative;
+  padding-left: 1.5rem;
+  box-sizing: border-box;
+}
+
+.bullet::before {
+  content: '-';
+  position: absolute;
+  left: 0;
+}
 
 kbd,
 .key:after {

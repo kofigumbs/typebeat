@@ -14,3 +14,11 @@ export const Visual = props => (
     <path d='M 36 30 l 5 -5' stroke-width='2' />
   </svg>
 );
+
+export const Help = ({ Block }) => (
+  <>
+    <Block>
+      <b>PLUGIN</b> mode doesn't do anything yet.
+    </Block>
+  </>
+);

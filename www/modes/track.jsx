@@ -57,3 +57,17 @@ export const Grid = props => (
 export const Visual = props => (
   <Grid component={Track} {...props} />
 );
+
+export const Help = ({ Block }) => (
+  <>
+    <Block>
+      <b>TRACK</b> mode is pretty simple -- it lets you select the active track.
+      Each track has its own sample, synth, and loop.
+      Most other modes only affect the sound on the active track.
+      If the song is not playing, then <b>TRACK</b> mode will also audition the track that you select.
+    </Block>
+    <Block className='bullet'>
+      Try selecting the <kbd>P</kbd> track, then entering <b>NOTE</b> mode.
+    </Block>
+  </>
+);

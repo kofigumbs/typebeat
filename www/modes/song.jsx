@@ -13,38 +13,45 @@ export const init = state => createEffect(on(
   { defer: true }
 ));
 
-export const actions = Actions.tabbed(
-  { cap: 'Y', label: 'tempo', actions: Actions.combine(
-    Actions.cap('N', {
-      label: () => 'play',
-      title: (state) => state.song.playing,
-      onDown: (state) => state.send('playing', 0),
-    }),
-    Actions.cap('M', {
-      label: () => 'record',
-      title: (state) => state.song.recording,
-      onDown: (state) => state.send('recording', 0),
-    }),
-    Actions.cap('/', {
-      label: () => 'tap',
-      title: () => !!taps().length,
-      onDown: (state) => {
-        setTaps(taps => [...taps, performance.now()]);
-        const t = taps();
-        if (t.length === 1)
-          return;
-        let diffs = 0;
-        for (let i = 1; i < t.length; i++)
-          diffs += t[i] - t[i - 1];
-        state.send('taps', Math.round(60000 / (diffs / (t.length - 1)) + 1));
-      },
-    }),
-    Actions.nudge('song', 'tempo'),
-  )},
-  { cap: 'U', label: 'key', actions: Actions.combine(
-    Actions.nudge('song', 'root', '1/2', '5th', root => note(root + 12)),
-    Actions.select('NM,.', 'song', 'scale', ['major', 'minor', 'harm.', 'melodic'])
-  )},
+export const actions = Actions.combine(
+  Actions.tabbed(
+    { cap: 'Y', label: 'tempo', actions: Actions.combine(
+      Actions.nudge('song', 'tempo'),
+      Actions.cap('K', {
+        label: (state) => state.song.tempo,
+        title: () => true,
+        onDown: (state) => {
+          setTaps(taps => [...taps, performance.now()]);
+          const t = taps();
+          if (t.length === 1)
+            return;
+          let diffs = 0;
+          for (let i = 1; i < t.length; i++)
+            diffs += t[i] - t[i - 1];
+          state.send('taps', Math.round(60000 / (diffs / (t.length - 1)) + 1));
+        },
+      }),
+    )},
+    { cap: 'U',
+      label: 'root',
+      actions: Actions.nudge('song', 'root', '1/2', '5th', root => note(root + 12)),
+    },
+    {
+      cap: 'I',
+      label: 'scale',
+      actions: Actions.select('song', 'scale', ['major', 'minor', 'harm.', 'melodic']),
+    },
+  ),
+  Actions.cap('N', {
+    label: () => 'play',
+    title: (state) => state.song.playing,
+    onDown: (state) => state.send('playing', 0),
+  }),
+  Actions.cap('M', {
+    label: () => 'record',
+    title: (state) => state.song.recording,
+    onDown: (state) => state.send('recording', 0),
+  }),
 );
 
 export const Visual = props => {
@@ -70,3 +77,24 @@ export const Visual = props => {
     </svg>
   );
 };
+
+export const Help = ({ Block }) => (
+  <>
+    <Block>
+      <b>SONG</b> mode houses global playback controls.
+      {' '}<b>SONG</b> mode has 3 value controls: <b>tempo</b> controls the track speed, while <b>root</b> and <b>scale</b> control the global pitch shift.
+      The <b>play</b> and <b>record</b> commands are always available for quick access in the bottom row.
+    </Block>
+    <Block className='bullet'>
+      Try pressing <kbd>N</kbd> to play/pause the demo baseline.
+    </Block>
+    <Block className='bullet'>
+      Try recording additional layers to the demo beat -- press <kbd>M</kbd> to enable/disable recording.
+      When <b>record</b> is on, any key you press in <b>AUDITION</b> mode will be recorded.
+      Press <kbd>Z</kbd> from <b>SONG</b> mode to go back to <b>AUDITION</b> mode.
+    </Block>
+    <Block className='bullet'>
+      Once you've tried playing and recording, press <kbd>A</kbd> to learn about <b>LOOP</b> mode.
+    </Block>
+  </>
+);

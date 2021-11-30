@@ -113,7 +113,7 @@ export default [
     <>
       <Block>
         Keys on the bottom row represent the steps themselves.
-        If the key is marked with █, then that stip will trigger a sound.
+        If the key is marked with █, then that step will trigger a sound.
         Pressing any of those keys will toggle the trigger on that step, which makes it an alternative to recording your sequence live.
       </Block>
       <Block>

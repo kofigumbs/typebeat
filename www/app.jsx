@@ -10,8 +10,8 @@ import './index.css';
  * Map of caps to mode names/modules
  */
 
+export const modes = new Map();
 const modeImports = import.meta.globEager('./modes/*');
-const modes = new Map();
 const basename = /([a-z]+)\.jsx/;
 for (let [path, module] of Object.entries(modeImports)) {
   const name = path.match(basename)[1];

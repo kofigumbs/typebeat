@@ -51,3 +51,17 @@ export const Visual = props => (
     <Keys state={props.state} component={Black} offset={3} ids={[6, 8, 10]} />
   </svg>
 );
+
+export const Help = ({ Block }) => (
+  <>
+    <Block>
+      In <b>NOTE</b> mode, each key plays a different note on the active track.
+      The lowest note is on the bottom-left, and the highest is on the top-right.
+      The last note you use is the active note, which determines which note you are sequencing in <b>LOOP</b> mode.
+    </Block>
+    <Block className='bullet'>
+      Try playing "mary had a little lamb" by rhythmically typing this sequence:
+      {' '}<kbd>I</kbd><kbd>U</kbd><kbd>Y</kbd><kbd>U</kbd><kbd>I</kbd><kbd>I</kbd><kbd>I</kbd>.
+    </Block>
+  </>
+);

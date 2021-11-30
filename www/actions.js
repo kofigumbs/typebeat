@@ -44,8 +44,8 @@ Actions.tabbed = (...tabs) => {
   });
 };
 
-Actions.select = (caps, subject, method, labels) => Actions.combine(...labels.map((label, i) => (
-  Actions.cap(caps[i], {
+Actions.select = (subject, method, labels) => Actions.combine(...labels.map((label, i) => (
+  Actions.cap('HJKL;'[i], {
     label: () => label,
     title: (state) => i === state[subject][method],
     onDown: state => state.send(method, i),

@@ -15,3 +15,11 @@ export const Visual = props => {
     </svg>
   );
 };
+
+export const Help = ({ Block }) => (
+  <>
+    <Block>
+      <b>AUTO</b> mode doesn't do anything yet.
+    </Block>
+  </>
+);

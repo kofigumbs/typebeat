@@ -10,3 +10,11 @@ export const Visual = props => (
     <circle cx='23' cy='23' r='24' stroke-width='2'></circle>
   </svg>
 );
+
+export const Help = ({ Block }) => (
+  <>
+    <Block>
+      <b>TAPE</b> mode doesn't do anything yet.
+    </Block>
+  </>
+);

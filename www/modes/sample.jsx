@@ -7,7 +7,6 @@ export const cap = 'W';
 export const actions = Actions.tabbed(
   { cap: 'Y', label: 'source', actions: Actions.tabbed(
     { cap: 'N', label: 'type', actions: Actions.select(
-      'HJKL;',
       'activeTrack',
       'sampleType',
       ['file', 'live ->', 'live .=', 'live |>']
@@ -33,3 +32,10 @@ export const Visual = props => {
     </svg>
   );
 };
+
+export const Help = ({ Block }) => (
+  <>
+    <Block>
+    </Block>
+  </>
+);

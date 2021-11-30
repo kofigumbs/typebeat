@@ -6,7 +6,6 @@ export const cap = 'E';
 
 export const subtab = i => Actions.tabbed(
   { cap: 'N', label: 'type', actions: Actions.select(
-    'HJKL;',
     'activeTrack',
     `synth${i}Type`,
     ['sine', 'tri.', 'saw', 'square', 'noise']
@@ -55,4 +54,11 @@ export const Visual = props => (
   <svg xmlns='http://www.w3.org/2000/svg'>
     <For each={[1, 2, 3]}>{osc => <Path osc={osc} {...props} />}</For>
   </svg>
+);
+
+export const Help = ({ Block }) => (
+  <>
+    <Block>
+    </Block>
+  </>
 );

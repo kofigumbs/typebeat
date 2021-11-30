@@ -75,3 +75,31 @@ export const Visual = props => {
     </svg>
   );
 };
+
+export const Help = ({ Block }) => (
+  <>
+    <Block>
+      Every track starts with its own 16-step loop.
+      In <b>LOOP</b> mode, you can view 4 steps at a time.
+      You can use <b>page -</b> and <b>page +</b> to move your view across the 16 steps in your loop.
+    </Block>
+    <Block>
+      Keys on the bottom row represent the steps themselves.
+      If the key is marked with █, then that step will trigger a sound.
+      Pressing any of those keys will toggle the trigger on that step, which makes it an alternative to recording your sequence live.
+    </Block>
+    <Block className='bullet'>
+      Try manually entering (or editing) steps in the loop.
+      If you keep the song playing, then you can hear your changes as you go.
+    </Block>
+    <Block className='bullet'>
+      Try zooming in and out.
+      Each track starts with a 16th note resolution, but you can zoom in up to 512th notes.
+      The zoom level also affects the <a href="https://en.wikipedia.org/wiki/Quantization_(music)">quantize</a> amount when recording live.
+    </Block>
+    <Block className='bullet'>
+      Each track has its own loop, so try using <b>LOOP</b> mode on other tracks.
+      Press <kbd>Q</kbd> to use <b>TRACK</b> mode and change tracks.
+    </Block>
+  </>
+);
