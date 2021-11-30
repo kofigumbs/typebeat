@@ -437,7 +437,10 @@ impl Host for Song {
         effects::reverb::host(f);
         effects::echo::host(f);
         effects::drive::host(f);
-        f("activeTrack", Param::new(0).min(0).max(TRACK_COUNT - 1).temp());
+        f(
+            "activeTrack",
+            Param::new(0).min(0).max(TRACK_COUNT - 1).temp(),
+        );
         f("playing", Param::new(false).temp());
         f("recording", Param::new(false).toggle().temp());
         f("root", Param::new(0).min(-12).max(12).step(7));

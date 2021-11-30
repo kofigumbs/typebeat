@@ -86,6 +86,7 @@ fn save(window: &Window, handle: &AppHandle<Wry>) {
 
 fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
     let window = handle.get_window("main").expect("window");
+    window.set_title(&format!("Typebeat — {}", env!("CARGO_PKG_VERSION")));
 
     {
         let handle = handle.clone();
