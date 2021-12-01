@@ -62,6 +62,7 @@ impl AtomicCell<bool> {
 }
 
 impl AtomicCell<f32> {
+    /// Decode an array of floats from a Base64 string (used for loading audio data)
     pub fn from_base64(s: &str) -> Vec<Self> {
         base64::decode(s)
             .unwrap_or_default()
@@ -70,6 +71,7 @@ impl AtomicCell<f32> {
             .collect()
     }
 
+    /// Encode an array of floats as a Base64 string (used for saving audio data)
     pub fn to_base64(value: &[Self]) -> String {
         base64::encode(
             value

@@ -1,5 +1,9 @@
 import { createSignal } from 'solid-js';
 
+/*
+ * DSL for defining the command map for each mode
+ */
+
 const Commands = {};
 
 const none = () => '';

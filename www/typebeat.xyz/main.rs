@@ -27,10 +27,12 @@ lazy_static::lazy_static! {
     };
 }
 
+/// Convert C string (from Emscripten) to Rust str
 fn from_c_str(s: *const c_char) -> &'static str {
     unsafe { CStr::from_ptr(s).to_str().expect("CStr") }
 }
 
+/// Convert Rust type to C string (form Emscripten) as JSON
 fn to_c_str_json<T: Serialize>(s: T) -> *const c_char {
     let json = serde_json::to_string(&s).expect("json");
     CString::new(json).expect("CString").into_raw()
@@ -63,5 +65,6 @@ pub fn typebeat_changes() -> *const c_char {
 }
 
 fn main() {
+    // Eagerly initialize the static ref so that dump is immediate
     lazy_static::initialize(&APP);
 }

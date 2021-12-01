@@ -44,21 +44,8 @@ const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
 ];
 
 const DEFAULT_SAMPLES: &[&str] = &[
-    "kick.wav",
-    "kickme.wav",
-    "tom.wav",
-    "conga.wav",
-    "cabasa.wav",
-    "sd.wav",
-    "sst.wav",
-    "clap.wav",
-    "cowb.wav",
-    "tamb.wav",
-    "chhl.wav",
-    "chhs.wav",
-    "crash.wav",
-    "ride.wav",
-    "tag.wav",
+    "kick", "kickme", "tom", "conga", "cabasa", "sd", "sst", "clap", "cowb", "tamb", "chhl",
+    "chhs", "crash", "ride", "tag",
 ];
 
 lazy_static::lazy_static! {
@@ -66,6 +53,10 @@ lazy_static::lazy_static! {
     static ref VIEW: Vec<String> = (0..4).map(|i| format!("view{i}")).collect();
     static ref VIEW_INDEX: Vec<String> = (0..4).map(|i| format!("viewIndex{i}")).collect();
     static ref WAVEFORM: Vec<String> = (0..25).map(|i| format!("waveform{i}")).collect();
+}
+
+fn host_each<P, F: FnMut(&'static str, &P)>(f: &mut F, names: &'static [String], param: &P) {
+    names.iter().for_each(|name| f(name, param));
 }
 
 /// Wrapper for FaustDsp that implements Clone and Default
@@ -103,7 +94,7 @@ impl<T: 'static + Send + Sync + FaustDsp<T = f32>> From<(&'static str, DspBox<T>
 }
 
 #[derive(Clone, Copy, PartialEq, Deserialize_repr, Serialize_repr)]
-#[repr(i32)]
+#[repr(usize)]
 pub enum SampleType {
     File,
     Live,
@@ -125,7 +116,8 @@ impl AsPrimitive<i32> for SampleType {
 }
 
 impl SampleType {
-    fn thru(self) -> bool {
+    /// Does this sample stream mic input?
+    fn through(self) -> bool {
         match self {
             Self::File | Self::LivePlay => false,
             Self::Live | Self::LiveRecord => true,
@@ -133,13 +125,17 @@ impl SampleType {
     }
 }
 
+/// Unit for note sequencing
 #[derive(Clone, Default)]
 struct Hit {
-    duration: AtomicCell<usize>,
     active: AtomicCell<bool>,
+    /// Sometimes quantizing can activate a future step -- this flag prevents double triggers
     skip_next: AtomicCell<bool>,
+    /// Hold time in 512th notes
+    duration: AtomicCell<usize>,
 }
 
+/// Wrapper for Hit that's easier to save/load
 #[derive(Deserialize, Serialize)]
 struct HitId<T> {
     step: usize,
@@ -158,6 +154,7 @@ impl<'a> HitId<&'a Hit> {
     }
 }
 
+/// Summary of a subsequence of Hits
 #[derive(Clone, Copy, Deserialize_repr, Serialize_repr)]
 #[repr(usize)]
 pub enum View {
@@ -179,6 +176,7 @@ struct Track {
     live_sample: Vec<AtomicCell<f32>>,
     live_length: AtomicCell<usize>,
     sequence: Vec<[Hit; KEY_COUNT]>,
+    /// Tracks when keys were last triggered for duration/release calculations
     last_played: [AtomicCell<usize>; KEY_COUNT],
 }
 
@@ -206,16 +204,16 @@ impl Host for Track {
         f("length", Param::new(MAX_RES).min(MAX_RES).max(MAX_RES * 8));
         f("muted", Param::new(false).toggle());
         f("octave", Param::new(4).min(2).max(8).step(2));
-        f("pageStart", Param::new(0).temp());
+        f("pageStart", Param::new(0).min(0).temp());
         f("recent", Param::new(0).temp());
         f("resolution", Param::new(16).min(1).max(MAX_RES));
         f("usingKey", Param::new(true).toggle());
         f("viewLength", Param::new(0).temp());
         f("viewStart", Param::new(0).temp());
-        Self::host_each(f, &NOTE, Param::new(0).temp());
-        Self::host_each(f, &VIEW, Param::new(0).temp());
-        Self::host_each(f, &VIEW_INDEX, Param::new(0).temp());
-        Self::host_each(f, &WAVEFORM, Param::new(0).temp());
+        host_each(f, &NOTE, Param::new(0).temp());
+        host_each(f, &VIEW, Param::new(0).temp());
+        host_each(f, &VIEW_INDEX, Param::new(0).temp());
+        host_each(f, &WAVEFORM, Param::new(0).temp());
     }
 }
 
@@ -285,21 +283,17 @@ impl Track {
     }
 
     fn adjust_page(&self, diff: i32) {
-        let new_page_start = Track::adjust(
-            self.state.get("pageStart"),
-            diff,
-            VIEWS_PER_PAGE * self.view_length(),
-        );
+        let new_page_start = self
+            .state
+            .get::<i32>("pageStart")
+            .saturating_add(diff * (VIEWS_PER_PAGE * self.view_length()) as i32);
         if new_page_start < self.state.get("length") {
-            self.state.set("pageStart", new_page_start.max(0));
+            self.state.set("pageStart", new_page_start);
         }
     }
 
     fn adjust_length(&self, diff: i32) {
-        self.state.set(
-            "length",
-            Track::adjust(self.state.get("length"), diff, MAX_RES),
-        );
+        self.state.add("length", diff * MAX_RES as i32);
     }
 
     fn toggle_step(&self, i: usize) {
@@ -355,14 +349,6 @@ impl Track {
         }
     }
 
-    fn adjust(lhs: usize, diff: i32, rhs: usize) -> usize {
-        if diff.is_positive() {
-            lhs + diff as usize * rhs
-        } else {
-            lhs - diff.abs() as usize * rhs
-        }
-    }
-
     fn sample_waveform<T: CopyAs<f32>>(&self, i: usize, sample: &[T]) -> f32 {
         100. * sample
             .chunks(sample.len() / WAVEFORM.len())
@@ -373,6 +359,7 @@ impl Track {
     }
 }
 
+/// State sync events (for JavaScript)
 pub enum Change {
     Dump(Value),
     Song(&'static str, i32),
@@ -380,6 +367,7 @@ pub enum Change {
 }
 
 impl Serialize for Change {
+    /// JSON can always be passed directly to store setter (https://www.solidjs.com/docs/latest/api#createstore)
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
             Change::Dump(value) => (value,).serialize(serializer),
@@ -389,6 +377,7 @@ impl Serialize for Change {
     }
 }
 
+/// Client-specific configuration
 pub struct Platform {
     pub voice_count: usize,
     pub root: PathBuf,
@@ -397,7 +386,9 @@ pub struct Platform {
 
 impl Platform {
     fn read_sample(&self, i: usize) -> Result<Vec<f32>, Box<dyn Error>> {
-        let path = self.root.join(format!("samples/{}", DEFAULT_SAMPLES[i]));
+        let path = self
+            .root
+            .join(format!("samples/{}.wav", DEFAULT_SAMPLES[i]));
         let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
         let mut decoder = Decoder::from_file(&path, Some(&config))?;
         let frame_count = decoder.length_in_pcm_frames() as usize;
@@ -407,16 +398,7 @@ impl Platform {
     }
 }
 
-struct FindButton<'a>(&'static str, &'a mut ParamIndex);
-
-impl<'a> UI<f32> for FindButton<'a> {
-    fn add_button(&mut self, label: &'static str, i: ParamIndex) {
-        if label == self.0 {
-            *self.1 = i;
-        }
-    }
-}
-
+/// Serializeable type for dump and save
 #[derive(Default, Serialize)]
 pub struct Export {
     song: HashMap<&'static str, Value>,
@@ -475,8 +457,19 @@ impl Song {
                     hit.duration.store(hit_id.hit);
                 });
         }
+
+        // Initialize the note and gate Faust ids
+        struct FindButton<'a>(&'static str, &'a mut ParamIndex);
+        impl<'a> UI<f32> for FindButton<'a> {
+            fn add_button(&mut self, label: &'static str, i: ParamIndex) {
+                if label == self.0 {
+                    *self.1 = i;
+                }
+            }
+        }
         effects::insert::build_user_interface_static(&mut FindButton("note", &mut song.note_index));
         effects::insert::build_user_interface_static(&mut FindButton("gate", &mut song.gate_index));
+
         song.update_derived();
         song
     }
@@ -489,7 +482,7 @@ impl Song {
 
     fn save(&self) -> impl Serialize {
         let mut song = self.state.save();
-        song.insert("version", 1.into());
+        song.insert("version", env!("CARGO_PKG_VERSION").into());
         let tracks = self
             .tracks
             .iter()
@@ -508,14 +501,14 @@ impl Song {
     }
 
     fn note(&self, track: &Track, key: usize) -> i32 {
-        let note_id = key % SCALE_LENGTH;
-        (track.state.get::<usize>("octave") + key / 7) as i32 * 12
-            + if track.state.is("usingKey") {
-                SCALE_OFFSETS[self.state.get::<usize>("scale")][note_id]
-                    + self.state.get::<i32>("root")
-            } else {
-                SCALE_OFFSETS[0][note_id]
-            }
+        let id = key % SCALE_LENGTH;
+        let base = (track.state.get::<usize>("octave") + key / 7) as i32 * 12;
+        let offset = if track.state.is("usingKey") {
+            SCALE_OFFSETS[self.state.get::<usize>("scale")][id] + self.state.get::<i32>("root")
+        } else {
+            SCALE_OFFSETS[0][id]
+        };
+        base + offset
     }
 
     fn quantized_step(&self, step: usize, resolution: usize) -> usize {
@@ -552,6 +545,7 @@ impl Song {
     }
 }
 
+/// Audio buffer for working with Faust arrays and slices
 struct Buffer<const N: usize, const M: usize> {
     mix: [f32; N],
     out: [f32; M],
@@ -588,12 +582,12 @@ struct Voice {
 }
 
 impl Voice {
-    // 0 is the "highest" -- voices with priority 0 should not be stolen
+    /// Score voice to determine stealing order, 0 means "do not steal"
     fn priority(&self, song: &Song) -> usize {
         match self.track_id {
             Some(track_id) => {
                 let track = &song.tracks[track_id];
-                if track.sample_type().thru() {
+                if track.sample_type().through() {
                     0
                 } else {
                     2 - self.gate
@@ -612,8 +606,8 @@ impl Voice {
                 let mix = &mut buffer.mix;
                 match track.sample_type() {
                     SampleType::File => self.play_sample(mix, &track.file_sample, 2),
-                    SampleType::Live => self.play_thru(mix, track, input, false),
-                    SampleType::LiveRecord => self.play_thru(mix, track, input, true),
+                    SampleType::Live => self.play_through(mix, track, input, false),
+                    SampleType::LiveRecord => self.play_through(mix, track, input, true),
                     SampleType::LivePlay => self.play_sample(mix, track.live(), 1),
                 }
             }
@@ -622,7 +616,7 @@ impl Voice {
         Buffer::write_over(&buffer.out, output);
     }
 
-    fn play_thru(&mut self, mix: &mut [f32], track: &Track, input: &[f32], record: bool) {
+    fn play_through(&mut self, mix: &mut [f32], track: &Track, input: &[f32], record: bool) {
         let input = input.iter().sum();
         let length = track.live_length.load();
         if record && length < track.live_sample.len() {
@@ -674,6 +668,7 @@ impl<'a, T: FaustDsp<T = f32> + ?Sized, S> UI<f32> for SetParams<'a, T, S> {
     }
 }
 
+/// User events (from JavaScript)
 enum Command {
     WithI32(fn(&mut Audio, &Song, i32)),
     WithUsize(fn(&mut Audio, &Song, usize)),
@@ -726,7 +721,7 @@ impl Audio {
                 voice.gate = 0;
                 voice.track_id = None;
             }
-            if sample_type.thru() {
+            if sample_type.through() {
                 self.allocate(
                     song,
                     song.state.get("activeTrack"),
@@ -843,7 +838,7 @@ impl Audio {
             voice.age += 1;
         }
 
-        // Steal voie with highest priority number, breaking ties with age
+        // Steal voice with highest priority number, break ties with age
         if let Some(voice) = self
             .voices
             .iter_mut()

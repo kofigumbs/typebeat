@@ -86,38 +86,37 @@ fn save(window: &Window, handle: &AppHandle<Wry>) {
 
 fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
     let window = handle.get_window("main").expect("window");
-    window.set_title(&format!("Typebeat — {}", env!("CARGO_PKG_VERSION")));
+    let _ = window.set_title(&format!("Typebeat — {}", env!("CARGO_PKG_VERSION")));
 
-    {
-        let handle = handle.clone();
-        let window_ = window.clone();
-        window.on_menu_event(move |event| match event.menu_item_id() {
-            "new" => handle.state::<Controller>().load(&Value::Null),
-            "open" => open(&window_, &handle),
-            "save" => save(&window_, &handle),
-            _ => {}
-        });
-    }
+    // Setup menu handlers
+    let window_ = window.clone();
+    let handle_ = handle.clone();
+    window.on_menu_event(move |event| match event.menu_item_id() {
+        "new" => handle_.state::<Controller>().load(&Value::Null),
+        "open" => open(&window_, &handle_),
+        "save" => save(&window_, &handle_),
+        _ => {}
+    });
+
+    // Setup state change events in JavaScript
+    let window_ = window.clone();
+    let receiver = Arc::clone(&receiver);
+    std::thread::spawn(move || {
+        let receiver = receiver.lock().expect("receiver");
+        while let Ok(change) = receiver.recv() {
+            window_.emit("change", Some(change)).expect("emit");
+        }
+    });
 
     // FIXME(https://github.com/tauri-apps/tao/issues/208)
     #[cfg(target_os = "macos")]
     {
-        let window = window.clone();
         tauri::async_runtime::spawn(async move {
             use cocoa::appkit::NSWindow;
             let window = window.ns_window().unwrap() as cocoa::base::id;
             unsafe { window.makeFirstResponder_(window.contentView()) };
         });
     }
-
-    // Inform UI of param changes
-    let receiver = Arc::clone(&receiver);
-    std::thread::spawn(move || {
-        let receiver = receiver.lock().expect("receiver");
-        while let Ok(change) = receiver.recv() {
-            window.emit("change", Some(change)).expect("emit");
-        }
-    });
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
