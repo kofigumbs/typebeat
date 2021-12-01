@@ -2,7 +2,7 @@
 
 # Typebeat
 
-<img src="./www/typebeat.xyz/public/screenshot.png" alt="App screenshot showing the basic layout, which resembles that of the QWERTY keyboard" />
+<img src="./website/public/screenshot.png" alt="App screenshot showing the basic layout, which resembles that of the QWERTY keyboard" />
 
 Running the native app locally requires the following dependencies:
 

@@ -1,8 +1,8 @@
 import { createEffect, createMemo, createSignal, onMount } from 'solid-js';
 
-import wasm from '../../target/wasm32-unknown-emscripten/release/typebeat_dot_xyz.wasm?url';
+import wasm from '../target/wasm32-unknown-emscripten/release/typebeat_dot_xyz.wasm?url';
 
-import App, { createEventListener, modes } from '../app.jsx'
+import App, { createEventListener, modes } from '../ui/app.jsx'
 import './index.css';
 
 // FIXME(https://github.com/mackron/miniaudio/issues/363)
@@ -10,7 +10,7 @@ globalThis.miniaudio = undefined;
 
 const [started, setStarted] = createSignal(false);
 
-const lib = import('../../target/wasm32-unknown-emscripten/release/typebeat-dot-xyz.js')
+const lib = import('../target/wasm32-unknown-emscripten/release/typebeat-dot-xyz.js')
   .then(factory => factory.default({ locateFile: () => wasm, noExitRuntime: true }))
   .then(({ ccall, _free, UTF8ToString }) => {
     // Parse the char* return value then free it

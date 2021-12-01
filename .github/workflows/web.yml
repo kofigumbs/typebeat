@@ -10,7 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup
-        with: { target: wasm32-unknown-emscripten }
+        with:
+          target: wasm32-unknown-emscripten
       - uses: mymindstorm/setup-emsdk@v11
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
