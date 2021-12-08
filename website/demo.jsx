@@ -88,7 +88,7 @@ export default () => {
       app.style.transform = `scale(${scale})`;
       app.style.marginTop = app.style.marginBottom = margin;
     };
-    resize();
+    setTimeout(resize, 0);
     createEventListener(window, 'resize', resize);
   });
 
