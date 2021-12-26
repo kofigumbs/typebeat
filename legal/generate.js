@@ -97,5 +97,5 @@ const cargoAttribution = async crate => {
   const attributions = await Promise.all(crates.third_party_libraries.map(cargoAttribution));
   attributions.push(attribution('firacode', readFileSync('node_modules/firacode/LICENSE')));
   attributions.push(attribution('solid-js', readFileSync('node_modules/solid-js/LICENSE')));
-  writeFileSync('LICENSE-THIRD-PARTY', PREFACE.concat(attributions.join('')).trim());
+  writeFileSync('legal/LICENSE-THIRD-PARTY', PREFACE.concat(attributions.join('')).trim());
 })();

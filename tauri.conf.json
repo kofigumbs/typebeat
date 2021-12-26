@@ -32,7 +32,7 @@
         "icons/icon.ico",
         "icons/icon.png"
       ],
-      "resources": ["samples", "LICENSE-THIRD-PARTY"],
+      "resources": ["samples", "legal/LICENSE-THIRD-PARTY"],
       "externalBin": [],
       "copyright": "",
       "category": "Music",
