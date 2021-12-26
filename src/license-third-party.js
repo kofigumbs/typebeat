@@ -1,5 +1,5 @@
 const { execSync } = require('child_process');
-const { writeFileSync } = require('fs');
+const { readFileSync, writeFileSync } = require('fs');
 const { request } = require('https');
 
 // https://github.com/rust-lang/cargo/blob/master/LICENSE-THIRD-PARTY
@@ -95,6 +95,7 @@ const cargoAttribution = async crate => {
 (async () => {
   const crates = JSON.parse(execSync('cargo bundle-licenses --format json', { maxBuffer: 4000000 }));
   const attributions = await Promise.all(crates.third_party_libraries.map(cargoAttribution));
-  // TODO include NPM package licenses
+  attributions.push(attribution('firacode', readFileSync('node_modules/firacode/LICENSE')));
+  attributions.push(attribution('solid-js', readFileSync('node_modules/solid-js/LICENSE')));
   writeFileSync('LICENSE-THIRD-PARTY', PREFACE.concat(attributions.join('')).trim());
 })();
