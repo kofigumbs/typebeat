@@ -4,19 +4,33 @@
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <script type="module">
     import { render } from 'solid-js/web';
+    import { createSignal, createEffect } from 'solid-js';
     import App from './app.jsx';
+
     const t = window.__TAURI__;
     const dump = t.invoke('dump');
-    render(
-      () => App({
+
+    const root = () => {
+      const [labeled, setLabeled] = createSignal(
+        Boolean(localStorage.getItem('labeled') ?? true)
+      );
+      createEffect(() => {
+        document.body.classList.toggle('labeled', labeled());
+        localStorage.setItem('labeled', labeled() ? '1' : '');
+        t.invoke('label', { text : labeled() ? 'Hide Labels' : 'Show Labels' });
+      });
+
+      return App({
         send: (method, data) => t.invoke('send', { method, data }),
         onChange: (callback) => {
           dump.then(state => callback([state]));
           t.event.listen('change', ({ payload }) => callback(payload));
+          t.event.listen('label', () => setLabeled(x => !x));
         },
-      }),
-      document.body
-    );
+      });
+    };
+
+    render(root, document.body);
   </script>
 </head>
 <body class="app"></body>

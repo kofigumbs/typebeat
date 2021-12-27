@@ -83,32 +83,3 @@ b, .bold {
   position: absolute;
   left: 0;
 }
-
-kbd,
-.key:after {
-  display: inline;
-  color: var(--dark);
-  background: var(--key_background);
-  border: solid 2px var(--dark);
-  border-radius: 1rem;
-  padding: .125rem .65rem;
-  line-height: 1;
-  --key_background: var(--light);
-}
-
-.key:after {
-  content: attr(data-cap);
-  position: absolute;
-  left: -.65rem;
-  bottom: -.75rem;
-  z-index: 1;
-  transition: background .1s ease;
-}
-
-.key.mode.active:after {
-  background: var(--primary);
-}
-
-.key.pulse:after {
-  animation: pulse .5s ease-out;
-}

@@ -25,6 +25,11 @@ fn send(method: &'_ str, data: i32, state: State<Controller>) {
     state.send(method, data)
 }
 
+#[tauri::command]
+fn label(text: &'_ str, window: Window) {
+    window.menu_handle().get_item("label").set_title(text).ok();
+}
+
 fn dialog(window: &Window) -> FileDialogBuilder {
     let mut builder = FileDialogBuilder::new()
         .set_parent(window)
@@ -58,6 +63,14 @@ fn menu() -> Menu {
                 .add_native_item(MenuItem::Paste)
                 .add_native_item(MenuItem::SelectAll),
         ))
+        .add_submenu(Submenu::new(
+            "View",
+            Menu::new().add_item(CustomMenuItem::new("label", "Keyboard Labels")),
+        ))
+        .add_submenu(Submenu::new(
+            "Help",
+            Menu::new().add_item(CustomMenuItem::new("demo", "Open online demo")),
+        ))
 }
 
 fn open(window: &Window, handle: &AppHandle<Wry>) {
@@ -86,7 +99,6 @@ fn save(window: &Window, handle: &AppHandle<Wry>) {
 
 fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
     let window = handle.get_window("main").expect("window");
-    let _ = window.set_title(&format!("Typebeat — {}", env!("CARGO_PKG_VERSION")));
 
     // Setup menu handlers
     let window_ = window.clone();
@@ -95,6 +107,8 @@ fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
         "new" => handle_.state::<Controller>().load(&Value::Null),
         "open" => open(&window_, &handle_),
         "save" => save(&window_, &handle_),
+        "label" => window_.emit("label", Some(())).expect("label"),
+        "demo" => tauri::api::shell::open("https://typebeat.xyz".into(), None).expect("demo"),
         _ => {}
     });
 
@@ -133,7 +147,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Builder::default()
         .menu(menu())
         .manage(controller)
-        .invoke_handler(tauri::generate_handler![dump, send])
+        .invoke_handler(tauri::generate_handler![dump, send, label])
         .build(context)?;
     let receiver = Arc::new(Mutex::new(receiver));
     app.run(move |handle, event| match event {
