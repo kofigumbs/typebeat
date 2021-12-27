@@ -123,7 +123,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (sender, receiver) = std::sync::mpsc::channel();
     let context = tauri::generate_context!();
     let platform = Platform {
-        voice_count: 8,
+        voice_count: 12,
         root: tauri::api::path::resource_dir(context.package_info()).expect("root"),
         sender,
     };
