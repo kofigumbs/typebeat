@@ -3,6 +3,7 @@
     windows_subsystem = "windows"
 )]
 
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
@@ -15,29 +16,33 @@ use tauri::{
 
 use typebeat::{Change, Controller, Platform};
 
-#[tauri::command]
-fn dump(state: State<Controller>) -> impl Serialize {
-    state.dump()
+struct App {
+    controller: Controller,
+    location: Mutex<(Option<PathBuf>, Option<String>)>,
+}
+
+impl From<Controller> for App {
+    fn from(controller: Controller) -> App {
+        App {
+            controller,
+            location: (tauri::api::path::audio_dir(), None).into(),
+        }
+    }
 }
 
 #[tauri::command]
-fn send(method: &'_ str, data: i32, state: State<Controller>) {
-    state.send(method, data)
+fn dump(state: State<App>) -> impl Serialize {
+    state.controller.dump()
+}
+
+#[tauri::command]
+fn send(method: &'_ str, data: i32, state: State<App>) {
+    state.controller.send(method, data)
 }
 
 #[tauri::command]
 fn label(text: &'_ str, window: Window) {
     window.menu_handle().get_item("label").set_title(text).ok();
-}
-
-fn dialog(window: &Window) -> FileDialogBuilder {
-    let mut builder = FileDialogBuilder::new()
-        .set_parent(window)
-        .add_filter("Typebeat Save", &["typebeat"]);
-    if let Some(audio) = tauri::api::path::audio_dir() {
-        builder = builder.set_directory(audio);
-    }
-    builder
 }
 
 fn menu() -> Menu {
@@ -69,32 +74,58 @@ fn menu() -> Menu {
         ))
         .add_submenu(Submenu::new(
             "Help",
-            Menu::new().add_item(CustomMenuItem::new("demo", "Open online demo")),
+            Menu::new().add_item(CustomMenuItem::new("demo", "Typebeat Demo")),
         ))
 }
 
-fn open(window: &Window, handle: &AppHandle<Wry>) {
+fn dialog(window: &Window) -> FileDialogBuilder {
+    let mut builder = FileDialogBuilder::new()
+        .set_parent(window)
+        .add_filter("Typebeat Save", &["typebeat"]);
+    if let Ok(location) = window.state::<App>().location.lock() {
+        if let Some(directory) = &location.0 {
+            builder = builder.set_directory(directory);
+        }
+        if let Some(file_name) = &location.1 {
+            builder = builder.set_file_name(file_name);
+        }
+    }
+    builder
+}
+
+fn with_location(
+    window: &Window,
+    handle: &AppHandle<Wry>,
+    f: impl FnOnce(&App, PathBuf) + Send + 'static,
+) -> impl FnOnce(Option<PathBuf>) + Send + 'static {
+    let window = window.clone();
     let handle = handle.clone();
-    dialog(&window).pick_file(move |path| {
-        path.map(move |path| {
-            let state: State<Controller> = handle.state();
-            std::fs::read(path)
-                .ok()
-                .and_then(|file| serde_json::from_slice(&file).ok())
-                .map(|json| state.load(&json));
-        });
-    });
+    move |path| {
+        if let Some(path) = path {
+            let state: State<App> = handle.state();
+            let parent = path.parent().map(Path::to_path_buf);
+            let file_name = path.file_name().map(|x| x.to_string_lossy().into());
+            *state.location.lock().expect("location") = (parent, file_name.clone());
+            file_name.map(|file_name| window.set_title(&file_name));
+            f(&state, path);
+        }
+    }
+}
+
+fn open(window: &Window, handle: &AppHandle<Wry>) {
+    dialog(window).pick_file(with_location(window, handle, |state, path| {
+        std::fs::read(path)
+            .ok()
+            .and_then(|file| serde_json::from_slice(&file).ok())
+            .map(|json| state.controller.load(&json));
+    }));
 }
 
 fn save(window: &Window, handle: &AppHandle<Wry>) {
-    let handle = handle.clone();
-    dialog(&window).save_file(move |path| {
-        path.map(move |path| {
-            let state: State<Controller> = handle.state();
-            let json = serde_json::to_vec(&state.save()).expect("json");
-            std::fs::write(path, json).expect("write");
-        });
-    });
+    dialog(window).save_file(with_location(window, handle, |state, path| {
+        let json = serde_json::to_vec(&state.controller.save()).expect("json");
+        std::fs::write(path, json).expect("write");
+    }));
 }
 
 fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
@@ -104,7 +135,7 @@ fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
     let window_ = window.clone();
     let handle_ = handle.clone();
     window.on_menu_event(move |event| match event.menu_item_id() {
-        "new" => handle_.state::<Controller>().load(&Value::Null),
+        "new" => handle_.state::<App>().controller.load(&Value::Null),
         "open" => open(&window_, &handle_),
         "save" => save(&window_, &handle_),
         "label" => window_.emit("label", Some(())).expect("label"),
@@ -146,7 +177,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Builder::default()
         .menu(menu())
-        .manage(controller)
+        .manage(App::from(controller))
         .invoke_handler(tauri::generate_handler![dump, send, label])
         .build(context)?;
     let receiver = Arc::new(Mutex::new(receiver));

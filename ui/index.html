@@ -10,7 +10,7 @@
     const t = window.__TAURI__;
     const dump = t.invoke('dump');
 
-    const root = () => {
+    const mount = () => {
       const [labeled, setLabeled] = createSignal(
         Boolean(localStorage.getItem('labeled') ?? true)
       );
@@ -30,7 +30,7 @@
       });
     };
 
-    render(root, document.body);
+    render(mount, document.body);
   </script>
 </head>
 <body class="app"></body>
