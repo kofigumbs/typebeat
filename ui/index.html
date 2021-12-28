@@ -11,21 +11,35 @@
     const dump = t.invoke('dump');
 
     const mount = () => {
+      // Setup keyboard labels toggle
       const [labeled, setLabeled] = createSignal(
         Boolean(localStorage.getItem('labeled') ?? true)
       );
       createEffect(() => {
         document.body.classList.toggle('labeled', labeled());
         localStorage.setItem('labeled', labeled() ? '1' : '');
-        t.invoke('label', { text : labeled() ? 'Hide Labels' : 'Show Labels' });
+        t.invoke('label', { text : `${labeled() ? 'Hide' : 'Show'} Keyboard Labels` });
       });
+      t.event.listen('label', () => setLabeled(x => !x));
 
+      // Setup alternate themes
+      const themes = new Map([
+        ['Pencil', ['#f5f6f6', '#424242', '#888888', '#20bbfc']],
+        ['Solarized', ['#fdf6e3', '#586e75', '#6c71c4', '#cb4b16']],
+        ['Mute', ['#4461ad', '#b6a1ad', '#9bb8c6', '#ffffff' ]],
+      ]);
+      const [theme, setTheme] = createSignal();
+      const style = document.documentElement.style;
+      const toggle = (i) => theme() ? style.setProperty(`--theme${i}`, theme()[i]) : style.removeProperty(`--theme${i}`);
+      createEffect(() => Array.from({ length: 4 }).forEach((_, i) => toggle(i)));
+      t.event.listen('theme', ({ payload }) => setTheme(themes.get(payload)));
+
+      // Setup app
       return App({
         send: (method, data) => t.invoke('send', { method, data }),
         onChange: (callback) => {
           dump.then(state => callback([state]));
           t.event.listen('change', ({ payload }) => callback(payload));
-          t.event.listen('label', () => setLabeled(x => !x));
         },
       });
     };

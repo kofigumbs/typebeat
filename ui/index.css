@@ -10,10 +10,10 @@ html {
   color: var(--light);
   background: var(--dark);
   -webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape while allowing user zoom */
-  --light: #ebdbb2;
-  --primary: #d65d0e;
-  --secondary: #d79921;
-  --dark: #282828;
+  --dark: var(--theme0, #282828);
+  --light: var(--theme1, #ebdbb2);
+  --primary: var(--theme2, #d65d0e);
+  --secondary: var(--theme3, #d79921);
   --transition: .055s;
 }
 

@@ -1,3 +1,4 @@
+#![feature(format_args_capture)]
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
@@ -70,12 +71,34 @@ fn menu() -> Menu {
         ))
         .add_submenu(Submenu::new(
             "View",
-            Menu::new().add_item(CustomMenuItem::new("label", "Keyboard Labels")),
+            Menu::new()
+                .add_submenu(Submenu::new(
+                    "Themes",
+                    themes().iter().fold(Menu::new(), |menu, &theme| {
+                        menu.add_item(CustomMenuItem::new(format!("theme{theme}"), theme))
+                    }),
+                ))
+                .add_item(CustomMenuItem::new("label", "Keyboard Labels")),
         ))
         .add_submenu(Submenu::new(
             "Help",
             Menu::new().add_item(CustomMenuItem::new("demo", "Typebeat Demo")),
         ))
+}
+
+fn themes() -> &'static [&'static str] {
+    &["Gruvbox", "Pencil", "Solarized", "Mute"]
+}
+
+fn set_theme(window: &Window, selected: &str) {
+    window.emit("theme", Some(selected)).expect("theme");
+    for &theme in themes().iter() {
+        window
+            .menu_handle()
+            .get_item(&format!("theme{theme}"))
+            .set_selected(theme == selected)
+            .expect("set_selected");
+    }
 }
 
 fn dialog(window: &Window) -> FileDialogBuilder {
@@ -130,6 +153,7 @@ fn save(window: &Window, handle: &AppHandle<Wry>) {
 
 fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
     let window = handle.get_window("main").expect("window");
+    set_theme(&window, themes()[0]);
 
     // Setup menu handlers
     let window_ = window.clone();
@@ -140,7 +164,9 @@ fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
         "save" => save(&window_, &handle_),
         "label" => window_.emit("label", Some(())).expect("label"),
         "demo" => tauri::api::shell::open("https://typebeat.xyz".into(), None).expect("demo"),
-        _ => {}
+        id => {
+            id.strip_prefix("theme").map(|x| set_theme(&window_, x));
+        }
     });
 
     // Setup state change events in JavaScript
