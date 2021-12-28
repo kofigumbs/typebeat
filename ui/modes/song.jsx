@@ -65,14 +65,14 @@ export const Visual = props => {
       <path
         d={`M ${offset} ${y-s} l ${st} ${s} l -${st} ${s} Z`}
         stroke-width='2'
-        classList={{ secondary: props.state.song.playing }}
+        classList={{ accent: props.state.song.playing }}
       />
       <circle
         r={s}
         cx={offset+cx}
         cy={y}
         stroke-width='2'
-        classList={{ secondary: props.state.song.recording }}
+        classList={{ accent: props.state.song.recording }}
       />
     </svg>
   );

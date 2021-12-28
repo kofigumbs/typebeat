@@ -15,10 +15,11 @@ use tauri::{
     AppHandle, Builder, CustomMenuItem, Event, Manager, Menu, MenuItem, State, Submenu, Window, Wry,
 };
 
-use typebeat::{Change, Controller, Platform};
+use typebeat::{AtomicCell, Change, Controller, Platform};
 
 struct App {
     controller: Controller,
+    labels: AtomicCell<Option<bool>>,
     location: Mutex<(Option<PathBuf>, Option<String>)>,
 }
 
@@ -26,6 +27,7 @@ impl From<Controller> for App {
     fn from(controller: Controller) -> App {
         App {
             controller,
+            labels: None.into(),
             location: (tauri::api::path::audio_dir(), None).into(),
         }
     }
@@ -42,63 +44,72 @@ fn send(method: &'_ str, data: i32, state: State<App>) {
 }
 
 #[tauri::command]
-fn label(text: &'_ str, window: Window) {
-    window.menu_handle().get_item("label").set_title(text).ok();
+fn labels(setting: bool, window: Window, state: State<App>) {
+    let title = format!("{} Keyboard Labels", if setting { "Hide" } else { "Show" });
+    window
+        .menu_handle()
+        .get_item("labels")
+        .set_title(&title)
+        .expect("set_title");
+    state.labels.store(Some(setting));
+}
+
+#[tauri::command]
+fn theme(setting: &'_ str, window: Window) {
+    for &theme in themes().iter() {
+        window
+            .menu_handle()
+            .get_item(theme)
+            .set_selected(theme == setting)
+            .expect("set_selected");
+    }
 }
 
 fn menu() -> Menu {
-    Menu::new()
-        .add_submenu(Submenu::new(
+    let mut menu = Menu::new();
+    #[cfg(target_os = "macos")]
+    {
+        menu = menu.add_submenu(Submenu::new(
             "Typebeat",
             Menu::new()
                 .add_native_item(MenuItem::CloseWindow)
                 .add_native_item(MenuItem::Quit),
-        ))
-        .add_submenu(Submenu::new(
-            "File",
-            Menu::new()
-                .add_item(CustomMenuItem::new("new", "New").accelerator("CmdOrControl+Shift+N"))
-                .add_item(CustomMenuItem::new("open", "Open").accelerator("CmdOrControl+O"))
-                .add_item(CustomMenuItem::new("save", "Save").accelerator("CmdOrControl+S")),
-        ))
-        .add_submenu(Submenu::new(
-            "Edit",
-            Menu::new()
-                .add_native_item(MenuItem::Cut)
-                .add_native_item(MenuItem::Copy)
-                .add_native_item(MenuItem::Paste)
-                .add_native_item(MenuItem::SelectAll),
-        ))
-        .add_submenu(Submenu::new(
-            "View",
-            Menu::new()
-                .add_submenu(Submenu::new(
-                    "Themes",
-                    themes().iter().fold(Menu::new(), |menu, &theme| {
-                        menu.add_item(CustomMenuItem::new(format!("theme{theme}"), theme))
-                    }),
-                ))
-                .add_item(CustomMenuItem::new("label", "Keyboard Labels")),
-        ))
-        .add_submenu(Submenu::new(
-            "Help",
-            Menu::new().add_item(CustomMenuItem::new("demo", "Typebeat Demo")),
-        ))
+        ));
+    }
+    menu.add_submenu(Submenu::new(
+        "File",
+        Menu::new()
+            .add_item(CustomMenuItem::new("new", "New").accelerator("CmdOrControl+Shift+N"))
+            .add_item(CustomMenuItem::new("open", "Open").accelerator("CmdOrControl+O"))
+            .add_item(CustomMenuItem::new("save", "Save").accelerator("CmdOrControl+S")),
+    ))
+    .add_submenu(Submenu::new(
+        "Edit",
+        Menu::new()
+            .add_native_item(MenuItem::Cut)
+            .add_native_item(MenuItem::Copy)
+            .add_native_item(MenuItem::Paste)
+            .add_native_item(MenuItem::SelectAll),
+    ))
+    .add_submenu(Submenu::new(
+        "View",
+        Menu::new()
+            .add_submenu(Submenu::new(
+                "Themes",
+                themes().iter().fold(Menu::new(), |menu, &theme| {
+                    menu.add_item(CustomMenuItem::new(theme, theme))
+                }),
+            ))
+            .add_item(CustomMenuItem::new("labels", "Keyboard Labels")),
+    ))
+    .add_submenu(Submenu::new(
+        "Help",
+        Menu::new().add_item(CustomMenuItem::new("demo", "Typebeat Demo")),
+    ))
 }
 
 fn themes() -> &'static [&'static str] {
     &["Gruvbox", "Pencil", "Solarized", "Mute"]
-}
-
-fn set_theme(window: &Window, selected: &str) {
-    window.emit("theme", Some(selected)).expect("theme");
-    for &theme in themes().iter() {
-        window
-            .menu_handle()
-            .get_item(&format!("theme{theme}"))
-            .set_selected(theme == selected)
-            .expect("set_selected");
-    }
 }
 
 fn dialog(window: &Window) -> FileDialogBuilder {
@@ -153,19 +164,22 @@ fn save(window: &Window, handle: &AppHandle<Wry>) {
 
 fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
     let window = handle.get_window("main").expect("window");
-    set_theme(&window, themes()[0]);
 
     // Setup menu handlers
     let window_ = window.clone();
     let handle_ = handle.clone();
-    window.on_menu_event(move |event| match event.menu_item_id() {
-        "new" => handle_.state::<App>().controller.load(&Value::Null),
-        "open" => open(&window_, &handle_),
-        "save" => save(&window_, &handle_),
-        "label" => window_.emit("label", Some(())).expect("label"),
-        "demo" => tauri::api::shell::open("https://typebeat.xyz".into(), None).expect("demo"),
-        id => {
-            id.strip_prefix("theme").map(|x| set_theme(&window_, x));
+    window.on_menu_event(move |event| {
+        let state = handle_.state::<App>();
+        match event.menu_item_id() {
+            "new" => state.controller.load(&Value::Null),
+            "open" => open(&window_, &handle_),
+            "save" => save(&window_, &handle_),
+            "demo" => tauri::api::shell::open("https://typebeat.xyz".into(), None).expect("demo"),
+            "labels" => window_
+                .emit("labels", Some(!state.labels.load().expect("labels")))
+                .expect("emit"),
+            id if themes().contains(&id) => window_.emit("theme", Some(id)).expect("emit"),
+            _ => {}
         }
     });
 
@@ -204,7 +218,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Builder::default()
         .menu(menu())
         .manage(App::from(controller))
-        .invoke_handler(tauri::generate_handler![dump, send, label])
+        .invoke_handler(tauri::generate_handler![dump, send, labels, theme])
         .build(context)?;
     let receiver = Arc::new(Mutex::new(receiver));
     app.run(move |handle, event| match event {

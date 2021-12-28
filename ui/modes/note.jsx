@@ -23,7 +23,7 @@ const S = 10;
 
 const Key = props => (
   <rect x={props.x-2} y='-2' width={props.width} height={props.height} stroke-width='2' classList={{
-    secondary: props.id === props.state.activeTrack[`note${props.state.activeTrack.activeKey}`] % 12
+    accent: props.id === props.state.activeTrack[`note${props.state.activeTrack.activeKey}`] % 12
   }} />
 );
 

@@ -7,13 +7,13 @@ body {
 }
 
 html {
-  color: var(--light);
-  background: var(--dark);
+  color: var(--modes);
+  background: var(--background);
   -webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape while allowing user zoom */
-  --dark: var(--theme0, #282828);
-  --light: var(--theme1, #ebdbb2);
-  --primary: var(--theme2, #d65d0e);
-  --secondary: var(--theme3, #d79921);
+  --background: #282828;
+  --modes: #ebdbb2;
+  --pads: #d65d0e;
+  --accent: #d79921;
   --transition: .055s;
 }
 
@@ -58,7 +58,7 @@ input[type="reset"]::-moz-focus-inner {
   -webkit-user-select: none;
   user-select: none;
   touch-command: manipulation;
-  background: var(--dark);
+  background: var(--background);
 }
 
 .app .row {
@@ -77,21 +77,21 @@ input[type="reset"]::-moz-focus-inner {
   height: 4.5rem;
   padding: .75rem;
   margin: 1px;
-  --pulse: var(--secondary);
+  --pulse: var(--accent);
 }
 
 .app .command {
   justify-content: center;
   background: var(--key_background);
-  --key_background: var(--primary);
+  --key_background: var(--pads);
 }
 
 .app .mode {
-  --key_background: var(--light);
+  --key_background: var(--modes);
 }
 
 .app .mode.active {
-  --key_background: var(--primary);
+  --key_background: var(--pads);
 }
 
 .app .mode .label {
@@ -117,17 +117,17 @@ input[type="reset"]::-moz-focus-inner {
 
 .app .mode .visual svg * {
   fill: var(--key_background);
-  stroke: var(--dark);
+  stroke: var(--background);
   transition: fill var(--transition) ease-out;
-  --pulse: var(--dark);
+  --pulse: var(--background);
 }
 
-.app .mode .visual svg .dark {
-  --key_background: var(--dark);
+.app .mode .visual svg .background {
+  --key_background: var(--background);
 }
 
-.app .mode .visual svg .secondary {
-  --key_background: var(--secondary);
+.app .mode .visual svg .accent {
+  --key_background: var(--accent);
 }
 
 .app .mode .visual svg .transparent {
@@ -138,7 +138,7 @@ input[type="reset"]::-moz-focus-inner {
   width: fit-content;
   height: 1.25rem;
   align-self: flex-start;
-  color: var(--dark);
+  color: var(--background);
   box-sizing: border-box;
 }
 
@@ -146,19 +146,19 @@ input[type="reset"]::-moz-focus-inner {
   border-bottom: solid 2px currentColor;
 }
 
-.app.labeled .key:after,
+.app.labels .key:after,
 kbd {
   display: inline;
-  color: var(--dark);
+  color: var(--background);
   background: var(--key_background);
-  border: solid 2px var(--dark);
+  border: solid 2px var(--background);
   border-radius: 1rem;
   padding: .125rem .65rem;
   line-height: 1;
-  --key_background: var(--light);
+  --key_background: var(--modes);
 }
 
-.app.labeled .key:after {
+.app.labels .key:after {
   content: attr(data-cap);
   position: absolute;
   left: -.65rem;
@@ -167,12 +167,12 @@ kbd {
   transition: background .1s ease;
 }
 
-.app.labeled .key.mode.active:after {
-  background: var(--primary);
+.app.labels .key.mode.active:after {
+  background: var(--pads);
 }
 
 .app .pulse,
-.app.labeled .key.pulse:after {
+.app.labels .key.pulse:after {
   animation: pulse .45s ease-out;
 }
 

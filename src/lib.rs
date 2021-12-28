@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use atomic_cell::{AtomicCell, CopyAs};
+pub use atomic_cell::{AtomicCell, CopyAs};
 use effects::{FaustDsp, ParamIndex, UI};
 use state::{Host, Param, State};
 

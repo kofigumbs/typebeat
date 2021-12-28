@@ -29,7 +29,7 @@ const Track = props => {
     <>
       <rect
         {...layout(props.x, props.y)}
-        classList={{ secondary: props.id === props.state.song.activeTrack }}
+        classList={{ accent: props.id === props.state.song.activeTrack }}
       />
       <rect ref={cover} {...layout(props.x, props.y)} className='transparent' />
     </>
@@ -47,7 +47,7 @@ const Row = props => {
 
 export const Grid = props => (
   <svg xmlns='http://www.w3.org/2000/svg'>
-    <rect width='100%' height='100%' className='dark' />
+    <rect width='100%' height='100%' className='background' />
     <Row y={0} tracks={[10, 11, 12, 13, 14]} {...props} />
     <Row y={1} tracks={[ 5,  6,  7,  8,  9]} {...props} />
     <Row y={2} tracks={[ 0,  1,  2,  3,  4]} {...props} />

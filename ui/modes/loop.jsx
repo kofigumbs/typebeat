@@ -48,9 +48,9 @@ const View = props => {
   });
   return (
     <>
-      <rect x={x} y={y} width={s} height={s} stroke-width='2' classList={{ secondary: active() }} />
+      <rect x={x} y={y} width={s} height={s} stroke-width='2' classList={{ accent: active() }} />
       <Show when={props.state.activeTrack[`view${props.i}`] > 1}>
-        <rect x={x+4} y={y+4} width={s-8} height={s-8} className='dark' stroke-width='2' />
+        <rect x={x+4} y={y+4} width={s-8} height={s-8} className='background' stroke-width='2' />
       </Show>
     </>
   );
