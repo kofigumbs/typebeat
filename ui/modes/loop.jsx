@@ -36,21 +36,19 @@ export const commands = Commands.combine(
   Commands.cap('.', { label: view(3), onDown: state => state.send('sequence', 3) }),
 );
 
-const View = props => {
-  const s = 16;
-  const x = 16 + props.i*16;
-  const y = 15;
-  const active = createMemo(() => {
-    const step = props.state.song.step % props.state.activeTrack.length;
-    const index = props.state.activeTrack[`viewIndex${props.i}`];
-    const length = props.state.activeTrack.viewLength;
-    return props.state.song.playing && step >= index && step < index + length;
-  });
+const Roll = props => {
+  const height = 8;
   return (
     <>
-      <rect x={x} y={y} width={s} height={s} stroke-width='2' classList={{ accent: active() }} />
-      <Show when={props.state.activeTrack[`view${props.i}`] > 1}>
-        <rect x={x+4} y={y+4} width={s-8} height={s-8} className='background' stroke-width='2' />
+      <Show when={props.state.activeTrack[`roll${props.i}`] > 1}>
+        <rect
+          x={props.key*6 + 4}
+          y={27 - props.view*height}
+          width='4'
+          height={height}
+          className={props.key === props.state.activeTrack.activeKey ? 'accent' : 'pads'}
+          stroke-width='2'
+        />
       </Show>
     </>
   );
@@ -69,8 +67,10 @@ export const Visual = props => {
     <svg xmlns='http://www.w3.org/2000/svg'>
       <path d='M 3 43 h 90' stroke-width='2' />
       <path d={`M ${3 + 90*markStart()} 39 h ${90*markLength()}`} stroke-width='2' />
-      <For each={[0, 1, 2, 3]}>
-        {i => <View i={i} {...props} />}
+      <For each={Array.from({ length: 4*15 })}>
+        {(_, i) => (
+          <Roll i={i()} key={Math.floor(i()/4)} view={i()%4} {...props} />
+        )}
       </For>
     </svg>
   );

@@ -2,8 +2,6 @@
 
 # Typebeat
 
-<img src="./website/public/screenshot.png" alt="App screenshot showing the basic layout, which resembles that of the QWERTY keyboard" />
-
 Running the native app locally requires the following dependencies:
 
 - [Rust](https://www.rust-lang.org/learn/get-started)

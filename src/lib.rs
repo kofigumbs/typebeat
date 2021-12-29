@@ -50,8 +50,9 @@ const DEFAULT_SAMPLES: &[&str] = &[
 
 lazy_static::lazy_static! {
     static ref NOTE: Vec<String> = (0..TRACK_COUNT).map(|i| format!("note{i}")).collect();
-    static ref VIEW: Vec<String> = (0..4).map(|i| format!("view{i}")).collect();
-    static ref VIEW_INDEX: Vec<String> = (0..4).map(|i| format!("viewIndex{i}")).collect();
+    static ref ROLL: Vec<String> = (0..VIEWS_PER_PAGE*KEY_COUNT).map(|i| format!("roll{i}")).collect();
+    static ref VIEW: Vec<String> = (0..VIEWS_PER_PAGE).map(|i| format!("view{i}")).collect();
+    static ref VIEW_INDEX: Vec<String> = (0..VIEWS_PER_PAGE).map(|i| format!("viewIndex{i}")).collect();
     static ref WAVEFORM: Vec<String> = (0..25).map(|i| format!("waveform{i}")).collect();
 }
 
@@ -211,6 +212,7 @@ impl Host for Track {
         f("viewLength", Param::new(0).temp());
         f("viewStart", Param::new(0).temp());
         host_each(f, &NOTE, Param::new(0).temp());
+        host_each(f, &ROLL, Param::new(0).temp());
         host_each(f, &VIEW, Param::new(0).temp());
         host_each(f, &VIEW_INDEX, Param::new(0).temp());
         host_each(f, &WAVEFORM, Param::new(0).temp());
@@ -234,14 +236,14 @@ impl Track {
         MAX_RES / self.state.get::<usize>("resolution")
     }
 
-    fn view_from(&self, start: usize) -> View {
+    fn view_from(&self, key: usize, start: usize) -> View {
         if start >= self.state.get("length") {
             return View::OutOfBounds;
         }
         let mut active_count = 0;
         let mut last_active = 0;
         for i in (start..).take(self.view_length()) {
-            let hit = &self.sequence[i][self.state.get::<usize>("activeKey")];
+            let hit = &self.sequence[i][key];
             if hit.active.load() {
                 active_count += 1;
                 last_active = i;
@@ -258,10 +260,6 @@ impl Track {
 
     fn view_index(&self, i: usize) -> usize {
         self.state.get::<usize>("pageStart") + i * self.view_length()
-    }
-
-    fn view(&self, i: usize) -> View {
-        self.view_from(self.view_index(i))
     }
 
     fn zoom_out(&self) {
@@ -298,19 +296,18 @@ impl Track {
 
     fn toggle_step(&self, i: usize) {
         let start = self.view_index(i);
-        match self.view_from(start) {
+        let key = self.state.get("activeKey");
+        match self.view_from(key, start) {
             View::OutOfBounds => {}
             View::Empty | View::ExactlyOnStep => {
-                let hit = &self.sequence[start as usize][self.state.get::<usize>("activeKey")];
+                let hit = &self.sequence[start as usize][key];
                 hit.active.toggle();
                 hit.skip_next.store(false);
                 hit.duration.store(self.view_length());
             }
             View::ContainsSteps => {
                 for i in start..(start + self.view_length()) {
-                    self.sequence[i][self.state.get::<usize>("activeKey")]
-                        .active
-                        .store(false);
+                    self.sequence[i][key].active.store(false);
                 }
             }
         }
@@ -533,11 +530,19 @@ impl Song {
         for (i, name) in NOTE.iter().enumerate() {
             track.state.set(name, self.note(track, i));
         }
-        for (i, name) in VIEW.iter().enumerate() {
-            track.state.set(name, track.view(i));
+        for (i, name) in ROLL.iter().enumerate() {
+            let key = i / VIEWS_PER_PAGE;
+            let length = track.state.get::<usize>("length");
+            let start = (self.state.get::<usize>("step") % length) / track.view_length()
+                * track.view_length()
+                + (i % VIEWS_PER_PAGE * track.view_length());
+            track.state.set(name, track.view_from(key, start % length));
         }
-        for (i, name) in VIEW_INDEX.iter().enumerate() {
-            track.state.set(name, track.view_index(i));
+        for (i, (view, view_index)) in VIEW.iter().zip(VIEW_INDEX.iter()).enumerate() {
+            let key = track.state.get("activeKey");
+            let start = track.view_index(i);
+            track.state.set(view, track.view_from(key, start));
+            track.state.set(view_index, start);
         }
         for (i, name) in WAVEFORM.iter().enumerate() {
             track.state.set(name, track.waveform(i));
