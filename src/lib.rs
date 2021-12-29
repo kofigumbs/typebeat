@@ -920,6 +920,9 @@ impl Controller {
 
     pub fn send(&self, method: &str, data: i32) {
         let callback = match method {
+            "activeKey" => {
+                Command::WithI32(|_, song, i| song.active_track().state.add("activeKey", i))
+            }
             "activeTrack" => Command::WithUsize(|audio, song, i| {
                 song.state.set("activeTrack", i);
                 if !song.state.is("playing") {

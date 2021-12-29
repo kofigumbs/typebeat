@@ -1,6 +1,7 @@
 import { createMemo } from 'solid-js';
 
 import Commands from '../commands';
+import { note } from './note';
 
 export const cap = 'A';
 
@@ -14,27 +15,37 @@ const view = i => state => {
   }
 };
 
-export const commands = Commands.combine(
-  Commands.cap('Y', { label: () => 'bars -', onDown: state => state.send('length', -1) }),
-  Commands.cap('U', { label: () => 'bars +', onDown: state => state.send('length', 1) }),
-  Commands.cap('H', { label: () => 'zoom -', onDown: state => state.send('zoomOut', 0) }),
-  Commands.cap('J', { label: () => 'page -', onDown: state => state.send('page', -1) }),
-  Commands.cap('L', { label: () => 'page +', onDown: state => state.send('page', 1) }),
-  Commands.cap(';', { label: () => 'zoom +', onDown: state => state.send('zoomIn', 0) }),
-  Commands.cap('K', { title: () => true, label: state => {
-    const bar = Math.floor(state.activeTrack.viewStart / state.activeTrack.resolution) + 1;
-    return `bar ${bar}/${state.activeTrack.bars}`
-  }}),
-  Commands.cap('P', {
-    label: () => 'clear',
-    title: state => state.activeTrack.canClear,
-    onDown: state => state.send('clear', 0),
-  }),
-  Commands.cap('N', { label: view(0), onDown: state => state.send('sequence', 0) }),
-  Commands.cap('M', { label: view(1), onDown: state => state.send('sequence', 1) }),
-  Commands.cap(',', { label: view(2), onDown: state => state.send('sequence', 2) }),
-  Commands.cap('.', { label: view(3), onDown: state => state.send('sequence', 3) }),
+export const commands = Commands.tabbed(
+  { cap: 'Y', label: 'view', commands: Commands.combine(
+    Commands.cap('H', { label: () => 'zoom -', onDown: state => state.send('zoomOut', 0) }),
+    Commands.cap('J', { label: () => 'page -', onDown: state => state.send('page', -1) }),
+    Commands.cap('L', { label: () => 'page +', onDown: state => state.send('page', 1) }),
+    Commands.cap(';', { label: () => 'zoom +', onDown: state => state.send('zoomIn', 0) }),
+    Commands.cap('K', { title: () => true, label: state => {
+      const bar = Math.floor(state.activeTrack.viewStart / state.activeTrack.resolution) + 1;
+      return `bar ${bar}/${state.activeTrack.bars}`
+    }}),
+    Commands.cap('N', { label: view(0), onDown: state => state.send('sequence', 0) }),
+    Commands.cap('M', { label: view(1), onDown: state => state.send('sequence', 1) }),
+    Commands.cap(',', { label: view(2), onDown: state => state.send('sequence', 2) }),
+    Commands.cap('.', { label: view(3), onDown: state => state.send('sequence', 3) }),
+  )},
+  { cap: 'U', label: 'config',  commands: Commands.combine(
+    Commands.cap('J', { label: () => '-1', onDown: state => state.send('activeKey', -1) }),
+    Commands.cap('L', { label: () => '+1', onDown: state => state.send('activeKey', 1) }),
+    Commands.cap('K', { title: () => true, label: state => {
+      return note(state.activeTrack[`note${state.activeTrack.activeKey}`]);
+    }}),
+    Commands.cap('N', { label: () => 'bars -', onDown: state => state.send('length', -1) }),
+    Commands.cap('M', { label: () => 'bars +', onDown: state => state.send('length', 1) }),
+    Commands.cap('/', {
+      label: () => 'clear',
+      title: state => state.activeTrack.canClear,
+      onDown: state => state.send('clear', 0),
+    }),
+  )},
 );
+
 
 const Roll = props => {
   const height = 8;
