@@ -9,14 +9,14 @@
     const t = window.__TAURI__;
     const dump = t.invoke('dump');
 
-    const createSetting = (name, initial, constructor, callback) => {
+    const createSetting = (name, initial, callback) => {
       const onChange = setting => {
-        setting === initial ? localStorage.removeItem(name) : localStorage.setItem(name, setting);
+        setting === initial ? localStorage.removeItem(name) : localStorage.setItem(name, JSON.stringify(setting));
         t.invoke(name, { setting });
         callback(setting);
       };
       t.event.listen(name, ({ payload }) => onChange(payload));
-      onChange(constructor(localStorage.getItem(name) ?? initial));
+      onChange(localStorage.getItem(name) ? JSON.parse(localStorage.getItem(name)) : initial);
     };
 
     const mount = () => {
@@ -25,7 +25,7 @@
         ['Solarized', ['#fdf6e3', '#586e75', '#6c71c4', '#cb4b16']],
         ['Mute',      ['#4461ad', '#b6a1ad', '#9bb8c6', '#ffffff']],
       ]);
-      createSetting('theme', 'Gruvbox', String, setting => {
+      createSetting('theme', 'Gruvbox', setting => {
         const colors = themes.get(setting);
         const style = document.documentElement.style;
         ['--background', '--modes', '--pads', '--accent'].forEach((variable, i) => {
@@ -33,7 +33,7 @@
         });
       });
 
-      createSetting('labels', true, Boolean, setting => {
+      createSetting('labels', true, setting => {
         document.body.classList.toggle('labels', setting);
       });
 
