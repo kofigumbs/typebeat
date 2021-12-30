@@ -3,6 +3,10 @@ import("stdfaust.lib");
 gate = button("gate");
 note = button("note");
 
+duckGain = button("duckGain");
+duckX    = button("duckX");
+duckY    = button("duckY");
+
 sampleType = nentry("sampleType", 0, 0, 4, 1);
 synth1Type = nentry("synth1Type", 0, 0, 4, 1);
 synth2Type = nentry("synth2Type", 0, 0, 4, 1);
@@ -26,15 +30,18 @@ highRes      = nentry("highRes",      0,  -50,   0, 10) : smooth;
 attack       = nentry("attack",       0,    0,  50, 10) : smooth;
 decay        = nentry("decay",        0,    0,  50, 10) : smooth;
 sustain      = nentry("sustain",     50,    0,  50, 10) : smooth;
-release      = nentry("release",      0,    0,  50, 10) : smooth;
+release      = nentry("release",      0,    0,  50, 10);
 cutoff       = nentry("cutoff",       0,    0,  50, 10) : smooth;
 pan          = nentry("pan",          0,  -25,  25, 10) : smooth;
 main         = nentry("main",        50,    0,  50, 10) : smooth;
 reverb       = nentry("reverb",       0,    0,  50, 10) : smooth;
 echo         = nentry("echo",         0,    0,  50, 10) : smooth;
-drive        = nentry("drive",        0,    0,  50, 10) : smooth;
+toDuck       = nentry("toDuck",       0,    0,  50, 10) : smooth;
+duckBy       = nentry("duckBy",       0,    0,  50, 10) : smooth;
 
-process = sound :> eq : panning <: send(main), send(reverb), send(echo), send(drive);
+process(prevL, prevR) = sound :> eq : panning <: sends with {
+	sends = send(toDuck), (ducking(prevL, prevR) <: send(main), send(reverb), send(echo));
+};
 
 sound = sample, synth1, synth2, synth3 with {
 	sample = sp.stereoize(sampleTranspose : *(sampleLevel/25 * ba.if(holdSample, envelope, 1)));
@@ -61,10 +68,15 @@ panning(inputL, inputR) = ba.select2stereo(pan > 25, toLeftL, toLeftR, toRightL,
 	toRightR = inputR + inputL*pan/25;
 };
 
+ducking(prevL, prevR) = duck(prevL), duck(prevR) with {
+	duck(prev) = *(1 - an.amp_follower_ar(time(duckX), time(duckY), min(1, prev*duckBy/(51 - duckGain))));
+};
+
 send(amount) = sp.stereoize(*(amount/50));
-envelope = en.adsr(attack/50, decay/50, sustain/50, release/50, gate);
+envelope = en.adsr(time(attack), time(decay), sustain/50, (release : smooth : time), gate);
+time = _/50;
 
 smooth = si.polySmooth(trigger, amount, 1) with {
-	trigger = gate : ba.peakhold(1);
+	trigger = en.ar(0, time(release), gate) : ma.signum;
 	amount = 1 - 44.1/ma.SR; // https://github.com/grame-cncm/faustlibraries/blob/b54a01fa5ef0ac1f4939f78a88d318f1db85cc0a/signals.lib#L116
 };

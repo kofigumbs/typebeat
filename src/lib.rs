@@ -24,16 +24,16 @@ mod atomic_cell;
 mod effects;
 mod state;
 
-const SEND_COUNT: usize = 3;
-const INSERT_OUTPUT_COUNT: usize = 2 + 2 * SEND_COUNT;
-
-const MAX_RES: usize = 512;
-const MAX_LENGTH: usize = MAX_RES * 8;
+const INSERT_INPUT_COUNT: usize = 4;
+const INSERT_OUTPUT_COUNT: usize = 8;
 
 const KEY_COUNT: usize = 15;
 const SAMPLE_RATE: usize = 44100;
 const TRACK_COUNT: usize = 15;
 const VIEWS_PER_PAGE: usize = 4;
+
+const MAX_RES: usize = 512;
+const MAX_LENGTH: usize = MAX_RES * 8;
 
 const SCALE_LENGTH: usize = 7;
 const SCALE_OFFSETS: &[[i32; SCALE_LENGTH]] = &[
@@ -76,21 +76,6 @@ impl<T: FaustDsp> Default for DspBox<T> {
         let mut dsp = Box::new(T::new());
         dsp.init(SAMPLE_RATE as i32);
         DspBox { dsp }
-    }
-}
-
-/// Type-erased wrapper for FaustDsp
-struct DspDyn {
-    dsp: Box<dyn Send + Sync + FaustDsp<T = f32>>,
-    builder: fn(&mut dyn UI<f32>),
-}
-
-impl<T: 'static + Send + Sync + FaustDsp<T = f32>> From<(&'static str, DspBox<T>)> for DspDyn {
-    fn from(value: (&'static str, DspBox<T>)) -> Self {
-        Self {
-            dsp: value.1.dsp,
-            builder: T::build_user_interface_static,
-        }
     }
 }
 
@@ -406,6 +391,9 @@ pub struct Export {
 struct Song {
     note_index: ParamIndex,
     gate_index: ParamIndex,
+    duck_gain_index: ParamIndex,
+    duck_x_index: ParamIndex,
+    duck_y_index: ParamIndex,
     state: State<Song>,
     tracks: [Track; TRACK_COUNT],
     frames_since_last_step: AtomicCell<usize>,
@@ -415,11 +403,13 @@ impl Host for Song {
     fn host<F: FnMut(&'static str, &Param)>(f: &mut F) {
         effects::reverb::host(f);
         effects::echo::host(f);
-        effects::drive::host(f);
         f(
             "activeTrack",
             Param::new(0).min(0).max(TRACK_COUNT - 1).temp(),
         );
+        f("duckGain", Param::new(25).min(0).max(50).step(10));
+        f("duckX", Param::new(0).min(0).max(50).step(10));
+        f("duckY", Param::new(25).min(0).max(50).step(10));
         f("playing", Param::new(false).temp());
         f("recording", Param::new(false).toggle().temp());
         f("root", Param::new(0).min(-12).max(12).step(7));
@@ -455,17 +445,12 @@ impl Song {
                 });
         }
 
-        // Initialize the note and gate Faust ids
-        struct FindButton<'a>(&'static str, &'a mut ParamIndex);
-        impl<'a> UI<f32> for FindButton<'a> {
-            fn add_button(&mut self, label: &'static str, i: ParamIndex) {
-                if label == self.0 {
-                    *self.1 = i;
-                }
-            }
-        }
-        effects::insert::build_user_interface_static(&mut FindButton("note", &mut song.note_index));
-        effects::insert::build_user_interface_static(&mut FindButton("gate", &mut song.gate_index));
+        // Initialize the note, gate, and duck_x Faust ids
+        Buttons::find::<effects::insert>("note", &mut song.note_index);
+        Buttons::find::<effects::insert>("gate", &mut song.gate_index);
+        Buttons::find::<effects::insert>("duckGain", &mut song.duck_gain_index);
+        Buttons::find::<effects::insert>("duckX", &mut song.duck_x_index);
+        Buttons::find::<effects::insert>("duckY", &mut song.duck_y_index);
 
         song.update_derived();
         song
@@ -554,7 +539,6 @@ impl Song {
 struct Buffer<const N: usize, const M: usize> {
     mix: [f32; N],
     out: [f32; M],
-    mix_start: usize,
 }
 
 impl<const N: usize, const M: usize> Buffer<N, M> {
@@ -562,16 +546,21 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
         Buffer {
             mix: [0.; N],
             out: [0.; M],
-            mix_start: 0,
         }
     }
 
-    fn compute(&mut self, dsp: &mut dyn effects::FaustDsp<T = f32>) {
+    fn compute<T>(&mut self, dsp: &mut T, output: &mut [f32], mix_start: usize)
+    where
+        T: effects::FaustDsp<T = f32>,
+    {
         dsp.compute(
             1,
-            &self.mix.each_ref().map(std::slice::from_ref)[self.mix_start..],
+            &self.mix.each_ref().map(std::slice::from_ref)[mix_start..],
             &mut self.out.each_mut().map(std::slice::from_mut),
         );
+        for (destination, source) in output.iter_mut().zip(&self.out) {
+            *destination += source;
+        }
     }
 }
 
@@ -602,39 +591,39 @@ impl Voice {
         }
     }
 
-    fn process(&mut self, song: &Song, input: &[f32], output: &mut [f32]) {
-        let mut buffer = Buffer::<2, INSERT_OUTPUT_COUNT>::new();
-        match self.track_id {
-            None => self.play(&mut buffer.mix, |_| 0.),
+    fn process(&mut self, song: &Song, duck_mix: &[f32], input: &[f32], output: &mut [f32]) {
+        let playback = match self.track_id {
+            None => [0., 0.],
             Some(track_id) => {
                 let track = &song.tracks[track_id];
-                let mix = &mut buffer.mix;
                 match track.sample_type() {
-                    SampleType::File => self.play_sample(mix, &track.file_sample, 2),
-                    SampleType::Live => self.play_through(mix, track, input, false),
-                    SampleType::LiveRecord => self.play_through(mix, track, input, true),
-                    SampleType::LivePlay => self.play_sample(mix, track.live(), 1),
+                    SampleType::File => self.play_sample(&track.file_sample, 2),
+                    SampleType::Live => self.play_through(track, input, false),
+                    SampleType::LiveRecord => self.play_through(track, input, true),
+                    SampleType::LivePlay => self.play_sample(track.live(), 1),
                 }
             }
-        }
-        buffer.compute(self.insert.dsp.as_mut());
-        Buffer::write_over(&buffer.out, output);
+        };
+        self.position += self.increment;
+        let mut buffer = Buffer::<INSERT_INPUT_COUNT, INSERT_OUTPUT_COUNT>::new();
+        buffer.mix = [duck_mix[0], duck_mix[1], playback[0], playback[1]];
+        buffer.compute(self.insert.dsp.as_mut(), output, 0);
     }
 
-    fn play_through(&mut self, mix: &mut [f32], track: &Track, input: &[f32], record: bool) {
+    fn play_through(&mut self, track: &Track, input: &[f32], record: bool) -> [f32; 2] {
         let input = input.iter().sum();
         let length = track.live_length.load();
         if record && length < track.live_sample.len() {
             track.live_sample[length].store(input);
             track.live_length.store(length + 1);
         }
-        self.play(mix, |_| input);
+        [input, input]
     }
 
-    fn play_sample<T: CopyAs<f32>>(&mut self, mix: &mut [f32], sample: &[T], channels: usize) {
+    fn play_sample<T: CopyAs<f32>>(&mut self, sample: &[T], channels: usize) -> [f32; 2] {
         let position = self.position.floor() as usize;
         let position_fract = self.position.fract();
-        self.play(mix, |channel| {
+        [0, 1].map(|channel| {
             let index = |i| i * channels + channel % channels;
             if position_fract == 0. {
                 sample.get(index(position)).map_or(0., T::copy_as)
@@ -643,33 +632,42 @@ impl Voice {
                 let b = sample.get(index(position + 1)).map_or(0., T::copy_as);
                 position_fract.mul_add(b - a, a)
             }
-        });
-    }
-
-    fn play(&mut self, mix: &mut [f32], f: impl Fn(usize) -> f32) {
-        for (channel, sample) in mix.iter_mut().enumerate() {
-            *sample = f(channel);
-        }
-        self.position += self.increment;
+        })
     }
 }
 
-impl Buffer<0, 0> {
-    fn write_over(source: &[f32], destination: &mut [f32]) {
-        for (destination, source) in destination.iter_mut().zip(source) {
-            *destination += source;
-        }
-    }
-}
-
-struct SetParams<'a, T: ?Sized, S> {
+/// Synchronizes params between dsp instance and state
+struct Params<'a, T: ?Sized, S> {
     dsp: &'a mut T,
     state: &'a State<S>,
 }
 
-impl<'a, T: FaustDsp<T = f32> + ?Sized, S> UI<f32> for SetParams<'a, T, S> {
+impl<'a, T: FaustDsp<T = f32>, S> UI<f32> for Params<'a, T, S> {
     fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
         self.dsp.set_param(i, self.state.get(s));
+    }
+}
+
+impl<'a, T: FaustDsp<T = f32>, S> Params<'a, T, S> {
+    fn sync(dsp: &'a mut T, state: &'a State<S>) {
+        T::build_user_interface_static(&mut Self { dsp, state });
+    }
+}
+
+/// Collects Faust button param indexes
+struct Buttons<'a>(&'static str, &'a mut ParamIndex);
+
+impl<'a> UI<f32> for Buttons<'a> {
+    fn add_button(&mut self, label: &'static str, i: ParamIndex) {
+        if label == self.0 {
+            *self.1 = i;
+        }
+    }
+}
+
+impl<'a> Buttons<'a> {
+    fn find<T: FaustDsp<T = f32>>(label: &'static str, i: &'a mut ParamIndex) {
+        T::build_user_interface_static(&mut Buttons(label, i));
     }
 }
 
@@ -684,7 +682,9 @@ enum Command {
 struct Audio {
     platform: Mutex<Platform>,
     voices: Vec<Voice>,
-    sends: [DspDyn; SEND_COUNT],
+    duck_mix: [f32; 2],
+    echo: DspBox<effects::echo>,
+    reverb: DspBox<effects::reverb>,
     receiver: Arc<Mutex<Receiver<(Command, i32)>>>,
 }
 
@@ -763,16 +763,15 @@ impl Audio {
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
                 let dsp = voice.insert.dsp.as_mut();
-                let state = &song.tracks[track_id].state;
                 dsp.set_param(song.gate_index, voice.gate as f32);
-                effects::insert::build_user_interface_static(&mut SetParams { dsp, state });
+                dsp.set_param(song.duck_gain_index, song.state.get("duckGain"));
+                dsp.set_param(song.duck_x_index, song.state.get("duckX"));
+                dsp.set_param(song.duck_y_index, song.state.get("duckY"));
+                Params::sync(dsp, &song.tracks[track_id].state);
             }
         }
-        for DspDyn { dsp, builder } in self.sends.iter_mut() {
-            let dsp = dsp.as_mut();
-            let state = &song.state;
-            builder(&mut SetParams { dsp, state });
-        }
+        Params::sync(self.echo.dsp.as_mut(), &song.state);
+        Params::sync(self.reverb.dsp.as_mut(), &song.state);
 
         // Read input frames and calculate output frames
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
@@ -812,14 +811,12 @@ impl Audio {
             // Run voices and sends
             let mut buffer = Buffer::<INSERT_OUTPUT_COUNT, 2>::new();
             for voice in self.voices.iter_mut() {
-                voice.process(song, input, &mut buffer.mix);
+                voice.process(song, &self.duck_mix, input, &mut buffer.mix);
             }
-            Buffer::write_over(&buffer.mix, output);
-            for DspDyn { dsp, .. } in self.sends.iter_mut() {
-                buffer.mix_start += 2;
-                buffer.compute(dsp.as_mut());
-                Buffer::write_over(&buffer.out, output);
-            }
+            self.duck_mix.copy_from_slice(&buffer.mix[..2]); // duck
+            output.copy_from_slice(&buffer.mix[2..4]); // main/dry
+            buffer.compute(self.echo.dsp.as_mut(), output, 4);
+            buffer.compute(self.reverb.dsp.as_mut(), output, 6);
         }
 
         // Inform UI of changed state keys
@@ -856,7 +853,6 @@ impl Audio {
             voice.increment = ((note + track.state.get::<f32>("sampleDetune") / 10.) / 12.).exp2()
                 / (69.0_f32 / 12.).exp2();
             voice.track_id = Some(track_id);
-            voice.insert.dsp.instance_clear();
             voice.insert.dsp.set_param(song.note_index, note);
         }
 
@@ -973,23 +969,14 @@ pub fn init(platform: Platform, json: &Value) -> Result<Controller, Box<dyn Erro
     let audio = Audio {
         platform: Mutex::new(platform),
         voices: vec![Voice::default(); voice_count],
-        sends: [
-            ("reverb", DspBox::<effects::reverb>::default()).into(),
-            ("echo", DspBox::<effects::echo>::default()).into(),
-            ("drive", DspBox::<effects::drive>::default()).into(),
-        ],
+        duck_mix: [0., 0.],
+        echo: DspBox::<effects::echo>::default(),
+        reverb: DspBox::<effects::reverb>::default(),
         receiver: Arc::new(Mutex::new(receiver)),
     };
-    for voice in audio.voices.iter() {
-        assert_eq!(voice.insert.dsp.get_num_inputs(), 2);
-        assert_eq!(
-            voice.insert.dsp.get_num_outputs(),
-            INSERT_OUTPUT_COUNT as i32
-        );
-    }
-    for DspDyn { dsp, .. } in audio.sends.iter() {
-        assert_eq!(dsp.get_num_inputs(), 2);
-        assert_eq!(dsp.get_num_outputs(), 2);
+    for v in audio.voices.iter() {
+        assert_eq!(v.insert.dsp.get_num_inputs(), INSERT_INPUT_COUNT as i32);
+        assert_eq!(v.insert.dsp.get_num_outputs(), INSERT_OUTPUT_COUNT as i32);
     }
 
     let mut device_config = DeviceConfig::new(DeviceType::Duplex);

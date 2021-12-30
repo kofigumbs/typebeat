@@ -14,7 +14,7 @@
     "vite-plugin-solid": "^2.1.1"
   },
   "scripts": {
-    "start": "mkdir -p target/debug/samples; cp samples/* target/debug/samples; (vite ui --clearScreen false &); chokidar 'src/**/*.rs' build.rs --command 'pkill typebeat; cargo run' --initial; pkill node",
+    "start": "mkdir -p target/debug/samples; cp samples/* target/debug/samples; (vite ui --clearScreen false &); chokidar 'src/**/*.rs' build.rs --command 'pkill typebeat; cargo run' --initial --debounce 1000; pkill node",
     "faust": "ls src/effects/*.dsp | xargs -I{} bash -c 'faust -lang rust -cn `basename -s .dsp {}` -o {}.rs {}'"
   },
   "workspaces": []

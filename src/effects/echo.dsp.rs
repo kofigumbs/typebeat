@@ -8,14 +8,15 @@ pub struct echo {
 	IOTA: i32,
 	fVec0: [F32;4194304],
 	fEntry1: F32,
+	fRec2: [F32;2],
 	fConst3: F32,
 	fConst4: F32,
 	fEntry2: F32,
 	fRec1: [F32;524288],
-	fRec2: [F32;2],
-	iRec3: [i32;2],
+	fRec3: [F32;2],
+	iRec4: [i32;2],
 	fVec1: [F32;4194304],
-	fRec4: [F32;524288],
+	fRec5: [F32;524288],
 }
 
 impl FaustDsp for echo {
@@ -31,14 +32,15 @@ impl FaustDsp for echo {
 			IOTA: 0,
 			fVec0: [0.0;4194304],
 			fEntry1: 0.0,
+			fRec2: [0.0;2],
 			fConst3: 0.0,
 			fConst4: 0.0,
 			fEntry2: 0.0,
 			fRec1: [0.0;524288],
-			fRec2: [0.0;2],
-			iRec3: [0;2],
+			fRec3: [0.0;2],
+			iRec4: [0;2],
 			fVec1: [0.0;4194304],
-			fRec4: [0.0;524288],
+			fRec5: [0.0;524288],
 		}
 	}
 	fn metadata(&self, m: &mut dyn Meta) { 
@@ -90,20 +92,23 @@ impl FaustDsp for echo {
 		for l1 in 0..4194304 {
 			self.fVec0[l1 as usize] = 0.0;
 		}
-		for l2 in 0..524288 {
-			self.fRec1[l2 as usize] = 0.0;
+		for l2 in 0..2 {
+			self.fRec2[l2 as usize] = 0.0;
 		}
-		for l3 in 0..2 {
-			self.fRec2[l3 as usize] = 0.0;
+		for l3 in 0..524288 {
+			self.fRec1[l3 as usize] = 0.0;
 		}
 		for l4 in 0..2 {
-			self.iRec3[l4 as usize] = 0;
+			self.fRec3[l4 as usize] = 0.0;
 		}
-		for l5 in 0..4194304 {
-			self.fVec1[l5 as usize] = 0.0;
+		for l5 in 0..2 {
+			self.iRec4[l5 as usize] = 0;
 		}
-		for l6 in 0..524288 {
-			self.fRec4[l6 as usize] = 0.0;
+		for l6 in 0..4194304 {
+			self.fVec1[l6 as usize] = 0.0;
+		}
+		for l7 in 0..524288 {
+			self.fRec5[l7 as usize] = 0.0;
 		}
 	}
 	fn instance_constants(&mut self, sample_rate: i32) {
@@ -111,7 +116,7 @@ impl FaustDsp for echo {
 		let mut fConst0: F32 = F32::min(192000.0, F32::max(1.0, (self.fSampleRate as F32)));
 		self.fConst1 = (44.0999985 / fConst0);
 		self.fConst2 = (1.0 - self.fConst1);
-		self.fConst3 = (2.0 * fConst0);
+		self.fConst3 = (3.0 * fConst0);
 		self.fConst4 = (0.0399999991 * fConst0);
 	}
 	fn instance_init(&mut self, sample_rate: i32) {
@@ -130,16 +135,16 @@ impl FaustDsp for echo {
 	
 	fn build_user_interface_static(ui_interface: &mut dyn UI<Self::T>) {
 		ui_interface.open_vertical_box("echo");
-		ui_interface.add_num_entry("echoFeed", ParamIndex(0), 25.0, -1.0, 50.0, 10.0);
-		ui_interface.add_num_entry("echoGain", ParamIndex(1), 25.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("echoSpace", ParamIndex(2), 25.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("echoGain", ParamIndex(0), 25.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("echoX", ParamIndex(1), 25.0, -1.0, 50.0, 10.0);
+		ui_interface.add_num_entry("echoY", ParamIndex(2), 25.0, 0.0, 50.0, 10.0);
 		ui_interface.close_box();
 	}
 	
 	fn get_param(&self, param: ParamIndex) -> Option<Self::T> {
 		match param.0 {
-			1 => Some(self.fEntry0),
-			0 => Some(self.fEntry1),
+			0 => Some(self.fEntry0),
+			1 => Some(self.fEntry1),
 			2 => Some(self.fEntry2),
 			_ => None,
 		}
@@ -147,8 +152,8 @@ impl FaustDsp for echo {
 	
 	fn set_param(&mut self, param: ParamIndex, value: Self::T) {
 		match param.0 {
-			1 => { self.fEntry0 = value }
-			0 => { self.fEntry1 = value }
+			0 => { self.fEntry0 = value }
+			1 => { self.fEntry1 = value }
 			2 => { self.fEntry2 = value }
 			_ => {}
 		}
@@ -170,40 +175,41 @@ impl FaustDsp for echo {
 			panic!("wrong number of outputs");
 		};
 		let mut fSlow0: F32 = (self.fConst1 * (self.fEntry0 as F32));
-		let mut fSlow1: F32 = (self.fEntry1 as F32);
-		let mut fSlow2: F32 = (0.0196078438 * fSlow1);
-		let mut fSlow3: F32 = (self.fEntry2 as F32);
-		let mut iSlow4: i32 = ((F32::min(self.fConst3, F32::max(0.0, (self.fConst4 * fSlow3))) as i32) + 1);
-		let mut fSlow5: F32 = (((((fSlow1 == -1.0) as i32) >= 1) as i32) as F32);
-		let mut iSlow6: i32 = (F32::powf(2.0, ((((0.200000003 * fSlow3) as i32) + 12) as F32)) as i32);
-		let mut fSlow7: F32 = (iSlow6 as F32);
-		let mut fSlow8: F32 = (4.0 / fSlow7);
-		let mut iSlow9: i32 = (iSlow6 + -1);
-		let mut fSlow10: F32 = (1.0 / fSlow7);
+		let mut fSlow1: F32 = (self.fConst1 * (self.fEntry1 as F32));
+		let mut fSlow2: F32 = (self.fEntry2 as F32);
+		let mut iSlow3: i32 = ((F32::min(self.fConst3, F32::max(0.0, (self.fConst4 * fSlow2))) as i32) + 1);
+		let mut iSlow4: i32 = (F32::powf(2.0, ((((0.200000003 * fSlow2) as i32) + 12) as F32)) as i32);
+		let mut fSlow5: F32 = (iSlow4 as F32);
+		let mut fSlow6: F32 = (4.0 / fSlow5);
+		let mut iSlow7: i32 = (iSlow4 + -1);
+		let mut fSlow8: F32 = (1.0 / fSlow5);
 		let zipped_iterators = inputs0.zip(inputs1).zip(outputs0).zip(outputs1);
 		for (((input0, input1), output0), output1) in zipped_iterators {
 			self.fRec0[0] = (fSlow0 + (self.fConst2 * self.fRec0[1]));
 			let mut fTemp0: F32 = (*input0 as F32);
 			self.fVec0[(self.IOTA & 4194303) as usize] = fTemp0;
-			self.fRec1[(self.IOTA & 524287) as usize] = (fTemp0 + (fSlow2 * self.fRec1[((self.IOTA - iSlow4) & 524287) as usize]));
-			let mut fTemp1: F32 = (self.fRec2[1] + 1.0);
-			let mut fTemp2: F32 = (self.fRec2[1] + -1.0);
-			self.fRec2[0] = if (((fTemp1 < fSlow5) as i32) as i32 != 0) { fTemp1 } else { if (((fTemp2 > fSlow5) as i32) as i32 != 0) { fTemp2 } else { fSlow5 } };
-			let mut fTemp3: F32 = (1.0 - self.fRec2[0]);
-			self.iRec3[0] = (self.iRec3[1] + 2);
-			let mut iTemp4: i32 = (self.iRec3[0] & iSlow9);
-			let mut fTemp5: F32 = (iTemp4 as F32);
-			let mut fTemp6: F32 = ((self.fRec2[0] * fTemp5) * (1.0 - (fSlow10 * fTemp5)));
-			let mut iTemp7: i32 = std::cmp::min(iSlow6, std::cmp::max(0, iTemp4));
-			*output0 = ((0.100000001 * (self.fRec0[0] * ((self.fRec1[((self.IOTA - 0) & 524287) as usize] * fTemp3) + (fSlow8 * (fTemp6 * self.fVec0[((self.IOTA - iTemp7) & 4194303) as usize]))))) as F32);
-			let mut fTemp8: F32 = (*input1 as F32);
-			self.fVec1[(self.IOTA & 4194303) as usize] = fTemp8;
-			self.fRec4[(self.IOTA & 524287) as usize] = (fTemp8 + (fSlow2 * self.fRec4[((self.IOTA - iSlow4) & 524287) as usize]));
-			*output1 = ((0.100000001 * (self.fRec0[0] * ((self.fRec4[((self.IOTA - 0) & 524287) as usize] * fTemp3) + (fSlow8 * (fTemp6 * self.fVec1[((self.IOTA - iTemp7) & 4194303) as usize]))))) as F32);
+			self.fRec2[0] = (fSlow1 + (self.fConst2 * self.fRec2[1]));
+			self.fRec1[(self.IOTA & 524287) as usize] = (fTemp0 + (0.0196078438 * (self.fRec2[0] * self.fRec1[((self.IOTA - iSlow3) & 524287) as usize])));
+			let mut fTemp1: F32 = (self.fRec3[1] + 1.0);
+			let mut fTemp2: F32 = (((((self.fRec2[0] == -1.0) as i32) >= 1) as i32) as F32);
+			let mut fTemp3: F32 = (self.fRec3[1] + -1.0);
+			self.fRec3[0] = if (((fTemp1 < fTemp2) as i32) as i32 != 0) { fTemp1 } else { if (((fTemp3 > fTemp2) as i32) as i32 != 0) { fTemp3 } else { fTemp2 } };
+			let mut fTemp4: F32 = (1.0 - self.fRec3[0]);
+			self.iRec4[0] = (self.iRec4[1] + 2);
+			let mut iTemp5: i32 = (self.iRec4[0] & iSlow7);
+			let mut fTemp6: F32 = (iTemp5 as F32);
+			let mut fTemp7: F32 = ((self.fRec3[0] * fTemp6) * (1.0 - (fSlow8 * fTemp6)));
+			let mut iTemp8: i32 = std::cmp::min(iSlow4, std::cmp::max(0, iTemp5));
+			*output0 = ((0.100000001 * (self.fRec0[0] * (((self.fRec1[((self.IOTA - 0) & 524287) as usize] - fTemp0) * fTemp4) + (fSlow6 * (fTemp7 * self.fVec0[((self.IOTA - iTemp8) & 4194303) as usize]))))) as F32);
+			let mut fTemp9: F32 = (*input1 as F32);
+			self.fVec1[(self.IOTA & 4194303) as usize] = fTemp9;
+			self.fRec5[(self.IOTA & 524287) as usize] = (fTemp9 + (0.0196078438 * (self.fRec2[0] * self.fRec5[((self.IOTA - iSlow3) & 524287) as usize])));
+			*output1 = ((0.100000001 * (self.fRec0[0] * (((self.fRec5[((self.IOTA - 0) & 524287) as usize] - fTemp9) * fTemp4) + (fSlow6 * (fTemp7 * self.fVec1[((self.IOTA - iTemp8) & 4194303) as usize]))))) as F32);
 			self.fRec0[1] = self.fRec0[0];
 			self.IOTA = (self.IOTA + 1);
 			self.fRec2[1] = self.fRec2[0];
-			self.iRec3[1] = self.iRec3[0];
+			self.fRec3[1] = self.fRec3[0];
+			self.iRec4[1] = self.iRec4[0];
 		}
 	}
 

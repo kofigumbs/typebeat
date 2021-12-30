@@ -5,11 +5,12 @@ import Commands from '../commands';
 export const cap = 'F';
 
 export const commands = Commands.tabbed(
-  { cap: 'Y', label: 'main',   commands: Commands.nudge('activeTrack', 'main'  ) },
-  { cap: 'U', label: 'pan',    commands: Commands.nudge('activeTrack', 'pan'   ) },
-  { cap: 'I', label: 'echo',   commands: Commands.nudge('activeTrack', 'echo'  ) },
-  { cap: 'O', label: 'reverb', commands: Commands.nudge('activeTrack', 'reverb') },
-  { cap: 'P', label: 'drive',  commands: Commands.nudge('activeTrack', 'drive' ) }
+  { cap: 'Y', label: 'main',    commands: Commands.nudge('activeTrack', 'main') },
+  { cap: 'U', label: 'echo',    commands: Commands.nudge('activeTrack', 'echo') },
+  { cap: 'I', label: 'reverb',  commands: Commands.nudge('activeTrack', 'reverb') },
+  { cap: 'O', label: 'to duck', commands: Commands.nudge('activeTrack', 'toDuck') },
+  { cap: 'N', label: 'pan',     commands: Commands.nudge('activeTrack', 'pan') },
+  { cap: 'M', label: 'duck by', commands: Commands.nudge('activeTrack', 'duckBy') }
 )
 
 const Rect = props => {
@@ -18,7 +19,6 @@ const Rect = props => {
   const y = createMemo(() => 23 - s()/2);
   const r = createMemo(() => `${props.state.activeTrack.reverb/2}%`);
   const spacing = createMemo(() => props.state.activeTrack.echo/4);
-  const strokeWidth = createMemo(() => props.state.activeTrack.drive + 2);
   return (
     <rect
       x={x() + (props.i-1)*spacing()}
@@ -27,7 +27,7 @@ const Rect = props => {
       ry={r()}
       width={s()}
       height={s()}
-      stroke-width={strokeWidth()}
+      stroke-width={2}
     />
   );
 };
