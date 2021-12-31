@@ -119,6 +119,7 @@ pub struct insert {
 	fConst7: F32,
 	fRec30: [F32;2],
 	fRec32: [F32;2],
+	fConst8: F32,
 	fRec34: [F32;2],
 	iRec35: [i32;2],
 	fEntry18: F32,
@@ -135,7 +136,6 @@ pub struct insert {
 	fVec8: [F32;4096],
 	fRec42: [F32;2],
 	fRec44: [F32;2],
-	fConst8: F32,
 	fRec46: [F32;2],
 	fEntry21: F32,
 	fRec47: [F32;2],
@@ -169,15 +169,16 @@ pub struct insert {
 	fRec64: [F32;2],
 	fEntry27: F32,
 	fRec67: [F32;2],
-	fConst11: F32,
+	fButton2: F32,
+	fRec68: [F32;2],
 	fRec66: [F32;2],
 	fRec65: [F32;2],
-	fRec69: [F32;2],
-	fRec68: [F32;2],
-	fEntry28: F32,
 	fRec70: [F32;2],
-	fEntry29: F32,
+	fRec69: [F32;2],
+	fEntry28: F32,
 	fRec71: [F32;2],
+	fEntry29: F32,
+	fRec72: [F32;2],
 }
 
 impl FaustDsp for insert {
@@ -251,6 +252,7 @@ impl FaustDsp for insert {
 			fConst7: 0.0,
 			fRec30: [0.0;2],
 			fRec32: [0.0;2],
+			fConst8: 0.0,
 			fRec34: [0.0;2],
 			iRec35: [0;2],
 			fEntry18: 0.0,
@@ -267,7 +269,6 @@ impl FaustDsp for insert {
 			fVec8: [0.0;4096],
 			fRec42: [0.0;2],
 			fRec44: [0.0;2],
-			fConst8: 0.0,
 			fRec46: [0.0;2],
 			fEntry21: 0.0,
 			fRec47: [0.0;2],
@@ -301,15 +302,16 @@ impl FaustDsp for insert {
 			fRec64: [0.0;2],
 			fEntry27: 0.0,
 			fRec67: [0.0;2],
-			fConst11: 0.0,
+			fButton2: 0.0,
+			fRec68: [0.0;2],
 			fRec66: [0.0;2],
 			fRec65: [0.0;2],
-			fRec69: [0.0;2],
-			fRec68: [0.0;2],
-			fEntry28: 0.0,
 			fRec70: [0.0;2],
-			fEntry29: 0.0,
+			fRec69: [0.0;2],
+			fEntry28: 0.0,
 			fRec71: [0.0;2],
+			fEntry29: 0.0,
+			fRec72: [0.0;2],
 		}
 	}
 	fn metadata(&self, m: &mut dyn Meta) { 
@@ -417,6 +419,7 @@ impl FaustDsp for insert {
 		self.fEntry25 = 0.0;
 		self.fEntry26 = 50.0;
 		self.fEntry27 = 0.0;
+		self.fButton2 = 0.0;
 		self.fEntry28 = 0.0;
 		self.fEntry29 = 0.0;
 	}
@@ -642,22 +645,25 @@ impl FaustDsp for insert {
 			self.fRec67[l74 as usize] = 0.0;
 		}
 		for l75 in 0..2 {
-			self.fRec66[l75 as usize] = 0.0;
+			self.fRec68[l75 as usize] = 0.0;
 		}
 		for l76 in 0..2 {
-			self.fRec65[l76 as usize] = 0.0;
+			self.fRec66[l76 as usize] = 0.0;
 		}
 		for l77 in 0..2 {
-			self.fRec69[l77 as usize] = 0.0;
+			self.fRec65[l77 as usize] = 0.0;
 		}
 		for l78 in 0..2 {
-			self.fRec68[l78 as usize] = 0.0;
+			self.fRec70[l78 as usize] = 0.0;
 		}
 		for l79 in 0..2 {
-			self.fRec70[l79 as usize] = 0.0;
+			self.fRec69[l79 as usize] = 0.0;
 		}
 		for l80 in 0..2 {
 			self.fRec71[l80 as usize] = 0.0;
+		}
+		for l81 in 0..2 {
+			self.fRec72[l81 as usize] = 0.0;
 		}
 	}
 	fn instance_constants(&mut self, sample_rate: i32) {
@@ -673,7 +679,6 @@ impl FaustDsp for insert {
 		self.fConst8 = (0.125 * self.fConst0);
 		self.fConst9 = (880.0 / self.fConst0);
 		self.fConst10 = (2.0 / self.fConst0);
-		self.fConst11 = F32::exp((0.0 - self.fConst10));
 	}
 	fn instance_init(&mut self, sample_rate: i32) {
 		self.instance_constants(sample_rate);
@@ -695,109 +700,112 @@ impl FaustDsp for insert {
 		ui_interface.add_num_entry("cutoff", ParamIndex(1), 0.0, 0.0, 50.0, 10.0);
 		ui_interface.add_num_entry("decay", ParamIndex(2), 0.0, 0.0, 50.0, 10.0);
 		ui_interface.add_num_entry("duckBy", ParamIndex(3), 0.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("echo", ParamIndex(4), 0.0, 0.0, 50.0, 10.0);
-		ui_interface.add_button("gate", ParamIndex(5));
-		ui_interface.add_num_entry("highFreq", ParamIndex(6), 50.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("highRes", ParamIndex(7), 0.0, -50.0, 0.0, 10.0);
-		ui_interface.add_num_entry("holdSample", ParamIndex(8), 0.0, 0.0, 1.0, 0.0);
-		ui_interface.add_num_entry("lowFreq", ParamIndex(9), 0.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("lowRes", ParamIndex(10), 0.0, -50.0, 0.0, 10.0);
-		ui_interface.add_num_entry("main", ParamIndex(11), 50.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("midFreq", ParamIndex(12), 0.0, -25.0, 25.0, 10.0);
-		ui_interface.add_num_entry("midRes", ParamIndex(13), 0.0, -25.0, 25.0, 10.0);
-		ui_interface.add_button("note", ParamIndex(14));
-		ui_interface.add_num_entry("pan", ParamIndex(15), 0.0, -25.0, 25.0, 10.0);
-		ui_interface.add_num_entry("release", ParamIndex(16), 0.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("reverb", ParamIndex(17), 0.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("sampleDetune", ParamIndex(18), 0.0, -120.0, 120.0, 10.0);
-		ui_interface.add_num_entry("sampleLevel", ParamIndex(19), 25.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("sampleType", ParamIndex(20), 0.0, 0.0, 4.0, 1.0);
-		ui_interface.add_num_entry("sustain", ParamIndex(21), 50.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("synth1Detune", ParamIndex(22), 0.0, -120.0, 120.0, 10.0);
-		ui_interface.add_num_entry("synth1Level", ParamIndex(23), 0.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("synth1Type", ParamIndex(24), 0.0, 0.0, 4.0, 1.0);
-		ui_interface.add_num_entry("synth2Detune", ParamIndex(25), 0.0, -120.0, 120.0, 10.0);
-		ui_interface.add_num_entry("synth2Level", ParamIndex(26), 0.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("synth2Type", ParamIndex(27), 0.0, 0.0, 4.0, 1.0);
-		ui_interface.add_num_entry("synth3Detune", ParamIndex(28), 0.0, -120.0, 120.0, 10.0);
-		ui_interface.add_num_entry("synth3Level", ParamIndex(29), 0.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("synth3Type", ParamIndex(30), 0.0, 0.0, 4.0, 1.0);
-		ui_interface.add_num_entry("toDuck", ParamIndex(31), 0.0, 0.0, 50.0, 10.0);
+		ui_interface.add_button("duckRelease", ParamIndex(4));
+		ui_interface.add_num_entry("echo", ParamIndex(5), 0.0, 0.0, 50.0, 10.0);
+		ui_interface.add_button("gate", ParamIndex(6));
+		ui_interface.add_num_entry("highFreq", ParamIndex(7), 50.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("highRes", ParamIndex(8), 0.0, -50.0, 0.0, 10.0);
+		ui_interface.add_num_entry("holdSample", ParamIndex(9), 0.0, 0.0, 1.0, 0.0);
+		ui_interface.add_num_entry("lowFreq", ParamIndex(10), 0.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("lowRes", ParamIndex(11), 0.0, -50.0, 0.0, 10.0);
+		ui_interface.add_num_entry("main", ParamIndex(12), 50.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("midFreq", ParamIndex(13), 0.0, -25.0, 25.0, 10.0);
+		ui_interface.add_num_entry("midRes", ParamIndex(14), 0.0, -25.0, 25.0, 10.0);
+		ui_interface.add_button("note", ParamIndex(15));
+		ui_interface.add_num_entry("pan", ParamIndex(16), 0.0, -25.0, 25.0, 10.0);
+		ui_interface.add_num_entry("release", ParamIndex(17), 0.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("reverb", ParamIndex(18), 0.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("sampleDetune", ParamIndex(19), 0.0, -120.0, 120.0, 10.0);
+		ui_interface.add_num_entry("sampleLevel", ParamIndex(20), 25.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("sampleType", ParamIndex(21), 0.0, 0.0, 4.0, 1.0);
+		ui_interface.add_num_entry("sustain", ParamIndex(22), 50.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("synth1Detune", ParamIndex(23), 0.0, -120.0, 120.0, 10.0);
+		ui_interface.add_num_entry("synth1Level", ParamIndex(24), 0.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("synth1Type", ParamIndex(25), 0.0, 0.0, 4.0, 1.0);
+		ui_interface.add_num_entry("synth2Detune", ParamIndex(26), 0.0, -120.0, 120.0, 10.0);
+		ui_interface.add_num_entry("synth2Level", ParamIndex(27), 0.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("synth2Type", ParamIndex(28), 0.0, 0.0, 4.0, 1.0);
+		ui_interface.add_num_entry("synth3Detune", ParamIndex(29), 0.0, -120.0, 120.0, 10.0);
+		ui_interface.add_num_entry("synth3Level", ParamIndex(30), 0.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("synth3Type", ParamIndex(31), 0.0, 0.0, 4.0, 1.0);
+		ui_interface.add_num_entry("toDuck", ParamIndex(32), 0.0, 0.0, 50.0, 10.0);
 		ui_interface.close_box();
 	}
 	
 	fn get_param(&self, param: ParamIndex) -> Option<Self::T> {
 		match param.0 {
-			5 => Some(self.fButton0),
-			14 => Some(self.fButton1),
-			16 => Some(self.fEntry0),
-			31 => Some(self.fEntry1),
-			9 => Some(self.fEntry10),
-			19 => Some(self.fEntry11),
-			20 => Some(self.fEntry12),
-			18 => Some(self.fEntry13),
-			8 => Some(self.fEntry14),
-			26 => Some(self.fEntry15),
-			27 => Some(self.fEntry16),
-			25 => Some(self.fEntry17),
-			23 => Some(self.fEntry18),
-			24 => Some(self.fEntry19),
-			15 => Some(self.fEntry2),
-			22 => Some(self.fEntry20),
-			29 => Some(self.fEntry21),
-			30 => Some(self.fEntry22),
-			28 => Some(self.fEntry23),
-			10 => Some(self.fEntry24),
-			7 => Some(self.fEntry25),
-			11 => Some(self.fEntry26),
+			6 => Some(self.fButton0),
+			15 => Some(self.fButton1),
+			4 => Some(self.fButton2),
+			17 => Some(self.fEntry0),
+			32 => Some(self.fEntry1),
+			10 => Some(self.fEntry10),
+			20 => Some(self.fEntry11),
+			21 => Some(self.fEntry12),
+			19 => Some(self.fEntry13),
+			9 => Some(self.fEntry14),
+			24 => Some(self.fEntry15),
+			25 => Some(self.fEntry16),
+			23 => Some(self.fEntry17),
+			27 => Some(self.fEntry18),
+			28 => Some(self.fEntry19),
+			16 => Some(self.fEntry2),
+			26 => Some(self.fEntry20),
+			30 => Some(self.fEntry21),
+			31 => Some(self.fEntry22),
+			29 => Some(self.fEntry23),
+			11 => Some(self.fEntry24),
+			8 => Some(self.fEntry25),
+			12 => Some(self.fEntry26),
 			3 => Some(self.fEntry27),
-			17 => Some(self.fEntry28),
-			4 => Some(self.fEntry29),
-			6 => Some(self.fEntry3),
+			18 => Some(self.fEntry28),
+			5 => Some(self.fEntry29),
+			7 => Some(self.fEntry3),
 			1 => Some(self.fEntry4),
 			0 => Some(self.fEntry5),
-			21 => Some(self.fEntry6),
+			22 => Some(self.fEntry6),
 			2 => Some(self.fEntry7),
-			12 => Some(self.fEntry8),
-			13 => Some(self.fEntry9),
+			13 => Some(self.fEntry8),
+			14 => Some(self.fEntry9),
 			_ => None,
 		}
 	}
 	
 	fn set_param(&mut self, param: ParamIndex, value: Self::T) {
 		match param.0 {
-			5 => { self.fButton0 = value }
-			14 => { self.fButton1 = value }
-			16 => { self.fEntry0 = value }
-			31 => { self.fEntry1 = value }
-			9 => { self.fEntry10 = value }
-			19 => { self.fEntry11 = value }
-			20 => { self.fEntry12 = value }
-			18 => { self.fEntry13 = value }
-			8 => { self.fEntry14 = value }
-			26 => { self.fEntry15 = value }
-			27 => { self.fEntry16 = value }
-			25 => { self.fEntry17 = value }
-			23 => { self.fEntry18 = value }
-			24 => { self.fEntry19 = value }
-			15 => { self.fEntry2 = value }
-			22 => { self.fEntry20 = value }
-			29 => { self.fEntry21 = value }
-			30 => { self.fEntry22 = value }
-			28 => { self.fEntry23 = value }
-			10 => { self.fEntry24 = value }
-			7 => { self.fEntry25 = value }
-			11 => { self.fEntry26 = value }
+			6 => { self.fButton0 = value }
+			15 => { self.fButton1 = value }
+			4 => { self.fButton2 = value }
+			17 => { self.fEntry0 = value }
+			32 => { self.fEntry1 = value }
+			10 => { self.fEntry10 = value }
+			20 => { self.fEntry11 = value }
+			21 => { self.fEntry12 = value }
+			19 => { self.fEntry13 = value }
+			9 => { self.fEntry14 = value }
+			24 => { self.fEntry15 = value }
+			25 => { self.fEntry16 = value }
+			23 => { self.fEntry17 = value }
+			27 => { self.fEntry18 = value }
+			28 => { self.fEntry19 = value }
+			16 => { self.fEntry2 = value }
+			26 => { self.fEntry20 = value }
+			30 => { self.fEntry21 = value }
+			31 => { self.fEntry22 = value }
+			29 => { self.fEntry23 = value }
+			11 => { self.fEntry24 = value }
+			8 => { self.fEntry25 = value }
+			12 => { self.fEntry26 = value }
 			3 => { self.fEntry27 = value }
-			17 => { self.fEntry28 = value }
-			4 => { self.fEntry29 = value }
-			6 => { self.fEntry3 = value }
+			18 => { self.fEntry28 = value }
+			5 => { self.fEntry29 = value }
+			7 => { self.fEntry3 = value }
 			1 => { self.fEntry4 = value }
 			0 => { self.fEntry5 = value }
-			21 => { self.fEntry6 = value }
+			22 => { self.fEntry6 = value }
 			2 => { self.fEntry7 = value }
-			12 => { self.fEntry8 = value }
-			13 => { self.fEntry9 = value }
+			13 => { self.fEntry8 = value }
+			14 => { self.fEntry9 = value }
 			_ => {}
 		}
 	}
@@ -871,8 +879,9 @@ impl FaustDsp for insert {
 		let mut fSlow43: F32 = (self.fEntry25 as F32);
 		let mut fSlow44: F32 = (self.fEntry26 as F32);
 		let mut fSlow45: F32 = (self.fEntry27 as F32);
-		let mut fSlow46: F32 = (self.fEntry28 as F32);
-		let mut fSlow47: F32 = (self.fEntry29 as F32);
+		let mut fSlow46: F32 = (self.fButton2 as F32);
+		let mut fSlow47: F32 = (self.fEntry28 as F32);
+		let mut fSlow48: F32 = (self.fEntry29 as F32);
 		let zipped_iterators = inputs0.zip(inputs1).zip(inputs2).zip(inputs3).zip(outputs0).zip(outputs1).zip(outputs2).zip(outputs3).zip(outputs4).zip(outputs5).zip(outputs6).zip(outputs7);
 		for (((((((((((input0, input1), input2), input3), output0), output1), output2), output3), output4), output5), output6), output7) in zipped_iterators {
 			self.fVec0[0] = fSlow0;
@@ -971,171 +980,172 @@ impl FaustDsp for insert {
 			let mut fTemp59: F32 = F32::max(0.0, F32::min(2047.0, (self.fConst7 / fTemp54)));
 			let mut iTemp60: i32 = (fTemp59 as i32);
 			let mut fTemp61: F32 = F32::floor(fTemp59);
-			let mut fTemp62: F32 = (self.fConst5 * (((self.fVec6[((self.IOTA - iTemp60) & 4095) as usize] * (fTemp61 + (1.0 - fTemp59))) - fTemp58) + ((fTemp59 - fTemp61) * self.fVec6[((self.IOTA - (iTemp60 + 1)) & 4095) as usize])));
-			self.fRec30[0] = ((0.999000013 * self.fRec30[1]) - fTemp62);
+			let mut fTemp62: F32 = ((fTemp58 - (self.fVec6[((self.IOTA - iTemp60) & 4095) as usize] * (fTemp61 + (1.0 - fTemp59)))) - ((fTemp59 - fTemp61) * self.fVec6[((self.IOTA - (iTemp60 + 1)) & 4095) as usize]));
+			self.fRec30[0] = ((0.999000013 * self.fRec30[1]) + (self.fConst5 * fTemp62));
 			let mut fTemp63: F32 = F32::max(1.1920929e-07, F32::abs(fTemp53));
-			let mut fTemp64: F32 = (self.fConst6 * fTemp63);
-			let mut fTemp65: F32 = (self.fRec32[1] + fTemp64);
-			let mut fTemp66: F32 = (fTemp65 + -1.0);
-			let mut iTemp67: i32 = ((fTemp66 < 0.0) as i32);
-			self.fRec32[0] = if (iTemp67 as i32 != 0) { fTemp65 } else { fTemp66 };
-			let mut fRec33: F32 = if (iTemp67 as i32 != 0) { fTemp65 } else { (fTemp64 + (self.fRec32[1] + (fTemp66 * (1.0 - (self.fConst0 / fTemp63))))) };
-			let mut fTemp68: F32 = (self.fRec34[1] + 1.0);
-			let mut fTemp69: F32 = (self.fRec34[1] + -1.0);
-			self.fRec34[0] = if (((fTemp68 < fSlow27) as i32) as i32 != 0) { fTemp68 } else { if (((fTemp69 > fSlow27) as i32) as i32 != 0) { fTemp69 } else { fSlow27 } };
+			let mut fTemp64: F32 = (self.fRec32[1] + (self.fConst6 * fTemp63));
+			let mut fTemp65: F32 = (fTemp64 + -1.0);
+			let mut iTemp66: i32 = ((fTemp65 < 0.0) as i32);
+			self.fRec32[0] = if (iTemp66 as i32 != 0) { fTemp64 } else { fTemp65 };
+			let mut fRec33: F32 = if (iTemp66 as i32 != 0) { fTemp64 } else { (fTemp64 + (fTemp65 * (1.0 - (self.fConst0 / fTemp63)))) };
+			let mut fTemp67: F32 = (self.fRec34[1] + 1.0);
+			let mut fTemp68: F32 = (self.fRec34[1] + -1.0);
+			self.fRec34[0] = if (((fTemp67 < fSlow27) as i32) as i32 != 0) { fTemp67 } else { if (((fTemp68 > fSlow27) as i32) as i32 != 0) { fTemp68 } else { fSlow27 } };
 			self.iRec35[0] = ((1103515245 * self.iRec35[1]) + 12345);
-			let mut fTemp70: F32 = (self.iRec35[0] as F32);
+			let mut fTemp69: F32 = (self.iRec35[0] as F32);
 			self.fRec36[0] = ((self.fConst1 * (fTemp3 * self.fRec36[1])) + (fSlow28 * fTemp4));
-			let mut fTemp71: F32 = (self.fRec37[1] + 1.0);
-			let mut fTemp72: F32 = (self.fRec37[1] + -1.0);
-			self.fRec37[0] = if (((fTemp71 < fSlow30) as i32) as i32 != 0) { fTemp71 } else { if (((fTemp72 > fSlow30) as i32) as i32 != 0) { fTemp72 } else { fSlow30 } };
-			let mut fTemp73: F32 = (self.fRec38[1] + 1.0);
-			let mut fTemp74: F32 = (self.fRec38[1] + -1.0);
-			self.fRec38[0] = if (((fTemp73 < fSlow31) as i32) as i32 != 0) { fTemp73 } else { if (((fTemp74 > fSlow31) as i32) as i32 != 0) { fTemp74 } else { fSlow31 } };
-			let mut fTemp75: F32 = (self.fRec39[1] + 1.0);
-			let mut fTemp76: F32 = (self.fRec39[1] + -1.0);
-			self.fRec39[0] = if (((fTemp75 < fSlow32) as i32) as i32 != 0) { fTemp75 } else { if (((fTemp76 > fSlow32) as i32) as i32 != 0) { fTemp76 } else { fSlow32 } };
+			let mut fTemp70: F32 = (self.fRec37[1] + 1.0);
+			let mut fTemp71: F32 = (self.fRec37[1] + -1.0);
+			self.fRec37[0] = if (((fTemp70 < fSlow30) as i32) as i32 != 0) { fTemp70 } else { if (((fTemp71 > fSlow30) as i32) as i32 != 0) { fTemp71 } else { fSlow30 } };
+			let mut fTemp72: F32 = (self.fRec38[1] + 1.0);
+			let mut fTemp73: F32 = (self.fRec38[1] + -1.0);
+			self.fRec38[0] = if (((fTemp72 < fSlow31) as i32) as i32 != 0) { fTemp72 } else { if (((fTemp73 > fSlow31) as i32) as i32 != 0) { fTemp73 } else { fSlow31 } };
+			let mut fTemp74: F32 = (self.fRec39[1] + 1.0);
+			let mut fTemp75: F32 = (self.fRec39[1] + -1.0);
+			self.fRec39[0] = if (((fTemp74 < fSlow32) as i32) as i32 != 0) { fTemp74 } else { if (((fTemp75 > fSlow32) as i32) as i32 != 0) { fTemp75 } else { fSlow32 } };
 			self.fRec41[0] = ((self.fConst1 * (fTemp3 * self.fRec41[1])) + (fSlow33 * fTemp4));
-			let mut fTemp77: F32 = F32::powf(2.0, (0.0833333358 * (fSlow17 + ((0.00999999978 * self.fRec41[0]) + -69.0))));
-			let mut fTemp78: F32 = (self.fRec40[1] + (self.fConst3 * fTemp77));
-			self.fRec40[0] = (fTemp78 - F32::floor(fTemp78));
-			let mut fTemp79: F32 = (440.0 * fTemp77);
-			let mut fTemp80: F32 = F32::max(fTemp79, 23.4489498);
-			let mut fTemp81: F32 = F32::max(20.0, F32::abs(fTemp80));
-			let mut fTemp82: F32 = (self.fRec43[1] + (self.fConst6 * fTemp81));
-			self.fRec43[0] = (fTemp82 - F32::floor(fTemp82));
-			let mut fTemp83: F32 = insert_faustpower2_f(((2.0 * self.fRec43[0]) + -1.0));
-			self.fVec7[0] = fTemp83;
-			let mut fTemp84: F32 = ((fTemp52 * (fTemp83 - self.fVec7[1])) / fTemp81);
-			self.fVec8[(self.IOTA & 4095) as usize] = fTemp84;
-			let mut fTemp85: F32 = F32::max(0.0, F32::min(2047.0, (self.fConst7 / fTemp80)));
-			let mut iTemp86: i32 = (fTemp85 as i32);
-			let mut fTemp87: F32 = F32::floor(fTemp85);
-			let mut fTemp88: F32 = ((fTemp84 - (self.fVec8[((self.IOTA - iTemp86) & 4095) as usize] * (fTemp87 + (1.0 - fTemp85)))) - ((fTemp85 - fTemp87) * self.fVec8[((self.IOTA - (iTemp86 + 1)) & 4095) as usize]));
-			self.fRec42[0] = ((0.999000013 * self.fRec42[1]) + (self.fConst5 * fTemp88));
-			let mut fTemp89: F32 = F32::max(1.1920929e-07, F32::abs(fTemp79));
-			let mut fTemp90: F32 = (self.fRec44[1] + (self.fConst6 * fTemp89));
-			let mut fTemp91: F32 = (fTemp90 + -1.0);
-			let mut iTemp92: i32 = ((fTemp91 < 0.0) as i32);
-			self.fRec44[0] = if (iTemp92 as i32 != 0) { fTemp90 } else { fTemp91 };
-			let mut fRec45: F32 = if (iTemp92 as i32 != 0) { fTemp90 } else { (fTemp90 + (fTemp91 * (1.0 - (self.fConst0 / fTemp89)))) };
-			let mut fTemp93: F32 = (self.fRec46[1] + 1.0);
-			let mut fTemp94: F32 = (self.fRec46[1] + -1.0);
-			self.fRec46[0] = if (((fTemp93 < fSlow34) as i32) as i32 != 0) { fTemp93 } else { if (((fTemp94 > fSlow34) as i32) as i32 != 0) { fTemp94 } else { fSlow34 } };
+			let mut fTemp76: F32 = F32::powf(2.0, (0.0833333358 * (fSlow17 + ((0.00999999978 * self.fRec41[0]) + -69.0))));
+			let mut fTemp77: F32 = (self.fRec40[1] + (self.fConst3 * fTemp76));
+			self.fRec40[0] = (fTemp77 - F32::floor(fTemp77));
+			let mut fTemp78: F32 = (440.0 * fTemp76);
+			let mut fTemp79: F32 = F32::max(fTemp78, 23.4489498);
+			let mut fTemp80: F32 = F32::max(20.0, F32::abs(fTemp79));
+			let mut fTemp81: F32 = (self.fRec43[1] + (self.fConst6 * fTemp80));
+			self.fRec43[0] = (fTemp81 - F32::floor(fTemp81));
+			let mut fTemp82: F32 = insert_faustpower2_f(((2.0 * self.fRec43[0]) + -1.0));
+			self.fVec7[0] = fTemp82;
+			let mut fTemp83: F32 = ((fTemp52 * (fTemp82 - self.fVec7[1])) / fTemp80);
+			self.fVec8[(self.IOTA & 4095) as usize] = fTemp83;
+			let mut fTemp84: F32 = F32::max(0.0, F32::min(2047.0, (self.fConst7 / fTemp79)));
+			let mut iTemp85: i32 = (fTemp84 as i32);
+			let mut fTemp86: F32 = F32::floor(fTemp84);
+			let mut fTemp87: F32 = ((fTemp83 - (self.fVec8[((self.IOTA - iTemp85) & 4095) as usize] * (fTemp86 + (1.0 - fTemp84)))) - ((fTemp84 - fTemp86) * self.fVec8[((self.IOTA - (iTemp85 + 1)) & 4095) as usize]));
+			self.fRec42[0] = ((0.999000013 * self.fRec42[1]) + (self.fConst5 * fTemp87));
+			let mut fTemp88: F32 = F32::max(1.1920929e-07, F32::abs(fTemp78));
+			let mut fTemp89: F32 = (self.fRec44[1] + (self.fConst6 * fTemp88));
+			let mut fTemp90: F32 = (fTemp89 + -1.0);
+			let mut iTemp91: i32 = ((fTemp90 < 0.0) as i32);
+			self.fRec44[0] = if (iTemp91 as i32 != 0) { fTemp89 } else { fTemp90 };
+			let mut fRec45: F32 = if (iTemp91 as i32 != 0) { fTemp89 } else { (fTemp89 + (fTemp90 * (1.0 - (self.fConst0 / fTemp88)))) };
+			let mut fTemp92: F32 = (self.fRec46[1] + 1.0);
+			let mut fTemp93: F32 = (self.fRec46[1] + -1.0);
+			self.fRec46[0] = if (((fTemp92 < fSlow34) as i32) as i32 != 0) { fTemp92 } else { if (((fTemp93 > fSlow34) as i32) as i32 != 0) { fTemp93 } else { fSlow34 } };
 			self.fRec47[0] = ((self.fConst1 * (fTemp3 * self.fRec47[1])) + (fSlow35 * fTemp4));
-			let mut fTemp95: F32 = (self.fRec48[1] + 1.0);
-			let mut fTemp96: F32 = (self.fRec48[1] + -1.0);
-			self.fRec48[0] = if (((fTemp95 < fSlow37) as i32) as i32 != 0) { fTemp95 } else { if (((fTemp96 > fSlow37) as i32) as i32 != 0) { fTemp96 } else { fSlow37 } };
-			let mut fTemp97: F32 = (self.fRec49[1] + 1.0);
-			let mut fTemp98: F32 = (self.fRec49[1] + -1.0);
-			self.fRec49[0] = if (((fTemp97 < fSlow38) as i32) as i32 != 0) { fTemp97 } else { if (((fTemp98 > fSlow38) as i32) as i32 != 0) { fTemp98 } else { fSlow38 } };
-			let mut fTemp99: F32 = (self.fRec50[1] + 1.0);
-			let mut fTemp100: F32 = (self.fRec50[1] + -1.0);
-			self.fRec50[0] = if (((fTemp99 < fSlow39) as i32) as i32 != 0) { fTemp99 } else { if (((fTemp100 > fSlow39) as i32) as i32 != 0) { fTemp100 } else { fSlow39 } };
+			let mut fTemp94: F32 = (self.fRec48[1] + 1.0);
+			let mut fTemp95: F32 = (self.fRec48[1] + -1.0);
+			self.fRec48[0] = if (((fTemp94 < fSlow37) as i32) as i32 != 0) { fTemp94 } else { if (((fTemp95 > fSlow37) as i32) as i32 != 0) { fTemp95 } else { fSlow37 } };
+			let mut fTemp96: F32 = (self.fRec49[1] + 1.0);
+			let mut fTemp97: F32 = (self.fRec49[1] + -1.0);
+			self.fRec49[0] = if (((fTemp96 < fSlow38) as i32) as i32 != 0) { fTemp96 } else { if (((fTemp97 > fSlow38) as i32) as i32 != 0) { fTemp97 } else { fSlow38 } };
+			let mut fTemp98: F32 = (self.fRec50[1] + 1.0);
+			let mut fTemp99: F32 = (self.fRec50[1] + -1.0);
+			self.fRec50[0] = if (((fTemp98 < fSlow39) as i32) as i32 != 0) { fTemp98 } else { if (((fTemp99 > fSlow39) as i32) as i32 != 0) { fTemp99 } else { fSlow39 } };
 			self.fRec52[0] = ((self.fConst1 * (fTemp3 * self.fRec52[1])) + (fSlow40 * fTemp4));
-			let mut fTemp101: F32 = F32::powf(2.0, (0.0833333358 * (fSlow17 + ((0.00999999978 * self.fRec52[0]) + -69.0))));
-			let mut fTemp102: F32 = (self.fRec51[1] + (self.fConst3 * fTemp101));
-			self.fRec51[0] = (fTemp102 - F32::floor(fTemp102));
-			let mut fTemp103: F32 = (440.0 * fTemp101);
-			let mut fTemp104: F32 = F32::max(fTemp103, 23.4489498);
-			let mut fTemp105: F32 = F32::max(20.0, F32::abs(fTemp104));
-			let mut fTemp106: F32 = (self.fRec54[1] + (self.fConst6 * fTemp105));
-			self.fRec54[0] = (fTemp106 - F32::floor(fTemp106));
-			let mut fTemp107: F32 = insert_faustpower2_f(((2.0 * self.fRec54[0]) + -1.0));
-			self.fVec9[0] = fTemp107;
-			let mut fTemp108: F32 = ((fTemp52 * (fTemp107 - self.fVec9[1])) / fTemp105);
-			self.fVec10[(self.IOTA & 4095) as usize] = fTemp108;
-			let mut fTemp109: F32 = F32::max(0.0, F32::min(2047.0, (self.fConst7 / fTemp104)));
-			let mut iTemp110: i32 = (fTemp109 as i32);
-			let mut fTemp111: F32 = F32::floor(fTemp109);
-			let mut fTemp112: F32 = ((fTemp108 - (self.fVec10[((self.IOTA - iTemp110) & 4095) as usize] * (fTemp111 + (1.0 - fTemp109)))) - ((fTemp109 - fTemp111) * self.fVec10[((self.IOTA - (iTemp110 + 1)) & 4095) as usize]));
-			self.fRec53[0] = ((0.999000013 * self.fRec53[1]) + (self.fConst5 * fTemp112));
-			let mut fTemp113: F32 = F32::max(1.1920929e-07, F32::abs(fTemp103));
-			let mut fTemp114: F32 = (self.fRec55[1] + (self.fConst6 * fTemp113));
-			let mut fTemp115: F32 = (fTemp114 + -1.0);
-			let mut iTemp116: i32 = ((fTemp115 < 0.0) as i32);
-			self.fRec55[0] = if (iTemp116 as i32 != 0) { fTemp114 } else { fTemp115 };
-			let mut fRec56: F32 = if (iTemp116 as i32 != 0) { fTemp114 } else { (fTemp114 + (fTemp115 * (1.0 - (self.fConst0 / fTemp113)))) };
-			let mut fTemp117: F32 = (self.fRec57[1] + 1.0);
-			let mut fTemp118: F32 = (self.fRec57[1] + -1.0);
-			self.fRec57[0] = if (((fTemp117 < fSlow41) as i32) as i32 != 0) { fTemp117 } else { if (((fTemp118 > fSlow41) as i32) as i32 != 0) { fTemp118 } else { fSlow41 } };
-			let mut fTemp119: F32 = (0.00666666683 * (fTemp9 * (((self.fRec23[0] * (((1.0 - self.fRec24[0]) * (((1.0 - self.fRec25[0]) * (((1.0 - self.fRec26[0]) * unsafe { ftbl0insertSIG0[((65536.0 * self.fRec28[0]) as i32) as usize] }) + (self.fConst4 * ((self.fRec26[0] * self.fRec30[0]) * fTemp50)))) + (0.5 * (self.fRec25[0] * ((2.0 * fRec33) + -1.0))))) + (self.fRec24[0] * ((0.5 * ((1.0 - self.fRec34[0]) * (0.0 - fTemp62))) + (1.16415322e-10 * (self.fRec34[0] * fTemp70)))))) + (self.fRec36[0] * (((1.0 - self.fRec37[0]) * (((1.0 - self.fRec38[0]) * (((1.0 - self.fRec39[0]) * unsafe { ftbl0insertSIG0[((65536.0 * self.fRec40[0]) as i32) as usize] }) + (self.fConst4 * ((self.fRec39[0] * self.fRec42[0]) * fTemp77)))) + (0.5 * (self.fRec38[0] * ((2.0 * fRec45) + -1.0))))) + (self.fRec37[0] * ((self.fConst8 * ((1.0 - self.fRec46[0]) * fTemp88)) + (1.16415322e-10 * (self.fRec46[0] * fTemp70))))))) + (self.fRec47[0] * (((1.0 - self.fRec48[0]) * (((1.0 - self.fRec49[0]) * (((1.0 - self.fRec50[0]) * unsafe { ftbl0insertSIG0[((65536.0 * self.fRec51[0]) as i32) as usize] }) + (self.fConst4 * ((self.fRec50[0] * self.fRec53[0]) * fTemp101)))) + (0.5 * (self.fRec49[0] * ((2.0 * fRec56) + -1.0))))) + (self.fRec48[0] * ((self.fConst8 * ((1.0 - self.fRec57[0]) * fTemp112)) + (1.16415322e-10 * (self.fRec57[0] * fTemp70)))))))));
-			let mut fTemp120: F32 = ((0.0399999991 * ((self.fRec19[0] * ((fTemp21 * self.fRec20[0]) + (fTemp26 * ((((self.fVec3[((self.IOTA - iTemp29) & 131071) as usize] * fTemp31) + (fTemp32 * self.fVec3[((self.IOTA - iTemp33) & 131071) as usize])) * fTemp34) + (((self.fVec3[((self.IOTA - iTemp37) & 131071) as usize] * fTemp39) + (self.fVec3[((self.IOTA - iTemp40) & 131071) as usize] * fTemp41)) * fTemp42))))) * fTemp43)) + fTemp119);
-			let mut fTemp121: F32 = (3.14159274 * F32::max(0.00999999978, F32::min((self.fConst9 * F32::powf(2.0, (0.0833333358 * ((2.0 * self.fRec17[0]) + -79.0)))), 0.99000001)));
-			let mut fTemp122: F32 = F32::cos(fTemp121);
-			let mut fTemp123: F32 = (0.0 - (2.0 * fTemp122));
+			let mut fTemp100: F32 = F32::powf(2.0, (0.0833333358 * (fSlow17 + ((0.00999999978 * self.fRec52[0]) + -69.0))));
+			let mut fTemp101: F32 = (self.fRec51[1] + (self.fConst3 * fTemp100));
+			self.fRec51[0] = (fTemp101 - F32::floor(fTemp101));
+			let mut fTemp102: F32 = (440.0 * fTemp100);
+			let mut fTemp103: F32 = F32::max(fTemp102, 23.4489498);
+			let mut fTemp104: F32 = F32::max(20.0, F32::abs(fTemp103));
+			let mut fTemp105: F32 = (self.fRec54[1] + (self.fConst6 * fTemp104));
+			self.fRec54[0] = (fTemp105 - F32::floor(fTemp105));
+			let mut fTemp106: F32 = insert_faustpower2_f(((2.0 * self.fRec54[0]) + -1.0));
+			self.fVec9[0] = fTemp106;
+			let mut fTemp107: F32 = ((fTemp52 * (fTemp106 - self.fVec9[1])) / fTemp104);
+			self.fVec10[(self.IOTA & 4095) as usize] = fTemp107;
+			let mut fTemp108: F32 = F32::max(0.0, F32::min(2047.0, (self.fConst7 / fTemp103)));
+			let mut iTemp109: i32 = (fTemp108 as i32);
+			let mut fTemp110: F32 = F32::floor(fTemp108);
+			let mut fTemp111: F32 = ((fTemp107 - (self.fVec10[((self.IOTA - iTemp109) & 4095) as usize] * (fTemp110 + (1.0 - fTemp108)))) - ((fTemp108 - fTemp110) * self.fVec10[((self.IOTA - (iTemp109 + 1)) & 4095) as usize]));
+			self.fRec53[0] = ((0.999000013 * self.fRec53[1]) + (self.fConst5 * fTemp111));
+			let mut fTemp112: F32 = F32::max(1.1920929e-07, F32::abs(fTemp102));
+			let mut fTemp113: F32 = (self.fRec55[1] + (self.fConst6 * fTemp112));
+			let mut fTemp114: F32 = (fTemp113 + -1.0);
+			let mut iTemp115: i32 = ((fTemp114 < 0.0) as i32);
+			self.fRec55[0] = if (iTemp115 as i32 != 0) { fTemp113 } else { fTemp114 };
+			let mut fRec56: F32 = if (iTemp115 as i32 != 0) { fTemp113 } else { (fTemp113 + (fTemp114 * (1.0 - (self.fConst0 / fTemp112)))) };
+			let mut fTemp116: F32 = (self.fRec57[1] + 1.0);
+			let mut fTemp117: F32 = (self.fRec57[1] + -1.0);
+			self.fRec57[0] = if (((fTemp116 < fSlow41) as i32) as i32 != 0) { fTemp116 } else { if (((fTemp117 > fSlow41) as i32) as i32 != 0) { fTemp117 } else { fSlow41 } };
+			let mut fTemp118: F32 = (0.00666666683 * (fTemp9 * (((self.fRec23[0] * (((1.0 - self.fRec24[0]) * (((1.0 - self.fRec25[0]) * (((1.0 - self.fRec26[0]) * unsafe { ftbl0insertSIG0[((65536.0 * self.fRec28[0]) as i32) as usize] }) + (self.fConst4 * ((self.fRec26[0] * self.fRec30[0]) * fTemp50)))) + (0.5 * (self.fRec25[0] * ((2.0 * fRec33) + -1.0))))) + (self.fRec24[0] * ((self.fConst8 * ((1.0 - self.fRec34[0]) * fTemp62)) + (1.16415322e-10 * (self.fRec34[0] * fTemp69)))))) + (self.fRec36[0] * (((1.0 - self.fRec37[0]) * (((1.0 - self.fRec38[0]) * (((1.0 - self.fRec39[0]) * unsafe { ftbl0insertSIG0[((65536.0 * self.fRec40[0]) as i32) as usize] }) + (self.fConst4 * ((self.fRec39[0] * self.fRec42[0]) * fTemp76)))) + (0.5 * (self.fRec38[0] * ((2.0 * fRec45) + -1.0))))) + (self.fRec37[0] * ((self.fConst8 * ((1.0 - self.fRec46[0]) * fTemp87)) + (1.16415322e-10 * (self.fRec46[0] * fTemp69))))))) + (self.fRec47[0] * (((1.0 - self.fRec48[0]) * (((1.0 - self.fRec49[0]) * (((1.0 - self.fRec50[0]) * unsafe { ftbl0insertSIG0[((65536.0 * self.fRec51[0]) as i32) as usize] }) + (self.fConst4 * ((self.fRec50[0] * self.fRec53[0]) * fTemp100)))) + (0.5 * (self.fRec49[0] * ((2.0 * fRec56) + -1.0))))) + (self.fRec48[0] * ((self.fConst8 * ((1.0 - self.fRec57[0]) * fTemp111)) + (1.16415322e-10 * (self.fRec57[0] * fTemp69)))))))));
+			let mut fTemp119: F32 = ((0.0399999991 * ((self.fRec19[0] * ((fTemp21 * self.fRec20[0]) + (fTemp26 * ((((self.fVec3[((self.IOTA - iTemp29) & 131071) as usize] * fTemp31) + (fTemp32 * self.fVec3[((self.IOTA - iTemp33) & 131071) as usize])) * fTemp34) + (((self.fVec3[((self.IOTA - iTemp37) & 131071) as usize] * fTemp39) + (self.fVec3[((self.IOTA - iTemp40) & 131071) as usize] * fTemp41)) * fTemp42))))) * fTemp43)) + fTemp118);
+			let mut fTemp120: F32 = (3.14159274 * F32::max(0.00999999978, F32::min((self.fConst9 * F32::powf(2.0, (0.0833333358 * ((2.0 * self.fRec17[0]) + -79.0)))), 0.99000001)));
+			let mut fTemp121: F32 = F32::cos(fTemp120);
+			let mut fTemp122: F32 = (0.0 - (2.0 * fTemp121));
 			self.fRec58[0] = ((self.fConst1 * (fTemp3 * self.fRec58[1])) + (fSlow42 * fTemp4));
-			let mut fTemp124: F32 = (0.5 * (F32::sin(fTemp121) * F32::powf(10.0, (0.0 - (0.0500000007 * self.fRec58[0])))));
-			let mut fTemp125: F32 = (1.0 - fTemp124);
-			let mut fTemp126: F32 = (fTemp124 + 1.0);
-			self.fRec18[0] = ((fTemp20 * fTemp120) - (((self.fRec18[1] * fTemp123) + (self.fRec18[2] * fTemp125)) / fTemp126));
-			let mut fTemp127: F32 = (-1.0 - fTemp122);
-			let mut fTemp128: F32 = (0.0 - (0.5 * fTemp127));
-			let mut fTemp129: F32 = (((fTemp20 * (((self.fRec18[0] * fTemp128) + (self.fRec18[1] * fTemp127)) + (self.fRec18[2] * fTemp128))) / fTemp126) + (self.fRec16[0] * fTemp120));
-			let mut fTemp130: F32 = (3.14159274 * F32::max(0.00999999978, F32::min((self.fConst10 * ((0.5 * self.fRec13[0]) + 60.0)), 0.99000001)));
-			let mut fTemp131: F32 = (0.0 - (2.0 * F32::cos(fTemp130)));
-			let mut fTemp132: F32 = (self.fRec15[1] * fTemp131);
-			let mut fTemp133: F32 = F32::sin(fTemp130);
-			let mut fTemp134: F32 = F32::powf(10.0, (0.0125000002 * self.fRec14[0]));
-			let mut fTemp135: F32 = (0.125 * (fTemp133 / fTemp134));
-			let mut fTemp136: F32 = (1.0 - fTemp135);
-			let mut fTemp137: F32 = (fTemp135 + 1.0);
-			self.fRec15[0] = ((fTemp16 * fTemp129) - ((fTemp132 + (self.fRec15[2] * fTemp136)) / fTemp137));
-			let mut fTemp138: F32 = (0.125 * (fTemp133 * fTemp134));
-			let mut fTemp139: F32 = (fTemp138 + 1.0);
-			let mut fTemp140: F32 = (1.0 - fTemp138);
-			let mut fTemp141: F32 = (((fTemp16 * ((fTemp132 + (self.fRec15[0] * fTemp139)) + (self.fRec15[2] * fTemp140))) / fTemp137) + (self.fRec12[0] * fTemp129));
-			let mut fTemp142: F32 = (self.fRec3[0] * fTemp141);
-			let mut fTemp143: F32 = (1.0 - self.fRec3[0]);
-			let mut fTemp144: F32 = (3.14159274 * F32::max(0.00999999978, F32::min((self.fConst9 * F32::powf(2.0, (0.0833333358 * (self.fRec4[0] + (-9.0 - fTemp10))))), 0.99000001)));
-			let mut fTemp145: F32 = F32::cos(fTemp144);
-			let mut fTemp146: F32 = (fTemp143 * (1.0 - fTemp145));
-			let mut fTemp147: F32 = (0.0 - (2.0 * fTemp145));
+			let mut fTemp123: F32 = (0.5 * (F32::sin(fTemp120) * F32::powf(10.0, (0.0 - (0.0500000007 * self.fRec58[0])))));
+			let mut fTemp124: F32 = (1.0 - fTemp123);
+			let mut fTemp125: F32 = (fTemp123 + 1.0);
+			self.fRec18[0] = ((fTemp20 * fTemp119) - (((self.fRec18[1] * fTemp122) + (self.fRec18[2] * fTemp124)) / fTemp125));
+			let mut fTemp126: F32 = (-1.0 - fTemp121);
+			let mut fTemp127: F32 = (0.0 - (0.5 * fTemp126));
+			let mut fTemp128: F32 = (((fTemp20 * (((self.fRec18[0] * fTemp127) + (self.fRec18[1] * fTemp126)) + (self.fRec18[2] * fTemp127))) / fTemp125) + (self.fRec16[0] * fTemp119));
+			let mut fTemp129: F32 = (3.14159274 * F32::max(0.00999999978, F32::min((self.fConst10 * ((0.5 * self.fRec13[0]) + 60.0)), 0.99000001)));
+			let mut fTemp130: F32 = (0.0 - (2.0 * F32::cos(fTemp129)));
+			let mut fTemp131: F32 = (self.fRec15[1] * fTemp130);
+			let mut fTemp132: F32 = F32::sin(fTemp129);
+			let mut fTemp133: F32 = F32::powf(10.0, (0.0125000002 * self.fRec14[0]));
+			let mut fTemp134: F32 = (0.125 * (fTemp132 / fTemp133));
+			let mut fTemp135: F32 = (1.0 - fTemp134);
+			let mut fTemp136: F32 = (fTemp134 + 1.0);
+			self.fRec15[0] = ((fTemp16 * fTemp128) - ((fTemp131 + (self.fRec15[2] * fTemp135)) / fTemp136));
+			let mut fTemp137: F32 = (0.125 * (fTemp132 * fTemp133));
+			let mut fTemp138: F32 = (fTemp137 + 1.0);
+			let mut fTemp139: F32 = (1.0 - fTemp137);
+			let mut fTemp140: F32 = (((fTemp16 * ((fTemp131 + (self.fRec15[0] * fTemp138)) + (self.fRec15[2] * fTemp139))) / fTemp136) + (self.fRec12[0] * fTemp128));
+			let mut fTemp141: F32 = (self.fRec3[0] * fTemp140);
+			let mut fTemp142: F32 = (1.0 - self.fRec3[0]);
+			let mut fTemp143: F32 = (3.14159274 * F32::max(0.00999999978, F32::min((self.fConst9 * F32::powf(2.0, (0.0833333358 * (self.fRec4[0] + (-9.0 - fTemp10))))), 0.99000001)));
+			let mut fTemp144: F32 = F32::cos(fTemp143);
+			let mut fTemp145: F32 = (fTemp142 * (1.0 - fTemp144));
+			let mut fTemp146: F32 = (0.0 - (2.0 * fTemp144));
 			self.fRec60[0] = ((self.fConst1 * (fTemp3 * self.fRec60[1])) + (fSlow43 * fTemp4));
-			let mut fTemp148: F32 = (0.5 * (F32::sin(fTemp144) * F32::powf(10.0, (0.0 - (0.0500000007 * self.fRec60[0])))));
-			let mut fTemp149: F32 = (1.0 - fTemp148);
-			let mut fTemp150: F32 = (fTemp148 + 1.0);
-			self.fRec59[0] = ((fTemp143 * fTemp141) - (((self.fRec59[1] * fTemp147) + (self.fRec59[2] * fTemp149)) / fTemp150));
-			let mut fTemp151: F32 = ((fTemp146 * ((self.fRec59[1] + (0.5 * self.fRec59[0])) + (0.5 * self.fRec59[2]))) / fTemp150);
-			let mut fTemp152: F32 = (*input3 as F32);
-			let mut fTemp153: F32 = (fTemp152 * fTemp26);
-			self.fVec11[(self.IOTA & 131071) as usize] = fTemp153;
-			let mut fTemp154: F32 = (fTemp119 + (0.0399999991 * ((self.fRec19[0] * fTemp43) * ((fTemp152 * self.fRec20[0]) + (fTemp26 * ((fTemp34 * ((self.fVec11[((self.IOTA - iTemp29) & 131071) as usize] * fTemp31) + (fTemp32 * self.fVec11[((self.IOTA - iTemp33) & 131071) as usize]))) + (fTemp42 * ((self.fVec11[((self.IOTA - iTemp37) & 131071) as usize] * fTemp39) + (self.fVec11[((self.IOTA - iTemp40) & 131071) as usize] * fTemp41)))))))));
-			self.fRec63[0] = ((fTemp20 * fTemp154) - (((fTemp123 * self.fRec63[1]) + (fTemp125 * self.fRec63[2])) / fTemp126));
-			let mut fTemp155: F32 = (((fTemp20 * (((self.fRec63[0] * fTemp128) + (fTemp127 * self.fRec63[1])) + (fTemp128 * self.fRec63[2]))) / fTemp126) + (self.fRec16[0] * fTemp154));
-			let mut fTemp156: F32 = (fTemp131 * self.fRec62[1]);
-			self.fRec62[0] = ((fTemp16 * fTemp155) - ((fTemp156 + (fTemp136 * self.fRec62[2])) / fTemp137));
-			let mut fTemp157: F32 = (((fTemp16 * ((fTemp156 + (self.fRec62[0] * fTemp139)) + (fTemp140 * self.fRec62[2]))) / fTemp137) + (self.fRec12[0] * fTemp155));
-			self.fRec61[0] = ((fTemp143 * fTemp157) - (((fTemp147 * self.fRec61[1]) + (fTemp149 * self.fRec61[2])) / fTemp150));
-			let mut fTemp158: F32 = ((fTemp146 * ((self.fRec61[1] + (0.5 * self.fRec61[0])) + (0.5 * self.fRec61[2]))) / fTemp150);
-			let mut fTemp159: F32 = (self.fRec3[0] * fTemp157);
-			let mut fTemp160: F32 = (fTemp158 + fTemp159);
-			let mut fTemp161: F32 = (0.0399999991 * self.fRec2[0]);
-			let mut fTemp162: F32 = (fTemp151 + fTemp142);
-			let mut fTemp163: F32 = if (iTemp5 as i32 != 0) { (fTemp162 * (1.0 - fTemp161)) } else { (fTemp142 + (fTemp151 + (fTemp160 * F32::abs(fTemp161)))) };
-			*output0 = ((0.0199999996 * (self.fRec0[0] * fTemp163)) as F32);
-			let mut fTemp164: F32 = if (iTemp5 as i32 != 0) { (fTemp158 + (fTemp159 + (0.0399999991 * (self.fRec2[0] * fTemp162)))) } else { (fTemp160 * (fTemp161 + 1.0)) };
-			*output1 = ((0.0199999996 * (self.fRec0[0] * fTemp164)) as F32);
+			let mut fTemp147: F32 = (0.5 * (F32::sin(fTemp143) * F32::powf(10.0, (0.0 - (0.0500000007 * self.fRec60[0])))));
+			let mut fTemp148: F32 = (1.0 - fTemp147);
+			let mut fTemp149: F32 = (fTemp147 + 1.0);
+			self.fRec59[0] = ((fTemp142 * fTemp140) - (((self.fRec59[1] * fTemp146) + (self.fRec59[2] * fTemp148)) / fTemp149));
+			let mut fTemp150: F32 = ((fTemp145 * ((self.fRec59[1] + (0.5 * self.fRec59[0])) + (0.5 * self.fRec59[2]))) / fTemp149);
+			let mut fTemp151: F32 = (*input3 as F32);
+			let mut fTemp152: F32 = (fTemp151 * fTemp26);
+			self.fVec11[(self.IOTA & 131071) as usize] = fTemp152;
+			let mut fTemp153: F32 = (fTemp118 + (0.0399999991 * ((self.fRec19[0] * fTemp43) * ((fTemp151 * self.fRec20[0]) + (fTemp26 * ((fTemp34 * ((self.fVec11[((self.IOTA - iTemp29) & 131071) as usize] * fTemp31) + (fTemp32 * self.fVec11[((self.IOTA - iTemp33) & 131071) as usize]))) + (fTemp42 * ((self.fVec11[((self.IOTA - iTemp37) & 131071) as usize] * fTemp39) + (self.fVec11[((self.IOTA - iTemp40) & 131071) as usize] * fTemp41)))))))));
+			self.fRec63[0] = ((fTemp20 * fTemp153) - (((fTemp122 * self.fRec63[1]) + (fTemp124 * self.fRec63[2])) / fTemp125));
+			let mut fTemp154: F32 = (((fTemp20 * (((self.fRec63[0] * fTemp127) + (fTemp126 * self.fRec63[1])) + (fTemp127 * self.fRec63[2]))) / fTemp125) + (self.fRec16[0] * fTemp153));
+			let mut fTemp155: F32 = (fTemp130 * self.fRec62[1]);
+			self.fRec62[0] = ((fTemp16 * fTemp154) - ((fTemp155 + (fTemp135 * self.fRec62[2])) / fTemp136));
+			let mut fTemp156: F32 = (((fTemp16 * ((fTemp155 + (self.fRec62[0] * fTemp138)) + (fTemp139 * self.fRec62[2]))) / fTemp136) + (self.fRec12[0] * fTemp154));
+			self.fRec61[0] = ((fTemp142 * fTemp156) - (((fTemp146 * self.fRec61[1]) + (fTemp148 * self.fRec61[2])) / fTemp149));
+			let mut fTemp157: F32 = (((fTemp145 * ((self.fRec61[1] + (0.5 * self.fRec61[0])) + (0.5 * self.fRec61[2]))) / fTemp149) + (self.fRec3[0] * fTemp156));
+			let mut fTemp158: F32 = (0.0399999991 * self.fRec2[0]);
+			let mut fTemp159: F32 = (fTemp150 + fTemp141);
+			let mut fTemp160: F32 = if (iTemp5 as i32 != 0) { (fTemp159 * (1.0 - fTemp158)) } else { (fTemp141 + (fTemp150 + (fTemp157 * F32::abs(fTemp158)))) };
+			*output0 = ((0.0199999996 * (self.fRec0[0] * fTemp160)) as F32);
+			let mut fTemp161: F32 = if (iTemp5 as i32 != 0) { (fTemp157 + (0.0399999991 * (self.fRec2[0] * fTemp159))) } else { (fTemp157 * (fTemp158 + 1.0)) };
+			*output1 = ((0.0199999996 * (self.fRec0[0] * fTemp161)) as F32);
 			self.fRec64[0] = ((self.fConst1 * (fTemp3 * self.fRec64[1])) + (fSlow44 * fTemp4));
 			self.fRec67[0] = ((self.fConst1 * (fTemp3 * self.fRec67[1])) + (fSlow45 * fTemp4));
-			let mut fTemp165: F32 = F32::abs(F32::min(1.0, (0.0399999991 * ((*input0 as F32) * self.fRec67[0]))));
-			let mut fTemp166: F32 = if (((self.fRec65[1] > fTemp165) as i32) as i32 != 0) { self.fConst11 } else { 0.0 };
-			self.fRec66[0] = ((self.fRec66[1] * fTemp166) + (fTemp165 * (1.0 - fTemp166)));
+			let mut fTemp162: F32 = F32::abs(F32::min(1.0, (0.0399999991 * ((*input0 as F32) * self.fRec67[0]))));
+			self.fRec68[0] = ((self.fConst1 * (fTemp3 * self.fRec68[1])) + (fSlow46 * fTemp4));
+			let mut fTemp163: F32 = (0.0199999996 * self.fRec68[0]);
+			let mut iTemp164: i32 = ((F32::abs(fTemp163) < 1.1920929e-07) as i32);
+			let mut fTemp165: F32 = if (iTemp164 as i32 != 0) { 0.0 } else { F32::exp((0.0 - (self.fConst6 / if (iTemp164 as i32 != 0) { 1.0 } else { fTemp163 }))) };
+			let mut fTemp166: F32 = if (((self.fRec65[1] > fTemp162) as i32) as i32 != 0) { fTemp165 } else { 0.0 };
+			self.fRec66[0] = ((self.fRec66[1] * fTemp166) + (fTemp162 * (1.0 - fTemp166)));
 			self.fRec65[0] = self.fRec66[0];
 			let mut fTemp167: F32 = (1.0 - self.fRec65[0]);
-			*output2 = ((0.0199999996 * ((self.fRec64[0] * fTemp167) * fTemp163)) as F32);
+			*output2 = ((0.0199999996 * ((self.fRec64[0] * fTemp167) * fTemp160)) as F32);
 			let mut fTemp168: F32 = F32::abs(F32::min(1.0, (0.0399999991 * ((*input1 as F32) * self.fRec67[0]))));
-			let mut fTemp169: F32 = if (((self.fRec68[1] > fTemp168) as i32) as i32 != 0) { self.fConst11 } else { 0.0 };
-			self.fRec69[0] = ((self.fRec69[1] * fTemp169) + (fTemp168 * (1.0 - fTemp169)));
-			self.fRec68[0] = self.fRec69[0];
-			let mut fTemp170: F32 = (1.0 - self.fRec68[0]);
-			*output3 = ((0.0199999996 * ((self.fRec64[0] * fTemp170) * fTemp164)) as F32);
-			self.fRec70[0] = ((self.fConst1 * (fTemp3 * self.fRec70[1])) + (fSlow46 * fTemp4));
-			*output4 = ((0.0199999996 * ((self.fRec70[0] * fTemp167) * fTemp163)) as F32);
-			*output5 = ((0.0199999996 * ((self.fRec70[0] * fTemp170) * fTemp164)) as F32);
+			let mut fTemp169: F32 = if (((self.fRec69[1] > fTemp168) as i32) as i32 != 0) { fTemp165 } else { 0.0 };
+			self.fRec70[0] = ((self.fRec70[1] * fTemp169) + (fTemp168 * (1.0 - fTemp169)));
+			self.fRec69[0] = self.fRec70[0];
+			let mut fTemp170: F32 = (1.0 - self.fRec69[0]);
+			*output3 = ((0.0199999996 * ((self.fRec64[0] * fTemp170) * fTemp161)) as F32);
 			self.fRec71[0] = ((self.fConst1 * (fTemp3 * self.fRec71[1])) + (fSlow47 * fTemp4));
-			*output6 = ((0.0199999996 * ((self.fRec71[0] * fTemp167) * fTemp163)) as F32);
-			*output7 = ((0.0199999996 * ((self.fRec71[0] * fTemp170) * fTemp164)) as F32);
+			*output4 = ((0.0199999996 * ((self.fRec71[0] * fTemp167) * fTemp160)) as F32);
+			*output5 = ((0.0199999996 * ((self.fRec71[0] * fTemp170) * fTemp161)) as F32);
+			self.fRec72[0] = ((self.fConst1 * (fTemp3 * self.fRec72[1])) + (fSlow48 * fTemp4));
+			*output6 = ((0.0199999996 * ((self.fRec72[0] * fTemp167) * fTemp160)) as F32);
+			*output7 = ((0.0199999996 * ((self.fRec72[0] * fTemp170) * fTemp161)) as F32);
 			self.fVec0[1] = self.fVec0[0];
 			self.iVec1[1] = self.iVec1[0];
 			self.iRec1[1] = self.iRec1[0];
@@ -1211,12 +1221,13 @@ impl FaustDsp for insert {
 			self.fRec61[1] = self.fRec61[0];
 			self.fRec64[1] = self.fRec64[0];
 			self.fRec67[1] = self.fRec67[0];
+			self.fRec68[1] = self.fRec68[0];
 			self.fRec66[1] = self.fRec66[0];
 			self.fRec65[1] = self.fRec65[0];
-			self.fRec69[1] = self.fRec69[0];
-			self.fRec68[1] = self.fRec68[0];
 			self.fRec70[1] = self.fRec70[0];
+			self.fRec69[1] = self.fRec69[0];
 			self.fRec71[1] = self.fRec71[0];
+			self.fRec72[1] = self.fRec72[0];
 		}
 	}
 

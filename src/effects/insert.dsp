@@ -3,9 +3,7 @@ import("stdfaust.lib");
 gate = button("gate");
 note = button("note");
 
-duckGain = button("duckGain");
-duckX    = button("duckX");
-duckY    = button("duckY");
+duckRelease = button("duckRelease") : smooth;
 
 sampleType = nentry("sampleType", 0, 0, 4, 1);
 synth1Type = nentry("synth1Type", 0, 0, 4, 1);
@@ -69,7 +67,7 @@ panning(inputL, inputR) = ba.select2stereo(pan > 25, toLeftL, toLeftR, toRightL,
 };
 
 ducking(prevL, prevR) = duck(prevL), duck(prevR) with {
-	duck(prev) = *(1 - an.amp_follower_ar(time(duckX), time(duckY), min(1, prev*duckBy/(51 - duckGain))));
+	duck(prev) = *(1 - an.amp_follower_ar(0, time(duckRelease), min(1, prev*duckBy/25)));
 };
 
 send(amount) = sp.stereoize(*(amount/50));

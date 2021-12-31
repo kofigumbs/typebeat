@@ -135,26 +135,26 @@ impl FaustDsp for echo {
 	
 	fn build_user_interface_static(ui_interface: &mut dyn UI<Self::T>) {
 		ui_interface.open_vertical_box("echo");
-		ui_interface.add_num_entry("echoGain", ParamIndex(0), 25.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("echoX", ParamIndex(1), 25.0, -1.0, 50.0, 10.0);
-		ui_interface.add_num_entry("echoY", ParamIndex(2), 25.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("echoFeed", ParamIndex(0), 25.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("echoGain", ParamIndex(1), 25.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("echoLength", ParamIndex(2), 25.0, -1.0, 50.0, 10.0);
 		ui_interface.close_box();
 	}
 	
 	fn get_param(&self, param: ParamIndex) -> Option<Self::T> {
 		match param.0 {
-			0 => Some(self.fEntry0),
-			1 => Some(self.fEntry1),
-			2 => Some(self.fEntry2),
+			1 => Some(self.fEntry0),
+			2 => Some(self.fEntry1),
+			0 => Some(self.fEntry2),
 			_ => None,
 		}
 	}
 	
 	fn set_param(&mut self, param: ParamIndex, value: Self::T) {
 		match param.0 {
-			0 => { self.fEntry0 = value }
-			1 => { self.fEntry1 = value }
-			2 => { self.fEntry2 = value }
+			1 => { self.fEntry0 = value }
+			2 => { self.fEntry1 = value }
+			0 => { self.fEntry2 = value }
 			_ => {}
 		}
 	}

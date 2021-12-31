@@ -210,7 +210,7 @@ impl FaustDsp for reverb {
 		m.declare("filters.lib/allpass_comb:author", "Julius O. Smith III");
 		m.declare("filters.lib/allpass_comb:copyright", "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>");
 		m.declare("filters.lib/allpass_comb:license", "MIT-style STK-4.3 license");
-		m.declare("filters.lib/lowpass0_highpass1", "Copyright (C) 2003-2019 by Julius O. Smith III <jos@ccrma.stanford.edu>");
+		m.declare("filters.lib/lowpass0_highpass1", "MIT-style STK-4.3 license");
 		m.declare("filters.lib/name", "Faust Filters Library");
 		m.declare("filters.lib/version", "0.3");
 		m.declare("maths.lib/author", "GRAME");
@@ -453,13 +453,13 @@ impl FaustDsp for reverb {
 		self.fConst1 = (44.0999985 / fConst0);
 		self.fConst2 = (1.0 - self.fConst1);
 		self.iConst3 = ((0.0366666652 * fConst0) as i32);
-		self.iConst4 = ((0.0307482984 * fConst0) as i32);
-		self.iConst5 = ((0.0289569162 * fConst0) as i32);
-		self.iConst6 = ((0.0269387756 * fConst0) as i32);
-		self.iConst7 = ((0.0253061224 * fConst0) as i32);
-		self.iConst8 = ((0.0353061222 * fConst0) as i32);
-		self.iConst9 = ((0.0322448984 * fConst0) as i32);
-		self.iConst10 = ((0.033809524 * fConst0) as i32);
+		self.iConst4 = ((0.0353061222 * fConst0) as i32);
+		self.iConst5 = ((0.0322448984 * fConst0) as i32);
+		self.iConst6 = ((0.033809524 * fConst0) as i32);
+		self.iConst7 = ((0.0307482984 * fConst0) as i32);
+		self.iConst8 = ((0.0289569162 * fConst0) as i32);
+		self.iConst9 = ((0.0269387756 * fConst0) as i32);
+		self.iConst10 = ((0.0253061224 * fConst0) as i32);
 		let mut iConst11: i32 = ((0.0126077095 * fConst0) as i32);
 		self.iConst12 = std::cmp::min(1024, std::cmp::max(0, (iConst11 + -1)));
 		let mut iConst13: i32 = ((0.00999999978 * fConst0) as i32);
@@ -468,14 +468,14 @@ impl FaustDsp for reverb {
 		self.iConst16 = std::cmp::min(1024, std::cmp::max(0, (iConst15 + -1)));
 		let mut iConst17: i32 = ((0.00510204071 * fConst0) as i32);
 		self.iConst18 = std::cmp::min(1024, std::cmp::max(0, (iConst17 + -1)));
-		self.iConst19 = (self.iConst4 + 23);
-		self.iConst20 = (self.iConst5 + 23);
-		self.iConst21 = (self.iConst6 + 23);
-		self.iConst22 = (self.iConst3 + 23);
-		self.iConst23 = (self.iConst8 + 23);
-		self.iConst24 = (self.iConst10 + 23);
+		self.iConst19 = (self.iConst3 + 23);
+		self.iConst20 = (self.iConst9 + 23);
+		self.iConst21 = (self.iConst10 + 23);
+		self.iConst22 = (self.iConst4 + 23);
+		self.iConst23 = (self.iConst6 + 23);
+		self.iConst24 = (self.iConst5 + 23);
 		self.iConst25 = (self.iConst7 + 23);
-		self.iConst26 = (self.iConst9 + 23);
+		self.iConst26 = (self.iConst8 + 23);
 		self.iConst27 = std::cmp::min(1024, std::cmp::max(0, (iConst11 + 22)));
 		self.iConst28 = std::cmp::min(1024, std::cmp::max(0, (iConst13 + 22)));
 		self.iConst29 = std::cmp::min(1024, std::cmp::max(0, (iConst15 + 22)));
@@ -497,26 +497,26 @@ impl FaustDsp for reverb {
 	
 	fn build_user_interface_static(ui_interface: &mut dyn UI<Self::T>) {
 		ui_interface.open_vertical_box("reverb");
-		ui_interface.add_num_entry("reverbGain", ParamIndex(0), 25.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("reverbX", ParamIndex(1), 25.0, 0.0, 50.0, 10.0);
-		ui_interface.add_num_entry("reverbY", ParamIndex(2), 25.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("reverbComb", ParamIndex(0), 25.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("reverbDamp", ParamIndex(1), 25.0, 0.0, 50.0, 10.0);
+		ui_interface.add_num_entry("reverbGain", ParamIndex(2), 25.0, 0.0, 50.0, 10.0);
 		ui_interface.close_box();
 	}
 	
 	fn get_param(&self, param: ParamIndex) -> Option<Self::T> {
 		match param.0 {
-			0 => Some(self.fEntry0),
-			2 => Some(self.fEntry1),
-			1 => Some(self.fEntry2),
+			2 => Some(self.fEntry0),
+			1 => Some(self.fEntry1),
+			0 => Some(self.fEntry2),
 			_ => None,
 		}
 	}
 	
 	fn set_param(&mut self, param: ParamIndex, value: Self::T) {
 		match param.0 {
-			0 => { self.fEntry0 = value }
-			2 => { self.fEntry1 = value }
-			1 => { self.fEntry2 = value }
+			2 => { self.fEntry0 = value }
+			1 => { self.fEntry1 = value }
+			0 => { self.fEntry2 = value }
 			_ => {}
 		}
 	}
@@ -559,7 +559,7 @@ impl FaustDsp for reverb {
 			self.fVec3[(self.IOTA & 8191) as usize] = (fTemp0 + (self.fRec17[0] * fTemp1));
 			self.fRec16[0] = self.fVec3[((self.IOTA - self.iConst6) & 8191) as usize];
 			self.fRec19[0] = ((fSlow1 * self.fRec19[1]) + (fSlow2 * self.fRec18[1]));
-			self.fVec4[(self.IOTA & 8191) as usize] = ((self.fRec19[0] * fTemp1) + fTemp0);
+			self.fVec4[(self.IOTA & 8191) as usize] = (fTemp0 + (self.fRec19[0] * fTemp1));
 			self.fRec18[0] = self.fVec4[((self.IOTA - self.iConst7) & 8191) as usize];
 			self.fRec21[0] = ((fSlow1 * self.fRec21[1]) + (fSlow2 * self.fRec20[1]));
 			self.fVec5[(self.IOTA & 8191) as usize] = (fTemp0 + (self.fRec21[0] * fTemp1));
@@ -568,21 +568,21 @@ impl FaustDsp for reverb {
 			self.fVec6[(self.IOTA & 8191) as usize] = (fTemp0 + (self.fRec23[0] * fTemp1));
 			self.fRec22[0] = self.fVec6[((self.IOTA - self.iConst9) & 8191) as usize];
 			self.fRec25[0] = ((fSlow1 * self.fRec25[1]) + (fSlow2 * self.fRec24[1]));
-			self.fVec7[(self.IOTA & 8191) as usize] = (fTemp0 + (self.fRec25[0] * fTemp1));
+			self.fVec7[(self.IOTA & 8191) as usize] = ((self.fRec25[0] * fTemp1) + fTemp0);
 			self.fRec24[0] = self.fVec7[((self.IOTA - self.iConst10) & 8191) as usize];
-			let mut fTemp2: F32 = ((0.5 * self.fRec6[1]) + (self.fRec8[0] + (self.fRec12[0] + (self.fRec14[0] + (self.fRec16[0] + (self.fRec18[0] + (self.fRec20[0] + (self.fRec22[0] + self.fRec24[0]))))))));
+			let mut fTemp2: F32 = (self.fRec8[0] + (self.fRec12[0] + (self.fRec14[0] + (self.fRec16[0] + (self.fRec18[0] + (self.fRec20[0] + (self.fRec22[0] + (self.fRec24[0] + (0.5 * self.fRec6[1])))))))));
 			self.fVec8[(self.IOTA & 2047) as usize] = fTemp2;
 			self.fRec6[0] = self.fVec8[((self.IOTA - self.iConst12) & 2047) as usize];
 			let mut fRec7: F32 = (0.0 - (0.5 * fTemp2));
-			let mut fTemp3: F32 = (self.fRec6[1] + (fRec7 + (0.5 * self.fRec4[1])));
+			let mut fTemp3: F32 = (fRec7 + ((0.5 * self.fRec4[1]) + self.fRec6[1]));
 			self.fVec9[(self.IOTA & 2047) as usize] = fTemp3;
 			self.fRec4[0] = self.fVec9[((self.IOTA - self.iConst14) & 2047) as usize];
 			let mut fRec5: F32 = (0.0 - (0.5 * fTemp3));
-			let mut fTemp4: F32 = (self.fRec4[1] + (fRec5 + (0.5 * self.fRec2[1])));
+			let mut fTemp4: F32 = (fRec5 + ((0.5 * self.fRec2[1]) + self.fRec4[1]));
 			self.fVec10[(self.IOTA & 2047) as usize] = fTemp4;
 			self.fRec2[0] = self.fVec10[((self.IOTA - self.iConst16) & 2047) as usize];
 			let mut fRec3: F32 = (0.0 - (0.5 * fTemp4));
-			let mut fTemp5: F32 = (self.fRec2[1] + (fRec3 + (0.5 * self.fRec0[1])));
+			let mut fTemp5: F32 = (fRec3 + ((0.5 * self.fRec0[1]) + self.fRec2[1]));
 			self.fVec11[(self.IOTA & 1023) as usize] = fTemp5;
 			self.fRec0[0] = self.fVec11[((self.IOTA - self.iConst18) & 1023) as usize];
 			let mut fRec1: F32 = (0.0 - (0.5 * fTemp5));
@@ -611,19 +611,19 @@ impl FaustDsp for reverb {
 			self.fRec49[0] = ((fSlow1 * self.fRec49[1]) + (fSlow2 * self.fRec48[1]));
 			self.fVec19[(self.IOTA & 8191) as usize] = (fTemp0 + (self.fRec49[0] * fTemp1));
 			self.fRec48[0] = self.fVec19[((self.IOTA - self.iConst26) & 8191) as usize];
-			let mut fTemp6: F32 = ((0.5 * self.fRec32[1]) + (self.fRec34[0] + (self.fRec36[0] + (self.fRec38[0] + (self.fRec40[0] + (self.fRec42[0] + (self.fRec44[0] + (self.fRec46[0] + self.fRec48[0]))))))));
+			let mut fTemp6: F32 = (self.fRec34[0] + (self.fRec36[0] + (self.fRec38[0] + (self.fRec40[0] + (self.fRec42[0] + (self.fRec44[0] + (self.fRec46[0] + (self.fRec48[0] + (0.5 * self.fRec32[1])))))))));
 			self.fVec20[(self.IOTA & 2047) as usize] = fTemp6;
 			self.fRec32[0] = self.fVec20[((self.IOTA - self.iConst27) & 2047) as usize];
 			let mut fRec33: F32 = (0.0 - (0.5 * fTemp6));
-			let mut fTemp7: F32 = (self.fRec32[1] + (fRec33 + (0.5 * self.fRec30[1])));
+			let mut fTemp7: F32 = (fRec33 + ((0.5 * self.fRec30[1]) + self.fRec32[1]));
 			self.fVec21[(self.IOTA & 2047) as usize] = fTemp7;
 			self.fRec30[0] = self.fVec21[((self.IOTA - self.iConst28) & 2047) as usize];
 			let mut fRec31: F32 = (0.0 - (0.5 * fTemp7));
-			let mut fTemp8: F32 = (self.fRec30[1] + (fRec31 + (0.5 * self.fRec28[1])));
+			let mut fTemp8: F32 = (fRec31 + ((0.5 * self.fRec28[1]) + self.fRec30[1]));
 			self.fVec22[(self.IOTA & 2047) as usize] = fTemp8;
 			self.fRec28[0] = self.fVec22[((self.IOTA - self.iConst29) & 2047) as usize];
 			let mut fRec29: F32 = (0.0 - (0.5 * fTemp8));
-			let mut fTemp9: F32 = (self.fRec28[1] + (fRec29 + (0.5 * self.fRec26[1])));
+			let mut fTemp9: F32 = (fRec29 + ((0.5 * self.fRec26[1]) + self.fRec28[1]));
 			self.fVec23[(self.IOTA & 1023) as usize] = fTemp9;
 			self.fRec26[0] = self.fVec23[((self.IOTA - self.iConst30) & 1023) as usize];
 			let mut fRec27: F32 = (0.0 - (0.5 * fTemp9));

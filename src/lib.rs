@@ -391,9 +391,7 @@ pub struct Export {
 struct Song {
     note_index: ParamIndex,
     gate_index: ParamIndex,
-    duck_gain_index: ParamIndex,
-    duck_x_index: ParamIndex,
-    duck_y_index: ParamIndex,
+    duck_release_index: ParamIndex,
     state: State<Song>,
     tracks: [Track; TRACK_COUNT],
     frames_since_last_step: AtomicCell<usize>,
@@ -407,9 +405,7 @@ impl Host for Song {
             "activeTrack",
             Param::new(0).min(0).max(TRACK_COUNT - 1).temp(),
         );
-        f("duckGain", Param::new(25).min(0).max(50).step(10));
-        f("duckX", Param::new(0).min(0).max(50).step(10));
-        f("duckY", Param::new(25).min(0).max(50).step(10));
+        f("duckRelease", Param::new(25).min(0).max(50).step(10));
         f("playing", Param::new(false).temp());
         f("recording", Param::new(false).toggle().temp());
         f("root", Param::new(0).min(-12).max(12).step(7));
@@ -445,12 +441,10 @@ impl Song {
                 });
         }
 
-        // Initialize the note, gate, and duck_x Faust ids
+        // Initialize the note, gate, and duckRelease Faust ids
         Buttons::find::<effects::insert>("note", &mut song.note_index);
         Buttons::find::<effects::insert>("gate", &mut song.gate_index);
-        Buttons::find::<effects::insert>("duckGain", &mut song.duck_gain_index);
-        Buttons::find::<effects::insert>("duckX", &mut song.duck_x_index);
-        Buttons::find::<effects::insert>("duckY", &mut song.duck_y_index);
+        Buttons::find::<effects::insert>("duckRelease", &mut song.duck_release_index);
 
         song.update_derived();
         song
@@ -655,19 +649,22 @@ impl<'a, T: FaustDsp<T = f32>, S> Params<'a, T, S> {
 }
 
 /// Collects Faust button param indexes
-struct Buttons<'a>(&'static str, &'a mut ParamIndex);
+struct Buttons<'a> {
+    label: &'static str,
+    index: &'a mut ParamIndex,
+}
 
 impl<'a> UI<f32> for Buttons<'a> {
     fn add_button(&mut self, label: &'static str, i: ParamIndex) {
-        if label == self.0 {
-            *self.1 = i;
+        if label == self.label {
+            *self.index = i;
         }
     }
 }
 
 impl<'a> Buttons<'a> {
-    fn find<T: FaustDsp<T = f32>>(label: &'static str, i: &'a mut ParamIndex) {
-        T::build_user_interface_static(&mut Buttons(label, i));
+    fn find<T: FaustDsp<T = f32>>(label: &'static str, index: &'a mut ParamIndex) {
+        T::build_user_interface_static(&mut Buttons { label, index });
     }
 }
 
@@ -764,9 +761,7 @@ impl Audio {
             if let Some(track_id) = voice.track_id {
                 let dsp = voice.insert.dsp.as_mut();
                 dsp.set_param(song.gate_index, voice.gate as f32);
-                dsp.set_param(song.duck_gain_index, song.state.get("duckGain"));
-                dsp.set_param(song.duck_x_index, song.state.get("duckX"));
-                dsp.set_param(song.duck_y_index, song.state.get("duckY"));
+                dsp.set_param(song.duck_release_index, song.state.get("duckRelease"));
                 Params::sync(dsp, &song.tracks[track_id].state);
             }
         }
