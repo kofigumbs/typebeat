@@ -8,14 +8,13 @@
   },
   "devDependencies": {
     "babel-preset-solid": "^1.2.1",
-    "chokidar-cli": "^3.0.0",
     "toml": "^3.0.0",
     "vite": "^2.5.8",
     "vite-plugin-solid": "^2.1.1"
   },
   "scripts": {
-    "start": "mkdir -p target/debug/samples; cp samples/* target/debug/samples; (vite ui --clearScreen false &); chokidar 'src/**/*.rs' build.rs --command 'pkill typebeat; cargo run' --initial --debounce 1000; pkill node",
-    "faust": "ls src/effects/*.dsp | xargs -I{} bash -c 'faust -lang rust -cn `basename -s .dsp {}` -o {}.rs {}'"
+    "faust": "ls src/effects/*.dsp | xargs -I{} bash -c 'faust -lang rust -cn `basename -s .dsp {}` -o {}.rs {}'",
+    "start": "npm install; mkdir -p target/debug/samples; cp samples/* target/debug/samples; (vite ui --clearScreen false &); cargo watch --watch src --watch build.rs --exec run; pkill node"
   },
   "workspaces": []
 }
