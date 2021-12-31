@@ -13,6 +13,7 @@
     "vite-plugin-solid": "^2.1.1"
   },
   "scripts": {
+    "init": "npm install && (test cargo-watch || cargo install cargo-watch)",
     "faust": "ls src/effects/*.dsp | xargs -I{} bash -c 'faust -lang rust -cn `basename -s .dsp {}` -o {}.rs {}'",
     "start": "npm install; mkdir -p target/debug/samples; cp samples/* target/debug/samples; (vite ui --clearScreen false &); cargo watch --watch src --watch build.rs --exec run; pkill node"
   },

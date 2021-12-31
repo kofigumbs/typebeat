@@ -2,11 +2,11 @@
 
 # Typebeat
 
-Running the native app locally requires the following dependencies:
+## Development
 
-- [Rust](https://www.rust-lang.org/learn/get-started)
-- [Node/NPM](https://nodejs.org/)
+Building Typebeat locally requires [Rust](https://www.rust-lang.org/learn/get-started) and [Node/NPM](https://nodejs.org/):
 
 ```bash
+npm run init # one-time
 npm start
 ```
