@@ -5,8 +5,8 @@ import Commands from '../commands';
 export const cap = 'D';
 
 const subtabs = (band) => Commands.tabbed(
-  { cap: 'N', label: 'freq.', commands: Commands.nudge('activeTrack', `${band}Freq`) },
-  { cap: 'M', label: 'res.',  commands: Commands.nudge('activeTrack', `${band}Res` ) }
+  { cap: 'N', label: 'res.',  commands: Commands.nudge('activeTrack', `${band}Res` ) },
+  { cap: 'M', label: 'freq.', commands: Commands.nudge('activeTrack', `${band}Freq`) }
 );
 
 export const commands = Commands.tabbed(
@@ -18,8 +18,8 @@ export const commands = Commands.tabbed(
 const margin = 3;
 const bandWidth = 90/3;
 const bandHeight = 20;
-const x = (freq, i) => margin + bandWidth*i + bandWidth*(i === 1 ? (freq + 25)/50 : freq/50);
-const y = (res) => margin + bandHeight*(1 + res/-50);
+const x = (freq, i) => margin + bandWidth*i + bandWidth*((freq + 25)/50);
+const y = (res) => margin + bandHeight*(1 - res/25);
 
 export const Visual = props => {
   const commands = createMemo(() => {

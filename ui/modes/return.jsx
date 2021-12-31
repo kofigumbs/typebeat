@@ -20,28 +20,26 @@ export const commands = Commands.tabbed(
 
 const Fader = props => {
   const margin = 3;
-  const x = (props.x+1) * 24;
-  const y = createMemo(() => {
-  });
+  const x = (props.i+1) * 24;
   return (
     <>
       <path d={`M ${x} ${margin} v 40`} stroke-width='2' />
-      <path d={`M ${x-6} ${(1 - props.value)*40 + margin} h 12`} stroke-width='2' />
+      <path d={`M ${x-6} ${(1 - props.level)*40 + margin} h 12`} stroke-width='2' />
     </>
   );
 };
 
 export const Visual = props => (
   <svg xmlns='http://www.w3.org/2000/svg'>
-    <Fader x={0} value={
-      props.state.song.reverbGain/50
-        * (props.state.song.reverbComb/100 + props.state.song.reverbDamp/100)
-    } />
-    <Fader x={1} value={
+    <Fader i={1} level={
       props.state.song.echoGain/50
         * (props.state.song.echoLength/100 + props.state.song.echoFeed/100)
     } />
-    <Fader x={2} value={
+    <Fader i={0} level={
+      props.state.song.reverbGain/50
+        * (props.state.song.reverbComb/100 + props.state.song.reverbDamp/100)
+    } />
+    <Fader i={2} level={
       props.state.song.duckRelease/50
     } />
   </svg>
