@@ -10,6 +10,20 @@ license terms. These libraries are normally all linked static into the binary
 distributions of Typebeat:
 `;
 
+const FAUST_LICENSE = `
+FAUST Architecture File
+Copyright (C) 2017-2020 GRAME, Centre National de Creation Musicale
+---------------------------------------------------------------------
+This is sample code. This file is provided as an example of minimal
+FAUST architecture file. Redistribution and use in source and binary
+forms, with or without modification, in part or in full are permitted.
+In particular you can create a derived work of this FAUST architecture
+and distribute that work under terms of your choice.
+This sample code is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+`;
+
 const CARGO_OVERRIDES = {
   'atk-sys MIT': 'gtk-rs/gtk3-rs/master/LICENSE',
   'blake2b_simd MIT': 'oconnor663/blake2_simd/master/LICENSE',
@@ -95,6 +109,7 @@ const cargoAttribution = async crate => {
 (async () => {
   const crates = JSON.parse(execSync('cargo bundle-licenses --format json', { maxBuffer: 4000000 }));
   const attributions = await Promise.all(crates.third_party_libraries.map(cargoAttribution));
+  attributions.push(attribution('faust', FAUST_LICENSE));
   attributions.push(attribution('firacode', readFileSync('node_modules/firacode/LICENSE')));
   attributions.push(attribution('solid-js', readFileSync('node_modules/solid-js/LICENSE')));
   writeFileSync('legal/LICENSE-THIRD-PARTY', PREFACE.concat(attributions.join('')).trim());
