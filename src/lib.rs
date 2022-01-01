@@ -399,8 +399,8 @@ struct Song {
 
 impl Host for Song {
     fn host<F: FnMut(&'static str, &Param)>(f: &mut F) {
-        effects::reverb::host(f);
         effects::echo::host(f);
+        effects::reverb::host(f);
         f(
             "activeTrack",
             Param::new(0).min(0).max(TRACK_COUNT - 1).temp(),

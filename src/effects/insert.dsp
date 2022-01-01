@@ -38,7 +38,7 @@ toDuck       = nentry("toDuck",       0,    0,  50, 10) : smooth;
 duckBy       = nentry("duckBy",       0,    0,  50, 10) : smooth;
 
 process(prevL, prevR) = sound :> eq : panning <: sends with {
-	sends = send(toDuck), (ducking(prevL, prevR) <: send(main), send(reverb), send(echo));
+	sends = send(toDuck), (ducking(prevL, prevR) <: send(main), send(echo), send(reverb));
 };
 
 sound = sample, synth1, synth2, synth3 with {
@@ -58,12 +58,7 @@ eq = sp.stereoize(low : mid : high) with {
 	high = fi.high_shelf(filterGain(highRes), filterFreq(3000, highFreq - (cutoff/50 * envelope*25)));
 };
 
-panning(inputL, inputR) = ba.select2stereo(pan > 25, toLeftL, toLeftR, toRightL, toRightR) with {
-	toLeftL = inputL + inputR*abs(pan/25);
-	toLeftR = inputR*(1 + pan/25);
-	toRightL = inputL*(1 - pan/25);
-	toRightR = inputR + inputL*pan/25;
-};
+panning = sp.panner(max(pan/25, 0)), sp.panner(1 + min(pan/25, 0)) :> _, _;
 
 // volume-ducking sidechain based on the previous `duck_mix`
 ducking(prevL, prevR) = duck(prevL), duck(prevR) with {
@@ -78,8 +73,9 @@ smooth = si.polySmooth(trigger, amount, 1) with {
 	amount = 1 - 44.1/ma.SR; // https://github.com/grame-cncm/faustlibraries/blob/b54a01fa5ef0ac1f4939f78a88d318f1db85cc0a/signals.lib#L116
 };
 
+
 /*
- * control scaling to try and keep values within a musical range
+ * control scaling aiming to keep values within a musical range
  */
 filterFreq(base, x) = base * pow(2, x/12);      // exp scale where f(0)=base
 filterGain(x) = ba.ba.linear2db(pow(8, x/25));  // exp scale where f(0)=100% (no change) and f(25)=800%

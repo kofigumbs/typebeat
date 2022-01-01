@@ -14,7 +14,7 @@ const subtabs = (effect, ...controls) => Commands.tabbed(
 
 export const commands = Commands.tabbed(
   { cap: 'Y', label: 'echo',   commands: subtabs('echo', 'Gain', 'Length', 'Feed') },
-  { cap: 'U', label: 'reverb', commands: subtabs('reverb', 'Gain', 'Comb', 'Damp') },
+  { cap: 'U', label: 'reverb', commands: subtabs('reverb', 'Gain', 'Size') },
   { cap: 'I', label: 'duck',   commands: subtabs('duck', 'Release') }
 );
 
@@ -31,13 +31,12 @@ const Fader = props => {
 
 export const Visual = props => (
   <svg xmlns='http://www.w3.org/2000/svg'>
-    <Fader i={1} level={
+    <Fader i={0} level={
       props.state.song.echoGain/50
         * (props.state.song.echoLength/100 + props.state.song.echoFeed/100)
     } />
-    <Fader i={0} level={
-      props.state.song.reverbGain/50
-        * (props.state.song.reverbComb/100 + props.state.song.reverbDamp/100)
+    <Fader i={1} level={
+      props.state.song.reverbGain/50 * props.state.song.reverbSize/50
     } />
     <Fader i={2} level={
       props.state.song.duckRelease/50
