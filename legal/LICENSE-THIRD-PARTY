@@ -11456,6 +11456,48 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 
+LinnDrum
+======
+These are 44.1 Khz/16 Bit samples of the LinnDrum.
+The Lin is fitted with the standard EPROMs (# 1) 
+except for the conga (#2) and the Tom (#6).
+
+These samples are brought to you by majortom@muc.de
+
+List of Sounds:
+
+Cabasa
+CHH      = closed highhat with medium decay
+CHHL     = closed HH with long decay
+CHHS     = closed HH with short decay
+Clap
+Conga    = mid conga
+Congah   = high conga
+Congahh  = very high conga
+Congal   = low conga
+Congall  = very low conga
+Congalll = guess what
+Cowb     = cowbell
+Crash
+Kick
+Kickme   = special Kick
+OHH      = open High Hat (note the sound of it closing again)
+Reallinn = sampled loop of the real thing
+Ride
+SD       = snare
+SDH      = high snare
+SDL      = low Snare
+SST      = sidestick
+SSTH     = high sidestick
+SSTL     = low sidestick
+tamb     = hey mr. tambourine man
+tom      = mid tom
+tomh     = high tom
+tomhh    = very high tom
+toml     = low tom
+tomll    = lowlow tom
+
+
 faust
 ======
 
