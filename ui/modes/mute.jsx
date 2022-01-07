@@ -9,7 +9,7 @@ export const commands = Commands.all({
 });
 
 const Mute = props => (
-  <rect {...layout(props.x, props.y)} classList={{ backgound: props.state.tracks[props.id].muted }} />
+  <rect {...layout(props.x, props.y)} classList={{ background: props.state.tracks[props.id].muted }} />
 );
 
 export const Visual = props => (
