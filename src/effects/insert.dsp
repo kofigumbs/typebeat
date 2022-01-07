@@ -1,5 +1,7 @@
 import("stdfaust.lib");
 
+scaled = library("scaled.lib");
+
 gate = button("gate");
 note = button("note");
 
@@ -54,9 +56,9 @@ sound = sample, synth1, synth2, synth3 with {
 };
 
 eq = sp.stereoize(low : mid : high) with {
-	low = fi.low_shelf(filterGain(lowRes), filterFreq(300, lowFreq));
-	mid = fi.peak_eq_cq(filterGain(midRes), filterFreq(1000, midFreq), 1);
-	high = fi.high_shelf(filterGain(highRes), filterFreq(3000, highFreq - (cutoff/50 * envelope*25)));
+	low = fi.low_shelf(scaled.filterGain(lowRes), scaled.filterFreq(300, lowFreq));
+	mid = fi.peak_eq_cq(scaled.filterGain(midRes), scaled.filterFreq(1000, midFreq), 1);
+	high = fi.high_shelf(scaled.filterGain(highRes), scaled.filterFreq(3000, highFreq - (cutoff/50 * envelope*25)));
 };
 
 pan_ = sp.panner(max(pan/25, 0)), sp.panner(1 + min(pan/25, 0)) :> _, _;
@@ -65,18 +67,13 @@ drive_ = sp.stereoize(ef.cubicnl_nodc(drive/50, .5));
 
 // volume-ducking sidechain based on the previous `duck_mix`
 duck_(prevL, prevR) = duck(prevL), duck(prevR) with {
-	duck(prev) = *(1 - an.amp_follower_ar(0, time(duckRelease), min(1, prev*duckBy/25)));
+	duck(prev) = *(1 - an.amp_follower_ar(0, scaled.time(duckRelease), min(1, prev*duckBy/25)));
 };
 
 send(amount) = sp.stereoize(*(amount/50));
-envelope = en.adsr(time(attack), time(decay), sustain/50, time(release : smooth), gate);
+envelope = en.adsr(scaled.time(attack), scaled.time(decay), sustain/50, scaled.time(release : smooth), gate);
 
 smooth = si.polySmooth(trigger, amount, 1) with {
-	trigger = en.ar(0, time(release), gate) : ma.signum;
+	trigger = en.ar(0, scaled.time(release), gate) : ma.signum;
 	amount = 1 - 44.1/ma.SR; // https://github.com/grame-cncm/faustlibraries/blob/b54a01fa5ef0ac1f4939f78a88d318f1db85cc0a/signals.lib#L116
 };
-
-// control scaling aiming to keep values within a musical range
-filterFreq(base, x) = base * pow(2, x/12);      // exp scale where f(0)=base
-filterGain(x) = ba.ba.linear2db(pow(8, x/25));  // exp scale where f(0)=100% (no change) and f(25)=800%
-time(x) = 2*(pow(x/50, 2));                     // quadratic scale where f(25)=.5s and f(50)=2s

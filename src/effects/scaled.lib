@@ -1,0 +1,6 @@
+import("stdfaust.lib");
+
+// scaling aiming to keep values within a musical range
+filterFreq(base, x) = base * pow(2, x/12);      // exp scale where f(0)=base
+filterGain(x) = ba.ba.linear2db(pow(8, x/25));  // exp scale where f(0)=100% (no change) and f(25)=800%
+time(x) = 2*(pow(x/50, 2));                     // quadratic scale where f(25)=.5s and f(50)=2s
