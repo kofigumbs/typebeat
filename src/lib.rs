@@ -2,7 +2,6 @@
 #![feature(bool_to_option)]
 #![feature(format_args_capture)]
 
-use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -380,13 +379,6 @@ impl Platform {
     }
 }
 
-/// Serializeable type for dump and save
-#[derive(Default, Serialize)]
-pub struct Export {
-    song: HashMap<&'static str, Value>,
-    tracks: Vec<HashMap<&'static str, Value>>,
-}
-
 #[derive(Default)]
 struct Song {
     note_index: ParamIndex,
@@ -418,7 +410,7 @@ impl Host for Song {
 impl Song {
     fn new(platform: &Platform, json: &Value) -> Self {
         let mut song = Song::default();
-        song.state.init(json);
+        song.state.init(&json["song"]);
         for (i, track) in song.tracks.iter_mut().enumerate() {
             let json = &json["tracks"][i];
             track.state.init(json);
@@ -450,26 +442,25 @@ impl Song {
         song
     }
 
-    fn dump(&self) -> impl Serialize {
-        let song = self.state.dump();
-        let tracks = self.tracks.iter().map(|track| track.state.dump()).collect();
-        Export { song, tracks }
-    }
-
     fn save(&self) -> impl Serialize {
-        let mut song = self.state.save();
-        song.insert("version", env!("CARGO_PKG_VERSION").into());
-        let tracks = self
-            .tracks
-            .iter()
-            .map(|track| {
+        serde_json::json!({
+            "version": env!("CARGO_PKG_VERSION"),
+            "song": self.state.save(),
+            "tracks": self.tracks.iter().map(|track| {
                 let mut map = track.state.save();
                 map.insert("live", AtomicCell::to_base64(track.live()).into());
                 map.insert("sequence", track.hits().filter_map(HitId::save).collect());
                 map
             })
-            .collect();
-        Export { song, tracks }
+            .collect::<Vec<_>>(),
+        })
+    }
+
+    fn dump(&self) -> impl Serialize {
+        serde_json::json!({
+            "song": self.state.dump(),
+            "tracks": self.tracks.iter().map(|track| track.state.dump()).collect::<Vec<_>>(),
+        })
     }
 
     fn active_track(&self) -> &Track {
