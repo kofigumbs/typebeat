@@ -192,7 +192,7 @@ impl Host for Track {
         f("pageStart", Param::new(0).min(0).temp());
         f("recent", Param::new(0).temp());
         f("resolution", Param::new(16).min(1).max(MAX_RES));
-        f("usingKey", Param::new(true).toggle());
+        f("usingKey", Param::new(false).toggle());
         f("viewLength", Param::new(0).temp());
         f("viewStart", Param::new(0).temp());
         host_each(f, &NOTE, Param::new(0).temp());
