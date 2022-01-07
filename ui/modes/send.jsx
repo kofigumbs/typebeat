@@ -10,7 +10,8 @@ export const commands = Commands.tabbed(
   { cap: 'I', label: 'reverb',  commands: Commands.nudge('activeTrack', 'reverb') },
   { cap: 'O', label: 'to duck', commands: Commands.nudge('activeTrack', 'toDuck') },
   { cap: 'N', label: 'pan',     commands: Commands.nudge('activeTrack', 'pan') },
-  { cap: 'M', label: 'duck by', commands: Commands.nudge('activeTrack', 'duckBy') }
+  { cap: 'M', label: 'drive',   commands: Commands.nudge('activeTrack', 'drive') },
+  { cap: ',', label: 'duck by', commands: Commands.nudge('activeTrack', 'duckBy') }
 )
 
 const Rect = props => {

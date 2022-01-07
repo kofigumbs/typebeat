@@ -34,11 +34,12 @@ pan          = nentry("pan",          0,  -25,  25, 10) : smooth;
 main         = nentry("main",        50,    0,  50, 10) : smooth;
 reverb       = nentry("reverb",       0,    0,  50, 10) : smooth;
 echo         = nentry("echo",         0,    0,  50, 10) : smooth;
+drive        = nentry("drive",        0,    0,  50, 10) : smooth;
 toDuck       = nentry("toDuck",       0,    0,  50, 10) : smooth;
 duckBy       = nentry("duckBy",       0,    0,  50, 10) : smooth;
 
-process(prevL, prevR) = sound :> eq : panning <: sends with {
-	sends = send(toDuck), (ducking(prevL, prevR) <: send(main), send(echo), send(reverb));
+process(prevL, prevR) = sound :> eq : pan_ : drive_ <: sends with {
+	sends = send(toDuck), (duck_(prevL, prevR) <: send(main), send(echo), send(reverb));
 };
 
 sound = sample, synth1, synth2, synth3 with {
@@ -58,25 +59,24 @@ eq = sp.stereoize(low : mid : high) with {
 	high = fi.high_shelf(filterGain(highRes), filterFreq(3000, highFreq - (cutoff/50 * envelope*25)));
 };
 
-panning = sp.panner(max(pan/25, 0)), sp.panner(1 + min(pan/25, 0)) :> _, _;
+pan_ = sp.panner(max(pan/25, 0)), sp.panner(1 + min(pan/25, 0)) :> _, _;
+
+drive_ = sp.stereoize(ef.cubicnl_nodc(drive/50, .5));
 
 // volume-ducking sidechain based on the previous `duck_mix`
-ducking(prevL, prevR) = duck(prevL), duck(prevR) with {
+duck_(prevL, prevR) = duck(prevL), duck(prevR) with {
 	duck(prev) = *(1 - an.amp_follower_ar(0, time(duckRelease), min(1, prev*duckBy/25)));
 };
 
 send(amount) = sp.stereoize(*(amount/50));
-envelope = en.adsr(time(attack), time(decay), sustain/50, (release : smooth : time), gate);
+envelope = en.adsr(time(attack), time(decay), sustain/50, time(release : smooth), gate);
 
 smooth = si.polySmooth(trigger, amount, 1) with {
 	trigger = en.ar(0, time(release), gate) : ma.signum;
 	amount = 1 - 44.1/ma.SR; // https://github.com/grame-cncm/faustlibraries/blob/b54a01fa5ef0ac1f4939f78a88d318f1db85cc0a/signals.lib#L116
 };
 
-
-/*
- * control scaling aiming to keep values within a musical range
- */
+// control scaling aiming to keep values within a musical range
 filterFreq(base, x) = base * pow(2, x/12);      // exp scale where f(0)=base
 filterGain(x) = ba.ba.linear2db(pow(8, x/25));  // exp scale where f(0)=100% (no change) and f(25)=800%
 time(x) = 2*(pow(x/50, 2));                     // quadratic scale where f(25)=.5s and f(50)=2s
