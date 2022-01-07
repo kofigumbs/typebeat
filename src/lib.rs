@@ -549,6 +549,44 @@ impl<const N: usize, const M: usize> Buffer<N, M> {
     }
 }
 
+/// Synchronizes params between dsp instance and state
+struct Params<'a, T: ?Sized, S> {
+    dsp: &'a mut T,
+    state: &'a State<S>,
+}
+
+impl<'a, T: FaustDsp<T = f32>, S> UI<f32> for Params<'a, T, S> {
+    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
+        self.dsp.set_param(i, self.state.get(s));
+    }
+}
+
+impl<'a, T: FaustDsp<T = f32>, S> Params<'a, T, S> {
+    fn set(dsp: &'a mut T, state: &'a State<S>) {
+        T::build_user_interface_static(&mut Self { dsp, state });
+    }
+}
+
+/// Collects Faust button param indexes
+struct Buttons<'a> {
+    label: &'static str,
+    index: &'a mut ParamIndex,
+}
+
+impl<'a> UI<f32> for Buttons<'a> {
+    fn add_button(&mut self, label: &'static str, i: ParamIndex) {
+        if label == self.label {
+            *self.index = i;
+        }
+    }
+}
+
+impl<'a> Buttons<'a> {
+    fn find<T: FaustDsp<T = f32>>(label: &'static str, index: &'a mut ParamIndex) {
+        T::build_user_interface_static(&mut Buttons { label, index });
+    }
+}
+
 #[derive(Clone, Default)]
 struct Voice {
     key: usize,
@@ -619,43 +657,14 @@ impl Voice {
             }
         })
     }
-}
 
-/// Synchronizes params between dsp instance and state
-struct Params<'a, T: ?Sized, S> {
-    dsp: &'a mut T,
-    state: &'a State<S>,
-}
-
-impl<'a, T: FaustDsp<T = f32>, S> UI<f32> for Params<'a, T, S> {
-    fn add_num_entry(&mut self, s: &'static str, i: ParamIndex, _: f32, _: f32, _: f32, _: f32) {
-        self.dsp.set_param(i, self.state.get(s));
-    }
-}
-
-impl<'a, T: FaustDsp<T = f32>, S> Params<'a, T, S> {
-    fn sync(dsp: &'a mut T, state: &'a State<S>) {
-        T::build_user_interface_static(&mut Self { dsp, state });
-    }
-}
-
-/// Collects Faust button param indexes
-struct Buttons<'a> {
-    label: &'static str,
-    index: &'a mut ParamIndex,
-}
-
-impl<'a> UI<f32> for Buttons<'a> {
-    fn add_button(&mut self, label: &'static str, i: ParamIndex) {
-        if label == self.label {
-            *self.index = i;
-        }
-    }
-}
-
-impl<'a> Buttons<'a> {
-    fn find<T: FaustDsp<T = f32>>(label: &'static str, index: &'a mut ParamIndex) {
-        T::build_user_interface_static(&mut Buttons { label, index });
+    fn set_params(&mut self, song: &Song, track_id: usize) {
+        self.track_id = Some(track_id);
+        self.insert.dsp.set_param(song.gate_index, self.gate as f32);
+        self.insert
+            .dsp
+            .set_param(song.duck_release_index, song.state.get("duckRelease"));
+        Params::set(self.insert.dsp.as_mut(), &song.tracks[track_id].state);
     }
 }
 
@@ -750,14 +759,11 @@ impl Audio {
         // Update DSP parameters
         for voice in self.voices.iter_mut() {
             if let Some(track_id) = voice.track_id {
-                let dsp = voice.insert.dsp.as_mut();
-                dsp.set_param(song.gate_index, voice.gate as f32);
-                dsp.set_param(song.duck_release_index, song.state.get("duckRelease"));
-                Params::sync(dsp, &song.tracks[track_id].state);
+                voice.set_params(song, track_id);
             }
         }
-        Params::sync(self.echo.dsp.as_mut(), &song.state);
-        Params::sync(self.reverb.dsp.as_mut(), &song.state);
+        Params::set(self.echo.dsp.as_mut(), &song.state);
+        Params::set(self.reverb.dsp.as_mut(), &song.state);
 
         // Read input frames and calculate output frames
         for (input, output) in input.frames::<f32>().zip(output.frames_mut::<f32>()) {
@@ -838,8 +844,8 @@ impl Audio {
             voice.position = 0.;
             voice.increment = ((note + track.state.get::<f32>("sampleDetune") / 10.) / 12.).exp2()
                 / (69.0_f32 / 12.).exp2();
-            voice.track_id = Some(track_id);
             voice.insert.dsp.set_param(song.note_index, note);
+            voice.set_params(song, track_id);
         }
 
         // Remember when this was played to for note length sequencer calculation
