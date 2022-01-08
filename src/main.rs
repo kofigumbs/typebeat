@@ -50,7 +50,7 @@ fn labels(setting: bool, window: Window, state: State<App>) {
         .menu_handle()
         .get_item("labels")
         .set_title(&title)
-        .expect("set_title");
+        .unwrap();
     state.labels.store(Some(setting));
 }
 
@@ -61,7 +61,7 @@ fn theme(setting: &'_ str, window: Window) {
             .menu_handle()
             .get_item(theme)
             .set_selected(theme == setting)
-            .expect("set_selected");
+            .unwrap();
     }
 }
 
@@ -139,7 +139,7 @@ fn with_location(
             let state: State<App> = handle.state();
             let parent = path.parent().map(Path::to_path_buf);
             let file_name = path.file_name().map(|x| x.to_string_lossy().into());
-            *state.location.lock().expect("location") = (parent, file_name.clone());
+            *state.location.lock().unwrap() = (parent, file_name.clone());
             file_name.map(|file_name| window.set_title(&file_name));
             f(&state, path);
         }
@@ -157,13 +157,13 @@ fn open(window: &Window, handle: &AppHandle<Wry>) {
 
 fn save(window: &Window, handle: &AppHandle<Wry>) {
     dialog(window).save_file(with_location(window, handle, |state, path| {
-        let json = serde_json::to_vec(&state.controller.save()).expect("json");
-        std::fs::write(path, json).expect("write");
+        let json = serde_json::to_vec(&state.controller.save()).unwrap();
+        std::fs::write(path, json).unwrap();
     }));
 }
 
 fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
-    let window = handle.get_window("main").expect("window");
+    let window = handle.get_window("main").unwrap();
 
     // Setup menu handlers
     let window_ = window.clone();
@@ -174,11 +174,11 @@ fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
             "new" => state.controller.load(&Value::Null),
             "open" => open(&window_, &handle_),
             "save" => save(&window_, &handle_),
-            "demo" => tauri::api::shell::open("https://typebeat.xyz".into(), None).expect("demo"),
+            "demo" => tauri::api::shell::open("https://typebeat.xyz".into(), None).unwrap(),
             "labels" => window_
-                .emit("labels", Some(!state.labels.load().expect("labels")))
-                .expect("emit"),
-            id if themes().contains(&id) => window_.emit("theme", Some(id)).expect("emit"),
+                .emit("labels", Some(!state.labels.load().unwrap()))
+                .unwrap(),
+            id if themes().contains(&id) => window_.emit("theme", Some(id)).unwrap(),
             _ => {}
         }
     });
@@ -187,9 +187,9 @@ fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
     let window_ = window.clone();
     let receiver = Arc::clone(&receiver);
     std::thread::spawn(move || {
-        let receiver = receiver.lock().expect("receiver");
+        let receiver = receiver.lock().unwrap();
         while let Ok(change) = receiver.recv() {
-            window_.emit("change", Some(change)).expect("emit");
+            window_.emit("change", Some(change)).unwrap();
         }
     });
 
@@ -208,8 +208,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (sender, receiver) = std::sync::mpsc::channel();
     let context = tauri::generate_context!();
     let platform = Platform {
-        voice_count: 24,
-        root: tauri::api::path::resource_dir(context.package_info()).expect("root"),
+        voice_count: 12,
+        root: tauri::api::path::resource_dir(context.package_info()).unwrap(),
         sender,
     };
     let controller = typebeat::init(platform, &Value::Null)?;

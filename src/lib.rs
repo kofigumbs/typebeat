@@ -414,7 +414,7 @@ impl Song {
         for (i, track) in song.tracks.iter_mut().enumerate() {
             let json = &json["tracks"][i];
             track.state.init(json);
-            track.file_sample = platform.read_sample(i).expect("file_sample");
+            track.file_sample = platform.read_sample(i).unwrap();
             <&str>::deserialize(&json["live"]).ok().map(|s| {
                 let live = AtomicCell::from_base64(s);
                 track.live_length.store(live.len());
@@ -746,7 +746,7 @@ impl Audio {
     fn process(&mut self, song: &Song, input: &Frames, output: &mut FramesMut) {
         // Handle incoming audio commands
         let receiver = Arc::clone(&self.receiver);
-        let receiver = receiver.lock().expect("receiver");
+        let receiver = receiver.lock().unwrap();
         while let Ok((callback, data)) = receiver.try_recv() {
             match callback {
                 Command::WithI32(f) => f(self, song, data),
@@ -812,7 +812,7 @@ impl Audio {
         }
 
         // Inform UI of changed state keys
-        let platform = self.platform.lock().expect("platform");
+        let platform = self.platform.lock().unwrap();
         let send = move |change| platform.sender.send(change).unwrap();
         song.update_derived();
         song.state
@@ -888,22 +888,22 @@ impl Controller {
     pub fn load(&self, json: &Value) {
         self.stop();
         {
-            let mut song = self.song.write().expect("song");
-            let audio = self.audio.read().expect("audio");
-            let platform = audio.platform.lock().expect("platform");
+            let mut song = self.song.write().unwrap();
+            let audio = self.audio.read().unwrap();
+            let platform = audio.platform.lock().unwrap();
             *song = Song::new(&platform, &json);
-            let dump = serde_json::to_value(song.dump()).expect("dump");
+            let dump = serde_json::to_value(song.dump()).unwrap();
             platform.sender.send(Change::Dump(dump)).unwrap();
         }
         self.start();
     }
 
     pub fn dump(&self) -> impl Serialize {
-        self.song.read().expect("song").dump()
+        self.song.read().unwrap().dump()
     }
 
     pub fn save(&self) -> impl Serialize {
-        self.song.read().expect("song").save()
+        self.song.read().unwrap().save()
     }
 
     pub fn send(&self, method: &str, data: i32) {
@@ -941,7 +941,7 @@ impl Controller {
             "zoomIn" => Command::WithUsize(|_, song, _| song.active_track().zoom_in()),
             "zoomOut" => Command::WithUsize(|_, song, _| song.active_track().zoom_out()),
             _ => {
-                let song = self.song.read().expect("song");
+                let song = self.song.read().unwrap();
                 if let Some(name) = song.state.find(method) {
                     Command::NudgeSong(name)
                 } else if let Some(name) = song.active_track().state.find(method) {
@@ -951,7 +951,7 @@ impl Controller {
                 }
             }
         };
-        let _ = self.sender.lock().expect("sender").send((callback, data));
+        let _ = self.sender.lock().unwrap().send((callback, data));
     }
 }
 
@@ -979,7 +979,7 @@ pub fn init(platform: Platform, json: &Value) -> Result<Controller, Box<dyn Erro
     device_config.set_sample_rate(SAMPLE_RATE as u32);
 
     let song = Arc::new(RwLock::new(Song::new(
-        &audio.platform.lock().expect("platform"),
+        &audio.platform.lock().unwrap(),
         &json,
     )));
     let audio = Arc::new(RwLock::new(audio));
@@ -989,8 +989,8 @@ pub fn init(platform: Platform, json: &Value) -> Result<Controller, Box<dyn Erro
     device.set_data_callback(move |_, output, input| {
         audio
             .try_write()
-            .expect("audio")
-            .process(&song.try_read().expect("song"), input, output);
+            .unwrap()
+            .process(&song.try_read().unwrap(), input, output);
     });
 
     Ok(Controller {

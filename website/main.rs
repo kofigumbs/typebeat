@@ -22,20 +22,20 @@ lazy_static::lazy_static! {
         let save = &demo::save();
         App {
             receiver: Mutex::new(receiver),
-            controller: typebeat::init(Platform { voice_count: 4, sender, root }, save).expect("controller"),
+            controller: typebeat::init(Platform { voice_count: 4, sender, root }, save).unwrap(),
         }
     };
 }
 
 /// Convert C string (from Emscripten) to Rust str
 fn from_c_str(s: *const c_char) -> &'static str {
-    unsafe { CStr::from_ptr(s).to_str().expect("CStr") }
+    unsafe { CStr::from_ptr(s).to_str().unwrap() }
 }
 
 /// Convert Rust type to C string (form Emscripten) as JSON
 fn to_c_str_json<T: Serialize>(s: T) -> *const c_char {
-    let json = serde_json::to_string(&s).expect("json");
-    CString::new(json).expect("CString").into_raw()
+    let json = serde_json::to_string(&s).unwrap();
+    CString::new(json).unwrap().into_raw()
 }
 
 #[no_mangle]
@@ -60,7 +60,7 @@ pub fn typebeat_send(method: *const c_char, data: i32) {
 
 #[no_mangle]
 pub fn typebeat_changes() -> *const c_char {
-    let receiver = APP.receiver.lock().expect("receiver");
+    let receiver = APP.receiver.lock().unwrap();
     to_c_str_json(receiver.try_iter().collect::<Vec<_>>())
 }
 
