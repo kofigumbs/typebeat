@@ -1,4 +1,4 @@
-import { createRenderEffect, on } from 'solid-js';
+import { createRenderEffect } from 'solid-js';
 
 import Commands from '../commands';
 import { pulse } from '../animations';
@@ -20,11 +20,7 @@ export const layout = (x, y) => {
 
 const Track = props => {
   let cover;
-  createRenderEffect(on(
-    () => props.state.tracks[props.id].recent,
-    () => pulse(cover),
-    { defer: true }
-  ));
+  createRenderEffect(() => props.state.tracks[props.id].recent && pulse(cover));
   return (
     <>
       <rect
