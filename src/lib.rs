@@ -417,10 +417,9 @@ impl Song {
             track.file_sample = platform.read_sample(i).unwrap();
             <&str>::deserialize(&json["live"]).ok().map(|s| {
                 let live = AtomicCell::from_base64(s);
-                track.live_length.store(live.len());
-                for (frame, x) in track.live_sample.iter_mut().zip(live.into_iter()) {
-                    *frame = x;
-                }
+                let length = live.len().min(track.live_sample.len());
+                track.live_length.store(length);
+                track.live_sample[..length].clone_from_slice(&live[..length]);
             });
             Vec::<HitId<usize>>::deserialize(&json["sequence"])
                 .unwrap_or_default()
@@ -987,10 +986,9 @@ pub fn init(platform: Platform, json: &Value) -> Result<Controller, Box<dyn Erro
     let controller_audio = Arc::clone(&audio);
     let mut device = Device::new(None, &device_config)?;
     device.set_data_callback(move |_, output, input| {
-        audio
-            .try_write()
-            .unwrap()
-            .process(&song.try_read().unwrap(), input, output);
+        let song = song.try_read().unwrap();
+        let mut audio = audio.try_write().unwrap();
+        audio.process(&song, input, output);
     });
 
     Ok(Controller {
