@@ -9,10 +9,11 @@ export const commands = Commands.tabbed(
     { cap: 'N', label: 'type', commands: Commands.select(
       'activeTrack',
       'sampleType',
-      ['file', 'live ->', 'live .=', 'live |>']
+      ['file', 'live =>', 'live .=', 'live |>']
     )},
     { cap: 'M', label: 'level', commands: Commands.nudge('activeTrack', 'sampleLevel') },
     { cap: ',', label: 'detune', commands: Commands.nudge('activeTrack', 'sampleDetune') },
+    { cap: '.', label: 'dir.', commands: Commands.select('activeTrack', 'direction', ['forward', 'reverse'])},
   )},
 );
 
@@ -42,8 +43,8 @@ export const Help = ({ Block }) => (
     </Block>
     <Block>
       The default type, <b>file</b>, streams audio from the sample pack distributed with Typebeat.
-      The three <b>live</b> types define the workflow for live-sampling: <b>live through (->)</b>, <b>live record (.=)</b>, and <b>live playback (|>)</b>.
-      Live through streams the mic input directly to the Typebeat effect chain, which is great for vocals or previewing a live-sample.
+      The three <b>live</b> types define the workflow for live-sampling: <b>live stream (=>)</b>, <b>live record (.=)</b>, and <b>live playback (|>)</b>.
+      Live stream passes the mic input directly to the Typebeat effect chain, which is great for vocals or previewing a live-sample.
       Live record will also stream the mic input, but it will also write audio to the per-track sample memory.
       Finally, live playback will stream from the per-track memory, replaying whatever audio was live-sampled.
       Each track has 60 seconds of live-sample memory for recording/playback.

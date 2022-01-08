@@ -78,20 +78,29 @@ impl<T: FaustDsp> Default for DspBox<T> {
     }
 }
 
+trait Enum: Copy + Sized + 'static {
+    const ALL: &'static [Self];
+
+    fn max_value() -> usize {
+        Self::ALL.len() - 1
+    }
+
+    fn from_usize(value: usize) -> Self {
+        Self::ALL[value.min(Self::max_value())]
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Deserialize_repr, Serialize_repr)]
 #[repr(usize)]
-pub enum SampleType {
+enum SampleType {
     File,
     Live,
     LiveRecord,
     LivePlay,
 }
 
-impl From<usize> for SampleType {
-    fn from(value: usize) -> Self {
-        let all = [Self::File, Self::Live, Self::LiveRecord, Self::LivePlay];
-        all[value.min(all.len() - 1)]
-    }
+impl Enum for SampleType {
+    const ALL: &'static [Self] = &[Self::File, Self::Live, Self::LiveRecord, Self::LivePlay];
 }
 
 impl AsPrimitive<i32> for SampleType {
@@ -102,11 +111,28 @@ impl AsPrimitive<i32> for SampleType {
 
 impl SampleType {
     /// Does this sample stream mic input?
-    fn through(self) -> bool {
+    fn is_stream(self) -> bool {
         match self {
             Self::File | Self::LivePlay => false,
             Self::Live | Self::LiveRecord => true,
         }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Deserialize_repr, Serialize_repr)]
+#[repr(usize)]
+enum Direction {
+    Forward,
+    Reverse,
+}
+
+impl Enum for Direction {
+    const ALL: &'static [Self] = &[Self::Forward, Self::Reverse];
+}
+
+impl AsPrimitive<i32> for Direction {
+    fn as_(self) -> i32 {
+        self as i32
     }
 }
 
@@ -142,7 +168,7 @@ impl<'a> HitId<&'a Hit> {
 /// Summary of a subsequence of Hits
 #[derive(Clone, Copy, Deserialize_repr, Serialize_repr)]
 #[repr(usize)]
-pub enum View {
+enum View {
     OutOfBounds,
     Empty,
     ExactlyOnStep,
@@ -186,6 +212,12 @@ impl Host for Track {
         f("activeKey", Param::new(12).min(0).max(TRACK_COUNT - 1));
         f("bars", Param::new(1).temp());
         f("canClear", Param::new(false).temp());
+        f(
+            "direction",
+            Param::new(Direction::Forward)
+                .min(0)
+                .max(Direction::max_value()),
+        );
         f("length", Param::new(MAX_RES).min(MAX_RES).max(MAX_RES * 8));
         f("muted", Param::new(false).toggle());
         f("octave", Param::new(4).min(2).max(8).step(2));
@@ -205,7 +237,7 @@ impl Host for Track {
 
 impl Track {
     fn sample_type(&self) -> SampleType {
-        self.state.get::<usize>("sampleType").into()
+        SampleType::from_usize(self.state.get("sampleType"))
     }
 
     fn bars(&self) -> usize {
@@ -320,6 +352,14 @@ impl Track {
 
     fn live(&self) -> &[AtomicCell<f32>] {
         &self.live_sample[..self.live_length.load()]
+    }
+
+    fn play_at<T: CopyAs<f32>>(&self, sample: &[T], i: usize) -> f32 {
+        match Direction::from_usize(self.state.get("direction")) {
+            Direction::Forward if i < sample.len() => sample[i].copy_as(),
+            Direction::Reverse if i < sample.len() => sample[sample.len() - i - 1].copy_as(),
+            _ => 0.,
+        }
     }
 
     fn waveform(&self, i: usize) -> f32 {
@@ -603,7 +643,7 @@ impl Voice {
         match self.track_id {
             Some(track_id) => {
                 let track = &song.tracks[track_id];
-                if track.sample_type().through() {
+                if track.sample_type().is_stream() {
                     0
                 } else {
                     2 - self.gate
@@ -619,10 +659,10 @@ impl Voice {
             Some(track_id) => {
                 let track = &song.tracks[track_id];
                 match track.sample_type() {
-                    SampleType::File => self.play_sample(&track.file_sample, 2),
-                    SampleType::Live => self.play_through(track, input, false),
-                    SampleType::LiveRecord => self.play_through(track, input, true),
-                    SampleType::LivePlay => self.play_sample(track.live(), 1),
+                    SampleType::File => self.play(track, &track.file_sample, 2),
+                    SampleType::Live => self.stream(track, input, false),
+                    SampleType::LiveRecord => self.stream(track, input, true),
+                    SampleType::LivePlay => self.play(track, track.live(), 1),
                 }
             }
         };
@@ -632,7 +672,7 @@ impl Voice {
         buffer.compute(self.insert.dsp.as_mut(), output, 0);
     }
 
-    fn play_through(&mut self, track: &Track, input: &[f32], record: bool) -> [f32; 2] {
+    fn stream(&mut self, track: &Track, input: &[f32], record: bool) -> [f32; 2] {
         let input = input.iter().sum();
         let length = track.live_length.load();
         if record && length < track.live_sample.len() {
@@ -642,16 +682,16 @@ impl Voice {
         [input, input]
     }
 
-    fn play_sample<T: CopyAs<f32>>(&mut self, sample: &[T], channels: usize) -> [f32; 2] {
+    fn play<T: CopyAs<f32>>(&mut self, track: &Track, sample: &[T], channels: usize) -> [f32; 2] {
         let position = self.position.floor() as usize;
         let position_fract = self.position.fract();
         [0, 1].map(|channel| {
-            let index = |i| i * channels + channel % channels;
+            let index = |position| position * channels + channel % channels;
             if position_fract == 0. {
-                sample.get(index(position)).map_or(0., T::copy_as)
+                track.play_at(sample, index(position))
             } else {
-                let a = sample.get(index(position)).map_or(0., T::copy_as);
-                let b = sample.get(index(position + 1)).map_or(0., T::copy_as);
+                let a = track.play_at(sample, index(position));
+                let b = track.play_at(sample, index(position + 1));
                 position_fract.mul_add(b - a, a)
             }
         })
@@ -712,7 +752,7 @@ impl Audio {
 
     fn set_sample_type(&mut self, song: &Song, value: usize) {
         let track = song.active_track();
-        let sample_type = SampleType::from(value);
+        let sample_type = SampleType::from_usize(value);
         if sample_type == SampleType::LiveRecord {
             track.live_length.store(0);
         }
@@ -722,7 +762,7 @@ impl Audio {
                 voice.gate = 0;
                 voice.track_id = None;
             }
-            if sample_type.through() {
+            if sample_type.is_stream() {
                 self.allocate(
                     song,
                     song.state.get("activeTrack"),
