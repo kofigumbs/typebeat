@@ -1,1 +1,2 @@
 src/effects/*.dsp.rs linguist-generated
+src/effects/*.lib linguist-language=faust
