@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup
-      - run: cargo install --git https://github.com/tauri-apps/tauri --rev ${{ env.TAURI_CLI_VERSION }} tauri-cli
+      - run: cargo install --git https://github.com/tauri-apps/tauri --rev ${{ env.TAURI_CLI_VERSION }} --locked tauri-cli
       - run: cargo tauri build
       - run: netlify deploy --alias ${{ runner.os }} --dir target/release/bundle/${{ matrix.bundle }}
         env:
