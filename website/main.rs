@@ -22,7 +22,7 @@ lazy_static::lazy_static! {
         let save = &demo::save();
         App {
             receiver: Mutex::new(receiver),
-            controller: typebeat::init(Platform { voice_count: 4, sender, root }, save).unwrap(),
+            controller: typebeat::init(Platform { voice_count: 2, sender, root }, save).unwrap(),
         }
     };
 }

@@ -18,6 +18,9 @@ export const commands = Commands.tabbed(
   { cap: 'Y', label: 'osc. 1', commands: subtab(1) },
   { cap: 'U', label: 'osc. 2', commands: subtab(2) },
   { cap: 'I', label: 'osc. 3', commands: subtab(3) },
+  { cap: 'O', label: 'unison', commands: Commands.tabbed(
+    { cap: 'N', label: 'spread', commands: Commands.nudge('activeTrack', 'spread') },
+  )},
 );
 
 const length = 12;

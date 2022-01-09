@@ -21,6 +21,7 @@ synth2Level  = nentry("synth2Level",  0,    0,  50, 10) : smooth;
 synth2Detune = nentry("synth2Detune", 0, -120, 120, 10) : smooth;
 synth3Level  = nentry("synth3Level",  0,    0,  50, 10) : smooth;
 synth3Detune = nentry("synth3Detune", 0, -120, 120, 10) : smooth;
+spread       = nentry("spread",      25,    0,  50, 10) : smooth;
 lowFreq      = nentry("lowFreq",      0,  -25,  25, 10) : smooth;
 lowRes       = nentry("lowRes",       0,  -25,  25, 10) : smooth;
 midFreq      = nentry("midFreq",      0,  -25,  22, 10) : smooth;
@@ -40,19 +41,23 @@ drive        = nentry("drive",        0,    0,  50, 10) : smooth;
 toDuck       = nentry("toDuck",       0,    0,  50, 10) : smooth;
 duckBy       = nentry("duckBy",       0,    0,  50, 10) : smooth;
 
-process(prevL, prevR) = sound :> eq : pan_ : drive_ <: sends with {
+process(prevL, prevR) = sample, synth :> eq : pan_ : drive_ <: sends with {
 	sends = send(toDuck), (duck_(prevL, prevR) <: send(main), send(echo), send(reverb));
 };
 
-sound = sample, synth1, synth2, synth3 with {
-	sample = sp.stereoize(sampleTranspose : *(sampleLevel/25 * ba.if(holdSample, envelope, 1)));
-	sampleTranspose = ba.bypass_fade(1, sampleOffset == 0, ef.transpose(1000, 10, sampleOffset));
-	sampleOffset = (sampleType == 1 | sampleType == 2) * (sampleDetune/10 + note - 69);
-	synth1 = frequency(synth1Detune/10) : oscillator(synth1Type) : *(synth1Level/150 * envelope) <: _, _;
-	synth2 = frequency(synth2Detune/10) : oscillator(synth2Type) : *(synth2Level/150 * envelope) <: _, _;
-	synth3 = frequency(synth3Detune/10) : oscillator(synth3Type) : *(synth3Level/150 * envelope) <: _, _;
-	frequency = _/10 + note : ba.midikey2hz;
+sample = sp.stereoize(transpose : *(sampleLevel/25 * ba.if(holdSample, envelope, 1))) with {
+	transpose = ba.bypass_fade(1, offset == 0, ef.transpose(1000, 10, offset));
+	offset = (sampleType == 1 | sampleType == 2) * (sampleDetune/10 + note - 69);
+};
+
+synth = note <: unison(-1), unison(1) :> level :> _ : *(envelope) <: _, _ with {
+	unison(sign) = _ + sign*spread/500 <: synth1, synth2, synth3;
+	synth1 = hz(synth1Detune/10) : oscillator(synth1Type);
+	synth2 = hz(synth2Detune/10) : oscillator(synth2Type);
+	synth3 = hz(synth3Detune/10) : oscillator(synth3Type);
+	hz(detune) = _ + detune/10 : ba.midikey2hz;
 	oscillator = ba.selectmulti(1, (os.oscsin, os.triangle, os.sawtooth/2, os.square/2, (no.noise/4, !)));
+	level = *(synth1Level/450), *(synth2Level/450), *(synth3Level/450);
 };
 
 eq = sp.stereoize(low : mid : high) with {

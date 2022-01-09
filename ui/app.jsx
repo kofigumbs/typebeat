@@ -87,7 +87,7 @@ const Mode = props => {
 
 const Command = props => {
   const id = 'NM,./HJKL;YUIOP'.indexOf(props.cap);
-  const replace = createMemo(() => props.state.replace.id === id);
+  const replace = createMemo(() => props.state.replace?.id === id);
   const [label, setLabel] = createSignal();
   const command = createMemo(() => props.state.commands.get(props.cap));
   const cache = type.cache();
@@ -101,8 +101,8 @@ const Command = props => {
       className='command'
       classList={{ replace: replace() }}
       onDragOver={event => event.preventDefault()}
-      onDragEnter={() => props.state.replace.setId(id)}
-      onDragLeave={() => replace() && props.state.replace.setId(undefined)}
+      onDragEnter={() => props.state.replace?.setId(id)}
+      onDragLeave={() => replace() && props.state.replace?.setId(undefined)}
       {...props}
     >
       <div
