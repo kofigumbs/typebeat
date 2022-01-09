@@ -44,6 +44,13 @@ fn send(method: &'_ str, data: i32, state: State<App>) {
 }
 
 #[tauri::command]
+fn replace(id: usize, paths: Vec<&'_ str>, state: State<App>) {
+    if let [path] = &paths[..] {
+        state.controller.replace(id, path);
+    }
+}
+
+#[tauri::command]
 fn labels(setting: bool, window: Window, state: State<App>) {
     let title = format!("{} Keyboard Labels", if setting { "Hide" } else { "Show" });
     window
@@ -218,7 +225,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Builder::default()
         .menu(menu())
         .manage(App::from(controller))
-        .invoke_handler(tauri::generate_handler![dump, send, labels, theme])
+        .invoke_handler(tauri::generate_handler![dump, send, replace, labels, theme])
         .build(context)?;
     let receiver = Arc::new(Mutex::new(receiver));
     app.run(move |handle, event| match event {

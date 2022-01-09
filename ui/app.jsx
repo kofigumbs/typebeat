@@ -61,6 +61,9 @@ const Key = props => (
     className={`reset key ${props.className}`}
     classList={props.classList}
     data-cap={props.cap}
+    onDragOver={props.onDragOver}
+    onDragEnter={props.onDragEnter}
+    onDragLeave={props.onDragLeave}
     onPointerDown={handlePointerEvent(props.cap, props.onCapDown)}
     onPointerUp={handlePointerEvent(props.cap, props.onCapUp)}
   >
@@ -83,6 +86,8 @@ const Mode = props => {
 };
 
 const Command = props => {
+  const id = 'NM,./HJKL;YUIOP'.indexOf(props.cap);
+  const replace = createMemo(() => props.state.replace.id === id);
   const [label, setLabel] = createSignal();
   const command = createMemo(() => props.state.commands.get(props.cap));
   const cache = type.cache();
@@ -92,7 +97,14 @@ const Command = props => {
     return newLabel;
   });
   return (
-    <Key className='command' {...props}>
+    <Key
+      className='command'
+      classList={{ replace: replace() }}
+      onDragOver={event => event.preventDefault()}
+      onDragEnter={() => props.state.replace.setId(id)}
+      onDragLeave={() => replace() && props.state.replace.setId(undefined)}
+      {...props}
+    >
       <div
         className='label'
         classList={{ title: !!command()?.title(props.state) }}
@@ -114,6 +126,9 @@ const Grid = props => (
 
 export default props => {
   const [state, setState] = createStore({
+    get replace() {
+      return props.replace;
+    },
     get send() {
       return props.send;
     },

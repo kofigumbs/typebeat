@@ -2,8 +2,9 @@
 #![feature(bool_to_option)]
 #![feature(format_args_capture)]
 
+use std::collections::HashSet;
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -165,6 +166,36 @@ impl<'a> HitId<&'a Hit> {
     }
 }
 
+#[derive(Default)]
+struct Samples {
+    files: Vec<Mutex<Vec<f32>>>,
+}
+
+impl Samples {
+    fn from_directory(root: &Path) -> Result<Self, Box<dyn Error>> {
+        let mut samples = Self::default();
+        for i in 0..TRACK_COUNT {
+            let path = root.join(format!("samples/{}.wav", DEFAULT_SAMPLES[i]));
+            samples.files.push(Mutex::new(Self::file(&path)?));
+        }
+        samples.files.push(Mutex::default()); // add one extra slot for replacing swaps
+        Ok(samples)
+    }
+
+    fn file(path: &Path) -> Result<Vec<f32>, Box<dyn Error>> {
+        let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
+        let mut decoder = Decoder::from_file(&path, Some(&config))?;
+        let length = decoder.length_in_pcm_frames() as usize;
+        let mut file = vec![0.0; 2 * length];
+        decoder.read_pcm_frames(&mut FramesMut::wrap(&mut file[..], Format::F32, 2));
+        Ok(file)
+    }
+
+    fn read<T>(&self, i: usize, f: impl FnOnce(&[f32]) -> T) -> T {
+        f(&self.files[i].try_lock().unwrap())
+    }
+}
+
 /// Summary of a subsequence of Hits
 #[derive(Clone, Copy, Deserialize_repr, Serialize_repr)]
 #[repr(usize)]
@@ -183,7 +214,7 @@ impl AsPrimitive<i32> for View {
 
 struct Track {
     state: State<Track>,
-    file_sample: Vec<f32>,
+    file_id: AtomicCell<usize>,
     live_sample: Vec<AtomicCell<f32>>,
     live_length: AtomicCell<usize>,
     sequence: Vec<[Hit; KEY_COUNT]>,
@@ -197,7 +228,7 @@ impl Default for Track {
         live_sample.resize_with(60 * SAMPLE_RATE, Default::default);
         Self {
             state: State::default(),
-            file_sample: Vec::new(),
+            file_id: 0.into(),
             live_sample,
             live_length: 0.into(),
             sequence: vec![Default::default(); MAX_LENGTH as usize],
@@ -362,9 +393,9 @@ impl Track {
         }
     }
 
-    fn waveform(&self, i: usize) -> f32 {
+    fn waveform(&self, i: usize, samples: &Samples) -> f32 {
         match self.sample_type() {
-            SampleType::File => self.sample_waveform(i, &self.file_sample),
+            SampleType::File => samples.read(self.file_id.load(), |s| self.sample_waveform(i, s)),
             SampleType::LivePlay => self.sample_waveform(i, self.live()),
             SampleType::Live | SampleType::LiveRecord => 0.,
         }
@@ -398,29 +429,9 @@ impl Serialize for Change {
     }
 }
 
-/// Client-specific configuration
-pub struct Platform {
-    pub voice_count: usize,
-    pub root: PathBuf,
-    pub sender: Sender<Change>,
-}
-
-impl Platform {
-    fn read_sample(&self, i: usize) -> Result<Vec<f32>, Box<dyn Error>> {
-        let path = self
-            .root
-            .join(format!("samples/{}.wav", DEFAULT_SAMPLES[i]));
-        let config = DecoderConfig::new(Format::F32, 2, SAMPLE_RATE as u32);
-        let mut decoder = Decoder::from_file(&path, Some(&config))?;
-        let frame_count = decoder.length_in_pcm_frames() as usize;
-        let mut samples = vec![0.0; 2 * frame_count];
-        decoder.read_pcm_frames(&mut FramesMut::wrap(&mut samples[..], Format::F32, 2));
-        Ok(samples)
-    }
-}
-
 #[derive(Default)]
 struct Song {
+    samples: Arc<Samples>,
     note_index: ParamIndex,
     gate_index: ParamIndex,
     duck_release_index: ParamIndex,
@@ -448,13 +459,15 @@ impl Host for Song {
 }
 
 impl Song {
-    fn new(platform: &Platform, json: &Value) -> Self {
+    fn new(samples: Arc<Samples>, json: &Value) -> Self {
         let mut song = Song::default();
+        song.samples = samples;
         song.state.init(&json["song"]);
+
         for (i, track) in song.tracks.iter_mut().enumerate() {
             let json = &json["tracks"][i];
             track.state.init(json);
-            track.file_sample = platform.read_sample(i).unwrap();
+            track.file_id = i.into();
             <&str>::deserialize(&json["live"]).ok().map(|s| {
                 let live = AtomicCell::from_base64(s);
                 let length = live.len().min(track.live_sample.len());
@@ -554,7 +567,7 @@ impl Song {
             track.state.set(view_index, start);
         }
         for (i, name) in WAVEFORM.iter().enumerate() {
-            track.state.set(name, track.waveform(i));
+            track.state.set(name, track.waveform(i, &self.samples));
         }
     }
 }
@@ -659,7 +672,9 @@ impl Voice {
             Some(track_id) => {
                 let track = &song.tracks[track_id];
                 match track.sample_type() {
-                    SampleType::File => self.play(track, &track.file_sample, 2),
+                    SampleType::File => song
+                        .samples
+                        .read(track.file_id.load(), |s| self.play(track, s, 2)),
                     SampleType::Live => self.stream(track, input, false),
                     SampleType::LiveRecord => self.stream(track, input, true),
                     SampleType::LivePlay => self.play(track, track.live(), 1),
@@ -709,6 +724,7 @@ impl Voice {
 
 /// User events (from JavaScript)
 enum Command {
+    Replace(usize),
     WithI32(fn(&mut Audio, &Song, i32)),
     WithUsize(fn(&mut Audio, &Song, usize)),
     NudgeSong(&'static str),
@@ -716,12 +732,12 @@ enum Command {
 }
 
 struct Audio {
-    platform: Mutex<Platform>,
     voices: Vec<Voice>,
     duck_mix: [f32; 2],
     echo: DspBox<effects::echo>,
     reverb: DspBox<effects::reverb>,
     receiver: Arc<Mutex<Receiver<(Command, i32)>>>,
+    sender: Mutex<Sender<Change>>,
 }
 
 impl Audio {
@@ -788,6 +804,7 @@ impl Audio {
         let receiver = receiver.lock().unwrap();
         while let Ok((callback, data)) = receiver.try_recv() {
             match callback {
+                Command::Replace(id) => song.tracks[id].file_id.store(data as usize),
                 Command::WithI32(f) => f(self, song, data),
                 Command::WithUsize(f) => f(self, song, data as usize),
                 Command::NudgeSong(name) => song.state.nudge(name, data),
@@ -851,8 +868,8 @@ impl Audio {
         }
 
         // Inform UI of changed state keys
-        let platform = self.platform.lock().unwrap();
-        let send = move |change| platform.sender.send(change).unwrap();
+        let sender = self.sender.lock().unwrap();
+        let send = move |change| sender.send(change).unwrap();
         song.update_derived();
         song.state
             .for_each_change(|name, value| send(Change::Song(name, value)));
@@ -929,10 +946,10 @@ impl Controller {
         {
             let mut song = self.song.write().unwrap();
             let audio = self.audio.read().unwrap();
-            let platform = audio.platform.lock().unwrap();
-            *song = Song::new(&platform, &json);
+            let sender = audio.sender.lock().unwrap();
+            *song = Song::new(Arc::clone(&song.samples), &json);
             let dump = serde_json::to_value(song.dump()).unwrap();
-            platform.sender.send(Change::Dump(dump)).unwrap();
+            sender.send(Change::Dump(dump)).unwrap();
         }
         self.start();
     }
@@ -990,20 +1007,49 @@ impl Controller {
                 }
             }
         };
-        let _ = self.sender.lock().unwrap().send((callback, data));
+        self.send_to_audio(callback, data);
     }
+
+    pub fn replace(&self, id: usize, path: &str) {
+        if let Ok(file) = Samples::file(Path::new(path)) {
+            let song = self.song.read().unwrap();
+            let mut slots = (0..song.samples.files.len())
+                .into_iter()
+                .collect::<HashSet<_>>();
+            for track in song.tracks.iter() {
+                slots.remove(&track.file_id.load());
+            }
+            let unused_slot = slots.into_iter().next().unwrap();
+            {
+                // only acquire the lock for as long as it takes to shuffle the memory
+                *song.samples.files[unused_slot].lock().unwrap() = file;
+            }
+            self.send_to_audio(Command::Replace(id), unused_slot as i32);
+        }
+    }
+
+    fn send_to_audio(&self, command: Command, data: i32) {
+        let _ = self.sender.lock().unwrap().send((command, data));
+    }
+}
+
+/// Client-specific configuration
+pub struct Platform {
+    pub voice_count: usize,
+    pub root: PathBuf,
+    pub sender: Sender<Change>,
 }
 
 pub fn init(platform: Platform, json: &Value) -> Result<Controller, Box<dyn Error>> {
     let (sender, receiver) = std::sync::mpsc::channel();
     let voice_count = platform.voice_count;
     let audio = Audio {
-        platform: Mutex::new(platform),
         voices: vec![Voice::default(); voice_count],
         duck_mix: [0., 0.],
         echo: DspBox::<effects::echo>::default(),
         reverb: DspBox::<effects::reverb>::default(),
         receiver: Arc::new(Mutex::new(receiver)),
+        sender: Mutex::new(platform.sender),
     };
     for v in audio.voices.iter() {
         assert_eq!(v.insert.dsp.get_num_inputs(), INSERT_INPUT_COUNT as i32);
@@ -1017,10 +1063,8 @@ pub fn init(platform: Platform, json: &Value) -> Result<Controller, Box<dyn Erro
     device_config.playback_mut().set_format(Format::F32);
     device_config.set_sample_rate(SAMPLE_RATE as u32);
 
-    let song = Arc::new(RwLock::new(Song::new(
-        &audio.platform.lock().unwrap(),
-        &json,
-    )));
+    let samples = Samples::from_directory(&platform.root)?;
+    let song = Arc::new(RwLock::new(Song::new(Arc::new(samples), &json)));
     let audio = Arc::new(RwLock::new(audio));
     let controller_song = Arc::clone(&song);
     let controller_audio = Arc::clone(&audio);

@@ -86,6 +86,10 @@ input[type="reset"]::-moz-focus-inner {
   --key_background: var(--pads);
 }
 
+.app .command.replace {
+  --key_background: var(--modes);
+}
+
 .app .mode {
   --key_background: var(--modes);
 }

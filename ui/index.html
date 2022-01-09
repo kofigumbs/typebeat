@@ -3,6 +3,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
   <script type="module">
+    import { createSignal } from 'solid-js';
     import { render } from 'solid-js/web';
     import App from './app.jsx';
 
@@ -37,8 +38,29 @@
         document.body.classList.toggle('labels', setting);
       });
 
+      const [dragging, setDragging] = createSignal(false);
+      const [replace, setReplace] = createSignal();
+      t.event.listen('tauri://file-drop', ({ payload }) => {
+        if (typeof replace() === 'number')
+          t.invoke('replace', { paths: payload, id: replace() });
+        setDragging(false);
+        setReplace(undefined);
+      });
+      t.event.listen('tauri://file-drop-cancelled', () => setDragging(false));
+      t.event.listen('tauri://file-drop-hover', () => setDragging(true));
+
       return App({
-        send: (method, data) => t.invoke('send', { method, data }),
+        replace: {
+          get id() {
+            const dragging_ = dragging();
+            const replace_ = replace();
+            return dragging_ && replace_;
+          },
+          setId: setReplace,
+        },
+        send: (method, data) => {
+          t.invoke('send', { method, data });
+        },
         onChange: (callback) => {
           dump.then(state => callback([state]));
           t.event.listen('change', ({ payload }) => callback(payload));
