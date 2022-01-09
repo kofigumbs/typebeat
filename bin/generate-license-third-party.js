@@ -109,9 +109,9 @@ const cargoAttribution = async crate => {
 (async () => {
   const crates = JSON.parse(execSync('cargo bundle-licenses --format json', { maxBuffer: 4000000 }));
   const attributions = await Promise.all(crates.third_party_libraries.map(cargoAttribution));
-  attributions.push(attribution('LinnDrum', readFileSync('legal/LinnDrum.txt')));
+  attributions.push(attribution('LinnDrum', readFileSync('assets/LinnDrum.txt')));
   attributions.push(attribution('faust', FAUST_LICENSE));
   attributions.push(attribution('firacode', readFileSync('node_modules/firacode/LICENSE')));
   attributions.push(attribution('solid-js', readFileSync('node_modules/solid-js/LICENSE')));
-  writeFileSync('legal/LICENSE-THIRD-PARTY', PREFACE.concat(attributions.join('')).trim());
+  writeFileSync('assets/LICENSE-THIRD-PARTY', PREFACE.concat(attributions.join('')).trim());
 })();

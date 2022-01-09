@@ -204,11 +204,11 @@ impl FaustDsp for echo {
 			let mut fTemp7: F32 = (iTemp6 as F32);
 			let mut fTemp8: F32 = ((self.fRec3[0] * fTemp7) * (1.0 - (fSlow8 * fTemp7)));
 			let mut iTemp9: i32 = std::cmp::min(iSlow4, std::cmp::max(0, iTemp6));
-			*output0 = ((0.100000001 * (self.fRec0[0] * (((self.fRec1[((self.IOTA - 0) & 2097151) as usize] - fTemp0) * fTemp5) + (fSlow6 * (fTemp8 * self.fVec0[((self.IOTA - iTemp9) & 4194303) as usize]))))) as F32);
+			*output0 = ((0.00999999978 * (self.fRec0[0] * (((self.fRec1[((self.IOTA - 0) & 2097151) as usize] - fTemp0) * fTemp5) + (fSlow6 * (fTemp8 * self.fVec0[((self.IOTA - iTemp9) & 4194303) as usize]))))) as F32);
 			let mut fTemp10: F32 = (*input1 as F32);
 			self.fVec1[(self.IOTA & 4194303) as usize] = fTemp10;
 			self.fRec5[(self.IOTA & 2097151) as usize] = (fTemp10 + (fSlow2 * self.fRec5[((self.IOTA - iTemp1) & 2097151) as usize]));
-			*output1 = ((0.100000001 * (self.fRec0[0] * (((self.fRec5[((self.IOTA - 0) & 2097151) as usize] - fTemp10) * fTemp5) + (fSlow6 * (fTemp8 * self.fVec1[((self.IOTA - iTemp9) & 4194303) as usize]))))) as F32);
+			*output1 = ((0.00999999978 * (self.fRec0[0] * (((self.fRec5[((self.IOTA - 0) & 2097151) as usize] - fTemp10) * fTemp5) + (fSlow6 * (fTemp8 * self.fVec1[((self.IOTA - iTemp9) & 4194303) as usize]))))) as F32);
 			self.fRec0[1] = self.fRec0[0];
 			self.IOTA = (self.IOTA + 1);
 			self.fRec2[1] = self.fRec2[0];

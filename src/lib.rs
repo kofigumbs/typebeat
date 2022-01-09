@@ -175,7 +175,7 @@ impl Samples {
     fn from_directory(root: &Path) -> Result<Self, Box<dyn Error>> {
         let mut samples = Self::default();
         for i in 0..TRACK_COUNT {
-            let path = root.join(format!("samples/{}.wav", DEFAULT_SAMPLES[i]));
+            let path = root.join(format!("assets/samples/{}.wav", DEFAULT_SAMPLES[i]));
             samples.files.push(Mutex::new(Self::file(&path)?));
         }
         samples.files.push(Mutex::default()); // add one extra slot for replacing swaps
