@@ -43,7 +43,7 @@ const lib = import('../target/wasm32-unknown-emscripten/release/typebeat-dot-xyz
       callback([getJson('typebeat_dump')]);
       (function poll() {
         getJson('typebeat_changes').forEach(callback);
-        requestIdleCallback(poll)
+        requestAnimationFrame(poll);
       })();
     };
 
