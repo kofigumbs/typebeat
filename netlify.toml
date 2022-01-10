@@ -1,5 +1,5 @@
 [build]
-command = "export BINDGEN_EXTRA_CLANG_ARGS=\"--sysroot=`emconfigure env 2> /dev/null | sed -n -e 's/^EMSCRIPTEN=//p'`/cache/sysroot\" && cargo +nightly build --package typebeat-dot-xyz --target wasm32-unknown-emscripten --release && vite --config ui/vite.config.js $TYPEBEAT_VITE website"
+command = "export BINDGEN_EXTRA_CLANG_ARGS=\"--sysroot=`emconfigure env 2> /dev/null | sed -n -e 's/^EMSCRIPTEN=//p'`/cache/sysroot\" && cargo +nightly build --package typebeat-dot-xyz --target wasm32-unknown-emscripten --release && vite $TYPEBEAT_VITE website"
 publish = "website/dist"
 
 [build.environment]
