@@ -1,3 +1,5 @@
+name: Release desktop apps
+
 on:
   workflow_dispatch: {}
 

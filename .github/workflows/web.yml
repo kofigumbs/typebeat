@@ -1,3 +1,5 @@
+name: Deploy website
+
 on:
   workflow_dispatch: {}
 
