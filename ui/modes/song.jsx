@@ -91,7 +91,7 @@ export const Help = ({ Block }) => (
     <Block className='bullet'>
       Try recording additional layers to the demo beat -- press <kbd>M</kbd> to enable/disable recording.
       When <b>record</b> is on, any key you press in <b>AUDITION</b> mode will be recorded.
-      Press <kbd>Z</kbd> from <b>SONG</b> mode to go back to <b>AUDITION</b> mode.
+      Press <kbd>Escape</kbd> to go back to <b>AUDITION</b> mode.
     </Block>
     <Block className='bullet'>
       Once you've tried playing and recording, press <kbd>A</kbd> to learn about <b>LOOP</b> mode.

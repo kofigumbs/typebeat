@@ -24,6 +24,7 @@ for (let [path, module] of Object.entries(modeImports)) {
  */
 
 const capsByEventCode = new Map([
+  ['Escape', undefined],
   ['Semicolon', ';'], ['Comma', ','], ['Period', '.'], ['Slash', '/'],
   ...Array.from('QWERTYUIOPASDFGHJKLZXCVBNM', cap => [`Key${cap}`, cap]),
 ]);
@@ -31,12 +32,11 @@ const capsByEventCode = new Map([
 const handleKeyboardEvent = callback => event => {
   if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
     return;
-  const cap = capsByEventCode.get(event.code);
-  if (!cap)
-    return
+  if (!capsByEventCode.has(event.code))
+    return;
   event.preventDefault();
   if (!event.repeat)
-    callback(cap);
+    callback(capsByEventCode.get(event.code));
 };
 
 const handlePointerEvent = (cap, callback) => event => {
