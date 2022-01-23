@@ -52,6 +52,7 @@ fn insert_faustpower2_f(value: F32) -> F32 {
 	return (value * value);
 }
 static mut ftbl0insertSIG0: [F32;65536] = [0.0;65536];
+#[derive(DefaultBoxed)]
 pub struct insert {
 	iVec0: [i32;2],
 	fSampleRate: i32,

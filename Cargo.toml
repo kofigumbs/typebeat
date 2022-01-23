@@ -13,6 +13,7 @@ overflow-checks = false
 [dependencies]
 base64 = "0.13"
 crossbeam = "0.8"
+default-boxed = "0.1"
 lazy_static = "1.4"
 libm = "0.2"
 num-traits = "0.2"
@@ -26,6 +27,9 @@ serde_repr = "0.1"
 git = "https://github.com/kofigumbs/miniaudio-rs"
 rev = "772b8e0"
 features = ["bindgen"]
+
+[patch."https://github.com/tauri-apps/tao"]
+tao = { git = "https://github.com/kofigumbs/tao", rev = "78bf992" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24"

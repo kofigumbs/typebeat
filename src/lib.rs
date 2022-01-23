@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 
+use default_boxed::DefaultBoxed;
 use miniaudio::{
     Decoder, DecoderConfig, Device, DeviceConfig, DeviceType, Format, Frames, FramesMut,
 };
@@ -65,15 +66,15 @@ struct DspBox<T> {
     dsp: Box<T>,
 }
 
-impl<T: FaustDsp> Clone for DspBox<T> {
+impl<T: DefaultBoxed + FaustDsp> Clone for DspBox<T> {
     fn clone(&self) -> Self {
         Self::default()
     }
 }
 
-impl<T: FaustDsp> Default for DspBox<T> {
+impl<T: DefaultBoxed + FaustDsp> Default for DspBox<T> {
     fn default() -> Self {
-        let mut dsp = Box::new(T::new());
+        let mut dsp = T::default_boxed();
         dsp.init(SAMPLE_RATE as i32);
         DspBox { dsp }
     }

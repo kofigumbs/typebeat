@@ -1,4 +1,5 @@
 
+#[derive(DefaultBoxed)]
 pub struct reverb {
 	fSampleRate: i32,
 	fConst1: F32,

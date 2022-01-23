@@ -636,6 +636,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "default-boxed"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad22ff9de9661199c1983567eddfbe757f522e57116edf30cd0c45d7367714e3"
+dependencies = [
+ "default-boxed-derive",
+]
+
+[[package]]
+name = "default-boxed-derive"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31b26b20ef70afebb53d8c73fed79b14f408bcf74e9b062cfb3b7d92a4f5b72b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "deflate"
 version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2914,7 +2934,7 @@ dependencies = [
 [[package]]
 name = "tao"
 version = "0.5.2"
-source = "git+https://github.com/tauri-apps/tao?branch=next#a297e149b432ccb69775a8559ff52d48d1d39615"
+source = "git+https://github.com/kofigumbs/tao?rev=78bf992#78bf9928b88343454eff96534ec17d2395e85420"
 dependencies = [
  "bitflags",
  "cairo-rs",
@@ -3290,6 +3310,7 @@ dependencies = [
  "base64",
  "cocoa",
  "crossbeam",
+ "default-boxed",
  "lazy_static",
  "libm",
  "miniaudio",

@@ -2,6 +2,7 @@
 fn echo_faustpower2_f(value: F32) -> F32 {
 	return (value * value);
 }
+#[derive(DefaultBoxed)]
 pub struct echo {
 	fSampleRate: i32,
 	fConst1: F32,

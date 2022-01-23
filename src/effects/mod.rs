@@ -6,6 +6,8 @@
 #![allow(unused_mut)]
 #![allow(non_upper_case_globals)]
 
+use default_boxed::DefaultBoxed;
+
 pub type F32 = f32;
 
 #[derive(Copy, Clone, Default)]
