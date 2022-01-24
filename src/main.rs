@@ -1,4 +1,3 @@
-#![feature(format_args_capture)]
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
@@ -11,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use serde_json::Value;
 use tauri::api::dialog::FileDialogBuilder;
+use tauri::api::path::BaseDirectory;
 use tauri::{
     AppHandle, Builder, CustomMenuItem, Event, Manager, Menu, MenuItem, State, Submenu, Window, Wry,
 };
@@ -214,10 +214,16 @@ fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (sender, receiver) = std::sync::mpsc::channel();
     let context = tauri::generate_context!();
+    let samples = tauri::api::path::resolve_path(
+        context.config(),
+        context.package_info(),
+        "assets/samples",
+        Some(BaseDirectory::Resource),
+    );
     let platform = Platform {
         voice_count: 12,
-        root: tauri::api::path::resource_dir(context.package_info()).unwrap(),
-        sender: sender,
+        root: samples.unwrap(),
+        sender,
     };
 
     let controller = if cfg!(windows) {
