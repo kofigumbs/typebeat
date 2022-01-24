@@ -17,8 +17,8 @@ runs:
         toolchain: nightly
         override: true
         target: ${{ inputs.target }}
-    - uses: Swatinem/rust-cache@v1
-      with: { cache-on-failure: true }
+    # uses: Swatinem/rust-cache@v1
+    # with: { cache-on-failure: true }
     - run: |-
         npm install --global npm@7 netlify-cli@6
         npm install

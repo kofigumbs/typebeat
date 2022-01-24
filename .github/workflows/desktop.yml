@@ -12,8 +12,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-11
-            bundle: dmg
+          # os: macos-11
+          # bundle: dmg
           - os: windows-2019
             bundle: msi
     runs-on: ${{ matrix.os }}

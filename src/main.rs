@@ -221,7 +221,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(BaseDirectory::Resource),
     );
     let platform = Platform {
-        voice_count: 12,
+        voice_count: 6,
         root: samples.unwrap(),
         sender,
     };
