@@ -74,7 +74,7 @@
       }
     ],
     "security": {
-      "csp": "default-src tauri:"
+      "csp": "default-src tauri: 'unsafe-inline'"
     }
   }
 }
