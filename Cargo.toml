@@ -28,9 +28,6 @@ git = "https://github.com/kofigumbs/miniaudio-rs"
 rev = "772b8e0"
 features = ["bindgen"]
 
-[patch."https://github.com/tauri-apps/tao"]
-tao = { git = "https://github.com/kofigumbs/tao", rev = "78bf992" }
-
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24"
 

@@ -217,9 +217,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let platform = Platform {
         voice_count: 12,
         root: tauri::api::path::resource_dir(context.package_info()).unwrap(),
-        sender,
+        sender: sender,
     };
-    let controller = typebeat::init(platform, &Value::Null)?;
+
+    let controller = if cfg!(windows) {
+        // windows requires audio device is started on a different thread
+        // <https://github.com/nannou-org/nannou/pull/773>
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            sender
+                .send(typebeat::init(platform, &Value::Null).unwrap())
+                .unwrap()
+        });
+        receiver.recv().unwrap()
+    } else {
+        typebeat::init(platform, &Value::Null)?
+    };
     controller.start();
 
     let app = Builder::default()
