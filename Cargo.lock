@@ -3323,7 +3323,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "typebeat-dot-xyz"
+name = "typebeat-website"
 version = "0.1.0"
 dependencies = [
  "lazy_static",

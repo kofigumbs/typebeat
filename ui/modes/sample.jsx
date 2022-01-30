@@ -47,7 +47,7 @@ export const Help = ({ Block }) => (
       Live stream passes the mic input directly to the Typebeat effect chain, which is great for vocals or previewing a live-sample.
       Live record will also stream the mic input, but it will also write audio to the per-track sample memory.
       Finally, live playback will stream from the per-track memory, replaying whatever audio was live-sampled.
-      Each track has 60 seconds of live-sample memory for recording/playback.
+      Each track has 10 seconds of live-sample memory for recording/playback.
     </Block>
     <Block className='bullet'>
       Try recording your own sample with <kbd>K</kbd> and replaying it with <kbd>L</kbd>.

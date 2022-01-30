@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, onMount } from 'solid-js';
 
-import wasm from '../target/wasm32-unknown-emscripten/release/typebeat_dot_xyz.wasm?url';
+import wasm from '../target/wasm32-unknown-emscripten/release/typebeat_website.wasm?url';
 
 import App, { createEventListener, modes } from '../ui/app.jsx'
 import './index.css';
@@ -10,7 +10,7 @@ globalThis.miniaudio = undefined;
 
 const [started, setStarted] = createSignal(false);
 
-const lib = import('../target/wasm32-unknown-emscripten/release/typebeat-dot-xyz.js')
+const lib = import('../target/wasm32-unknown-emscripten/release/typebeat-website.js')
   .then(factory => factory.default({ locateFile: () => wasm, noExitRuntime: true }))
   .then(({ ccall, _free, UTF8ToString }) => {
     // Parse the char* return value then free it
@@ -60,10 +60,8 @@ const Block = (props) => (
 );
 
 const Intro = (props) => (
-  <Block>
-    Want to try it first?
-    This page is interactive!
-    Try pressing <kbd>K</kbd> to trigger a sample (works best on desktop Chrome).
+  <Block className='bullet'>
+    Try pressing <kbd>K</kbd> to trigger a sample.
   </Block>
 );
 
@@ -88,7 +86,7 @@ export default () => {
       app.style.transform = `scale(${scale})`;
       app.style.marginTop = app.style.marginBottom = margin;
     };
-    setTimeout(resize, 0);
+    requestAnimationFrame(resize);
     createEventListener(window, 'resize', resize);
   });
 

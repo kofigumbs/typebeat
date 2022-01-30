@@ -5,23 +5,23 @@ import { description } from '../package.json';
 
 const SEO = `
   <!-- Primary Meta Tags -->
-  <title>Typebeat</title>
+  <title>Typebeat PRE-ALPHA DEMO</title>
   <meta name="title" content="Typebeat">
   <meta name="description" content="${description}">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://typebeat.xyz">
+  <meta property="og:url" content="https://typebeat.kofi.sexy">
   <meta property="og:title" content="Typebeat">
   <meta property="og:description" content="${description}">
-  <meta property="og:image" content="https://typebeat.xyz/header-1200x628.png">
+  <meta property="og:image" content="https://typebeat.kofi.sexy/header-1200x628.png">
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="https://typebeat.xyz">
+  <meta property="twitter:url" content="https://typebeat.kofi.sexy">
   <meta property="twitter:title" content="Typebeat">
   <meta property="twitter:description" content="${description}">
-  <meta property="twitter:image" content="https://typebeat.xyz/header-1200x628.png">
+  <meta property="twitter:image" content="https://typebeat.kofi.sexy/header-1200x628.png">
 `;
 
 const VERSION = toml.parse(readFileSync('Cargo.toml')).package.version;

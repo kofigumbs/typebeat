@@ -225,7 +225,7 @@ struct Track {
 impl Default for Track {
     fn default() -> Self {
         let mut live_sample = Vec::new();
-        live_sample.resize_with(60 * SAMPLE_RATE, Default::default);
+        live_sample.resize_with(10 * SAMPLE_RATE, Default::default);
         Self {
             state: State::default(),
             file_id: 0.into(),

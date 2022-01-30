@@ -181,7 +181,7 @@ fn on_ready(receiver: &Arc<Mutex<Receiver<Change>>>, handle: &AppHandle<Wry>) {
             "new" => state.controller.load(&Value::Null),
             "open" => open(&window_, &handle_),
             "save" => save(&window_, &handle_),
-            "demo" => tauri::api::shell::open("https://typebeat.xyz".into(), None).unwrap(),
+            "demo" => tauri::api::shell::open("https://typebeat.kofi.sexy".into(), None).unwrap(),
             "labels" => window_
                 .emit("labels", Some(!state.labels.load().unwrap()))
                 .unwrap(),
