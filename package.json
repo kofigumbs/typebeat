@@ -12,10 +12,14 @@
     "vite": "^2.5.8",
     "vite-plugin-solid": "^2.1.1"
   },
+  "optionalDependencies": {
+    "netlify-cli": "^9.6.5"
+  },
   "scripts": {
     "init": "npm install && (test cargo-watch || cargo install cargo-watch)",
     "faust": "ls src/effects/*.dsp | xargs -I{} bash -c 'faust -lang rust -cn `basename -s .dsp {}` -o {}.rs {}'",
-    "start": "mkdir -p target/debug/samples; cp assets/samples/* target/debug/samples; (vite ui --clearScreen false &); cargo watch --watch src --watch build.rs --exec run; pkill node"
+    "start": "mkdir -p target/debug/samples; cp assets/samples/* target/debug/samples; (vite ui --clearScreen false &); cargo watch --watch src --watch build.rs --exec run; pkill node",
+    "website": "npm ci && netlify dev --offline"
   },
   "workspaces": []
 }

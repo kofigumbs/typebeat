@@ -2,11 +2,16 @@
 
 # Typebeat
 
-## Development
+## Native app development
 
-Building Typebeat locally requires [Rust](https://www.rust-lang.org/learn/get-started) and [Node/NPM](https://nodejs.org/):
+- [Install Rust/Cargo](https://www.rust-lang.org/learn/get-started)
+- [Install Node/NPM](https://nodejs.org/)
+- Run `npm run-script init`
+- Run `npm start` to start the dev process
 
-```bash
-npm run init # one-time
-npm start
-```
+## Website development
+
+- [Install Rust/Cargo](https://www.rust-lang.org/learn/get-started)
+- [Install Node/NPM](https://nodejs.org/)
+- [Install Emscripten](https://emscripten.org/docs/getting_started/downloads.html)
+- Run `npm run-script website` to start the dev process
