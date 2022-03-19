@@ -3,7 +3,7 @@ command = "export BINDGEN_EXTRA_CLANG_ARGS=\"--sysroot=`emconfigure env 2> /dev/
 publish = "website/dist"
 
 [build.environment]
-EMMAKEN_CFLAGS = "--embed-file assets/samples -gsource-map -s ALLOW_MEMORY_GROWTH=1 -s ENVIRONMENT=web -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s EXPORTED_RUNTIME_METHODS=\"['ccall','_free','UTF8ToString']\" -s EXPORT_ES6=1 -s MODULARIZE=1"
+EMCC_CFLAGS = "--embed-file assets/samples -gsource-map -s ALLOW_MEMORY_GROWTH=1 -s ENVIRONMENT=web -s ERROR_ON_UNDEFINED_SYMBOLS=0 -s EXPORTED_RUNTIME_METHODS=\"['ccall','_free','UTF8ToString']\" -s EXPORT_ES6=1 -s MODULARIZE=1"
 TYPEBEAT_VITE = "build"
 
 [dev]
