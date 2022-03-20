@@ -1,6 +1,6 @@
 {
   "name": "typebeat",
-  "description": "Keyboard-controlled sampler, synth, and sequencer",
+  "description": "Keyboard-controlled music sequencer, sampler, and synth",
   "dependencies": {
     "firacode": "^5.2.0",
     "solid-js": "^1.2.1",
